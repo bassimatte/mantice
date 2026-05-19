@@ -1,17 +1,17 @@
 """
 batch_render_freesound.py
 -------------------------
-Renders all Mantice presets and generates a Freesound bulk-upload CSV.
+Renders all Mantice presets and generates a Freesound bulk-upload XLSX.
 
 Usage:
-    python batch_render_freesound.py
+    python batch_render_freesound.py              — render all + generate XLSX
+    python batch_render_freesound.py --metadata-only  — regenerate XLSX only (skip rendering)
 
 Output:
-    exports/freesound/       — WAV files (24-bit/48kHz, 120s each)
-    exports/freesound.csv    — Freesound bulk descriptor CSV
+    exports/freesound/            — WAV files (24-bit/48kHz, 120s each)
+    exports/freesound_bulk.xlsx   — Freesound bulk descriptor (matches their template)
 """
 
-import csv
 import random
 import sys
 from pathlib import Path
@@ -26,18 +26,20 @@ from engine.config import set_hires
 from engine.preset_loader import load_preset
 from engine.drone_engine import DroneEngine
 from engine.exporter import export_audio
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 DURATION = 120          # seconds per render
 SEED = 42              # reproducible renders
 OUTPUT_DIR = Path("exports/freesound")
-CSV_PATH = Path("exports/freesound.csv")
+XLSX_PATH = Path("exports/freesound_bulk.xlsx")
 PRESETS_DIR = Path("presets")
 
 # Freesound metadata defaults
 FS_LICENSE = "Creative Commons 0"
-FS_GEOTAG = ""
 FS_PACK = "Mantice - Procedural Ambient Drones"
+# BST category: "mu-e" = Music samples > Synthesizer / Electronic instruments
+FS_BST_CATEGORY = "mu-e"
 
 # Category → Freesound description prefix
 CATEGORY_DESCRIPTIONS = {
@@ -46,7 +48,9 @@ CATEGORY_DESCRIPTIONS = {
     "experimental": "An experimental procedural drone",
     "sacred": "A sacred/meditative ambient drone",
     "subharmonic": "A deep sub-bass drone texture",
+    "generated": "A procedurally generated ambient drone",
 }
+
 
 def build_description(preset: dict, category: str, filename: str) -> str:
     """Build a Freesound description from preset metadata."""
@@ -74,15 +78,20 @@ def build_description(preset: dict, category: str, filename: str) -> str:
         desc_parts.append("")
         desc_parts.append(f"Layers: {len(layers)}")
         for i, layer in enumerate(layers):
-            root = layer.get("synthesis", {}).get("root", "?")
-            desc_parts.append(f"  Layer {i+1}: {layer.get('name', f'Layer {i+1}')} ({root} Hz)")
+            ltype = layer.get("type", "fm")
+            if ltype == "granular":
+                desc_parts.append(f"  Layer {i+1}: {layer.get('name', f'Layer {i+1}')} (granular)")
+            else:
+                root = layer.get("synthesis", {}).get("root", "?")
+                desc_parts.append(f"  Layer {i+1}: {layer.get('name', f'Layer {i+1}')} ({root} Hz)")
     
     return "\n".join(desc_parts)
 
 
 def build_tags(preset: dict, category: str) -> str:
-    """Build Freesound tags from preset metadata."""
-    base_tags = ["drone", "ambient", "procedural", "mantice", "synthesizer", "generative"]
+    """Build Freesound tags from preset metadata (space-separated)."""
+    base_tags = ["drone", "ambient", "procedural", "mantice", "synthesizer",
+                 "generative", "texture", "soundscape", "meditation"]
     
     meta = preset.get("meta", {})
     preset_tags = meta.get("tags", [])
@@ -97,7 +106,7 @@ def build_tags(preset: dict, category: str) -> str:
     
     # Add granular tag if any layer uses it
     for layer in preset.get("layers", []):
-        if layer.get("granular", {}).get("enabled", False):
+        if layer.get("type") == "granular":
             all_tags.append("granular")
             break
     
@@ -110,10 +119,14 @@ def build_tags(preset: dict, category: str) -> str:
             seen.add(t_clean)
             clean_tags.append(t_clean)
     
-    return " ".join(clean_tags[:30])  # Freesound max ~30 tags
+    return " ".join(clean_tags[:30])
 
 
 def main():
+    from openpyxl import Workbook
+
+    metadata_only = "--metadata-only" in sys.argv
+
     # Switch to hi-res mode (48kHz/24-bit)
     set_hires()
     
@@ -121,9 +134,12 @@ def main():
     
     # Discover all presets
     preset_files = sorted(PRESETS_DIR.rglob("*.yaml"))
-    print(f"Found {len(preset_files)} presets to render.\n")
-    print(f"Output: {OUTPUT_DIR.resolve()}")
-    print(f"Format: WAV 24-bit / 48kHz / {DURATION}s\n")
+    print(f"Found {len(preset_files)} presets.\n")
+    if not metadata_only:
+        print(f"Output: {OUTPUT_DIR.resolve()}")
+        print(f"Format: WAV 24-bit / 48kHz / {DURATION}s\n")
+    else:
+        print("Mode: --metadata-only (skip rendering, generate XLSX only)\n")
     print("=" * 60)
     
     rows = []
@@ -144,53 +160,64 @@ def main():
         # Override duration
         preset["duration"] = DURATION
         
-        # Render
-        try:
-            random.seed(SEED)
-            np.random.seed(SEED)
-            engine = DroneEngine(preset)
-            audio = engine.build()
-        except Exception as e:
-            print(f"SKIP (render error: {e})")
-            continue
-        
-        # Export WAV
         safe_name = name.replace(" ", "_").replace("/", "_")
         wav_filename = f"Mantice_{category}_{safe_name}.wav"
-        wav_path = OUTPUT_DIR / wav_filename
-        export_audio(wav_path, audio, fmt="wav")
+
+        if not metadata_only:
+            # Render
+            try:
+                random.seed(SEED)
+                np.random.seed(SEED)
+                engine = DroneEngine(preset)
+                audio = engine.build()
+            except Exception as e:
+                print(f"SKIP (render error: {e})")
+                continue
+            
+            # Export WAV
+            wav_path = OUTPUT_DIR / wav_filename
+            export_audio(wav_path, audio, fmt="wav")
+            print(f"✓ ({audio.shape[0] / config.SAMPLE_RATE:.0f}s)")
+        else:
+            print("✓")
         
-        print(f"✓ ({audio.shape[0] / config.SAMPLE_RATE:.0f}s)")
-        
-        # Build CSV row
+        # Build row matching Freesound bulk template
         rows.append({
             "audio_filename": wav_filename,
             "name": f"Mantice - {name}",
             "tags": build_tags(preset, category),
-            "geotag": FS_GEOTAG,
+            "geotag": "",
             "description": build_description(preset, category, name),
             "license": FS_LICENSE,
-            "pack": FS_PACK,
+            "pack_name": FS_PACK,
             "is_explicit": "0",
+            "bst_category": FS_BST_CATEGORY,
         })
     
-    # Write CSV
+    # Write XLSX (Freesound bulk describe format)
     print("\n" + "=" * 60)
-    print(f"Writing CSV: {CSV_PATH}")
+    print(f"Writing XLSX: {XLSX_PATH}")
     
-    CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=[
-            "audio_filename", "name", "tags", "geotag",
-            "description", "license", "pack", "is_explicit"
-        ])
-        writer.writeheader()
-        writer.writerows(rows)
+    XLSX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Freesound Bulk Describe"
+    
+    # Header row (must match Freesound template exactly)
+    headers = ["audio_filename", "name", "tags", "geotag",
+               "description", "license", "pack_name", "is_explicit", "bst_category"]
+    ws.append(headers)
+    
+    for row in rows:
+        ws.append([row[h] for h in headers])
+    
+    wb.save(XLSX_PATH)
     
     print(f"\n✓ Done! Rendered {len(rows)} files.")
     print(f"  Audio: {OUTPUT_DIR.resolve()}")
-    print(f"  CSV:   {CSV_PATH.resolve()}")
-    print(f"\nUpload to: https://freesound.org/home/bulk_describe/")
+    print(f"  XLSX:  {XLSX_PATH.resolve()}")
+    print(f"\nUpload audio files, then use XLSX at: https://freesound.org/home/describe/")
 
 
 if __name__ == "__main__":
