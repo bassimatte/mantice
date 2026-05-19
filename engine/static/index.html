@@ -874,6 +874,28 @@ main {
           Use Save/Save As to create your own library.</p>
         </div>
 
+        <div class="docs-section">
+          <h4>▸ Run Locally (Offline)</h4>
+          <p>You can download Mantice and run it entirely on your machine — no internet required after cloning.</p>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# 1. Clone the repository
+git clone https://github.com/bassimatte/mantice.git
+cd mantice
+
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Start the server
+python -m engine.web_server
+
+# 4. Open in your browser
+# → http://127.0.0.1:8432
+          </pre>
+          <p style="font-size:11px;color:var(--text-dim);margin-top:6px;">
+            Requires <strong>Python 3.10+</strong> and pip. Works on Windows, macOS, and Linux.
+            All generation runs locally on CPU — no GPU needed.</p>
+        </div>
+
         <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
           Created by <strong>Matteo Bassi</strong> — <a href="https://github.com/bassimatte/mantice" target="_blank" style="color: var(--accent);">github.com/bassimatte/mantice</a>
         </p>
