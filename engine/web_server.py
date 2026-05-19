@@ -547,6 +547,27 @@ async def save_preset_endpoint(request: Request):
         traceback.print_exc()
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
+
+@app.post("/api/delete-preset")
+async def delete_preset_endpoint(request: Request):
+    """Delete a preset file."""
+    body = await request.json()
+    path = body.get("path")
+    if not path:
+        return JSONResponse({"ok": False, "error": "Missing path"}, status_code=400)
+    try:
+        project_root = Path(__file__).resolve().parent.parent
+        preset_path = project_root / path
+        if not preset_path.exists():
+            return JSONResponse({"ok": False, "error": "File not found"}, status_code=404)
+        # Safety: only allow deleting .yaml files inside presets/
+        if not str(preset_path.resolve()).startswith(str((project_root / "presets").resolve())):
+            return JSONResponse({"ok": False, "error": "Cannot delete files outside presets/"}, status_code=403)
+        preset_path.unlink()
+        return JSONResponse({"ok": True, "deleted": path})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
 _active_streams: dict[str, bool] = {}  # session_id -> running flag
 
 

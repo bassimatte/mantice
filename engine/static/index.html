@@ -23,6 +23,16 @@
   --radius: 2px;
 }
 
+[data-theme="light"] {
+  --bg: #f0f0f0;
+  --surface: #ffffff;
+  --surface2: #e8e8e8;
+  --border: #ccc;
+  --text: #1a1a1a;
+  --text-dim: #777;
+  --accent-glow: rgba(255, 107, 43, 0.1);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 /* ── Scrollbar — ultra thin, TE style ──────────── */
@@ -94,6 +104,16 @@ header .status {
   background: var(--surface2);
   padding: 3px 8px;
   border: 1px solid var(--border);
+}
+.now-playing {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Zoom controls (waveform only) */
@@ -615,7 +635,7 @@ main {
 .docs-overlay.open { display: flex; }
 .docs-modal {
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  width: min(700px, 90vw); max-height: 80vh; display: flex; flex-direction: column;
+  width: min(760px, 92vw); max-height: 85vh; display: flex; flex-direction: column;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
 .docs-header {
@@ -628,11 +648,26 @@ main {
   cursor: pointer; padding: 4px 8px; border-radius: 4px;
 }
 .docs-close:hover { color: var(--text); background: var(--border); }
+.docs-tabs {
+  display: flex; border-bottom: 1px solid var(--border); padding: 0 20px;
+}
+.docs-tab {
+  background: none; border: none; color: var(--text-dim); font-size: 12px;
+  padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent;
+  font-family: 'Space Mono', monospace; transition: all 0.2s;
+}
+.docs-tab:hover { color: var(--text); }
+.docs-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.docs-panel { display: none; }
+.docs-panel.active { display: block; }
 .docs-body {
   padding: 20px; overflow-y: auto; font-size: 12px; line-height: 1.6;
 }
 .docs-body h3 { color: var(--accent); margin: 16px 0 8px; font-size: 13px; }
 .docs-body h3:first-child { margin-top: 0; }
+.docs-body p { margin: 8px 0; color: var(--text); }
+.docs-body .philosophy-section { margin-bottom: 20px; }
+.docs-body .philosophy-section h4 { color: var(--text); margin: 12px 0 6px; font-size: 12px; }
 .docs-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
 .docs-table th {
   text-align: left; padding: 4px 8px; font-size: 11px; color: var(--muted);
@@ -681,14 +716,15 @@ main {
   </div>
   <button class="hamburger" id="btn-hamburger">☰</button>
   <div class="header-transport">
-    <button class="transport-btn btn-preview" id="btn-preview" title="Preview">▶</button>
-    <button class="transport-btn btn-stop" id="btn-stop" title="Stop">⏹</button>
-    <button class="transport-btn btn-render" id="btn-render" title="Render">⬤</button>
+    <button class="transport-btn btn-preview" id="btn-preview" title="Preview [Space]">▶</button>
+    <button class="transport-btn btn-stop" id="btn-stop" title="Stop [S]">⏹</button>
+    <button class="transport-btn btn-render" id="btn-render" title="Render [R]">⬤</button>
     <svg class="progress-ring" id="progress-ring" viewBox="0 0 64 64">
       <circle class="ring-bg" cx="32" cy="32" r="28"/>
       <circle class="ring-fill" id="progress-ring-fill" cx="32" cy="32" r="28" stroke-dasharray="175.93" stroke-dashoffset="175.93"/>
     </svg>
   </div>
+  <span class="now-playing" id="now-playing"></span>
   <span class="status" id="status">READY</span>
   <button class="zoom-btn" id="btn-zoom-out" title="Zoom out (Ctrl+-)">−</button>
   <button class="zoom-btn" id="btn-zoom-in" title="Zoom in (Ctrl+=)">+</button>
@@ -699,134 +735,264 @@ main {
 <div class="docs-overlay" id="docs-overlay">
   <div class="docs-modal">
     <div class="docs-header">
-      <h2>Settings Reference</h2>
+      <h2>Mantice</h2>
       <button class="docs-close" id="docs-close">✕</button>
     </div>
+    <div class="docs-tabs">
+      <button class="docs-tab active" data-tab="tab-docs">Documentation</button>
+      <button class="docs-tab" data-tab="tab-settings">Settings</button>
+      <button class="docs-tab" data-tab="tab-shortcuts">Shortcuts</button>
+    </div>
     <div class="docs-body">
-      <h3>Global Settings</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Duration</td><td>1–3600 s</td><td>60</td><td>Total audio length</td></tr>
-        <tr><td>Saturation (Warmth)</td><td>0.0–1.0</td><td>0.3</td><td>Master soft saturation — normalized tanh waveshaping for tape-like warmth</td></tr>
-        <tr><td>Seed</td><td>any integer</td><td>random</td><td>Reproducible output</td></tr>
-      </table>
 
-      <h3>Layer — Synthesis</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Root Frequency</td><td>20–8000 Hz</td><td>110</td><td>Fundamental frequency of the layer</td></tr>
-        <tr><td>Voices</td><td>1–20</td><td>8</td><td>Number of detuned oscillator copies</td></tr>
-        <tr><td>Ratios</td><td>floats</td><td>[1.0]</td><td>Frequency multipliers relative to root</td></tr>
-        <tr><td>FM Index</td><td>0.0–5.0</td><td>0.1</td><td>FM modulation depth (higher = more harmonics)</td></tr>
-      </table>
+      <!-- ═══ TAB 1: Documentation ═══ -->
+      <div class="docs-panel active" id="tab-docs">
+        <h3>What is Mantice?</h3>
+        <div class="philosophy-section">
+          <p><strong>Mantice</strong> is a procedural ambient drone generator. The name comes from the Italian word
+          for organ bellows — the invisible breath engine that gives life to the pipes. Like a mantice,
+          this tool provides the continuous, living airflow beneath your sound.</p>
+          <p>Unlike sample-based instruments or DAW plugins, Mantice generates audio from mathematical
+          processes — every sound is computed in real-time from oscillators, noise, and grain clouds.
+          No two renders are ever exactly alike (unless you lock the seed).</p>
+        </div>
 
-      <h3>Layer — Harmonics</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Harmonics</td><td>1–16</td><td>4</td><td>Number of overtone partials per voice</td></tr>
-        <tr><td>Harmonic Decay</td><td>0.0–1.0</td><td>0.7</td><td>Amplitude decay per harmonic (0.7 = each partial 70% of previous)</td></tr>
-      </table>
+        <h3>Architecture</h3>
+        <div class="philosophy-section">
+          <h4>Layers</h4>
+          <p>A Mantice preset consists of 1–5 independent <strong>layers</strong>, each with its own
+          frequency, timbre, spatial position, and movement. Layers are mixed together to create
+          complex, evolving textures. Think of layers as individual instruments in an ensemble —
+          each contributes a different voice to the whole.</p>
 
-      <h3>Layer — Filtered Noise</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Noise Amount</td><td>0.0–1.0</td><td>0.0</td><td>Noise mixed into the layer signal</td></tr>
-        <tr><td>Noise Color</td><td>white / pink / brown</td><td>pink</td><td>White=flat, Pink=1/f (natural), Brown=1/f² (rumble)</td></tr>
-      </table>
+          <h4>FM Synthesis Engine</h4>
+          <p>Each layer uses <strong>Frequency Modulation (FM)</strong> synthesis as its core.
+          Multiple detuned voices per layer create rich, beating textures. The FM index controls
+          harmonic complexity — low values produce pure tones, higher values create metallic,
+          bell-like timbres.</p>
 
-      <h3>Layer — Dynamics</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Mix</td><td>0.0–1.0</td><td>1.0</td><td>Layer volume in final mix</td></tr>
-        <tr><td>Amp Min / Max</td><td>0.0–1.0</td><td>0.001 / 0.05</td><td>Amplitude envelope range</td></tr>
-        <tr><td>Drift</td><td>0.0–0.1</td><td>0.01</td><td>Pitch drift for organic beating</td></tr>
-      </table>
+          <h4>Harmonics & Noise</h4>
+          <p>On top of FM, each layer can add <strong>harmonic overtones</strong> (up to 16 partials
+          with configurable decay) and <strong>filtered noise</strong> (white, pink, or brown)
+          for breath-like textures and organic warmth.</p>
 
-      <h3>Layer — Spatial Motion</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Quadrant</td><td>center, front_left, front_right, rear_left, rear_right</td><td>center</td><td>Starting stereo position</td></tr>
-        <tr><td>Trajectory X/Y</td><td>none, drift, orbit, bounce, random</td><td>none</td><td>Motion pattern</td></tr>
-        <tr><td>Speed</td><td>0.0–1.0</td><td>0.01</td><td>Movement speed</td></tr>
-      </table>
+          <h4>Granular Clouds</h4>
+          <p>Layers can also be <strong>granular</strong> — extracting tiny overlapping slices
+          (grains) from real audio recordings. The included samples (singing bowls, gongs,
+          bowed glass, throat singing, water, wind) become raw material for evolving textures
+          impossible with pure synthesis. Control grain size, density, pitch spread, and
+          read position to sculpt the cloud.</p>
 
-      <h3>Layer — Elevation Panning</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Elevation</td><td>-90° to +90°</td><td>0</td><td>Vertical angle (negative=below, positive=above)</td></tr>
-        <tr><td>Motion</td><td>static, rise, fall, float, breathe</td><td>static</td><td>Vertical movement pattern</td></tr>
-        <tr><td>Speed</td><td>0.0–1.0</td><td>0.1</td><td>Elevation motion speed</td></tr>
-        <tr><td>Range</td><td>0–180°</td><td>60</td><td>Sweep range for motion</td></tr>
-      </table>
-      <p class="docs-note">Uses HRTF-like filtering: 800 Hz Butterworth crossover. High elevation boosts highs/cuts lows. Low elevation does the opposite.</p>
+          <h4>Spatial Motion</h4>
+          <p>Each layer has a <strong>position in 3D space</strong> — horizontal (left/right, front/back)
+          and vertical (elevation). Layers can move through space using trajectories: orbit, drift,
+          bounce, or random. This creates an immersive, living soundfield — especially powerful
+          with headphones.</p>
 
-      <h3>Layer — Chorus</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Mix</td><td>0.0–1.0</td><td>0.0 (off)</td><td>Chorus wet/dry balance</td></tr>
-        <tr><td>Rate</td><td>0.1–5.0 Hz</td><td>0.5</td><td>LFO speed (slow sway → vibrato)</td></tr>
-        <tr><td>Depth</td><td>1–20 ms</td><td>5 ms</td><td>Delay modulation depth</td></tr>
-        <tr><td>Voices</td><td>1–4</td><td>2</td><td>Number of chorus copies</td></tr>
-      </table>
-      <p class="docs-note">Adds width and shimmer by creating modulated delay copies. Best for thin layers that need extra richness.</p>
+          <h4>Chorus</h4>
+          <p>A per-layer <strong>chorus</strong> effect adds width and shimmer through modulated
+          delay copies. Slow rates create gentle swaying; faster rates add vibrato-like movement.</p>
+        </div>
 
-      <h3>Layer — Granular</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Source</td><td>sample filename</td><td>singing_bowl.ogg</td><td>Audio file to use as grain source</td></tr>
-        <tr><td>Grain Size</td><td>20–200 ms</td><td>80</td><td>Duration of each grain (short=glitchy, long=smooth)</td></tr>
-        <tr><td>Density</td><td>1–50 /sec</td><td>15</td><td>Grains per second (sparse=pointillistic, dense=continuous)</td></tr>
-        <tr><td>Pitch Spread</td><td>0–2 semitones</td><td>0.3</td><td>Random pitch variation per grain</td></tr>
-        <tr><td>Position</td><td>0–1</td><td>0.5</td><td>Center read position in source file</td></tr>
-        <tr><td>Scatter</td><td>0–1</td><td>0.5</td><td>Randomness of read position</td></tr>
-        <tr><td>Envelope</td><td>hann / triangle</td><td>hann</td><td>Grain window shape</td></tr>
-      </table>
-      <p class="docs-note">Granular layers extract tiny overlapping slices from real audio samples, creating evolving textures impossible with pure synthesis.</p>
+        <h3>Global Processing</h3>
+        <div class="philosophy-section">
+          <h4>Saturation (Warmth)</h4>
+          <p>A master <strong>soft saturation</strong> stage using normalized tanh waveshaping.
+          Adds analog tape-like warmth and gently compresses peaks. At low values it's transparent;
+          higher values add harmonic richness and density.</p>
 
-      <h3>Reverb (FDN)</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Space</td><td>cathedral, chamber, hall, cave, plate</td><td>cathedral</td><td>Reverb character</td></tr>
-        <tr><td>Mix</td><td>0.0–1.0</td><td>0.3</td><td>Dry/wet balance</td></tr>
-        <tr><td>Decay Trim</td><td>0.0–2.0</td><td>1.0</td><td>Multiplier on tail length</td></tr>
-      </table>
-      <p class="docs-note">8-line Feedback Delay Network with Hadamard mixing, per-line damping, stereo decorrelation.</p>
+          <h4>Reverb (FDN)</h4>
+          <p>An 8-line <strong>Feedback Delay Network</strong> with Hadamard mixing matrix,
+          per-line damping, and stereo decorrelation. Choose from spaces (cathedral, cave, hall,
+          chamber, plate) or use custom impulse responses. The reverb glues layers together
+          into a unified acoustic space.</p>
 
-      <h3>Binaural Beats</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Method</td><td>detune / carrier</td><td>detune</td><td>Detune splits voices L/R; Carrier adds a sine pair</td></tr>
-        <tr><td>Beat Hz</td><td>0.5–40</td><td>6.0</td><td>Perceived beat frequency</td></tr>
-        <tr><td>Carrier Hz</td><td>50–500</td><td>200</td><td>Base frequency (carrier mode only)</td></tr>
-      </table>
-      <p class="docs-note">Delta 0.5–4 Hz (sleep) · Theta 4–8 Hz (meditation) · Alpha 8–13 Hz (focus) · Beta 13–30 Hz (alert)</p>
+          <h4>Binaural Beats</h4>
+          <p>Optional <strong>binaural entrainment</strong> creates a perceived beat frequency
+          by slightly detuning left/right channels. Frequencies correspond to brainwave bands:
+          Delta (0.5–4 Hz, sleep), Theta (4–8 Hz, meditation), Alpha (8–13 Hz, focus),
+          Beta (13–30 Hz, alertness). Requires headphones.</p>
 
-      <h3>Earth & Air</h3>
-      <table class="docs-table">
-        <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-        <tr><td>Earth: Tectonic Freq</td><td>10–40 Hz</td><td>18</td><td>Sub-bass rumble center frequency</td></tr>
-        <tr><td>Earth: Pressure</td><td>0.0–1.0</td><td>0.4</td><td>Earth intensity</td></tr>
-        <tr><td>Air: Intensity</td><td>0.0–1.0</td><td>0.12</td><td>High-frequency breath/wind</td></tr>
-        <tr><td>Air: Turbulence</td><td>0.0–0.2</td><td>0.04</td><td>High-freq chaos amount</td></tr>
-      </table>
+          <h4>Earth & Air</h4>
+          <p><strong>Earth</strong> adds sub-bass tectonic rumble (10–40 Hz) — felt more than heard.
+          <strong>Air</strong> adds high-frequency breath and wind turbulence. Together they
+          extend the frequency range beyond what the layers provide, grounding the drone
+          in physical space.</p>
+        </div>
 
-      <h3>Keyboard Shortcuts</h3>
-      <table class="docs-table">
-        <tr><th>Key</th><th>Action</th></tr>
-        <tr><td>Space</td><td>Preview / Play rendered</td></tr>
-        <tr><td>S</td><td>Stop</td></tr>
-        <tr><td>R</td><td>Render full audio</td></tr>
-        <tr><td>P</td><td>Play rendered audio</td></tr>
-        <tr><td>1–5</td><td>Switch to layer 1–5</td></tr>
-        <tr><td>Ctrl+S</td><td>Save preset</td></tr>
-        <tr><td>Ctrl+Z</td><td>Undo</td></tr>
-        <tr><td>Ctrl+Shift+Z</td><td>Redo</td></tr>
-        <tr><td>Ctrl+/Ctrl-</td><td>Zoom in/out</td></tr>
-      </table>
+        <h3>Workflow</h3>
+        <div class="philosophy-section">
+          <p><strong>Preview</strong> streams audio in real-time via WebSocket — tweak parameters
+          and hear changes instantly. <strong>Render</strong> computes the full duration at high
+          quality for export. Use the <strong>seed</strong> to reproduce exact results, or leave
+          it random for variation.</p>
+          <p>Presets are stored as YAML files — human-readable, version-controllable, and shareable.
+          Use Save/Save As to create your own library.</p>
+        </div>
 
-      <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
-        Created by <strong>Matteo Bassi</strong> — <a href="https://freesound.org/people/bassimat/" target="_blank" style="color: var(--accent);">freesound.org/people/bassimat</a>
-      </p>
+        <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
+          Created by <strong>Matteo Bassi</strong> — <a href="https://github.com/bassimatte/mantice" target="_blank" style="color: var(--accent);">github.com/bassimatte/mantice</a>
+        </p>
+      </div>
+
+      <!-- ═══ TAB 2: Settings ═══ -->
+      <div class="docs-panel" id="tab-settings">
+        <h3>Appearance</h3>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <label style="font-size:12px;color:var(--text);">Theme</label>
+          <button class="btn btn-outline" id="btn-theme-toggle" style="font-size:11px;padding:4px 12px;">🌙 Dark</button>
+        </div>
+
+        <h3>Global Settings</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Duration</td><td>1–3600 s</td><td>60</td><td>Total audio length</td></tr>
+          <tr><td>Saturation (Warmth)</td><td>0.0–1.0</td><td>0.3</td><td>Master soft saturation — normalized tanh waveshaping for tape-like warmth</td></tr>
+          <tr><td>Seed</td><td>any integer</td><td>random</td><td>Reproducible output</td></tr>
+        </table>
+
+        <h3>Layer — Synthesis</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Root Frequency</td><td>20–8000 Hz</td><td>110</td><td>Fundamental frequency of the layer</td></tr>
+          <tr><td>Voices</td><td>1–20</td><td>8</td><td>Number of detuned oscillator copies</td></tr>
+          <tr><td>Ratios</td><td>floats</td><td>[1.0]</td><td>Frequency multipliers relative to root</td></tr>
+          <tr><td>FM Index</td><td>0.0–5.0</td><td>0.1</td><td>FM modulation depth (higher = more harmonics)</td></tr>
+        </table>
+
+        <h3>Layer — Harmonics</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Harmonics</td><td>1–16</td><td>4</td><td>Number of overtone partials per voice</td></tr>
+          <tr><td>Harmonic Decay</td><td>0.0–1.0</td><td>0.7</td><td>Amplitude decay per harmonic (0.7 = each partial 70% of previous)</td></tr>
+        </table>
+
+        <h3>Layer — Filtered Noise</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Noise Amount</td><td>0.0–1.0</td><td>0.0</td><td>Noise mixed into the layer signal</td></tr>
+          <tr><td>Noise Color</td><td>white / pink / brown</td><td>pink</td><td>White=flat, Pink=1/f (natural), Brown=1/f² (rumble)</td></tr>
+        </table>
+
+        <h3>Layer — Dynamics</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Mix</td><td>0.0–1.0</td><td>1.0</td><td>Layer volume in final mix</td></tr>
+          <tr><td>Amp Min / Max</td><td>0.0–1.0</td><td>0.001 / 0.05</td><td>Amplitude envelope range</td></tr>
+          <tr><td>Drift</td><td>0.0–0.1</td><td>0.01</td><td>Pitch drift for organic beating</td></tr>
+        </table>
+
+        <h3>Layer — Spatial Motion</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Quadrant</td><td>center, front_left, front_right, rear_left, rear_right</td><td>center</td><td>Starting stereo position</td></tr>
+          <tr><td>Trajectory X/Y</td><td>none, drift, orbit, bounce, random</td><td>none</td><td>Motion pattern</td></tr>
+          <tr><td>Speed</td><td>0.0–1.0</td><td>0.01</td><td>Movement speed</td></tr>
+        </table>
+
+        <h3>Layer — Elevation Panning</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Elevation</td><td>-90° to +90°</td><td>0</td><td>Vertical angle (negative=below, positive=above)</td></tr>
+          <tr><td>Motion</td><td>static, rise, fall, float, breathe</td><td>static</td><td>Vertical movement pattern</td></tr>
+          <tr><td>Speed</td><td>0.0–1.0</td><td>0.1</td><td>Elevation motion speed</td></tr>
+          <tr><td>Range</td><td>0–180°</td><td>60</td><td>Sweep range for motion</td></tr>
+        </table>
+        <p class="docs-note">Uses HRTF-like filtering: 800 Hz Butterworth crossover. High elevation boosts highs/cuts lows. Low elevation does the opposite.</p>
+
+        <h3>Layer — Chorus</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Mix</td><td>0.0–1.0</td><td>0.0 (off)</td><td>Chorus wet/dry balance</td></tr>
+          <tr><td>Rate</td><td>0.1–5.0 Hz</td><td>0.5</td><td>LFO speed (slow sway → vibrato)</td></tr>
+          <tr><td>Depth</td><td>1–20 ms</td><td>5 ms</td><td>Delay modulation depth</td></tr>
+          <tr><td>Voices</td><td>1–4</td><td>2</td><td>Number of chorus copies</td></tr>
+        </table>
+        <p class="docs-note">Adds width and shimmer by creating modulated delay copies. Best for thin layers that need extra richness.</p>
+
+        <h3>Layer — Granular</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Source</td><td>sample filename</td><td>singing_bowl.ogg</td><td>Audio file to use as grain source</td></tr>
+          <tr><td>Grain Size</td><td>20–200 ms</td><td>80</td><td>Duration of each grain (short=glitchy, long=smooth)</td></tr>
+          <tr><td>Density</td><td>1–50 /sec</td><td>15</td><td>Grains per second (sparse=pointillistic, dense=continuous)</td></tr>
+          <tr><td>Pitch Spread</td><td>0–2 semitones</td><td>0.3</td><td>Random pitch variation per grain</td></tr>
+          <tr><td>Position</td><td>0–1</td><td>0.5</td><td>Center read position in source file</td></tr>
+          <tr><td>Scatter</td><td>0–1</td><td>0.5</td><td>Randomness of read position</td></tr>
+          <tr><td>Envelope</td><td>hann / triangle</td><td>hann</td><td>Grain window shape</td></tr>
+        </table>
+        <p class="docs-note">Granular layers extract tiny overlapping slices from real audio samples, creating evolving textures impossible with pure synthesis.</p>
+
+        <h3>Reverb (FDN)</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Space</td><td>cathedral, chamber, hall, cave, plate</td><td>cathedral</td><td>Reverb character</td></tr>
+          <tr><td>Mix</td><td>0.0–1.0</td><td>0.3</td><td>Dry/wet balance</td></tr>
+          <tr><td>Decay Trim</td><td>0.0–2.0</td><td>1.0</td><td>Multiplier on tail length</td></tr>
+        </table>
+        <p class="docs-note">8-line Feedback Delay Network with Hadamard mixing, per-line damping, stereo decorrelation.</p>
+
+        <h3>Binaural Beats</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Method</td><td>detune / carrier</td><td>detune</td><td>Detune splits voices L/R; Carrier adds a sine pair</td></tr>
+          <tr><td>Beat Hz</td><td>0.5–40</td><td>6.0</td><td>Perceived beat frequency</td></tr>
+          <tr><td>Carrier Hz</td><td>50–500</td><td>200</td><td>Base frequency (carrier mode only)</td></tr>
+        </table>
+        <p class="docs-note">Delta 0.5–4 Hz (sleep) · Theta 4–8 Hz (meditation) · Alpha 8–13 Hz (focus) · Beta 13–30 Hz (alert)</p>
+
+        <h3>Earth & Air</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Earth: Tectonic Freq</td><td>10–40 Hz</td><td>18</td><td>Sub-bass rumble center frequency</td></tr>
+          <tr><td>Earth: Pressure</td><td>0.0–1.0</td><td>0.4</td><td>Earth intensity</td></tr>
+          <tr><td>Air: Intensity</td><td>0.0–1.0</td><td>0.12</td><td>High-frequency breath/wind</td></tr>
+          <tr><td>Air: Turbulence</td><td>0.0–0.2</td><td>0.04</td><td>High-freq chaos amount</td></tr>
+        </table>
+      </div>
+
+      <!-- ═══ TAB 3: Shortcuts ═══ -->
+      <div class="docs-panel" id="tab-shortcuts">
+        <h3>Transport</h3>
+        <table class="docs-table">
+          <tr><th>Key</th><th>Action</th></tr>
+          <tr><td>Space</td><td>Start/stop preview streaming</td></tr>
+          <tr><td>S</td><td>Stop all audio</td></tr>
+          <tr><td>R</td><td>Render full audio (offline)</td></tr>
+          <tr><td>P</td><td>Play rendered audio</td></tr>
+        </table>
+
+        <h3>Layers</h3>
+        <table class="docs-table">
+          <tr><th>Key</th><th>Action</th></tr>
+          <tr><td>1–5</td><td>Switch to layer 1–5</td></tr>
+        </table>
+
+        <h3>File Operations</h3>
+        <table class="docs-table">
+          <tr><th>Key</th><th>Action</th></tr>
+          <tr><td>Ctrl+S</td><td>Save preset (overwrite)</td></tr>
+          <tr><td>Ctrl+Z</td><td>Undo parameter change</td></tr>
+          <tr><td>Ctrl+Shift+Z</td><td>Redo parameter change</td></tr>
+        </table>
+
+        <h3>View</h3>
+        <table class="docs-table">
+          <tr><th>Key</th><th>Action</th></tr>
+          <tr><td>Ctrl + / Ctrl -</td><td>Zoom in / out</td></tr>
+          <tr><td>Ctrl 0</td><td>Reset zoom to 110%</td></tr>
+        </table>
+
+        <h3>Tips</h3>
+        <table class="docs-table">
+          <tr><th>Tip</th><th>Description</th></tr>
+          <tr><td>🔒 Lock seed</td><td>Click the lock icon next to seed to get reproducible results across previews</td></tr>
+          <tr><td>📁 File menu</td><td>Click "File ▾" at the bottom of the sidebar for Save, Save As, Restore, Export</td></tr>
+          <tr><td>🎛 Collapse cards</td><td>Click any section header (Settings, Binaural, Reverb, Earth&Air) to collapse/expand</td></tr>
+          <tr><td>📱 Mobile</td><td>Use the ☰ hamburger menu on small screens to toggle the sidebar</td></tr>
+        </table>
+      </div>
+
     </div>
   </div>
 </div>
@@ -847,8 +1013,8 @@ main {
       <button class="mood-btn" data-mood="nature">nature</button>
       <button class="mood-btn" data-mood="chaotic">chaotic</button>
     </div>
-    <button class="btn" id="btn-generate">Generate</button>
-    <button class="btn btn-outline" id="btn-mutate" style="margin-top:4px">Mutate Current</button>
+    <button class="btn" id="btn-generate">🎲 Generate</button>
+    <button class="btn btn-outline" id="btn-mutate" style="margin-top:4px">🧬 Mutate</button>
     <div class="param-row" style="margin-top:8px">
       <label>Amount</label>
       <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3">
@@ -862,6 +1028,7 @@ main {
       <div class="file-menu-item" id="btn-save-as">📄 Save As</div>
       <div class="file-menu-item" id="btn-restore">↺ Restore</div>
       <div class="file-menu-item" id="btn-export">⬡ Export</div>
+      <div class="file-menu-item" id="btn-delete" style="color: var(--danger);">🗑 Delete</div>
     </div>
     <button class="btn btn-outline" id="btn-file-menu" style="width:100%">FILE ▾</button>
   </div>
@@ -1051,11 +1218,10 @@ async function loadPresetList() {
   allPresets = await api('/api/presets');
   buildTagFilter();
   renderPresetList();
-  // Load a random preset on first load
+  // Load "Warm Pad" as default on first load
   if (allPresets.length && !currentParams) {
-    const idx = Math.floor(Math.random() * allPresets.length);
-    const p = allPresets[idx];
-    loadPreset(p.path, document.querySelector(`.preset-item[data-path="${p.path}"]`));
+    const defaultPreset = allPresets.find(p => p.name === 'Warm Pad') || allPresets[0];
+    loadPreset(defaultPreset.path, document.querySelector(`.preset-item[data-path="${defaultPreset.path}"]`));
   }
 }
 
@@ -1117,6 +1283,7 @@ async function loadPreset(path, el) {
   markClean();
   undoStack.length = 0;
   redoStack.length = 0;
+  updateNowPlaying();
   setStatus('Preset loaded');
 }
 
@@ -2453,6 +2620,7 @@ async function doGenerate() {
     currentParams = data.params;
     currentPresetPath = data.saved_to;
     applyParamsToUI(currentParams);
+    updateNowPlaying();
     setStatus(`Generated → ${data.saved_to.split(/[\\/]/).pop()}`);
     loadPresetList(); // refresh sidebar
   } else {
@@ -2473,6 +2641,7 @@ async function doMutate() {
     currentParams = data.params;
     currentPresetPath = data.saved_to;
     applyParamsToUI(currentParams);
+    updateNowPlaying();
     setStatus(`Mutated → ${data.saved_to.split(/[\\/]/).pop()}`);
     loadPresetList();
   } else {
@@ -2632,8 +2801,46 @@ async function doRestore() {
   setStatus('↺ Restored to saved version');
 }
 
+async function doDeletePreset() {
+  if (!currentPresetPath) { setStatus('No preset loaded'); return; }
+  const name = currentPresetPath.split('/').pop().replace('.yaml', '');
+  if (!confirm(`Delete preset "${name}"? This cannot be undone.`)) return;
+  try {
+    const resp = await fetch(apiUrl('/api/delete-preset'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: currentPresetPath })
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    setStatus(`🗑 Deleted "${name}"`);
+    currentPresetPath = null;
+    loadPresetList();
+  } catch (e) { setStatus('Delete failed: ' + e.message); }
+}
+
 // ── Status ──────────────────────────────────────────────────────────────────
 function setStatus(msg) { $('status').textContent = msg; }
+
+function updateNowPlaying() {
+  const el = $('now-playing');
+  if (!el) return;
+  const name = currentParams ? currentParams.name : '';
+  el.textContent = name ? `▸ ${name}` : '';
+}
+
+// ── Theme toggle ────────────────────────────────────────────────────────────
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('mantice-theme', theme);
+  const btn = $('btn-theme-toggle');
+  if (btn) btn.textContent = theme === 'dark' ? '🌙 Dark' : '☀️ Light';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  setTheme(current === 'dark' ? 'light' : 'dark');
+}
+// Restore saved theme
+setTheme(localStorage.getItem('mantice-theme') || 'dark');
 
 // ── Progress Ring ───────────────────────────────────────────────────────────
 function setProgress(pct) {
@@ -2661,6 +2868,19 @@ function init() {
     if (e.target === $('docs-overlay')) $('docs-overlay').classList.remove('open');
   });
 
+  // Theme toggle
+  $('btn-theme-toggle').addEventListener('click', toggleTheme);
+
+  // Docs tab switching
+  document.querySelectorAll('.docs-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.docs-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.docs-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+  });
+
   // Generator
   $('btn-generate').addEventListener('click', doGenerate);
   $('btn-mutate').addEventListener('click', doMutate);
@@ -2670,6 +2890,7 @@ function init() {
   $('btn-save').addEventListener('click', doSavePreset);
   $('btn-save-as').addEventListener('click', doSaveAs);
   $('btn-restore').addEventListener('click', doRestore);
+  $('btn-delete').addEventListener('click', doDeletePreset);
 
   // Mood buttons
   document.querySelectorAll('.mood-btn').forEach(btn => {

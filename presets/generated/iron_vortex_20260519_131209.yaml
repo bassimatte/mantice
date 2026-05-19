@@ -1,0 +1,104 @@
+meta:
+  name: Iron Vortex
+  slug: iron_vortex
+  category: generated
+  mood:
+  - cinematic
+  - epic
+  - immersive
+  description: Auto-generated cinematic drone preset.
+  author: MANTICE Generator
+  origin: generated
+global:
+  duration_seconds: 90
+  sample_rate: 48000
+  bit_depth: 24-bit
+reverb:
+  enabled: true
+  room_size: 0.97
+  decay: 0.9
+  damping: 0.42
+  modulation: 0.27
+  wet: 0.4
+  predelay: 0.013
+spatial:
+  depth: 1.2
+  wetness: 0.0
+  swarm_density: 0.32
+layers:
+- name: Warm Body
+  enabled: true
+  synthesis:
+    root: 164.81
+    voices: 20
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 1.0
+    - 1.5
+    index: 0.119
+  dynamics:
+    mix: 0.84
+    amp_min: 0.0146
+    amp_max: 0.0363
+    drift: 0.0196
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.003
+    trajectory_x: orbit
+    trajectory_y: none
+- name: Mid Resonance
+  enabled: true
+  synthesis:
+    root: 233.08
+    voices: 20
+    ratios: &id001
+    - 0.5
+    - 1.0
+    - 2.0
+    - 3.0
+    - 4.0
+  fm:
+    ratios:
+    - 1.0
+    - 1.5
+    index: 0.291
+  dynamics:
+    mix: 1.09
+    amp_min: 0.0041
+    amp_max: 0.0333
+    drift: 0.0088
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.0027
+    trajectory_x: orbit
+    trajectory_y: depth
+- name: Dark Current
+  enabled: true
+  synthesis:
+    root: 98.0
+    voices: 20
+    ratios: *id001
+  fm:
+    ratios:
+    - 1.0
+    index: 0.298
+  dynamics:
+    mix: 1.01
+    amp_min: 0.0129
+    amp_max: 0.0695
+    drift: 0.0068
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.0098
+    trajectory_x: spiral
+    trajectory_y: none
+air:
+  enabled: true
+  intensity: 0.24
+  movement: 0.0109
+  turbulence: 0.046

@@ -165,6 +165,45 @@ def _layer_name_for_freq(root_hz: float, index: int) -> str:
     return names[index % len(names)]
 
 
+def _compute_cost(layers: list) -> float:
+    """Compute streaming cost metric for a list of layers."""
+    total = 0.0
+    for l in layers:
+        if not l.get("enabled", True):
+            continue
+        v = l.get("synthesis", {}).get("voices", 8)
+        h = l.get("harmonics", 4)
+        fm_idx = l.get("fm", {}).get("index", 0.1)
+        fm_weight = 1.0 + fm_idx * 0.5
+        total += v * h * fm_weight
+    return total
+
+
+def _cap_preset_cost(preset: dict, max_cost: float = 500) -> None:
+    """Reduce voices on layers until total cost is within budget."""
+    layers = preset.get("layers", [])
+    while _compute_cost(layers) > max_cost:
+        # Find the most expensive layer and reduce its voices
+        worst_idx = -1
+        worst_cost = 0
+        for i, l in enumerate(layers):
+            if not l.get("enabled", True):
+                continue
+            v = l.get("synthesis", {}).get("voices", 8)
+            h = l.get("harmonics", 4)
+            fm_idx = l.get("fm", {}).get("index", 0.1)
+            cost = v * h * (1.0 + fm_idx * 0.5)
+            if cost > worst_cost:
+                worst_cost = cost
+                worst_idx = i
+        if worst_idx < 0:
+            break
+        current_v = layers[worst_idx].get("synthesis", {}).get("voices", 8)
+        if current_v <= 2:
+            break  # can't reduce further
+        layers[worst_idx]["synthesis"]["voices"] = max(2, current_v - 2)
+
+
 # ── Generator ─────────────────────────────────────────────────────────────────
 
 def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None) -> dict:
@@ -198,7 +237,7 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None) -> d
         # Quantize to nearest semitone for musicality
         root = 440 * (2 ** (round(12 * math.log2(root / 440)) / 12))
 
-        voices = random.randint(*profile["voice_range"])
+        voices = min(random.randint(*profile["voice_range"]), 20)  # cap at 20 per layer
         ratios = random.choice(profile["ratios_pool"])
         fm_ratios = random.choice([[1.0], [1.0, 1.5], [1.0, 2.0], [1.0, 2.5, 3.0]])
         fm_index = random.uniform(*profile["fm_index_range"])
@@ -290,6 +329,9 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None) -> d
         preset["earth"] = earth
     if air:
         preset["air"] = air
+
+    # ── Cost cap: ensure preset streams smoothly (max cost 500) ───────────
+    _cap_preset_cost(preset, max_cost=500)
 
     return preset
 
@@ -409,6 +451,7 @@ def mutate_preset(preset: dict, amount: float = 0.3, seed: Optional[int] = None)
         layers.append(donor)
 
     result["layers"] = layers
+    _cap_preset_cost(result, max_cost=500)
     return result
 
 

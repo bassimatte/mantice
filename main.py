@@ -1,5 +1,5 @@
 """
-main.py — MANTICE V19.0
+main.py — MANTICE V20.0
 ---------------------
 Usage:
     python main.py                              # process all presets
@@ -279,7 +279,7 @@ def find_preset_by_name(preset_paths: List[Path], name: str) -> List[Path]:
 def main() -> None:
     available_moods = get_available_moods()
 
-    parser = argparse.ArgumentParser(description="Mantice V19.0")
+    parser = argparse.ArgumentParser(description="Mantice V20.0")
     parser.add_argument(
         "--gui", action="store_true",
         help="Launch the web UI in your browser (requires fastapi & uvicorn)",
