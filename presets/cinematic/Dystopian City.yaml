@@ -1,0 +1,168 @@
+meta:
+  name: Dystopian City
+  slug: dystopian-city
+  category: cinematic
+  mood:
+  - industrial
+  - oppressive
+  - mechanical
+  author: Matteo Bassi
+  engine_version: MANTICE_V18
+  tags:
+  - industrial
+  - dark
+  - dystopian
+  - mechanical
+  - cinematic
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.85
+reverb:
+  space: plate
+  mix: 0.25
+  decay_trim: 1.0
+spatial:
+  depth: 0.9
+  wetness: 0.6
+  swarm_density: 0.7
+earth:
+  enabled: true
+  tectonic_freq: 15
+  pressure: 0.9
+air:
+  enabled: false
+  intensity: 0.0
+  turbulence: 0.0
+binaural:
+  enabled: false
+  method: detune
+  beat_hz: 6.0
+  carrier_hz: 200
+  carrier_amp: 0.15
+layers:
+- name: Machine Bass
+  enabled: true
+  type: fm
+  synthesis:
+    root: 41.2
+    voices: 8
+    ratios: [1.0, 1.5, 3.0]
+  fm:
+    ratios: [1.0, 1.5, 3.0]
+    index: 2.0
+  harmonics: 6
+  harmonic_decay: 0.7
+  noise_amount: 0.1
+  noise_color: brown
+  dynamics:
+    mix: 1.0
+    amp_min: 0.02
+    amp_max: 0.06
+    drift: 0.02
+  spatial_motion:
+    quadrant: center
+    speed: 0.01
+    trajectory_x: drift
+    trajectory_y: none
+  elevation: -5.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Industrial Grind
+  enabled: true
+  type: fm
+  synthesis:
+    root: 123.5
+    voices: 4
+    ratios: [1.0, 2.5]
+  fm:
+    ratios: [1.0, 2.5]
+    index: 1.2
+  harmonics: 5
+  harmonic_decay: 0.6
+  noise_amount: 0.4
+  noise_color: white
+  dynamics:
+    mix: 0.7
+    amp_min: 0.01
+    amp_max: 0.04
+    drift: 0.025
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.02
+    trajectory_x: drift
+    trajectory_y: drift
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.1
+  chorus_voices: 2
+- name: Mechanical Pulse
+  enabled: true
+  type: fm
+  synthesis:
+    root: 82.4
+    voices: 6
+    ratios: [1.0, 2.0]
+  fm:
+    ratios: [1.0, 2.0]
+    index: 0.5
+  harmonics: 4
+  harmonic_decay: 0.5
+  noise_amount: 0.1
+  noise_color: pink
+  dynamics:
+    mix: 0.6
+    amp_min: 0.01
+    amp_max: 0.04
+    drift: 0.018
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.03
+    trajectory_x: orbit
+    trajectory_y: none
+  elevation: 5.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 3.0
+  chorus_depth: 0.01
+  chorus_mix: 0.4
+  chorus_voices: 3
+- name: Metal Debris
+  enabled: true
+  type: granular
+  source: metal_resonance.ogg
+  grain_size: 30
+  density: 25
+  pitch_spread: 1.5
+  position: 0.5
+  scatter: 0.9
+  envelope: hann
+  dynamics:
+    mix: 0.5
+    amp_min: 0.005
+    amp_max: 0.03
+    drift: 0.025
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.04
+    trajectory_x: drift
+    trajectory_y: drift
+  elevation: 10.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.1
+  chorus_voices: 2

@@ -1,0 +1,117 @@
+meta:
+  name: Glass Firmament
+  slug: glass_firmament
+  category: experimental
+  mood:
+  - bright
+  - shimmering
+  - ethereal
+  - crystalline
+  description: 'Pure high-frequency shimmer. Crystalline overtones ring like struck
+    glass, suspended in a vast reverberant space.
+
+    '
+  author: Matteo Bassi
+  engine_version: MANTICE_V8
+  tags:
+  - bright
+  - minimal
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  room_size: 0.7
+  decay: 0.89
+  damping: 0.15
+  modulation: 0.4
+  wet: 0.45
+  predelay: 0.03
+spatial:
+  depth: 2.0
+  wetness: 0.0
+  swarm_density: 0.4
+earth:
+  enabled: false
+air:
+  enabled: true
+  intensity: 0.08
+  movement: 0.005
+  turbulence: 0.03
+layers:
+- name: Crystal High
+  enabled: true
+  synthesis:
+    root: 880
+    voices: 8
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+    - 5.0
+  fm:
+    ratios:
+    - 3.0
+    - 7.0
+    index: 0.35
+  dynamics:
+    mix: 0.8
+    amp_min: 0.005
+    amp_max: 0.02
+    drift: 0.004
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.006
+    trajectory_x: orbit
+    trajectory_y: none
+- name: Glass Harmonics
+  enabled: true
+  synthesis:
+    root: 1760
+    voices: 5
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+    - 4.0
+  fm:
+    ratios:
+    - 4.0
+    - 6.0
+    index: 0.5
+  dynamics:
+    mix: 0.4
+    amp_min: 0.003
+    amp_max: 0.012
+    drift: 0.003
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.009
+    trajectory_x: pendulum
+    trajectory_y: none
+- name: Warm Foundation
+  enabled: true
+  synthesis:
+    root: 220
+    voices: 6
+    ratios:
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.03
+  dynamics:
+    mix: 0.3
+    amp_min: 0.005
+    amp_max: 0.02
+    drift: 0.006
+  spatial_motion:
+    quadrant: center
+    speed: 0.003
+    trajectory_x: drift
+    trajectory_y: none
+notes:
+  goal: Bright, celestial shimmer — the opposite of dark sub-bass drones.
+  listening_tip: Best at lower volumes where the high harmonics sparkle without fatigue.

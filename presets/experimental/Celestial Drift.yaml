@@ -1,0 +1,165 @@
+meta:
+  name: Celestial Drift
+  slug: celestial_drift
+  category: experimental
+  mood:
+  - drifting
+  - bright
+  description: slow drifting entities
+  author: null
+  engine_version: MANTICE_V15
+  tags:
+  - bright
+  - atmospheric
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.61
+  density: 0.62
+  instability: null
+  brightness: null
+spatial:
+  depth: 1.53
+  wetness: 0.61
+  swarm_density: 0.62
+notes:
+  migrated_from: presets/Celestial Drift.json
+  goal: slow drifting entities
+  listening_tip: null
+saturation: 0.3
+layers:
+- name: Low Drone
+  enabled: true
+  synthesis:
+    root: 111
+    voices: 20
+    ratios:
+    - 1.25
+    - 2.71
+    - 1.5
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.12
+  dynamics:
+    mix: 1.32
+    amp_min: 0.0018
+    amp_max: 0.049
+    drift: 0.018
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.014
+    trajectory_x: drift
+    trajectory_y: depth
+  harmonics: 6
+  harmonic_decay: 0.6
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: -40
+  elevation_motion: float
+  elevation_speed: 0.03
+  elevation_range: 60
+- name: Bass Foundation
+  enabled: true
+  synthesis:
+    root: 110
+    voices: 20
+    ratios:
+    - 2.0
+    - 1.0
+    - 2.71
+  fm:
+    ratios:
+    - 2.71
+    - 2.0
+    index: 1.11
+  dynamics:
+    mix: 1.38
+    amp_min: 0.0051
+    amp_max: 0.0346
+    drift: 0.035
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.004
+    trajectory_x: orbit
+    trajectory_y: spiral
+  harmonics: 6
+  harmonic_decay: 0.6
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: -7
+  elevation_motion: float
+  elevation_speed: 0.05
+  elevation_range: 60
+- name: Dark Current
+  enabled: true
+  synthesis:
+    root: 99
+    voices: 20
+    ratios:
+    - 2.71
+    - 0.5
+    - 4.0
+    - 1.0
+    - 1.5
+  fm:
+    ratios:
+    - 1.5
+    - 3.0
+    - 1.0
+    - 2.0
+    index: 0.95
+  dynamics:
+    mix: 1.0
+    amp_min: 0.0085
+    amp_max: 0.0356
+    drift: 0.038
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.016
+    trajectory_x: drift
+    trajectory_y: spiral
+  harmonics: 6
+  harmonic_decay: 0.6
+  noise_amount: 0.04
+  noise_color: pink
+  elevation: 27
+  elevation_motion: float
+  elevation_speed: 0.07
+  elevation_range: 60
+- name: Amber Field
+  enabled: true
+  synthesis:
+    root: 220
+    voices: 20
+    ratios:
+    - 4.0
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 2.71
+    - 1.5
+    - 3.0
+    index: 0.61
+  dynamics:
+    mix: 0.52
+    amp_min: 0.01
+    amp_max: 0.0291
+    drift: 0.039
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.031
+    trajectory_x: pendulum
+    trajectory_y: depth
+  harmonics: 6
+  harmonic_decay: 0.6
+  noise_amount: 0.04
+  noise_color: pink
+  elevation: 60
+  elevation_motion: float
+  elevation_speed: 0.09
+  elevation_range: 60

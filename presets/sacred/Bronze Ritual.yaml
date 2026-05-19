@@ -1,0 +1,110 @@
+meta:
+  name: Bronze Ritual
+  slug: bronze_ritual
+  category: sacred
+  mood:
+  - sacred
+  description: metallic FM ritual field
+  author: null
+  engine_version: DRONE_V2
+  tags:
+  - dark
+  - cinematic
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.98
+  density: 0.74
+  instability: null
+  brightness: null
+spatial:
+  depth: 1.41
+  wetness: 0.98
+  swarm_density: 0.74
+notes:
+  migrated_from: presets/Bronze Ritual.json
+  goal: metallic FM ritual field
+  listening_tip: null
+layers:
+- name: Low Drone
+  enabled: true
+  synthesis:
+    root: 88
+    voices: 20
+    ratios:
+    - 1.5
+    - 1.25
+    - 3.0
+    - 4.0
+    - 0.5
+  fm:
+    ratios:
+    - 2.71
+    - 3.0
+    index: 1.08
+  dynamics:
+    mix: 0.71
+    amp_min: 0.0088
+    amp_max: 0.0148
+    drift: 0.036
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.008
+    trajectory_x: orbit
+    trajectory_y: depth
+- name: Mid Resonance
+  enabled: true
+  synthesis:
+    root: 132
+    voices: 20
+    ratios:
+    - 2.71
+    - 4.0
+    - 2.0
+    - 1.5
+    - 1.0
+  fm:
+    ratios:
+    - 1.5
+    - 2.71
+    index: 0.68
+  dynamics:
+    mix: 0.71
+    amp_min: 0.0086
+    amp_max: 0.0378
+    drift: 0.036
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.009
+    trajectory_x: orbit
+    trajectory_y: spiral
+- name: Core Tone
+  enabled: true
+  synthesis:
+    root: 198
+    voices: 20
+    ratios:
+    - 0.5
+    - 1.5
+    - 1.0
+    - 4.0
+    - 2.0
+  fm:
+    ratios:
+    - 2.0
+    - 3.0
+    - 2.71
+    - 1.5
+    index: 0.26
+  dynamics:
+    mix: 0.37
+    amp_min: 0.0067
+    amp_max: 0.0426
+    drift: 0.001
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.024
+    trajectory_x: drift
+    trajectory_y: depth

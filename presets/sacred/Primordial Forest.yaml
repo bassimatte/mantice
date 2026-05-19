@@ -1,0 +1,117 @@
+meta:
+  name: Primordial Forest
+  slug: primordial_forest
+  category: ritual
+  mood:
+  - organic
+  - natural
+  - earthy
+  - alive
+  description: 'An organic, nature-inspired drone. Heavy air pressure and gentle drift
+    evoke a living forest canopy. Warm, breathing, grounded.
+
+    '
+  author: Matteo Bassi
+  engine_version: MANTICE_V8
+  tags:
+  - nature
+  - atmospheric
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  space: cave
+  mix: 0.3
+  decay_trim: 0.9
+spatial:
+  depth: 1.5
+  wetness: 0.0
+  swarm_density: 0.5
+earth:
+  enabled: true
+  tectonic_frequency: 20
+  pressure: 0.2
+  movement: 0.015
+air:
+  enabled: true
+  intensity: 0.28
+  movement: 0.008
+  turbulence: 0.09
+layers:
+- name: Root Hum
+  enabled: true
+  synthesis:
+    root: 82
+    voices: 15
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 1.0
+    - 1.5
+    index: 0.06
+  dynamics:
+    mix: 0.9
+    amp_min: 0.008
+    amp_max: 0.035
+    drift: 0.018
+  spatial_motion:
+    quadrant: center
+    speed: 0.003
+    trajectory_x: drift
+    trajectory_y: none
+- name: Canopy Whisper
+  enabled: true
+  synthesis:
+    root: 330
+    voices: 12
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.04
+  dynamics:
+    mix: 0.45
+    amp_min: 0.003
+    amp_max: 0.015
+    drift: 0.02
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.005
+    trajectory_x: pendulum
+    trajectory_y: none
+- name: Insect Texture
+  enabled: true
+  synthesis:
+    root: 2200
+    voices: 6
+    ratios:
+    - 1.0
+    - 1.17
+    - 1.83
+  fm:
+    ratios:
+    - 3.0
+    - 5.0
+    index: 0.2
+  dynamics:
+    mix: 0.15
+    amp_min: 0.001
+    amp_max: 0.006
+    drift: 0.025
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.01
+    trajectory_x: orbit
+    trajectory_y: none
+notes:
+  goal: Nature/organic drone — wind, trees, insects rendered as synthesis.
+  listening_tip: The air pressure layer is dominant here. Speakers in a quiet room
+    work best.

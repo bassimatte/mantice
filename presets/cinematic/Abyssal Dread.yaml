@@ -1,0 +1,116 @@
+meta:
+  name: Abyssal Dread
+  slug: abyssal_dread
+  category: cinematic
+  mood:
+  - dark
+  - ominous
+  - unsettling
+  - tense
+  description: 'Dissonant, pitch-black drone. Detuned clusters and aggressive FM create
+    a sense of creeping dread. No warmth, no comfort.
+
+    '
+  author: Matteo Bassi
+  engine_version: MANTICE_V8
+  tags:
+  - dark
+  - cinematic
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  space: cave
+  mix: 0.35
+  decay_trim: 1.0
+spatial:
+  depth: 2.0
+  wetness: 0.0
+  swarm_density: 0.5
+earth:
+  enabled: true
+  tectonic_frequency: 16
+  pressure: 0.5
+  movement: 0.025
+air:
+  enabled: false
+layers:
+- name: Dissonant Sub
+  enabled: true
+  synthesis:
+    root: 36
+    voices: 20
+    ratios:
+    - 1.0
+    - 1.06
+    - 1.5
+    - 2.12
+  fm:
+    ratios:
+    - 1.41
+    - 2.73
+    index: 0.8
+  dynamics:
+    mix: 1.0
+    amp_min: 0.01
+    amp_max: 0.05
+    drift: 0.035
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.003
+    trajectory_x: drift
+    trajectory_y: depth
+- name: Tension Cluster
+  enabled: true
+  synthesis:
+    root: 185
+    voices: 18
+    ratios:
+    - 1.0
+    - 1.04
+    - 1.5
+    - 1.87
+  fm:
+    ratios:
+    - 1.7
+    - 3.1
+    index: 1.1
+  dynamics:
+    mix: 0.6
+    amp_min: 0.005
+    amp_max: 0.025
+    drift: 0.04
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.005
+    trajectory_x: spiral
+    trajectory_y: depth
+- name: High Unease
+  enabled: true
+  synthesis:
+    root: 1200
+    voices: 8
+    ratios:
+    - 1.0
+    - 1.33
+    - 2.67
+  fm:
+    ratios:
+    - 2.0
+    - 5.0
+    index: 0.6
+  dynamics:
+    mix: 0.25
+    amp_min: 0.002
+    amp_max: 0.01
+    drift: 0.02
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.007
+    trajectory_x: orbit
+    trajectory_y: none
+notes:
+  goal: Pure horror/tension drone for cinematic use.
+  listening_tip: Best at moderate volume in darkness.

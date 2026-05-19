@@ -1,0 +1,145 @@
+meta:
+  name: Event Horizon
+  slug: event_horizon
+  category: cinematic
+  mood:
+  - cinematic
+  - epic
+  - massive
+  - building
+  description: 'A dense, multi-layered cinematic drone that evokes the edge of a black
+    hole. Many voices, wide stereo, spiralling trajectories, and a massive reverb
+    tail.
+
+    '
+  author: Matteo Bassi
+  engine_version: MANTICE_V8
+  tags:
+  - dark
+  - cinematic
+  - deep
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  space: infinite
+  mix: 0.3
+  decay_trim: 0.8
+spatial:
+  depth: 3.0
+  wetness: 0.0
+  swarm_density: 0.7
+earth:
+  enabled: true
+  tectonic_frequency: 14
+  pressure: 0.45
+  movement: 0.015
+air:
+  enabled: true
+  intensity: 0.18
+  movement: 0.006
+  turbulence: 0.07
+layers:
+- name: Gravitational Bass
+  enabled: true
+  synthesis:
+    root: 32
+    voices: 20
+    ratios:
+    - 0.5
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.15
+  dynamics:
+    mix: 1.1
+    amp_min: 0.008
+    amp_max: 0.035
+    drift: 0.012
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.002
+    trajectory_x: spiral
+    trajectory_y: depth
+- name: Accretion Mid
+  enabled: true
+  synthesis:
+    root: 165
+    voices: 20
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+    - 4.0
+  fm:
+    ratios:
+    - 1.5
+    - 3.0
+    index: 0.2
+  dynamics:
+    mix: 0.8
+    amp_min: 0.005
+    amp_max: 0.025
+    drift: 0.015
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.004
+    trajectory_x: orbit
+    trajectory_y: depth
+- name: Radiation High
+  enabled: true
+  synthesis:
+    root: 660
+    voices: 20
+    ratios:
+    - 1.0
+    - 2.0
+    - 5.0
+  fm:
+    ratios:
+    - 2.0
+    - 4.0
+    index: 0.3
+  dynamics:
+    mix: 0.4
+    amp_min: 0.003
+    amp_max: 0.015
+    drift: 0.01
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.006
+    trajectory_x: spiral
+    trajectory_y: none
+- name: Hawking Whisper
+  enabled: true
+  synthesis:
+    root: 2400
+    voices: 10
+    ratios:
+    - 1.0
+    - 3.0
+    - 7.0
+  fm:
+    ratios:
+    - 5.0
+    index: 0.25
+  dynamics:
+    mix: 0.2
+    amp_min: 0.002
+    amp_max: 0.008
+    drift: 0.008
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.008
+    trajectory_x: orbit
+    trajectory_y: depth
+notes:
+  goal: Epic cinematic drone — massive scale, building tension, dense.
+  listening_tip: Best on a full-range system. The sub layers need a subwoofer or good
+    headphones.

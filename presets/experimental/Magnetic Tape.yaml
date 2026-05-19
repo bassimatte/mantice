@@ -1,0 +1,117 @@
+meta:
+  name: Magnetic Tape
+  slug: magnetic_tape
+  category: experimental
+  mood:
+  - warm
+  - analog
+  - lo-fi
+  - rounded
+  description: 'Warm, rounded drone simulating the character of analog tape. Heavy
+    lowpass filtering, high reverb damping, and gentle sub focus create a lo-fi, vintage
+    atmosphere.
+
+    '
+  author: Matteo Bassi
+  engine_version: MANTICE_V8
+  tags:
+  - industrial
+  - minimal
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  room_size: 0.5
+  decay: 0.86
+  damping: 0.75
+  modulation: 0.5
+  wet: 0.35
+  predelay: 0.03
+spatial:
+  depth: 1.0
+  wetness: 0.0
+  swarm_density: 0.4
+earth:
+  enabled: true
+  tectonic_frequency: 18
+  pressure: 0.3
+  movement: 0.01
+air:
+  enabled: false
+layers:
+- name: Tape Hum
+  enabled: true
+  band: sub
+  synthesis:
+    root: 60
+    voices: 12
+    ratios:
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.03
+  dynamics:
+    mix: 1.0
+    amp_min: 0.015
+    amp_max: 0.05
+    drift: 0.008
+  spatial_motion:
+    quadrant: center
+    speed: 0.002
+    trajectory_x: drift
+    trajectory_y: none
+- name: Saturated Mid
+  enabled: true
+  band: mid
+  synthesis:
+    root: 180
+    voices: 20
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    - 1.5
+    index: 0.08
+  dynamics:
+    mix: 0.7
+    amp_min: 0.008
+    amp_max: 0.03
+    drift: 0.012
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.003
+    trajectory_x: pendulum
+    trajectory_y: none
+- name: Tape Wobble
+  enabled: true
+  band: mid
+  synthesis:
+    root: 400
+    voices: 8
+    ratios:
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.02
+  dynamics:
+    mix: 0.3
+    amp_min: 0.005
+    amp_max: 0.015
+    drift: 0.025
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.004
+    trajectory_x: drift
+    trajectory_y: none
+notes:
+  goal: Lo-fi warmth — like listening through vintage tape equipment.
+  listening_tip: The high damping on the reverb keeps everything muffled and intimate.

@@ -1,0 +1,136 @@
+meta:
+  name: Time Suspended
+  slug: time-suspended
+  category: cinematic
+  mood:
+  - ethereal
+  - frozen
+  - dreamlike
+  author: Matteo Bassi
+  engine_version: MANTICE_V18
+  tags:
+  - ethereal
+  - slow
+  - frozen
+  - time
+  - cinematic
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.15
+reverb:
+  space: infinite
+  mix: 0.6
+  decay_trim: 0.5
+spatial:
+  depth: 1.0
+  wetness: 0.9
+  swarm_density: 0.4
+earth:
+  enabled: false
+  tectonic_freq: 18
+  pressure: 0.0
+air:
+  enabled: true
+  intensity: 0.06
+  turbulence: 0.02
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 2.0
+  carrier_hz: 174
+  carrier_amp: 0.08
+layers:
+- name: Frozen Tone
+  enabled: true
+  type: fm
+  synthesis:
+    root: 174.6
+    voices: 3
+    ratios: [1.0, 2.0]
+  fm:
+    ratios: [1.0, 2.0]
+    index: 0.05
+  harmonics: 3
+  harmonic_decay: 0.4
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 1.0
+    amp_min: 0.015
+    amp_max: 0.04
+    drift: 0.002
+  spatial_motion:
+    quadrant: center
+    speed: 0.005
+    trajectory_x: drift
+    trajectory_y: none
+  elevation: 10.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.1
+  chorus_depth: 0.018
+  chorus_mix: 0.8
+  chorus_voices: 4
+- name: Suspended Fifth
+  enabled: true
+  type: fm
+  synthesis:
+    root: 261.6
+    voices: 2
+    ratios: [1.0]
+  fm:
+    ratios: [1.0]
+    index: 0.03
+  harmonics: 2
+  harmonic_decay: 0.3
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 0.6
+    amp_min: 0.01
+    amp_max: 0.03
+    drift: 0.002
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.005
+    trajectory_x: drift
+    trajectory_y: drift
+  elevation: 25.0
+  elevation_motion: float
+  elevation_speed: 0.08
+  elevation_range: 30.0
+  chorus_rate: 0.15
+  chorus_depth: 0.015
+  chorus_mix: 0.7
+  chorus_voices: 4
+- name: Bowl Resonance
+  enabled: true
+  type: granular
+  source: singing_bowl.ogg
+  grain_size: 200
+  density: 4
+  pitch_spread: 0.1
+  position: 0.3
+  scatter: 0.2
+  envelope: hann
+  dynamics:
+    mix: 0.5
+    amp_min: 0.005
+    amp_max: 0.025
+    drift: 0.003
+  spatial_motion:
+    quadrant: center
+    speed: 0.005
+    trajectory_x: drift
+    trajectory_y: none
+  elevation: 15.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.2
+  chorus_depth: 0.01
+  chorus_mix: 0.4
+  chorus_voices: 2

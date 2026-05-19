@@ -1,0 +1,140 @@
+meta:
+  name: Impossible Chamber
+  slug: impossible_chamber
+  category: experimental
+  mood:
+  - atmospheric
+  description: huge impossible acoustic space
+  author: null
+  engine_version: DRONE_V2
+  tags:
+  - dark
+  - cinematic
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.91
+  density: 0.35
+  instability: null
+  brightness: null
+spatial:
+  depth: 0.98
+  wetness: 0.91
+  swarm_density: 0.35
+notes:
+  migrated_from: presets/Impossible Chamber.json
+  goal: huge impossible acoustic space
+  listening_tip: null
+layers:
+- name: Low Drone
+  enabled: true
+  synthesis:
+    root: 66
+    voices: 20
+    ratios:
+    - 1.0
+    - 0.5
+    - 1.5
+    - 2.0
+    - 2.71
+  fm:
+    ratios:
+    - 1.0
+    - 3.0
+    - 2.71
+    - 1.5
+    index: 0.08
+  dynamics:
+    mix: 0.67
+    amp_min: 0.0079
+    amp_max: 0.0172
+    drift: 0.021
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.007
+    trajectory_x: orbit
+    trajectory_y: spiral
+- name: Mid Resonance
+  enabled: true
+  synthesis:
+    root: 132
+    voices: 20
+    ratios:
+    - 2.0
+    - 1.25
+    - 3.0
+    - 2.71
+    - 1.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+    index: 0.69
+  dynamics:
+    mix: 0.72
+    amp_min: 0.002
+    amp_max: 0.0164
+    drift: 0.017
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.021
+    trajectory_x: drift
+    trajectory_y: none
+- name: Core Tone
+  enabled: true
+  synthesis:
+    root: 216
+    voices: 20
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+    - 1.25
+  fm:
+    ratios:
+    - 2.0
+    - 2.71
+    - 3.0
+    - 1.5
+    index: 0.38
+  dynamics:
+    mix: 0.46
+    amp_min: 0.0052
+    amp_max: 0.0434
+    drift: 0.007
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.019
+    trajectory_x: drift
+    trajectory_y: depth
+- name: Spectral Body
+  enabled: true
+  synthesis:
+    root: 352
+    voices: 20
+    ratios:
+    - 1.25
+    - 3.0
+    - 2.0
+    - 1.5
+    - 1.0
+  fm:
+    ratios:
+    - 3.0
+    - 1.0
+    - 1.5
+    - 2.71
+    index: 0.13
+  dynamics:
+    mix: 0.83
+    amp_min: 0.0025
+    amp_max: 0.0426
+    drift: 0.015
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.022
+    trajectory_x: orbit
+    trajectory_y: spiral

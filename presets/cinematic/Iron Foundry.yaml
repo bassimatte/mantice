@@ -1,0 +1,118 @@
+meta:
+  name: Iron Foundry
+  slug: iron_foundry
+  category: cinematic
+  mood:
+  - industrial
+  - metallic
+  - harsh
+  - mechanical
+  description: 'Aggressive, machine-like drone. High FM indices create metallic timbres;
+    fast drift rates produce mechanical instability.
+
+    '
+  author: Matteo Bassi
+  engine_version: MANTICE_V8
+  tags:
+  - industrial
+  - dark
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  space: plate
+  mix: 0.25
+  decay_trim: 0.6
+spatial:
+  depth: 1.0
+  wetness: 0.0
+  swarm_density: 0.6
+earth:
+  enabled: true
+  tectonic_frequency: 22
+  pressure: 0.35
+  movement: 0.04
+air:
+  enabled: true
+  intensity: 0.2
+  movement: 0.012
+  turbulence: 0.1
+layers:
+- name: Machine Bass
+  enabled: true
+  synthesis:
+    root: 65
+    voices: 20
+    ratios:
+    - 1.0
+    - 1.41
+    - 2.0
+  fm:
+    ratios:
+    - 1.73
+    - 2.83
+    index: 1.4
+  dynamics:
+    mix: 1.0
+    amp_min: 0.01
+    amp_max: 0.04
+    drift: 0.045
+  spatial_motion:
+    quadrant: center
+    speed: 0.006
+    trajectory_x: pendulum
+    trajectory_y: depth
+- name: Metal Grind
+  enabled: true
+  synthesis:
+    root: 280
+    voices: 20
+    ratios:
+    - 1.0
+    - 1.33
+    - 2.67
+    - 3.14
+  fm:
+    ratios:
+    - 2.41
+    - 4.67
+    index: 1.8
+  dynamics:
+    mix: 0.55
+    amp_min: 0.005
+    amp_max: 0.025
+    drift: 0.05
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.008
+    trajectory_x: spiral
+    trajectory_y: none
+- name: Steam Hiss
+  enabled: true
+  synthesis:
+    root: 3500
+    voices: 10
+    ratios:
+    - 1.0
+    - 1.07
+    - 1.19
+  fm:
+    ratios:
+    - 5.0
+    - 7.0
+    index: 0.9
+  dynamics:
+    mix: 0.2
+    amp_min: 0.002
+    amp_max: 0.008
+    drift: 0.06
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.012
+    trajectory_x: orbit
+    trajectory_y: none
+notes:
+  goal: Industrial/mechanical texture — machines, not nature.
+  listening_tip: The metallic FM timbres benefit from a flat-response speaker system.

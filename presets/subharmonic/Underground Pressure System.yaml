@@ -1,0 +1,53 @@
+meta:
+  name: Underground Pressure System
+  slug: underground_pressure_system
+  category: subharmonic
+  mood:
+  - atmospheric
+  description: ''
+  author: null
+  engine_version: DRONE_V2
+  tags:
+  - deep
+  - dark
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.98
+  density: 0.4
+  instability: null
+  brightness: null
+spatial:
+  depth: 3.8
+  wetness: 0.98
+  swarm_density: 0.4
+notes:
+  migrated_from: presets/Underground Pressure System.json
+  goal: ''
+  listening_tip: null
+layers:
+- name: Sub Rumble
+  enabled: true
+  synthesis:
+    root: 18
+    voices: 20
+    ratios:
+    - 0.5
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.04
+  dynamics:
+    mix: 1.2
+    amp_min: 0.01
+    amp_max: 0.05
+    drift: 0.004
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.002
+    trajectory_x: drift
+    trajectory_y: depth

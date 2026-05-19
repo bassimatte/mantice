@@ -1,0 +1,137 @@
+meta:
+  name: Breath of the Forest
+  slug: breath_of_the_forest
+  category: experimental
+  mood:
+  - organic
+  - alive
+  - calming
+  description: 'An organic soundscape of wind through trees, earth tones, and rustling
+    canopy. Living, breathing forest acoustics.'
+  author: Matteo Bassi
+  engine_version: MANTICE_V15
+  tags:
+  - nature
+  - organic
+  - wind
+  - experimental
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  space: hall
+  mix: 0.3
+  decay_trim: 1.0
+spatial:
+  depth: 2.5
+  wetness: 0.0
+  swarm_density: 0.4
+earth:
+  enabled: true
+  tectonic_frequency: 12
+  pressure: 0.2
+  movement: 0.01
+air:
+  enabled: true
+  intensity: 0.15
+  turbulence: 0.06
+saturation: 0.15
+layers:
+- name: Earth Tone
+  enabled: true
+  synthesis:
+    root: 55
+    voices: 5
+    ratios:
+    - 1.0
+    - 1.5
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.15
+  dynamics:
+    mix: 1.0
+    amp_min: 0.008
+    amp_max: 0.1
+    drift: 0.003
+  harmonics: 3
+  harmonic_decay: 0.7
+  noise_amount: 0.15
+  noise_color: brown
+  elevation: -30
+  elevation_motion: breathe
+  elevation_speed: 0.04
+  elevation_range: 30
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.02
+    trajectory_x: drift
+- name: Wind Layer
+  enabled: true
+  synthesis:
+    root: 220
+    voices: 4
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.1
+  dynamics:
+    mix: 0.9
+    amp_min: 0.005
+    amp_max: 0.08
+    drift: 0.005
+  harmonics: 2
+  harmonic_decay: 0.7
+  noise_amount: 0.25
+  noise_color: pink
+  elevation: 10
+  elevation_motion: float
+  elevation_speed: 0.06
+  elevation_range: 40
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.04
+    trajectory_x: pendulum
+- name: Canopy Rustle
+  enabled: true
+  synthesis:
+    root: 880
+    voices: 3
+    ratios:
+    - 1.0
+    - 1.5
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.05
+  dynamics:
+    mix: 0.7
+    amp_min: 0.005
+    amp_max: 0.06
+    drift: 0.006
+  harmonics: 2
+  harmonic_decay: 0.7
+  noise_amount: 0.2
+  noise_color: white
+  elevation: 60
+  elevation_motion: breathe
+  elevation_speed: 0.1
+  elevation_range: 45
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.06
+    trajectory_x: drift
+notes:
+  goal: Recreate the living breath of a forest through layered organic textures and
+    elevation-mapped sound sources.
+  listening_tip: Close your eyes and imagine standing in an ancient forest at dawn,
+    feeling wind move through the canopy above.

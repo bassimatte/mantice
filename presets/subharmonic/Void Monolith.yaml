@@ -1,0 +1,133 @@
+meta:
+  name: Void Monolith
+  slug: void_monolith
+  category: subharmonic
+  mood:
+  - massive
+  - dark
+  description: sparse tectonic atmosphere
+  author: null
+  engine_version: DRONE_V2
+  tags:
+  - dark
+  - atmospheric
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.53
+  density: 0.25
+  instability: null
+  brightness: null
+spatial:
+  depth: 2.74
+  wetness: 0.53
+  swarm_density: 0.25
+notes:
+  migrated_from: presets/Void Monolith.json
+  goal: sparse tectonic atmosphere
+  listening_tip: null
+layers:
+- name: Warm Body
+  enabled: true
+  synthesis:
+    root: 144
+    voices: 11
+    ratios:
+    - 1.25
+    - 1.5
+    - 4.0
+    - 2.71
+  fm:
+    ratios:
+    - 2.0
+    - 3.0
+    - 1.0
+    - 2.71
+    index: 0.92
+  dynamics:
+    mix: 0.56
+    amp_min: 0.0088
+    amp_max: 0.0412
+    drift: 0.023
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.014
+    trajectory_x: orbit
+    trajectory_y: spiral
+- name: Bass Foundation
+  enabled: true
+  synthesis:
+    root: 110
+    voices: 18
+    ratios:
+    - 0.5
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.5
+    - 1.0
+    index: 0.64
+  dynamics:
+    mix: 0.35
+    amp_min: 0.0043
+    amp_max: 0.0416
+    drift: 0.009
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.021
+    trajectory_x: pendulum
+    trajectory_y: depth
+- name: Core Tone
+  enabled: true
+  synthesis:
+    root: 198
+    voices: 11
+    ratios:
+    - 1.0
+    - 4.0
+    - 2.71
+    - 1.25
+  fm:
+    ratios:
+    - 1.5
+    - 2.71
+    - 2.0
+    index: 0.15
+  dynamics:
+    mix: 0.3
+    amp_min: 0.0014
+    amp_max: 0.0145
+    drift: 0.022
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.03
+    trajectory_x: orbit
+    trajectory_y: depth
+- name: Amber Field
+  enabled: true
+  synthesis:
+    root: 288
+    voices: 20
+    ratios:
+    - 2.0
+    - 0.5
+    - 3.0
+    - 1.25
+  fm:
+    ratios:
+    - 3.0
+    - 1.0
+    index: 0.06
+  dynamics:
+    mix: 0.28
+    amp_min: 0.0047
+    amp_max: 0.0152
+    drift: 0.012
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.018
+    trajectory_x: drift
+    trajectory_y: spiral

@@ -1,0 +1,140 @@
+meta:
+  name: First Flight
+  slug: first-flight
+  category: essentials
+  mood:
+  - bright
+  - uplifting
+  - gentle
+  author: Matteo Bassi
+  engine_version: MANTICE_V18
+  tags:
+  - bright
+  - uplifting
+  - spatial
+  - beginner
+  - focus
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.2
+reverb:
+  space: hall
+  mix: 0.35
+  decay_trim: 1.0
+spatial:
+  depth: 0.8
+  wetness: 0.6
+  swarm_density: 0.5
+earth:
+  enabled: false
+  tectonic_freq: 18
+  pressure: 0.0
+air:
+  enabled: true
+  intensity: 0.08
+  turbulence: 0.04
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 10.0
+  carrier_hz: 220
+  carrier_amp: 0.12
+layers:
+- name: Bright Root
+  enabled: true
+  type: fm
+  synthesis:
+    root: 220
+    voices: 4
+    ratios: [1.0, 1.5]
+  fm:
+    ratios: [1.0, 1.5]
+    index: 0.1
+  harmonics: 3
+  harmonic_decay: 0.5
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 1.0
+    amp_min: 0.02
+    amp_max: 0.05
+    drift: 0.01
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.03
+    trajectory_x: orbit
+    trajectory_y: orbit
+  elevation: 10.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.8
+  chorus_depth: 0.008
+  chorus_mix: 0.3
+  chorus_voices: 3
+- name: Fifth Harmony
+  enabled: true
+  type: fm
+  synthesis:
+    root: 330
+    voices: 2
+    ratios: [1.0]
+  fm:
+    ratios: [1.0]
+    index: 0.08
+  harmonics: 2
+  harmonic_decay: 0.4
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 0.5
+    amp_min: 0.01
+    amp_max: 0.03
+    drift: 0.012
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.02
+    trajectory_x: drift
+    trajectory_y: drift
+  elevation: 15.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.6
+  chorus_depth: 0.006
+  chorus_mix: 0.2
+  chorus_voices: 2
+- name: High Air
+  enabled: true
+  type: fm
+  synthesis:
+    root: 440
+    voices: 2
+    ratios: [1.0]
+  fm:
+    ratios: [1.0]
+    index: 0.05
+  harmonics: 2
+  harmonic_decay: 0.3
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 0.3
+    amp_min: 0.005
+    amp_max: 0.02
+    drift: 0.008
+  spatial_motion:
+    quadrant: center
+    speed: 0.01
+    trajectory_x: drift
+    trajectory_y: none
+  elevation: 30.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.15
+  chorus_voices: 2

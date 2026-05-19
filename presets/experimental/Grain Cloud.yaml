@@ -1,0 +1,113 @@
+meta:
+  name: Grain Cloud
+  slug: grain_cloud
+  category: experimental
+  mood: [ethereal, organic, evolving]
+  description: "Overlapping grains of singing bowls and bowed glass create an evolving textural cloud."
+  author: Matteo Bassi
+  engine_version: MANTICE_V17
+  tags: [granular, experimental, texture, ambient]
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.4
+  decay_trim: 1.2
+spatial:
+  depth: 2.0
+  wetness: 0.5
+  swarm_density: 0.5
+earth:
+  enabled: false
+air:
+  enabled: false
+saturation: 0.2
+layers:
+  - name: Bowl Grains
+    enabled: true
+    type: granular
+    source: singing_bowl.ogg
+    grain_size: 100
+    density: 12
+    pitch_spread: 0.5
+    position: 0.3
+    scatter: 0.7
+    envelope: hann
+    dynamics:
+      mix: 1.0
+      amp_min: 0.01
+      amp_max: 0.08
+      drift: 0.003
+    spatial_motion:
+      quadrant: front_left
+      speed: 0.02
+      trajectory_x: orbit
+    elevation: 20
+    elevation_motion: float
+    elevation_speed: 0.05
+    elevation_range: 40
+    chorus_mix: 0.3
+    chorus_rate: 0.4
+    chorus_depth: 0.008
+    chorus_voices: 2
+  - name: Glass Shimmer
+    enabled: true
+    type: granular
+    source: bowed_glass.ogg
+    grain_size: 150
+    density: 8
+    pitch_spread: 1.0
+    position: 0.5
+    scatter: 0.4
+    envelope: hann
+    dynamics:
+      mix: 0.7
+      amp_min: 0.005
+      amp_max: 0.06
+      drift: 0.004
+    spatial_motion:
+      quadrant: front_right
+      speed: 0.03
+      trajectory_x: drift
+    elevation: 45
+    elevation_motion: breathe
+    elevation_speed: 0.08
+    elevation_range: 30
+    chorus_mix: 0.5
+    chorus_rate: 0.6
+    chorus_depth: 0.01
+    chorus_voices: 3
+  - name: FM Foundation
+    enabled: true
+    type: fm
+    synthesis:
+      root: 55
+      voices: 6
+      ratios: [1.0, 2.0]
+    fm:
+      ratios: [1.0]
+      index: 0.1
+    dynamics:
+      mix: 0.5
+      amp_min: 0.005
+      amp_max: 0.04
+      drift: 0.002
+    harmonics: 3
+    harmonic_decay: 0.7
+    noise_amount: 0.0
+    noise_color: pink
+    spatial_motion:
+      quadrant: center
+      speed: 0.01
+      trajectory_x: none
+    elevation: -30
+    elevation_motion: static
+    elevation_speed: 0.1
+    elevation_range: 60
+    chorus_mix: 0.0
+    chorus_rate: 0.5
+    chorus_depth: 0.005
+    chorus_voices: 2

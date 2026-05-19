@@ -1,0 +1,143 @@
+meta:
+  name: Forest Spirits
+  slug: forest_spirits
+  category: ritual
+  mood: [organic, mystical, nature]
+  description: "Wind, water, and breath grains weave through a deep drone foundation — the forest speaks."
+  author: Matteo Bassi
+  engine_version: MANTICE_V17
+  tags: [granular, nature, ritual, organic]
+global:
+  duration_seconds: 90
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  space: hall
+  mix: 0.35
+  decay_trim: 1.0
+spatial:
+  depth: 2.5
+  wetness: 0.4
+  swarm_density: 0.6
+earth:
+  enabled: true
+  tectonic_frequency: 22
+  pressure: 0.2
+  movement: 0.015
+air:
+  enabled: false
+saturation: 0.15
+layers:
+  - name: Wind Whispers
+    enabled: true
+    type: granular
+    source: wind.ogg
+    grain_size: 120
+    density: 20
+    pitch_spread: 0.2
+    position: 0.4
+    scatter: 0.8
+    envelope: hann
+    dynamics:
+      mix: 0.8
+      amp_min: 0.005
+      amp_max: 0.05
+      drift: 0.003
+    spatial_motion:
+      quadrant: rear_left
+      speed: 0.04
+      trajectory_x: drift
+    elevation: 15
+    elevation_motion: breathe
+    elevation_speed: 0.06
+    elevation_range: 30
+    chorus_mix: 0.2
+    chorus_rate: 0.3
+    chorus_depth: 0.006
+    chorus_voices: 2
+  - name: Water Flow
+    enabled: true
+    type: granular
+    source: water.ogg
+    grain_size: 60
+    density: 25
+    pitch_spread: 0.4
+    position: 0.5
+    scatter: 0.6
+    envelope: triangle
+    dynamics:
+      mix: 0.6
+      amp_min: 0.003
+      amp_max: 0.04
+      drift: 0.004
+    spatial_motion:
+      quadrant: front_right
+      speed: 0.025
+      trajectory_x: orbit
+    elevation: -10
+    elevation_motion: float
+    elevation_speed: 0.04
+    elevation_range: 20
+    chorus_mix: 0.0
+    chorus_rate: 0.5
+    chorus_depth: 0.005
+    chorus_voices: 2
+  - name: Spirit Breath
+    enabled: true
+    type: granular
+    source: breath.ogg
+    grain_size: 40
+    density: 5
+    pitch_spread: 1.5
+    position: 0.5
+    scatter: 0.9
+    envelope: hann
+    dynamics:
+      mix: 0.4
+      amp_min: 0.002
+      amp_max: 0.03
+      drift: 0.005
+    spatial_motion:
+      quadrant: rear_right
+      speed: 0.05
+      trajectory_x: drift
+    elevation: 60
+    elevation_motion: rise
+    elevation_speed: 0.03
+    elevation_range: 50
+    chorus_mix: 0.4
+    chorus_rate: 0.8
+    chorus_depth: 0.012
+    chorus_voices: 3
+  - name: Deep Earth Drone
+    enabled: true
+    type: fm
+    synthesis:
+      root: 36
+      voices: 8
+      ratios: [1.0, 1.5, 2.0]
+    fm:
+      ratios: [1.0, 2.0]
+      index: 0.15
+    dynamics:
+      mix: 1.0
+      amp_min: 0.01
+      amp_max: 0.1
+      drift: 0.002
+    harmonics: 4
+    harmonic_decay: 0.7
+    noise_amount: 0.01
+    noise_color: brown
+    spatial_motion:
+      quadrant: center
+      speed: 0.01
+      trajectory_x: none
+    elevation: -60
+    elevation_motion: static
+    elevation_speed: 0.1
+    elevation_range: 60
+    chorus_mix: 0.0
+    chorus_rate: 0.5
+    chorus_depth: 0.005
+    chorus_voices: 2

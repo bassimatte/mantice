@@ -1,0 +1,132 @@
+meta:
+  name: Subharmonic Engine
+  slug: subharmonic_engine
+  category: subharmonic
+  mood:
+  - massive
+  description: heavy low frequency world
+  author: null
+  engine_version: DRONE_V2
+  tags:
+  - deep
+  - industrial
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.91
+  density: 0.51
+  instability: null
+  brightness: null
+spatial:
+  depth: 1.42
+  wetness: 0.91
+  swarm_density: 0.51
+notes:
+  migrated_from: presets/Subharmonic Engine.json
+  goal: heavy low frequency world
+  listening_tip: null
+layers:
+- name: Sub Rumble
+  enabled: true
+  synthesis:
+    root: 18
+    voices: 20
+    ratios:
+    - 1.0
+    - 1.25
+    - 2.71
+    - 3.0
+  fm:
+    ratios:
+    - 3.0
+    - 1.5
+    index: 0.63
+  dynamics:
+    mix: 1.15
+    amp_min: 0.0023
+    amp_max: 0.0185
+    drift: 0.02
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.029
+    trajectory_x: pendulum
+    trajectory_y: depth
+- name: Earth Pulse
+  enabled: true
+  synthesis:
+    root: 33
+    voices: 20
+    ratios:
+    - 3.0
+    - 1.0
+    - 2.71
+    - 1.5
+  fm:
+    ratios:
+    - 1.5
+    - 2.0
+    index: 0.43
+  dynamics:
+    mix: 0.82
+    amp_min: 0.0042
+    amp_max: 0.0191
+    drift: 0.038
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.03
+    trajectory_x: orbit
+    trajectory_y: spiral
+- name: Deep Fundament
+  enabled: true
+  synthesis:
+    root: 18
+    voices: 20
+    ratios:
+    - 1.0
+    - 4.0
+    - 2.71
+  fm:
+    ratios:
+    - 1.5
+    - 2.71
+    - 3.0
+    - 1.0
+    index: 0.74
+  dynamics:
+    mix: 0.66
+    amp_min: 0.0031
+    amp_max: 0.0273
+    drift: 0.018
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.027
+    trajectory_x: pendulum
+    trajectory_y: depth
+- name: Tectonic Bass
+  enabled: true
+  synthesis:
+    root: 27
+    voices: 20
+    ratios:
+    - 2.71
+    - 4.0
+    - 3.0
+    - 1.0
+  fm:
+    ratios:
+    - 2.0
+    - 1.0
+    - 2.71
+    index: 0.62
+  dynamics:
+    mix: 0.34
+    amp_min: 0.0096
+    amp_max: 0.0446
+    drift: 0.035
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.027
+    trajectory_x: pendulum
+    trajectory_y: depth

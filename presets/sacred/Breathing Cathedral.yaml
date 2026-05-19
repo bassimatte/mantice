@@ -1,0 +1,79 @@
+meta:
+  name: Breathing Cathedral
+  slug: breathing_cathedral
+  category: sacred
+  mood:
+  - immersive
+  - sacred
+  - massive
+  description: Huge sacred atmosphere with breathing air pressure.
+  author: Matteo Bassi
+  engine_version: MANTICE_V15
+  tags:
+  - deep
+  - minimal
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.94
+  density: 0.72
+  instability: 0.24
+  brightness: 0.4
+spatial:
+  depth: 3.5
+  wetness: 0.99
+  swarm_density: 0.6
+earth:
+  enabled: true
+  tectonic_frequency: 14
+  pressure: 0.4
+  movement: 0.01
+air:
+  enabled: true
+  intensity: 0.35
+  movement: 0.006
+  turbulence: 0.12
+saturation: 0.35
+notes:
+  goal: Massive sacred underground resonance.
+  listening_tip: Use headphones to perceive the moving air pressure.
+layers:
+- name: Sub Foundation
+  enabled: true
+  synthesis:
+    root: 22
+    voices: 20
+    ratios:
+    - 0.5
+    - 1.0
+    - 1.5
+  fm:
+    ratios:
+    - 1.0
+    - 1.5
+    index: 0.08
+  dynamics:
+    mix: 1.1
+    amp_min: 0.01
+    amp_max: 0.04
+    drift: 0.008
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.003
+    trajectory_x: orbit
+    trajectory_y: depth
+  harmonics: 5
+  harmonic_decay: 0.65
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: -20
+  elevation_motion: breathe
+  elevation_speed: 0.04
+  elevation_range: 30
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.4
+  decay_trim: 1.0

@@ -1,0 +1,6 @@
+numpy
+scipy
+soundfile
+PyYAML
+fastapi
+uvicorn[standard]

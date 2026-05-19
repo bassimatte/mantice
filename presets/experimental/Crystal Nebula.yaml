@@ -1,0 +1,166 @@
+meta:
+  name: Crystal Nebula
+  slug: crystal_nebula
+  category: experimental
+  mood:
+  - bright
+  description: ethereal spatial shimmer
+  author: null
+  engine_version: DRONE_V2
+  tags:
+  - bright
+  - atmospheric
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.48
+  density: 0.83
+  instability: null
+  brightness: null
+spatial:
+  depth: 1.51
+  wetness: 0.48
+  swarm_density: 0.83
+notes:
+  migrated_from: presets/Crystal Nebula.json
+  goal: ethereal spatial shimmer
+  listening_tip: null
+layers:
+- name: Low Drone
+  enabled: true
+  synthesis:
+    root: 55
+    voices: 20
+    ratios:
+    - 3.0
+    - 0.5
+    - 1.5
+    - 2.71
+    - 4.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.71
+    - 2.0
+    - 3.0
+    index: 0.43
+  dynamics:
+    mix: 1.12
+    amp_min: 0.0013
+    amp_max: 0.0207
+    drift: 0.014
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.018
+    trajectory_x: drift
+    trajectory_y: none
+- name: Bass Foundation
+  enabled: true
+  synthesis:
+    root: 110
+    voices: 20
+    ratios:
+    - 1.25
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 1.5
+    - 2.71
+    - 2.0
+    index: 0.73
+  dynamics:
+    mix: 1.08
+    amp_min: 0.0029
+    amp_max: 0.0207
+    drift: 0.012
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.037
+    trajectory_x: orbit
+    trajectory_y: spiral
+- name: Core Tone
+  enabled: true
+  synthesis:
+    root: 165
+    voices: 20
+    ratios:
+    - 2.0
+    - 4.0
+    - 3.0
+  fm:
+    ratios:
+    - 2.0
+    - 1.0
+    - 1.5
+    - 2.71
+    index: 0.81
+  dynamics:
+    mix: 0.53
+    amp_min: 0.0014
+    amp_max: 0.0217
+    drift: 0.011
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.019
+    trajectory_x: pendulum
+    trajectory_y: none
+- name: Amber Field
+  enabled: true
+  synthesis:
+    root: 176
+    voices: 20
+    ratios:
+    - 2.0
+    - 1.0
+    - 1.5
+  fm:
+    ratios:
+    - 1.0
+    - 2.71
+    - 1.5
+    index: 0.05
+  dynamics:
+    mix: 0.98
+    amp_min: 0.006
+    amp_max: 0.0472
+    drift: 0.004
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.021
+    trajectory_x: pendulum
+    trajectory_y: none
+- name: Dense Texture
+  enabled: true
+  synthesis:
+    root: 220
+    voices: 20
+    ratios:
+    - 1.5
+    - 1.25
+    - 3.0
+    - 4.0
+  fm:
+    ratios:
+    - 3.0
+    - 2.71
+    - 1.0
+    - 2.0
+    index: 0.58
+  dynamics:
+    mix: 0.87
+    amp_min: 0.0097
+    amp_max: 0.0432
+    drift: 0.021
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.028
+    trajectory_x: pendulum
+    trajectory_y: none
+reverb:
+  enabled: true
+  space: hall
+  mix: 0.3
+  decay_trim: 0.8

@@ -1,0 +1,135 @@
+meta:
+  name: Underwater World
+  slug: underwater-world
+  category: cinematic
+  mood:
+  - deep
+  - aquatic
+  - mysterious
+  author: Matteo Bassi
+  engine_version: MANTICE_V18
+  tags:
+  - underwater
+  - aquatic
+  - deep
+  - cinematic
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.3
+reverb:
+  space: cathedral
+  mix: 0.5
+  decay_trim: 0.7
+spatial:
+  depth: 1.0
+  wetness: 0.8
+  swarm_density: 0.5
+earth:
+  enabled: false
+  tectonic_freq: 18
+  pressure: 0.0
+air:
+  enabled: true
+  intensity: 0.05
+  turbulence: 0.03
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 5.0
+  carrier_hz: 150
+  carrier_amp: 0.1
+layers:
+- name: Deep Current
+  enabled: true
+  type: fm
+  synthesis:
+    root: 65
+    voices: 6
+    ratios: [1.0, 2.0]
+  fm:
+    ratios: [1.0, 2.0]
+    index: 0.3
+  harmonics: 4
+  harmonic_decay: 0.6
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 1.0
+    amp_min: 0.02
+    amp_max: 0.05
+    drift: 0.012
+  spatial_motion:
+    quadrant: center
+    speed: 0.02
+    trajectory_x: drift
+    trajectory_y: drift
+  elevation: -10.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.3
+  chorus_depth: 0.012
+  chorus_mix: 0.7
+  chorus_voices: 3
+- name: Refracted Light
+  enabled: true
+  type: fm
+  synthesis:
+    root: 196
+    voices: 3
+    ratios: [1.0, 1.5]
+  fm:
+    ratios: [1.0, 1.5]
+    index: 0.1
+  harmonics: 3
+  harmonic_decay: 0.4
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 0.6
+    amp_min: 0.01
+    amp_max: 0.03
+    drift: 0.01
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.03
+    trajectory_x: orbit
+    trajectory_y: drift
+  elevation: 20.0
+  elevation_motion: float
+  elevation_speed: 0.15
+  elevation_range: 40.0
+  chorus_rate: 0.2
+  chorus_depth: 0.01
+  chorus_mix: 0.5
+  chorus_voices: 3
+- name: Water Texture
+  enabled: true
+  type: granular
+  source: water.ogg
+  grain_size: 120
+  density: 20
+  pitch_spread: 0.4
+  position: 0.5
+  scatter: 0.7
+  envelope: hann
+  dynamics:
+    mix: 0.5
+    amp_min: 0.005
+    amp_max: 0.025
+    drift: 0.015
+  spatial_motion:
+    quadrant: center
+    speed: 0.025
+    trajectory_x: drift
+    trajectory_y: drift
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.4
+  chorus_depth: 0.008
+  chorus_mix: 0.3
+  chorus_voices: 2

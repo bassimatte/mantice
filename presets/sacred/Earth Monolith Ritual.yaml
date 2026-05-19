@@ -1,0 +1,54 @@
+meta:
+  name: Earth Monolith Ritual
+  slug: earth_monolith_ritual
+  category: sacred
+  mood:
+  - sacred
+  - massive
+  description: ''
+  author: null
+  engine_version: DRONE_V2
+  tags:
+  - deep
+  - nature
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+macro:
+  immersion: 0.99
+  density: 0.5
+  instability: null
+  brightness: null
+spatial:
+  depth: 3.5
+  wetness: 0.99
+  swarm_density: 0.5
+notes:
+  migrated_from: presets/Earth Monolith Ritual.json
+  goal: ''
+  listening_tip: null
+layers:
+- name: Sub Rumble
+  enabled: true
+  synthesis:
+    root: 18
+    voices: 20
+    ratios:
+    - 0.5
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.08
+  dynamics:
+    mix: 1.2
+    amp_min: 0.01
+    amp_max: 0.04
+    drift: 0.005
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.003
+    trajectory_x: drift
+    trajectory_y: depth

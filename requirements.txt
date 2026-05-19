@@ -1,0 +1,9 @@
+numpy
+scipy
+soundfile
+PyYAML
+sounddevice
+
+# Web UI (optional — only needed for --gui)
+fastapi
+uvicorn[standard]
