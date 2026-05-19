@@ -384,7 +384,14 @@ main {
 .sidebar-backdrop.open { display: block; }
 
 @media (max-width: 768px) {
-  body { grid-template-columns: 1fr; }
+  body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 40px 1fr;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100vh;
+  }
   .hamburger { display: flex; }
   aside {
     position: fixed;
@@ -398,6 +405,43 @@ main {
   }
   aside.sidebar-open { transform: translateX(0); }
   .header-transport { left: 50%; }
+  main {
+    overflow-y: visible;
+    overflow-x: hidden;
+    padding: 8px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .visualizer-container {
+    flex-direction: column;
+    width: 100%;
+  }
+  #aurora-canvas, #spectrum-canvas {
+    width: 100% !important;
+    height: 140px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .card {
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+  .param-row {
+    grid-template-columns: 70px 1fr 40px;
+    gap: 6px;
+  }
+  .param-row label { font-size: 8px; }
+  .param-row .value { font-size: 9px; }
+  .param-row input[type="range"]::-webkit-slider-thumb {
+    width: 16px;
+    height: 16px;
+  }
+  .param-row input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 /* Sliders — custom TE style */
@@ -1279,7 +1323,7 @@ async function loadPreset(path, el) {
   currentPresetPath = path;
   renderedBuffer = null; // clear so Play does preview, not old render
   applyParamsToUI(currentParams);
-  stopAurora();
+  if (!isStreaming) stopAurora();  // don't kill waveform if audio is still playing
   markClean();
   undoStack.length = 0;
   redoStack.length = 0;
