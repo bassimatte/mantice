@@ -48,6 +48,7 @@ body {
   background: var(--bg);
   color: var(--text);
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: grid;
   grid-template-columns: 220px 1fr;
@@ -271,6 +272,7 @@ main {
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+  min-height: 0;
 }
 
 .card {
@@ -1280,6 +1282,8 @@ python batch_render_freesound.py --metadata-only</pre>
   function applyZoom() {
     const pct = STEPS[zoomIdx];
     document.body.style.zoom = pct + '%';
+    // Compensate body height so grid stays within physical viewport
+    document.body.style.height = (100 / (pct / 100)) + 'vh';
     localStorage.setItem('mantice-zoom', pct);
   }
 
