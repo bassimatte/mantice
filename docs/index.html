@@ -388,7 +388,7 @@ main {
 @media (max-width: 768px) {
   body {
     grid-template-columns: 1fr;
-    grid-template-rows: 40px 1fr;
+    grid-template-rows: 40px auto 1fr;
     overflow-y: auto;
     overflow-x: hidden;
     height: auto;
@@ -400,49 +400,102 @@ main {
     top: 40px;
     left: 0;
     bottom: 0;
-    width: 220px;
+    width: 260px;
     z-index: 1000;
     transform: translateX(-100%);
     transition: transform 0.2s ease;
   }
   aside.sidebar-open { transform: translateX(0); }
-  .header-transport { left: 50%; }
+
+  /* Header: hide brand text, keep controls compact */
+  .header-brand h1 { font-size: 12px; letter-spacing: 0.1em; }
+  .header-byline { display: none; }
+  .header-transport {
+    position: static;
+    transform: none;
+    left: auto;
+  }
+  header { gap: 6px; padding: 0 8px; flex-wrap: nowrap; }
+  header .status { font-size: 8px; padding: 2px 5px; }
+  .zoom-btn { display: none; }
+
+  /* Now-playing as thin bar below header */
+  .now-playing {
+    display: block;
+    width: 100%;
+    max-width: none;
+    font-size: 10px;
+    padding: 3px 8px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    box-sizing: border-box;
+    grid-column: 1 / -1;
+  }
+
+  /* Main content */
   main {
     overflow-y: visible;
     overflow-x: hidden;
-    padding: 8px;
+    padding: 6px;
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
   }
+
+  /* Visualizer: only waveform, compact */
   .visualizer-container {
     flex-direction: column;
     width: 100%;
   }
-  #aurora-canvas, #spectrum-canvas {
+  #aurora-canvas {
     width: 100% !important;
-    height: 140px;
+    height: 100px;
     min-width: 0;
     max-width: 100%;
   }
+  #spectrum-canvas {
+    display: none;
+  }
+
+  /* Cards: all collapsible cards start collapsed on mobile */
   .card {
     width: 100%;
     box-sizing: border-box;
     overflow-x: hidden;
   }
+  .card-collapsible.mobile-collapsed > *:not(h2) { display: none; }
+  .card-collapsible.mobile-collapsed h2::after { content: ' ▸'; }
+
+  /* Param rows: full width, touch-friendly */
   .param-row {
-    grid-template-columns: 70px 1fr 40px;
-    gap: 6px;
+    grid-template-columns: 60px 1fr 36px;
+    gap: 4px;
   }
   .param-row label { font-size: 8px; }
   .param-row .value { font-size: 9px; }
+  .param-row input[type="range"] { height: 6px; }
   .param-row input[type="range"]::-webkit-slider-thumb {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
   }
   .param-row input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Transport buttons slightly larger for touch */
+  .transport-btn { min-width: 32px; min-height: 32px; font-size: 14px; }
+
+  /* Toggle rows */
+  .toggle-row { gap: 8px; }
+  .toggle { min-width: 36px; min-height: 18px; }
+
+  /* Settings card: wrap items */
+  .transport-secondary {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 8px;
+    align-items: center;
   }
 }
 
@@ -3088,8 +3141,18 @@ function init() {
 
   // ── Collapsible Cards ───────────────────────────────────────────────────────
   document.querySelectorAll('.card-collapsible h2').forEach(h2 => {
-    h2.addEventListener('click', () => { h2.parentElement.classList.toggle('collapsed'); });
+    h2.addEventListener('click', () => {
+      h2.parentElement.classList.toggle('collapsed');
+      h2.parentElement.classList.remove('mobile-collapsed');
+    });
   });
+
+  // On mobile, collapse all card-collapsible by default
+  if (window.innerWidth <= 768) {
+    document.querySelectorAll('.card-collapsible').forEach(card => {
+      card.classList.add('mobile-collapsed');
+    });
+  }
 
   // ── Hamburger / Responsive Sidebar ──────────────────────────────────────────
   const hamburgerBtn = $('btn-hamburger');
