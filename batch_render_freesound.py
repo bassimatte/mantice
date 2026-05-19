@@ -37,9 +37,9 @@ PRESETS_DIR = Path("presets")
 
 # Freesound metadata defaults
 FS_LICENSE = "Creative Commons 0"
-FS_PACK = "Mantice - Procedural Ambient Drones"
-# BST category: "mu-e" = Music samples > Synthesizer / Electronic instruments
-FS_BST_CATEGORY = "mu-e"
+FS_PACK = "Ambient Drones by Mantice"
+# BST category: "m-m" = Music > Music
+FS_BST_CATEGORY = "m-m"
 
 # Category → Freesound description prefix
 CATEGORY_DESCRIPTIONS = {
@@ -94,24 +94,42 @@ def build_description(preset: dict, category: str, filename: str) -> str:
 def build_tags(preset: dict, category: str) -> str:
     """Build Freesound tags from preset metadata (space-separated)."""
     base_tags = ["drone", "ambient", "procedural", "mantice", "synthesizer",
-                 "generative", "texture", "soundscape", "meditation"]
+                 "generative", "texture", "soundscape", "meditation", "relaxation",
+                 "atmospheric", "electronic", "evolving", "immersive", "spatial",
+                 "deep", "cinematic", "dark-ambient", "fm-synthesis", "pad"]
+    
+    # Category-specific extra tags
+    category_tags = {
+        "essentials": ["warm", "gentle", "minimal", "soft", "calm"],
+        "cinematic": ["film", "tension", "score", "dramatic", "suspense", "movie"],
+        "experimental": ["experimental", "abstract", "avant-garde", "glitch", "noise"],
+        "sacred": ["sacred", "ritual", "spiritual", "healing", "ceremonial", "tibetan"],
+        "subharmonic": ["sub-bass", "rumble", "low-frequency", "bass", "seismic"],
+        "generated": ["algorithmic", "random", "machine-generated"],
+    }
     
     meta = preset.get("meta", {})
     preset_tags = meta.get("tags", [])
     
-    # Add category as tag
-    all_tags = base_tags + [category] + preset_tags
+    all_tags = base_tags + category_tags.get(category, []) + [category] + preset_tags
     
     # Add binaural tag if present
     binaural = preset.get("binaural") or {}
     if binaural.get("enabled", False):
-        all_tags.append("binaural")
+        all_tags.extend(["binaural", "binaural-beats", "brainwave"])
     
     # Add granular tag if any layer uses it
     for layer in preset.get("layers", []):
         if layer.get("type") == "granular":
-            all_tags.append("granular")
+            all_tags.extend(["granular", "granular-synthesis", "grain"])
             break
+    
+    # Add reverb-related tags
+    reverb = preset.get("reverb") or {}
+    if reverb:
+        space = reverb.get("space", "")
+        if space:
+            all_tags.append(space)  # cathedral, cave, hall, etc.
     
     # Deduplicate and clean
     seen = set()
