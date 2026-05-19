@@ -784,6 +784,7 @@ main {
     </div>
     <div class="docs-tabs">
       <button class="docs-tab active" data-tab="tab-docs">Documentation</button>
+      <button class="docs-tab" data-tab="tab-run">Run Locally</button>
       <button class="docs-tab" data-tab="tab-settings">Settings</button>
       <button class="docs-tab" data-tab="tab-shortcuts">Shortcuts</button>
     </div>
@@ -874,30 +875,93 @@ main {
           Use Save/Save As to create your own library.</p>
         </div>
 
+        <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
+          Created by <strong>Matteo Bassi</strong> — <a href="https://github.com/bassimatte/mantice" target="_blank" style="color: var(--accent);">github.com/bassimatte/mantice</a>
+        </p>
+      </div>
+
+      <!-- ═══ TAB: Run Locally ═══ -->
+      <div class="docs-panel" id="tab-run">
+        <h3>Run Locally (Offline)</h3>
+        <p>Download Mantice and run it entirely on your machine — no internet required after cloning.</p>
+
         <div class="docs-section">
-          <h4>▸ Run Locally (Offline)</h4>
-          <p>You can download Mantice and run it entirely on your machine — no internet required after cloning.</p>
+          <h4>▸ Installation</h4>
           <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
-# 1. Clone the repository
+# Clone the repository
 git clone https://github.com/bassimatte/mantice.git
 cd mantice
 
-# 2. Install Python dependencies
-pip install -r requirements.txt
-
-# 3. Start the server
-python -m engine.web_server
-
-# 4. Open in your browser
-# → http://127.0.0.1:8432
-          </pre>
-          <p style="font-size:11px;color:var(--text-dim);margin-top:6px;">
-            Requires <strong>Python 3.10+</strong> and pip. Works on Windows, macOS, and Linux.
-            All generation runs locally on CPU — no GPU needed.</p>
+# Install Python dependencies
+pip install -r requirements.txt</pre>
+          <p style="font-size:11px;color:var(--text-dim);">Requires <strong>Python 3.10+</strong> and pip. Works on Windows, macOS, and Linux. No GPU needed.</p>
         </div>
 
-        <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
-          Created by <strong>Matteo Bassi</strong> — <a href="https://github.com/bassimatte/mantice" target="_blank" style="color: var(--accent);">github.com/bassimatte/mantice</a>
+        <div class="docs-section">
+          <h4>▸ Launch Web UI</h4>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# Start the server and open browser
+python main.py --gui
+
+# Or start server only
+python -m engine.web_server
+# → http://127.0.0.1:8432</pre>
+        </div>
+
+        <div class="docs-section">
+          <h4>▸ Generate WAV Files from Terminal</h4>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# Render all presets to WAV (default 60s each)
+python main.py
+
+# Render a specific preset
+python main.py --name "Breathing Cathedral"
+
+# Custom duration (seconds)
+python main.py --name "Om" --duration 300
+
+# Export as FLAC or OGG
+python main.py --name "Solar Choir" --format flac
+
+# Set a seed for reproducible output
+python main.py --name "Gong Bath" --seed 42
+
+# Generate a random preset and render it
+python main.py --generate
+
+# Generate with a mood bias
+python main.py --generate --mood dark
+
+# Mutate an existing preset
+python main.py --mutate "Breathing Cathedral" --amount 0.3
+
+# List all available presets
+python main.py --list</pre>
+        </div>
+
+        <div class="docs-section">
+          <h4>▸ Real-Time Preview (Speakers)</h4>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# Preview a preset through speakers
+python main.py --preview --name "Cavern of Echoes"
+
+# Infinite drone (Ctrl+C to stop)
+python main.py --preview --infinite</pre>
+        </div>
+
+        <div class="docs-section">
+          <h4>▸ Batch Export (Freesound)</h4>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# Render all presets (5 min, 24-bit, 48kHz, normalized)
+python batch_render_freesound.py
+
+# Regenerate metadata XLSX only (skip rendering)
+python batch_render_freesound.py --metadata-only</pre>
+          <p style="font-size:11px;color:var(--text-dim);">Output goes to <code>exports/freesound/</code></p>
+        </div>
+
+        <p style="font-size:11px;color:var(--text-dim);margin-top:16px;text-align:center;">
+          All audio is generated on CPU via NumPy/SciPy — typical render time is ~40s per 5-minute file.
         </p>
       </div>
 
