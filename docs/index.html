@@ -2598,8 +2598,8 @@ async function doPreview() {
 
   stopAudio();
 
-  const previewSR = 22050;  // matches server STREAM_SAMPLE_RATE for lower CPU
-  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: previewSR });
+  const serverSR = 22050;  // matches server STREAM_SAMPLE_RATE
+  streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
   nextPlayTime = 0;
   chunksBuffered = 0;
@@ -2651,7 +2651,7 @@ async function doPreview() {
       if (chunksBuffered === PRE_BUFFER_CHUNKS) setStatus('▶ Streaming…');
     } else {
       // Fallback: BufferSource scheduling
-      const buffer = streamingCtx.createBuffer(2, numSamples, streamingCtx.sampleRate);
+      const buffer = streamingCtx.createBuffer(2, numSamples, serverSR);
       buffer.getChannelData(0).set(left);
       buffer.getChannelData(1).set(right);
 
