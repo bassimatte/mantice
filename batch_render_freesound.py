@@ -29,7 +29,7 @@ from engine.exporter import export_audio
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-DURATION = 120          # seconds per render
+DURATION = 300          # seconds per render (5 minutes)
 SEED = 42              # reproducible renders
 OUTPUT_DIR = Path("exports/freesound")
 XLSX_PATH = Path("exports/freesound_bulk.xlsx")
