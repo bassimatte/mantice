@@ -772,6 +772,7 @@ main {
   <span class="status" id="status">READY</span>
   <button class="zoom-btn" id="btn-zoom-out" title="Zoom out (Ctrl+-)">−</button>
   <button class="zoom-btn" id="btn-zoom-in" title="Zoom in (Ctrl+=)">+</button>
+  <button class="zoom-btn" id="btn-theme-header" title="Toggle dark/light mode">◑</button>
   <button class="transport-btn btn-info" id="btn-docs" title="Settings Reference">ⓘ</button>
 </header>
 
@@ -3000,6 +3001,7 @@ function init() {
 
   // Theme toggle
   $('btn-theme-toggle').addEventListener('click', toggleTheme);
+  $('btn-theme-header').addEventListener('click', toggleTheme);
 
   // Docs tab switching
   document.querySelectorAll('.docs-tab').forEach(tab => {
