@@ -18,9 +18,10 @@ from . import config
 class StreamingGranularLayer:
     """Generates a cloud of overlapping grains from a source sample."""
 
-    def __init__(self, cfg: dict, samples_dir: str):
+    def __init__(self, cfg: dict, samples_dir: str, sample_rate: int = None):
         self.cfg = cfg
         self.mix = float(cfg.get("mix", 1.0))
+        self._sr = sample_rate or config.SAMPLE_RATE
 
         # Load source sample
         source_file = cfg.get("source", "singing_bowl.ogg")
@@ -32,8 +33,8 @@ class StreamingGranularLayer:
             audio = audio.mean(axis=1)
 
         # Resample if needed (simple linear interpolation)
-        if sr != config.SAMPLE_RATE:
-            ratio = config.SAMPLE_RATE / sr
+        if sr != self._sr:
+            ratio = self._sr / sr
             new_len = int(len(audio) * ratio)
             indices = np.linspace(0, len(audio) - 1, new_len)
             audio = np.interp(indices, np.arange(len(audio)), audio)
@@ -58,15 +59,15 @@ class StreamingGranularLayer:
     def _schedule_next_grain(self):
         """Schedule when the next grain should start."""
         if self.density <= 0:
-            self._next_grain_at = self._next_grain_at + config.SAMPLE_RATE * 100
+            self._next_grain_at = self._next_grain_at + self._sr * 100
             return
-        interval = config.SAMPLE_RATE / self.density
+        interval = self._sr / self.density
         jitter = interval * 0.3 * (np.random.random() - 0.5)
         self._next_grain_at = self._next_grain_at + int(interval + jitter)
 
     def _spawn_grain_at(self, start_in_chunk: int):
         """Create a new grain starting at offset within current chunk."""
-        grain_samples = int(self.grain_size_ms * config.SAMPLE_RATE / 1000)
+        grain_samples = int(self.grain_size_ms * self._sr / 1000)
         grain_samples = max(64, min(grain_samples, self.source_len - 1))
 
         center = int(self.position * self.source_len)

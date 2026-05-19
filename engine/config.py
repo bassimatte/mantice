@@ -1,4 +1,5 @@
 SAMPLE_RATE = 44_100
+STREAM_SAMPLE_RATE = 22_050  # lower rate for real-time preview (reduces CPU ~50%)
 BIT_DEPTH   = "PCM_16"
 FADE_SECS   = 2.0      # global safety fade-in/out; layers have their own envelopes
 

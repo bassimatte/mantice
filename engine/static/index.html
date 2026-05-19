@@ -2541,7 +2541,7 @@ async function doPreview() {
 
   stopAudio();
 
-  const previewSR = $('hires-toggle').dataset.state === '1' ? 48000 : 44100;
+  const previewSR = 22050;  // matches server STREAM_SAMPLE_RATE for lower CPU
   streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: previewSR });
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
   nextPlayTime = 0;

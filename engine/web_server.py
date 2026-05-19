@@ -610,7 +610,7 @@ async def ws_preview(websocket: WebSocket):
                 # Send start confirmation with audio format info
                 await websocket.send_text(json.dumps({
                     "status": "streaming",
-                    "sample_rate": config.SAMPLE_RATE,
+                    "sample_rate": config.STREAM_SAMPLE_RATE,
                     "channels": 2,
                     "format": "pcm16"
                 }))
@@ -631,9 +631,9 @@ async def ws_preview(websocket: WebSocket):
 
 async def _stream_audio(websocket: WebSocket, engine: StreamingDroneEngine, stream_id: str):
     """Background task that generates and sends audio chunks."""
-    chunk_size = 8192  # ~186ms at 44100Hz — better vectorization efficiency
+    chunk_size = 8192  # ~372ms at 22050Hz — good vectorization efficiency
     loop = asyncio.get_event_loop()
-    sample_rate = config.SAMPLE_RATE
+    sample_rate = config.STREAM_SAMPLE_RATE
     chunk_duration = chunk_size / sample_rate  # real-time duration of one chunk
     start_time = asyncio.get_event_loop().time()
     chunks_sent = 0

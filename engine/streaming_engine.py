@@ -21,6 +21,9 @@ from scipy.signal import butter, sosfilt, sosfilt_zi
 from . import config
 from .granular_layer import StreamingGranularLayer
 
+# Use lower sample rate for real-time streaming (less CPU)
+SR = config.STREAM_SAMPLE_RATE
+
 
 # ── Stateful voice ────────────────────────────────────────────────────────────
 
@@ -49,7 +52,7 @@ class StreamingVoice:
         self.drift_phase   = random.uniform(0, 2 * np.pi)
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
-        dt = 1.0 / config.SAMPLE_RATE
+        dt = 1.0 / SR
         t  = np.arange(n_samples) * dt
 
         # Modulator
@@ -104,7 +107,7 @@ class StreamingLayer:
         # Precomputed angular frequencies
         self._mod_omega = np.float32(2 * np.pi) * self.mod_freqs
         self._drift_omega = np.float32(2 * np.pi) * self.drift_rates
-        self._two_pi_dt = np.float32(2 * np.pi / config.SAMPLE_RATE)
+        self._two_pi_dt = np.float32(2 * np.pi / SR)
 
         # Harmonic overtones
         self.harmonics = int(cfg.get("harmonics", 4))
@@ -120,7 +123,7 @@ class StreamingLayer:
         self._setup_filter(cfg.get("band", "mid"))
 
     def _setup_filter(self, band: str) -> None:
-        nyquist = config.SAMPLE_RATE * 0.5
+        nyquist = SR * 0.5
         order = 4
         if band == "sub":
             self.sos = butter(order, min(140 / nyquist, 0.999), btype="low", output="sos")
@@ -136,7 +139,7 @@ class StreamingLayer:
         self.zi = sosfilt_zi(self.sos) * 0.0
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
-        dt = np.float32(1.0 / config.SAMPLE_RATE)
+        dt = np.float32(1.0 / SR)
         n_voices = len(self.carrier_freqs)
 
         # Precompute sample indices once (float32 for speed)
@@ -247,7 +250,7 @@ class StreamingPanner:
         self.elevation_phase = 0.0
 
         # Crossover filter for elevation processing (2nd order Butterworth at 800Hz)
-        nyquist = config.SAMPLE_RATE * 0.5
+        nyquist = SR * 0.5
         crossover_freq = min(800.0 / nyquist, 0.999)
         self._lp_sos = butter(2, crossover_freq, btype="low", output="sos")
         self._hp_sos = butter(2, crossover_freq, btype="high", output="sos")
@@ -279,7 +282,7 @@ class StreamingPanner:
 
     def next_chunk(self, mono: np.ndarray) -> np.ndarray:
         n = len(mono)
-        dt = 1.0 / config.SAMPLE_RATE
+        dt = 1.0 / SR
         t = self.phase + np.arange(n) * dt
         self.phase = t[-1] + dt
 
@@ -338,13 +341,13 @@ class StreamingChorus:
         self.depth = float(depth)
         self.mix = float(mix)
         self.n_voices = int(voices)
-        self.max_delay = int(0.03 * config.SAMPLE_RATE) + 1
+        self.max_delay = int(0.03 * SR) + 1
         self.buffer_size = self.max_delay + 8192
-        self.buf_L = np.zeros(self.buffer_size, dtype=np.float64)
-        self.buf_R = np.zeros(self.buffer_size, dtype=np.float64)
+        self.buf_L = np.zeros(self.buffer_size, dtype=np.float32)
+        self.buf_R = np.zeros(self.buffer_size, dtype=np.float32)
         self.write_pos = 0
         self.lfo_phases = np.linspace(0, 2 * np.pi, self.n_voices, endpoint=False)
-        self.center_delay = int(0.015 * config.SAMPLE_RATE)
+        self.center_delay = int(0.015 * SR)
 
     def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
         if self.mix < 0.001:
@@ -364,10 +367,10 @@ class StreamingChorus:
             self.buf_R[:n - first] = stereo[first:, 1]
 
         # Compute wet signal
-        wet_L = np.zeros(n, dtype=np.float64)
-        wet_R = np.zeros(n, dtype=np.float64)
-        depth_samples = self.depth * config.SAMPLE_RATE
-        lfo_inc = 2 * np.pi * self.rate / config.SAMPLE_RATE
+        wet_L = np.zeros(n, dtype=np.float32)
+        wet_R = np.zeros(n, dtype=np.float32)
+        depth_samples = self.depth * SR
+        lfo_inc = 2 * np.pi * self.rate / SR
         sample_indices = np.arange(n)
 
         for v in range(self.n_voices):
@@ -438,7 +441,7 @@ class StreamingDroneEngine:
             # Choose layer type: granular or FM
             if layer_cfg.get("type") == "granular":
                 samples_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "samples")
-                layer = StreamingGranularLayer(layer_cfg, samples_dir)
+                layer = StreamingGranularLayer(layer_cfg, samples_dir, sample_rate=SR)
             else:
                 layer = StreamingLayer(layer_cfg)
             panner = StreamingPanner(
@@ -467,11 +470,11 @@ class StreamingDroneEngine:
 
         # Air engine (streaming noise)
         self.air_cfg = preset.get("air")
-        self._air_kernel = int(0.1 * config.SAMPLE_RATE)
-        self._air_buffer = np.zeros(self._air_kernel)
+        self._air_kernel = int(0.1 * SR)
+        self._air_buffer = np.zeros(self._air_kernel, dtype=np.float32)
 
         # DC block filter state
-        nyquist = config.SAMPLE_RATE * 0.5
+        nyquist = SR * 0.5
         self._dc_sos = butter(4, max(18 / nyquist, 0.001), btype="high", output="sos")
         self._dc_zi_L = sosfilt_zi(self._dc_sos) * 0.0
         self._dc_zi_R = sosfilt_zi(self._dc_sos) * 0.0
@@ -479,7 +482,7 @@ class StreamingDroneEngine:
     def next_chunk(self, n_samples: Optional[int] = None) -> np.ndarray:
         """Generate the next chunk of stereo audio (n_samples, 2)."""
         n = n_samples or self.chunk_size
-        stereo = np.zeros((n, 2))
+        stereo = np.zeros((n, 2), dtype=np.float32)
 
         # Layers
         for layer, panner, chorus in zip(self.layers, self.panners, self.choruses):
@@ -532,14 +535,14 @@ class StreamingDroneEngine:
         """
         # Clone current state as the "old" engine for crossfade
         self._old_engine = _ShallowCopy(self)
-        self._crossfade_remaining = int(crossfade_secs * config.SAMPLE_RATE)
+        self._crossfade_remaining = int(crossfade_secs * SR)
 
         # Rebuild with new preset
         self._build_from_preset(new_preset)
 
     def _earth_chunk(self, n: int) -> np.ndarray:
         cfg = self.earth_cfg
-        dt = 1.0 / config.SAMPLE_RATE
+        dt = 1.0 / SR
         freq = float(cfg.get("tectonic_frequency", 18))
         pressure = float(cfg.get("pressure", 0.4))
         movement = float(cfg.get("movement", 0.02))
@@ -548,7 +551,7 @@ class StreamingDroneEngine:
 
         # Wobble
         wobble_inc = 2 * np.pi * movement * t
-        wobble_phases = self.earth_wobble_phase + np.cumsum(wobble_inc * dt * config.SAMPLE_RATE)
+        wobble_phases = self.earth_wobble_phase + np.cumsum(wobble_inc * dt * SR)
         # Simpler: just use time accumulator
         wobble_t = self.earth_wobble_phase + np.arange(n) * dt
         wobble = np.sin(2 * np.pi * movement * wobble_t) * 0.5
@@ -575,7 +578,7 @@ class StreamingDroneEngine:
         noise = np.random.randn(n) * turbulence
         # Simple exponential smoothing instead of full convolution
         alpha = 2.0 / (self._air_kernel + 1)
-        smoothed = np.zeros(n)
+        smoothed = np.zeros(n, dtype=np.float32)
         state = self._air_buffer[-1] if len(self._air_buffer) > 0 else 0.0
         for i in range(n):
             state = alpha * noise[i] + (1 - alpha) * state
@@ -610,7 +613,7 @@ class _ShallowCopy:
         self._old_engine = None
 
     def next_chunk(self, n: int) -> np.ndarray:
-        stereo = np.zeros((n, 2))
+        stereo = np.zeros((n, 2), dtype=np.float32)
         for layer, panner, chorus in zip(self.layers, self.panners, self.choruses):
             mono = layer.next_chunk(n)
             panned = panner.next_chunk(mono)
@@ -630,3 +633,4 @@ class _ShallowCopy:
             stereo = stereo * (0.92 / peak)
 
         return stereo
+
