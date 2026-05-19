@@ -387,12 +387,13 @@ main {
 
 @media (max-width: 768px) {
   body {
-    grid-template-columns: 1fr;
-    grid-template-rows: 40px auto auto;
+    display: block;
     overflow-y: auto;
     overflow-x: hidden;
     height: auto;
     min-height: 100vh;
+    min-height: 100dvh;
+    -webkit-overflow-scrolling: touch;
   }
   .hamburger { display: flex; }
   aside {
@@ -408,6 +409,15 @@ main {
   aside.sidebar-open { transform: translateX(0); }
 
   /* Header: hide brand text, keep controls compact */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    gap: 6px;
+    padding: 0 8px;
+    flex-wrap: nowrap;
+    height: 40px;
+  }
   .header-brand h1 { font-size: 12px; letter-spacing: 0.1em; }
   .header-byline { display: none; }
   .header-transport {
@@ -415,7 +425,6 @@ main {
     transform: none;
     left: auto;
   }
-  header { gap: 6px; padding: 0 8px; flex-wrap: nowrap; }
   header .status { font-size: 8px; padding: 2px 5px; }
   .zoom-btn { display: none; }
 
@@ -429,17 +438,16 @@ main {
     background: var(--surface2);
     border-bottom: 1px solid var(--border);
     box-sizing: border-box;
-    grid-column: 1 / -1;
   }
 
-  /* Main content */
+  /* Main content — no scroll container, flows naturally */
   main {
-    overflow-y: visible;
-    overflow-x: hidden;
+    overflow: visible;
     padding: 6px;
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
+    height: auto;
   }
 
   /* Visualizer: only waveform, compact */
