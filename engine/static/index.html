@@ -1279,7 +1279,7 @@ async function loadPreset(path, el) {
   currentPresetPath = path;
   renderedBuffer = null; // clear so Play does preview, not old render
   applyParamsToUI(currentParams);
-  stopAurora();
+  if (!isStreaming) stopAurora();  // don't kill waveform if audio is still playing
   markClean();
   undoStack.length = 0;
   redoStack.length = 0;
