@@ -195,10 +195,16 @@ def main():
                 print(f"SKIP (render error: {e})")
                 continue
             
+            # Peak-normalize to -1 dBFS
+            peak = np.max(np.abs(audio))
+            if peak > 0:
+                target = 10 ** (-1.0 / 20.0)  # -1 dBFS ≈ 0.891
+                audio = audio * (target / peak)
+
             # Export WAV
             wav_path = OUTPUT_DIR / wav_filename
             export_audio(wav_path, audio, fmt="wav")
-            print(f"✓ ({audio.shape[0] / config.SAMPLE_RATE:.0f}s)")
+            print(f"✓ ({audio.shape[0] / config.SAMPLE_RATE:.0f}s, peak normalized to -1 dBFS)")
         else:
             print("✓")
         
