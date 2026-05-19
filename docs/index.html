@@ -425,20 +425,11 @@ main {
     transform: none;
     left: auto;
   }
-  header .status { font-size: 8px; padding: 2px 5px; }
+  header .status { display: none; }
+  .now-playing { display: none; }
   .zoom-btn { display: none; }
 
-  /* Now-playing as thin bar below header */
-  .now-playing {
-    display: block;
-    width: 100%;
-    max-width: none;
-    font-size: 10px;
-    padding: 3px 8px;
-    background: var(--surface2);
-    border-bottom: 1px solid var(--border);
-    box-sizing: border-box;
-  }
+  /* Now-playing and status hidden on mobile (save space) */
 
   /* Main content — no scroll container, flows naturally */
   main {
