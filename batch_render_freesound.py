@@ -205,7 +205,7 @@ def main():
         # Build row matching Freesound bulk template
         rows.append({
             "audio_filename": wav_filename,
-            "name": f"{name} - {category.capitalize()} Drone by Mantice",
+            "name": f"{name} {category.capitalize()} Drone by Mantice",
             "tags": build_tags(preset, category),
             "geotag": "",
             "description": build_description(preset, category, name),
