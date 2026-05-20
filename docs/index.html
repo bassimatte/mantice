@@ -3101,14 +3101,31 @@ function setProgress(pct) {
 }
 
 // ── iOS Audio Unlock ────────────────────────────────────────────────────────
-// iOS Safari blocks Web Audio and routes it to earpiece until unlocked via gesture.
-// Play a silent buffer + silent <audio> on first touch to unlock & force speaker.
+// iOS Safari routes Web Audio to earpiece (ambient session) by default.
+// Fix: keep a looping silent <audio> element running → forces iOS into
+// "media playback" audio session → Web Audio routes to bottom speaker.
 (function() {
   let unlocked = false;
+  function createSilentWAV() {
+    // Generate a 1-second silent mono WAV at 8kHz programmatically
+    const sr = 8000, samples = 8000;
+    const buf = new ArrayBuffer(44 + samples * 2);
+    const v = new DataView(buf);
+    const s = (o, val, little) => v.setUint32(o, val, little);
+    s(0, 0x52494646, false); s(4, 36 + samples * 2, true); s(8, 0x57415645, false);
+    s(12, 0x666d7420, false); s(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    s(24, sr, true); s(28, sr * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    s(36, 0x64617461, false); s(40, samples * 2, true);
+    // data is zeros = silence
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  }
   function unlockIOSAudio() {
     if (unlocked) return;
     unlocked = true;
     try {
+      // Unlock Web Audio API
       const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
       const buf = tmpCtx.createBuffer(1, 1, 22050);
       const src = tmpCtx.createBufferSource();
@@ -3117,10 +3134,15 @@ function setProgress(pct) {
       src.start(0);
       tmpCtx.resume().then(() => setTimeout(() => tmpCtx.close(), 1000)).catch(() => {});
     } catch(e) {}
-    // Force iOS speaker route via silent HTML5 audio
     try {
-      const sil = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-      sil.play().then(() => setTimeout(() => { sil.pause(); sil.src = ''; }, 200)).catch(() => {});
+      // Keep looping silent audio to hold iOS in "media playback" session
+      // so Web Audio routes to bottom speaker instead of earpiece
+      const sil = new Audio(createSilentWAV());
+      sil.loop = true;
+      sil.volume = 0.001; // near-silent but not zero (iOS ignores muted elements)
+      sil.play().catch(() => {});
+      // Store so it isn't GC'd
+      window._iosSilentAudio = sil;
     } catch(e) {}
   }
   document.addEventListener('touchstart', unlockIOSAudio, { passive: true, once: true });
