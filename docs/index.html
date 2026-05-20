@@ -428,6 +428,9 @@ main {
   header .status { display: none; }
   .now-playing { display: none; }
   .zoom-btn { display: none; }
+  /* Info button and hamburger pushed to right */
+  #btn-docs { margin-left: auto; }
+  .hamburger { order: 99; }
 
   /* Now-playing and status hidden on mobile (save space) */
 
@@ -456,14 +459,12 @@ main {
     display: none;
   }
 
-  /* Cards: all collapsible cards start collapsed on mobile */
+  /* Cards */
   .card {
     width: 100%;
     box-sizing: border-box;
     overflow-x: hidden;
   }
-  .card-collapsible.mobile-collapsed > *:not(h2) { display: none; }
-  .card-collapsible.mobile-collapsed h2::after { content: ' ▸'; }
 
   /* Param rows: full width, touch-friendly */
   .param-row {
@@ -1405,9 +1406,11 @@ async function loadPresetList() {
   allPresets = await api('/api/presets');
   buildTagFilter();
   renderPresetList();
-  // Load "Warm Pad" as default on first load
+  // Load default preset on first load
   if (allPresets.length && !currentParams) {
-    const defaultPreset = allPresets.find(p => p.name === 'Warm Pad') || allPresets[0];
+    const isMobile = window.innerWidth <= 768;
+    const defaultName = isMobile ? 'Cavern of Echoes' : 'Warm Pad';
+    const defaultPreset = allPresets.find(p => p.name === defaultName) || allPresets[0];
     loadPreset(defaultPreset.path, document.querySelector(`.preset-item[data-path="${defaultPreset.path}"]`));
   }
 }
@@ -3142,16 +3145,8 @@ function init() {
   document.querySelectorAll('.card-collapsible h2').forEach(h2 => {
     h2.addEventListener('click', () => {
       h2.parentElement.classList.toggle('collapsed');
-      h2.parentElement.classList.remove('mobile-collapsed');
     });
   });
-
-  // On mobile, collapse all card-collapsible by default
-  if (window.innerWidth <= 768) {
-    document.querySelectorAll('.card-collapsible').forEach(card => {
-      card.classList.add('mobile-collapsed');
-    });
-  }
 
   // ── Hamburger / Responsive Sidebar ──────────────────────────────────────────
   const hamburgerBtn = $('btn-hamburger');
