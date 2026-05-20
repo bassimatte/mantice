@@ -3274,7 +3274,7 @@ async function checkBackendConnection() {
   const msg = $('connection-msg');
   const retryBtn = $('connection-retry');
   retryBtn.style.display = 'none';
-  msg.textContent = 'Connecting to engine…';
+  msg.textContent = '☕ Waking up the server… first visit may take ~30s';
 
   const maxAttempts = 20; // ~60s total
   for (let i = 0; i < maxAttempts; i++) {
@@ -3286,7 +3286,6 @@ async function checkBackendConnection() {
         return true;
       }
     } catch (e) { /* retry */ }
-    if (i === 2) msg.textContent = '☕ Waking up the server… first visit may take ~30s';
     if (i === 10) msg.textContent = 'Still warming up… hang tight';
     await new Promise(r => setTimeout(r, 3000));
   }
