@@ -417,6 +417,7 @@ main {
     padding: 0 8px;
     flex-wrap: nowrap;
     height: 40px;
+    justify-content: space-between;
   }
   .header-brand h1 { font-size: 12px; letter-spacing: 0.1em; }
   .header-byline { display: none; }
@@ -424,12 +425,14 @@ main {
     position: static;
     transform: none;
     left: auto;
+    flex: 1;
+    justify-content: center;
   }
   header .status { display: none; }
   .now-playing { display: none; }
   .zoom-btn { display: none; }
   /* Info button and hamburger pushed to right */
-  #btn-docs { margin-left: auto; }
+  #btn-docs { margin-left: 0; order: 98; }
   .hamburger { order: 99; }
 
   /* Now-playing and status hidden on mobile (save space) */
