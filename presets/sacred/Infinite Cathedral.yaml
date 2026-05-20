@@ -48,8 +48,8 @@ layers:
     index: 0.6
   dynamics:
     mix: 0.96
-    amp_min: 0.0051
-    amp_max: 0.0416
+    amp_min: 0.0035
+    amp_max: 0.0288
     drift: 0.021
   spatial_motion:
     quadrant: front_left
@@ -72,8 +72,8 @@ layers:
     index: 0.54
   dynamics:
     mix: 1.32
-    amp_min: 0.002
-    amp_max: 0.0267
+    amp_min: 0.0014
+    amp_max: 0.0185
     drift: 0.014
   spatial_motion:
     quadrant: front_right
@@ -99,8 +99,8 @@ layers:
     index: 0.25
   dynamics:
     mix: 0.41
-    amp_min: 0.0022
-    amp_max: 0.0463
+    amp_min: 0.0015
+    amp_max: 0.032
     drift: 0.036
   spatial_motion:
     quadrant: rear_left
@@ -125,8 +125,8 @@ layers:
     index: 1.01
   dynamics:
     mix: 0.41
-    amp_min: 0.0059
-    amp_max: 0.0251
+    amp_min: 0.0041
+    amp_max: 0.0174
     drift: 0.001
   spatial_motion:
     quadrant: rear_right
@@ -151,8 +151,8 @@ layers:
     index: 0.64
   dynamics:
     mix: 0.51
-    amp_min: 0.0044
-    amp_max: 0.0184
+    amp_min: 0.003
+    amp_max: 0.0127
     drift: 0.025
   spatial_motion:
     quadrant: front_left

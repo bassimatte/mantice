@@ -48,8 +48,8 @@ layers:
   noise_color: pink
   dynamics:
     mix: 1.0
-    amp_min: 0.1
-    amp_max: 0.4
+    amp_min: 0.0197
+    amp_max: 0.0787
     drift: 0.002
   spatial_motion:
     quadrant: center

@@ -48,9 +48,15 @@ layers:
   synthesis:
     root: 82.4
     voices: 12
-    ratios: [1.0, 1.5, 2.0]
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
   fm:
-    ratios: [1.0, 1.5, 2.0]
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
     index: 0.4
   harmonics: 5
   harmonic_decay: 0.6
@@ -58,8 +64,8 @@ layers:
   noise_color: pink
   dynamics:
     mix: 1.0
-    amp_min: 0.02
-    amp_max: 0.05
+    amp_min: 0.0194
+    amp_max: 0.0484
     drift: 0.015
   spatial_motion:
     quadrant: center
@@ -80,9 +86,13 @@ layers:
   synthesis:
     root: 246.9
     voices: 4
-    ratios: [1.0, 2.0]
+    ratios:
+    - 1.0
+    - 2.0
   fm:
-    ratios: [1.0, 2.0]
+    ratios:
+    - 1.0
+    - 2.0
     index: 0.2
   harmonics: 3
   harmonic_decay: 0.5
@@ -90,8 +100,8 @@ layers:
   noise_color: pink
   dynamics:
     mix: 0.6
-    amp_min: 0.01
-    amp_max: 0.035
+    amp_min: 0.0097
+    amp_max: 0.0339
     drift: 0.012
   spatial_motion:
     quadrant: front_right
@@ -112,9 +122,11 @@ layers:
   synthesis:
     root: 493.9
     voices: 2
-    ratios: [1.0]
+    ratios:
+    - 1.0
   fm:
-    ratios: [1.0]
+    ratios:
+    - 1.0
     index: 0.05
   harmonics: 2
   harmonic_decay: 0.3
@@ -122,8 +134,8 @@ layers:
   noise_color: pink
   dynamics:
     mix: 0.2
-    amp_min: 0.005
-    amp_max: 0.02
+    amp_min: 0.0048
+    amp_max: 0.0194
     drift: 0.008
   spatial_motion:
     quadrant: front_left
@@ -150,8 +162,8 @@ layers:
   envelope: hann
   dynamics:
     mix: 0.15
-    amp_min: 0.003
-    amp_max: 0.015
+    amp_min: 0.0029
+    amp_max: 0.0145
     drift: 0.01
   spatial_motion:
     quadrant: rear_right
@@ -178,8 +190,8 @@ layers:
   envelope: hann
   dynamics:
     mix: 0.2
-    amp_min: 0.005
-    amp_max: 0.02
+    amp_min: 0.0048
+    amp_max: 0.0194
     drift: 0.01
   spatial_motion:
     quadrant: rear_left

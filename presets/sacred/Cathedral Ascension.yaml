@@ -6,8 +6,8 @@ meta:
   - ascending
   - sacred
   - immersive
-  description: 'Sound rising from earth to heaven through four spectral layers, each
-    at increasing elevation. A vertical journey through sacred acoustic space.'
+  description: Sound rising from earth to heaven through four spectral layers, each
+    at increasing elevation. A vertical journey through sacred acoustic space.
   author: Matteo Bassi
   engine_version: MANTICE_V15
   tags:
@@ -52,8 +52,8 @@ layers:
     index: 0.2
   dynamics:
     mix: 1.0
-    amp_min: 0.01
-    amp_max: 0.12
+    amp_min: 0.0025
+    amp_max: 0.0301
     drift: 0.004
   harmonics: 3
   harmonic_decay: 0.7
@@ -84,8 +84,8 @@ layers:
     index: 0.4
   dynamics:
     mix: 1.0
-    amp_min: 0.005
-    amp_max: 0.1
+    amp_min: 0.0013
+    amp_max: 0.0251
     drift: 0.003
   harmonics: 7
   harmonic_decay: 0.6
@@ -115,8 +115,8 @@ layers:
     index: 0.2
   dynamics:
     mix: 0.8
-    amp_min: 0.005
-    amp_max: 0.08
+    amp_min: 0.0013
+    amp_max: 0.0201
     drift: 0.004
   harmonics: 8
   harmonic_decay: 0.5
@@ -146,8 +146,8 @@ layers:
     index: 0.15
   dynamics:
     mix: 0.6
-    amp_min: 0.005
-    amp_max: 0.05
+    amp_min: 0.0013
+    amp_max: 0.0125
     drift: 0.005
   harmonics: 6
   harmonic_decay: 0.7

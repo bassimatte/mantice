@@ -47,9 +47,13 @@ layers:
   synthesis:
     root: 82.4
     voices: 6
-    ratios: [1.0, 2.0]
+    ratios:
+    - 1.0
+    - 2.0
   fm:
-    ratios: [1.0, 2.0]
+    ratios:
+    - 1.0
+    - 2.0
     index: 0.15
   harmonics: 4
   harmonic_decay: 0.6
@@ -57,8 +61,8 @@ layers:
   noise_color: pink
   dynamics:
     mix: 1.0
-    amp_min: 0.02
-    amp_max: 0.05
+    amp_min: 0.0231
+    amp_max: 0.0579
     drift: 0.015
   spatial_motion:
     quadrant: center
@@ -79,9 +83,11 @@ layers:
   synthesis:
     root: 164.8
     voices: 3
-    ratios: [1.0]
+    ratios:
+    - 1.0
   fm:
-    ratios: [1.0]
+    ratios:
+    - 1.0
     index: 0.08
   harmonics: 3
   harmonic_decay: 0.5
@@ -89,8 +95,8 @@ layers:
   noise_color: pink
   dynamics:
     mix: 0.6
-    amp_min: 0.01
-    amp_max: 0.03
+    amp_min: 0.0116
+    amp_max: 0.0347
     drift: 0.015
   spatial_motion:
     quadrant: center

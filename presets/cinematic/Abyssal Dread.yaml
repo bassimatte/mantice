@@ -54,8 +54,8 @@ layers:
     index: 0.8
   dynamics:
     mix: 1.0
-    amp_min: 0.01
-    amp_max: 0.05
+    amp_min: 0.0117
+    amp_max: 0.0583
     drift: 0.035
   spatial_motion:
     quadrant: rear_left
@@ -79,8 +79,8 @@ layers:
     index: 1.1
   dynamics:
     mix: 0.6
-    amp_min: 0.005
-    amp_max: 0.025
+    amp_min: 0.0058
+    amp_max: 0.0291
     drift: 0.04
   spatial_motion:
     quadrant: front_right
@@ -103,8 +103,8 @@ layers:
     index: 0.6
   dynamics:
     mix: 0.25
-    amp_min: 0.002
-    amp_max: 0.01
+    amp_min: 0.0023
+    amp_max: 0.0117
     drift: 0.02
   spatial_motion:
     quadrant: front_left

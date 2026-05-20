@@ -6,8 +6,8 @@ meta:
   - deep
   - powerful
   - ceremonial
-  description: 'Massive overlapping gong strikes stretched and scattered into a
-    continuous wall of bronze resonance. Raw power meeting infinite sustain.'
+  description: Massive overlapping gong strikes stretched and scattered into a continuous
+    wall of bronze resonance. Raw power meeting infinite sustain.
   author: Matteo Bassi
   engine_version: MANTICE_V17
   tags:
@@ -37,92 +37,99 @@ air:
   enabled: false
 saturation: 0.4
 layers:
-  - name: Gong Wall
-    enabled: true
-    type: granular
-    source: gong.ogg
-    grain_size: 180
-    density: 30
-    pitch_spread: 0.3
-    position: 0.5
-    scatter: 0.6
-    envelope: hann
-    dynamics:
-      mix: 1.0
-      amp_min: 0.01
-      amp_max: 0.12
-      drift: 0.002
-    spatial_motion:
-      quadrant: center
-      speed: 0.015
-      trajectory_x: orbit
-    elevation: 0
-    elevation_motion: breathe
-    elevation_speed: 0.03
-    elevation_range: 40
-    chorus_mix: 0.2
-    chorus_rate: 0.3
-    chorus_depth: 0.006
-    chorus_voices: 2
-  - name: Gong Shimmer
-    enabled: true
-    type: granular
-    source: gong.ogg
-    grain_size: 40
-    density: 15
-    pitch_spread: 1.5
-    position: 0.7
-    scatter: 0.9
-    envelope: triangle
-    dynamics:
-      mix: 0.5
-      amp_min: 0.003
-      amp_max: 0.04
-      drift: 0.005
-    spatial_motion:
-      quadrant: rear_right
-      speed: 0.04
-      trajectory_x: drift
-    elevation: 60
-    elevation_motion: float
-    elevation_speed: 0.09
-    elevation_range: 50
-    chorus_mix: 0.6
-    chorus_rate: 0.9
-    chorus_depth: 0.012
-    chorus_voices: 3
-  - name: Bronze Drone
-    enabled: true
-    type: fm
-    synthesis:
-      root: 48
-      voices: 6
-      ratios: [1.0, 1.5, 2.0, 3.0]
-    fm:
-      ratios: [1.0, 2.5]
-      index: 0.3
-    dynamics:
-      mix: 0.7
-      amp_min: 0.008
-      amp_max: 0.08
-      drift: 0.003
-    harmonics: 6
-    harmonic_decay: 0.6
-    noise_amount: 0.02
-    noise_color: brown
-    spatial_motion:
-      quadrant: center
-      speed: 0.01
-      trajectory_x: none
-    elevation: -45
-    elevation_motion: static
-    elevation_speed: 0.1
-    elevation_range: 60
-    chorus_mix: 0.0
-    chorus_rate: 0.5
-    chorus_depth: 0.005
-    chorus_voices: 2
+- name: Gong Wall
+  enabled: true
+  type: granular
+  source: gong.ogg
+  grain_size: 180
+  density: 30
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.6
+  envelope: hann
+  dynamics:
+    mix: 1.0
+    amp_min: 0.004
+    amp_max: 0.0482
+    drift: 0.002
+  spatial_motion:
+    quadrant: center
+    speed: 0.015
+    trajectory_x: orbit
+  elevation: 0
+  elevation_motion: breathe
+  elevation_speed: 0.03
+  elevation_range: 40
+  chorus_mix: 0.2
+  chorus_rate: 0.3
+  chorus_depth: 0.006
+  chorus_voices: 2
+- name: Gong Shimmer
+  enabled: true
+  type: granular
+  source: gong.ogg
+  grain_size: 40
+  density: 15
+  pitch_spread: 1.5
+  position: 0.7
+  scatter: 0.9
+  envelope: triangle
+  dynamics:
+    mix: 0.5
+    amp_min: 0.0012
+    amp_max: 0.0161
+    drift: 0.005
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.04
+    trajectory_x: drift
+  elevation: 60
+  elevation_motion: float
+  elevation_speed: 0.09
+  elevation_range: 50
+  chorus_mix: 0.6
+  chorus_rate: 0.9
+  chorus_depth: 0.012
+  chorus_voices: 3
+- name: Bronze Drone
+  enabled: true
+  type: fm
+  synthesis:
+    root: 48
+    voices: 6
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.5
+    index: 0.3
+  dynamics:
+    mix: 0.7
+    amp_min: 0.0032
+    amp_max: 0.0321
+    drift: 0.003
+  harmonics: 6
+  harmonic_decay: 0.6
+  noise_amount: 0.02
+  noise_color: brown
+  spatial_motion:
+    quadrant: center
+    speed: 0.01
+    trajectory_x: none
+  elevation: -45
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60
+  chorus_mix: 0.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_voices: 2
 notes:
   goal: A ceremonial gong bath — dense overlapping strikes creating a continuous
     bronze resonance, grounded by an FM sub-drone.
-  listening_tip: Play loud on speakers or headphones. Feel the vibrations in your chest.
+  listening_tip: Play loud on speakers or headphones. Feel the vibrations in your
+    chest.

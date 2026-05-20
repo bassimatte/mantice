@@ -43,8 +43,8 @@ layers:
     index: 0.04
   dynamics:
     mix: 1.2
-    amp_min: 0.01
-    amp_max: 0.05
+    amp_min: 0.0131
+    amp_max: 0.0656
     drift: 0.004
   spatial_motion:
     quadrant: front_right
