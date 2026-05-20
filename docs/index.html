@@ -2542,6 +2542,20 @@ let chunksBuffered = 0;
 const CHUNK_SIZE = 8192;
 const PRE_BUFFER_CHUNKS = 6;
 let workletNode = null;
+let ctxKeepAlive = null;
+
+function startCtxKeepAlive() {
+  stopCtxKeepAlive();
+  // Ping context every second — iOS suspends AudioContext during silence
+  ctxKeepAlive = setInterval(() => {
+    if (streamingCtx && streamingCtx.state === 'suspended') {
+      streamingCtx.resume().catch(() => {});
+    }
+  }, 1000);
+}
+function stopCtxKeepAlive() {
+  if (ctxKeepAlive) { clearInterval(ctxKeepAlive); ctxKeepAlive = null; }
+}
 
 const WORKLET_PROCESSOR_CODE = `
 class StreamProcessor extends AudioWorkletProcessor {
@@ -2626,6 +2640,10 @@ async function doPreview() {
   const serverSR = 22050;  // matches server STREAM_SAMPLE_RATE
   streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
+
+  // Keep AudioContext alive while waiting for WS/Render cold start (iOS suspends after inactivity)
+  startCtxKeepAlive();
+
   nextPlayTime = 0;
   chunksBuffered = 0;
 
@@ -2638,6 +2656,7 @@ async function doPreview() {
   const useWorklet = false;
   workletNode = null;
 
+  setStatus('Connecting…');
   ws = new WebSocket(wsUrl('/ws/preview'));
   ws.binaryType = 'arraybuffer';
 
@@ -2657,6 +2676,9 @@ async function doPreview() {
     }
 
     if (!streamingCtx || streamingCtx.state === 'closed') return;
+
+    // Resume context if iOS suspended it while waiting for data
+    if (streamingCtx.state === 'suspended') streamingCtx.resume().catch(() => {});
 
     const pcm16 = new Int16Array(event.data);
     const numSamples = pcm16.length / 2;
@@ -2683,6 +2705,7 @@ async function doPreview() {
       if (chunksBuffered === PRE_BUFFER_CHUNKS) {
         nextPlayTime = streamingCtx.currentTime + 0.05;
         setStatus('▶ Streaming…');
+        stopCtxKeepAlive(); // real audio flowing, no longer need keepalive
       }
 
       if (chunksBuffered >= PRE_BUFFER_CHUNKS) {
@@ -2700,12 +2723,13 @@ async function doPreview() {
     }
   };
 
-  ws.onerror = () => { setStatus('WebSocket error'); stopAudio(); };
-  ws.onclose = () => { if (isStreaming) setStatus('Stream ended'); isStreaming = false; };
+  ws.onerror = () => { setStatus('Connection error – tap play to retry'); stopAudio(); };
+  ws.onclose = () => { if (isStreaming) setStatus('Stream ended'); isStreaming = false; stopCtxKeepAlive(); };
 }
 
 function stopAudio() {
   isStreaming = false;
+  stopCtxKeepAlive();
   stopAurora();
   stopSpectrum();
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -3031,7 +3055,16 @@ async function doDeletePreset() {
 }
 
 // ── Status ──────────────────────────────────────────────────────────────────
-function setStatus(msg) { $('status').textContent = msg; }
+function setStatus(msg) {
+  $('status').textContent = msg;
+  // Mirror status in mobile bar (replaces preset name temporarily)
+  const mob = $('mobile-now-playing');
+  if (mob) {
+    const name = currentParams ? currentParams.name : '';
+    const isIdle = !msg || msg === 'READY' || msg === 'STOPPED' || msg === 'Stopped';
+    mob.textContent = isIdle ? name : (name ? `${name} — ${msg}` : msg);
+  }
+}
 
 function updateNowPlaying() {
   const el = $('now-playing');
