@@ -1412,7 +1412,7 @@ async function loadPresetList() {
   // Load default preset on first load
   if (allPresets.length && !currentParams) {
     const isMobile = window.innerWidth <= 768;
-    const defaultName = isMobile ? 'Cavern of Echoes' : 'Warm Pad';
+    const defaultName = isMobile ? 'Cavern of Echoes' : 'First Flight';
     const defaultPreset = allPresets.find(p => p.name === defaultName) || allPresets[0];
     loadPreset(defaultPreset.path, document.querySelector(`.preset-item[data-path="${defaultPreset.path}"]`));
   }
