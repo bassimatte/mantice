@@ -376,6 +376,7 @@ main {
   margin-left: 8px;
 }
 .hamburger:hover { border-color: var(--accent); color: var(--accent); }
+.mobile-now-playing { display: none; }  /* hidden on desktop */
 .sidebar-backdrop {
   display: none;
   position: fixed;
@@ -434,6 +435,23 @@ main {
   /* Info button and hamburger pushed to right */
   #btn-docs { margin-left: 0; order: 98; }
   .hamburger { order: 99; }
+
+  /* Preset name bar below header */
+  .mobile-now-playing {
+    display: block;
+    position: sticky;
+    top: 40px;
+    z-index: 899;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    padding: 3px 8px;
+    min-height: 18px;
+    line-height: 18px;
+  }
 
   /* Now-playing and status hidden on mobile (save space) */
 
@@ -833,6 +851,7 @@ main {
   <button class="zoom-btn" id="btn-theme-header" title="Toggle dark/light mode">◑</button>
   <button class="transport-btn btn-info" id="btn-docs" title="Settings Reference">ⓘ</button>
 </header>
+<div id="mobile-now-playing" class="mobile-now-playing"></div>
 
 <!-- Docs Modal -->
 <div class="docs-overlay" id="docs-overlay">
@@ -3019,6 +3038,9 @@ function updateNowPlaying() {
   if (!el) return;
   const name = currentParams ? currentParams.name : '';
   el.textContent = name ? `▸ ${name}` : '';
+  // Mobile bar
+  const mob = $('mobile-now-playing');
+  if (mob) mob.textContent = name || '';
 }
 
 // ── Theme toggle ────────────────────────────────────────────────────────────
@@ -3044,6 +3066,33 @@ function setProgress(pct) {
   const svg = $('progress-ring');
   if (svg) svg.style.opacity = pct > 0 && pct < 100 ? '1' : '0.4';
 }
+
+// ── iOS Audio Unlock ────────────────────────────────────────────────────────
+// iOS Safari blocks Web Audio and routes it to earpiece until unlocked via gesture.
+// Play a silent buffer + silent <audio> on first touch to unlock & force speaker.
+(function() {
+  let unlocked = false;
+  function unlockIOSAudio() {
+    if (unlocked) return;
+    unlocked = true;
+    try {
+      const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = tmpCtx.createBuffer(1, 1, 22050);
+      const src = tmpCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(tmpCtx.destination);
+      src.start(0);
+      tmpCtx.resume().then(() => setTimeout(() => tmpCtx.close(), 1000)).catch(() => {});
+    } catch(e) {}
+    // Force iOS speaker route via silent HTML5 audio
+    try {
+      const sil = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+      sil.play().then(() => setTimeout(() => { sil.pause(); sil.src = ''; }, 200)).catch(() => {});
+    } catch(e) {}
+  }
+  document.addEventListener('touchstart', unlockIOSAudio, { passive: true, once: true });
+  document.addEventListener('click', unlockIOSAudio, { once: true });
+})();
 
 // ── Init ────────────────────────────────────────────────────────────────────
 function init() {
