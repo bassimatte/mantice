@@ -963,11 +963,9 @@ main {
     <button class="zoom-btn" id="btn-files" title="Files">⊞</button>
     <div class="files-dropdown" id="files-dropdown">
       <div class="dropdown-section-label">Presets</div>
-      <div class="file-menu-item" id="btn-save">💾 Save</div>
-      <div class="file-menu-item" id="btn-save-as">📄 Save As</div>
       <div class="file-menu-item" id="btn-restore">↺ Restore</div>
-      <div class="file-menu-item" id="btn-share">🔗 Share Link</div>
-      <div class="file-menu-item" id="btn-export">⬡ Export Preset</div>
+      <div class="file-menu-item" id="btn-share">🔗 Share</div>
+      <div class="file-menu-item" id="btn-export">⬇ Download</div>
       <div class="file-menu-item" id="btn-delete" style="color:var(--danger)">🗑 Delete</div>
       <div class="settings-divider"></div>
       <div class="dropdown-section-label">Export Audio</div>
@@ -2656,16 +2654,12 @@ let savedParamsSnapshot = null;
 function markClean() {
   savedParamsSnapshot = currentParams ? JSON.stringify(currentParams) : null;
   $('dirty-indicator').style.display = 'none';
-  const saveItem = $('btn-save');
-  if (saveItem) saveItem.classList.remove('highlight');
 }
 
 function markDirty() {
   if (!currentParams || !savedParamsSnapshot) return;
   const isDirty = JSON.stringify(currentParams) !== savedParamsSnapshot;
   $('dirty-indicator').style.display = isDirty ? 'inline' : 'none';
-  const saveItem = $('btn-save');
-  if (saveItem) { isDirty ? saveItem.classList.add('highlight') : saveItem.classList.remove('highlight'); }
 }
 
 // ── Keyboard Shortcuts ───────────────────────────────────────────────────────
@@ -3072,11 +3066,13 @@ async function doGenerate() {
   });
   if (data.ok) {
     currentParams = data.params;
-    currentPresetPath = data.saved_to;
+    currentPresetPath = null; // generated preset has no saved path
     applyParamsToUI(currentParams);
+    markDirty();
     updateNowPlaying();
-    setStatus(`Generated → ${data.saved_to.split(/[\\/]/).pop()}`);
-    loadPresetList(); // refresh sidebar
+    setStatus('Generated — previewing…');
+    stopAudio();
+    doPreview();
   } else {
     setStatus(`Error: ${data.error}`);
   }
@@ -3093,11 +3089,13 @@ async function doMutate() {
   });
   if (data.ok) {
     currentParams = data.params;
-    currentPresetPath = data.saved_to;
+    currentPresetPath = null; // mutated preset has no saved path
     applyParamsToUI(currentParams);
+    markDirty();
     updateNowPlaying();
-    setStatus(`Mutated → ${data.saved_to.split(/[\\/]/).pop()}`);
-    loadPresetList();
+    setStatus('Mutated — previewing…');
+    stopAudio();
+    doPreview();
   } else {
     setStatus(`Error: ${data.error}`);
   }
@@ -3441,8 +3439,6 @@ function init() {
   // Export
   $('btn-export').addEventListener('click', doExportPreset);
   $('btn-share').addEventListener('click', doSharePreset);
-  $('btn-save').addEventListener('click', doSavePreset);
-  $('btn-save-as').addEventListener('click', doSaveAs);
   $('btn-restore').addEventListener('click', doRestore);
   $('btn-delete').addEventListener('click', doDeletePreset);
 
