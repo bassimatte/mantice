@@ -1477,7 +1477,6 @@ python batch_render_freesound.py --metadata-only</pre>
     <div class="gen-type-row">
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Subtractive</label>
-      <label><input type="checkbox" id="gen-type-granular"> Granular</label>
     </div>
     <div class="generator-actions">
       <button class="btn" id="btn-generate">🎲 Generate</button>
@@ -3631,7 +3630,6 @@ async function doGenerate() {
   const allowedTypes = [];
   if (document.getElementById('gen-type-fm').checked) allowedTypes.push('fm');
   if (document.getElementById('gen-type-subtractive').checked) allowedTypes.push('subtractive');
-  if (document.getElementById('gen-type-granular').checked) allowedTypes.push('granular');
   if (allowedTypes.length === 0) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
   const data = await api('/api/generate', {

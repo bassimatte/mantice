@@ -489,7 +489,7 @@ async def generate_endpoint(request: Request):
     body = await request.json()
     mood = body.get("mood")
     seed = body.get("seed")
-    allowed_types = body.get("allowed_types") or ["fm", "subtractive", "granular"]
+    allowed_types = body.get("allowed_types") or ["fm", "subtractive"]
     try:
         import yaml as _yaml, tempfile
         preset_data = generate_preset(mood=mood, seed=seed, allowed_types=allowed_types)
