@@ -2937,6 +2937,26 @@ async function doRender() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
+    // Also download the preset YAML alongside the audio
+    try {
+      const yamlRes = await fetch(apiUrl('/api/export-preset'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ params })
+      });
+      if (yamlRes.ok) {
+        const yamlBlob = await yamlRes.blob();
+        const yamlName = (params.name || 'preset').replace(/[^a-zA-Z0-9 \-_]/g, '').trim() + '.yaml';
+        const ya = document.createElement('a');
+        ya.href = URL.createObjectURL(yamlBlob);
+        ya.download = yamlName;
+        document.body.appendChild(ya);
+        ya.click();
+        document.body.removeChild(ya);
+        URL.revokeObjectURL(ya.href);
+      }
+    } catch (_) { /* preset download is best-effort */ }
+
     // Decode audio for waveform display and playback
     renderedBlob = blob;
     const arrayBuf = await blob.arrayBuffer();
