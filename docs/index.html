@@ -1604,7 +1604,8 @@ async function loadPresetList() {
     const path = decodeURIComponent(presetMatch[1]);
     const match = allPresets.find(p => p.path === path);
     if (match) {
-      loadPreset(match.path, null);
+      setStatus('Loading preset…');
+      await loadPreset(match.path, null);
       setStatus('🔗 Preset loaded: ' + match.name);
       return;
     }
