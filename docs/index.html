@@ -966,7 +966,6 @@ main {
       <div class="file-menu-item" id="btn-restore">↺ Restore</div>
       <div class="file-menu-item" id="btn-share">🔗 Share</div>
       <div class="file-menu-item" id="btn-export">⬇ Download</div>
-      <div class="file-menu-item" id="btn-delete" style="color:var(--danger)">🗑 Delete</div>
       <div class="settings-divider"></div>
       <div class="dropdown-section-label">Export Audio</div>
       <div class="settings-row">
@@ -3272,22 +3271,8 @@ async function doRestore() {
   setStatus('↺ Restored to saved version');
 }
 
-async function doDeletePreset() {
-  if (!currentPresetPath) { setStatus('No preset loaded'); return; }
-  const name = currentPresetPath.split('/').pop().replace('.yaml', '');
-  if (!confirm(`Delete preset "${name}"? This cannot be undone.`)) return;
-  try {
-    const resp = await fetch(apiUrl('/api/delete-preset'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: currentPresetPath })
-    });
-    if (!resp.ok) throw new Error(await resp.text());
-    setStatus(`🗑 Deleted "${name}"`);
-    currentPresetPath = null;
-    loadPresetList();
-  } catch (e) { setStatus('Delete failed: ' + e.message); }
-}
+async function doDeletePreset() {}
+
 
 // ── Status ──────────────────────────────────────────────────────────────────
 function setStatus(msg) {
@@ -3440,7 +3425,6 @@ function init() {
   $('btn-export').addEventListener('click', doExportPreset);
   $('btn-share').addEventListener('click', doSharePreset);
   $('btn-restore').addEventListener('click', doRestore);
-  $('btn-delete').addEventListener('click', doDeletePreset);
 
   // Mood buttons
   document.querySelectorAll('.mood-btn').forEach(btn => {
