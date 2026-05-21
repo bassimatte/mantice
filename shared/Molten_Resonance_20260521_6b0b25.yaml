@@ -1,0 +1,103 @@
+meta: {}
+seed: null
+duration: 180.0
+spatial_depth: 2.8
+spatial_wet: 0.0
+saturation: 0.3
+swarm_density: 0.5
+layers:
+- name: Harmonic Bed
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 493.88
+  voices: 15
+  ratios:
+  - 1
+  - 2
+  - 4
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.07
+  amp_min: 0.0035
+  amp_max: 0.0543
+  drift: 0.009
+  mix: 1.16
+  band: mid
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Mid Shimmer
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 783.99
+  voices: 19
+  ratios:
+  - 1
+  - 3
+  - 5
+  - 7
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.143
+  amp_min: 0.0058
+  amp_max: 0.057
+  drift: 0.009
+  mix: 0.74
+  band: mid
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+earth: null
+air:
+  enabled: true
+  intensity: 0.07
+  movement: 0.0109
+  turbulence: 0.043
