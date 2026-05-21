@@ -182,6 +182,9 @@ def _preset_to_ui_params(preset: dict) -> dict:
     reverb = preset.get("reverb") or {}
     earth = preset.get("earth") or {}
     air = preset.get("air") or {}
+    master = preset.get("master", {}) or {}
+    eq = master.get("eq", {}) or {}
+    comp = master.get("comp", {}) or {}
 
     return {
         "name": preset.get("meta", {}).get("name", "MANTICE"),
@@ -189,6 +192,15 @@ def _preset_to_ui_params(preset: dict) -> dict:
         "spatial_depth": preset.get("spatial_depth", 1.0),
         "spatial_wet": preset.get("spatial_wet", 0.7),
         "saturation": preset.get("saturation", 0.3),
+        "master": {
+            "eq_low_cut_hz": float(eq.get("low_cut_hz", 20.0)),
+            "eq_bass_db": float(eq.get("bass_db", 0.0)),
+            "eq_mid_db": float(eq.get("mid_db", 0.0)),
+            "eq_air_db": float(eq.get("air_db", 0.0)),
+            "comp_threshold_db": float(comp.get("threshold_db", 0.0)),
+            "comp_ratio": float(comp.get("ratio", 2.0)),
+            "comp_makeup_db": float(comp.get("makeup_db", 0.0)),
+        },
         "layers": layers_info,
         "binaural": {
             "enabled": binaural.get("enabled", False),
@@ -265,6 +277,7 @@ def _ui_params_to_preset(params: dict) -> dict:
     reverb = params.get("reverb", {})
     earth = params.get("earth", {})
     air = params.get("air", {})
+    master_ui = params.get("master", {})
 
     preset = {
         "meta": {
@@ -275,6 +288,19 @@ def _ui_params_to_preset(params: dict) -> dict:
         "spatial_depth": float(params.get("spatial_depth", 1.0)),
         "spatial_wet": float(params.get("spatial_wet", 0.7)),
         "saturation": float(params.get("saturation", 0.3)),
+        "master": {
+            "eq": {
+                "low_cut_hz": float(master_ui.get("eq_low_cut_hz", 20.0)),
+                "bass_db": float(master_ui.get("eq_bass_db", 0.0)),
+                "mid_db": float(master_ui.get("eq_mid_db", 0.0)),
+                "air_db": float(master_ui.get("eq_air_db", 0.0)),
+            },
+            "comp": {
+                "threshold_db": float(master_ui.get("comp_threshold_db", 0.0)),
+                "ratio": float(master_ui.get("comp_ratio", 2.0)),
+                "makeup_db": float(master_ui.get("comp_makeup_db", 0.0)),
+            }
+        },
         "swarm_density": 0.5,
         "layers": layers,
         "binaural": binaural if binaural.get("enabled") else None,

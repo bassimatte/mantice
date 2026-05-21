@@ -26,6 +26,7 @@ from .binaural            import apply_binaural_detune, generate_binaural_carrie
 from .subharmonic_earth   import SubharmonicEarth
 from .air_pressure_engine import AirPressureEngine
 from .convolution_reverb  import apply_convolution_reverb
+from .master_processing   import apply_master_offline
 
 
 # ── Layer ─────────────────────────────────────────────────────────────────────
@@ -247,6 +248,8 @@ class DroneEngine:
 
         # ── 7. Normalise ──────────────────────────────────────────────────────
         result = self.normalize(stereo_mix)
+        master_cfg = self.preset.get("master", {})
+        result = apply_master_offline(result, _cfg.SAMPLE_RATE, master_cfg)
         _step()
 
         return result

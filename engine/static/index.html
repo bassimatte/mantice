@@ -722,6 +722,15 @@ main {
   padding: 2px 6px;
   border: 1px solid var(--border);
 }
+.card-subsection-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin: 10px 0 4px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 3px;
+}
 
 /* Transport */
 .transport-secondary { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -1113,7 +1122,7 @@ main {
 
         <h3>Global Processing</h3>
         <div class="philosophy-section">
-          <h4>Saturation (Warmth)</h4>
+          <h4>Saturation</h4>
           <p>A master <strong>soft saturation</strong> stage using normalized tanh waveshaping.
           Adds analog tape-like warmth and gently compresses peaks. At low values it's transparent;
           higher values add harmonic richness and density.</p>
@@ -1249,7 +1258,7 @@ python batch_render_freesound.py --metadata-only</pre>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
           <tr><td>Duration</td><td>1–3600 s</td><td>60</td><td>Total audio length</td></tr>
-          <tr><td>Saturation (Warmth)</td><td>0.0–1.0</td><td>0.3</td><td>Master soft saturation — normalized tanh waveshaping for tape-like warmth</td></tr>
+          <tr><td>Saturation</td><td>0.0–1.0</td><td>0.3</td><td>Master soft saturation — normalized tanh waveshaping for tape-like warmth</td></tr>
           <tr><td>Seed</td><td>any integer</td><td>random</td><td>Reproducible output</td></tr>
         </table>
 
@@ -1450,9 +1459,48 @@ python batch_render_freesound.py --metadata-only</pre>
       <input type="number" id="seed-value" value="42" min="0" max="99999" style="width:50px; font-size:10px" title="Preview seed">
     </div>
     <div class="param-row" style="margin-top:6px;">
-      <label>Warmth</label>
+      <label>Saturation</label>
       <input type="range" id="saturation-slider" min="0" max="1" step="0.05" value="0.3" style="flex:1">
       <span class="value" id="saturation-val" style="font-size:10px; color:var(--text-lcd); min-width:32px">0.30</span>
+    </div>
+
+    <div class="card-subsection-label">EQ</div>
+    <div class="param-row">
+      <label>Low Cut</label>
+      <input type="range" id="eq-low-cut" min="20" max="400" step="5" value="20" style="flex:1">
+      <span class="value" id="eq-low-cut-val">20 Hz</span>
+    </div>
+    <div class="param-row">
+      <label>Bass</label>
+      <input type="range" id="eq-bass" min="-12" max="12" step="0.5" value="0" style="flex:1">
+      <span class="value" id="eq-bass-val">0.0 dB</span>
+    </div>
+    <div class="param-row">
+      <label>Mid</label>
+      <input type="range" id="eq-mid" min="-12" max="12" step="0.5" value="0" style="flex:1">
+      <span class="value" id="eq-mid-val">0.0 dB</span>
+    </div>
+    <div class="param-row">
+      <label>Air</label>
+      <input type="range" id="eq-air" min="-12" max="12" step="0.5" value="0" style="flex:1">
+      <span class="value" id="eq-air-val">0.0 dB</span>
+    </div>
+
+    <div class="card-subsection-label">Compressor</div>
+    <div class="param-row">
+      <label>Threshold</label>
+      <input type="range" id="comp-threshold" min="-40" max="0" step="1" value="0" style="flex:1">
+      <span class="value" id="comp-threshold-val">0 dB</span>
+    </div>
+    <div class="param-row">
+      <label>Ratio</label>
+      <input type="range" id="comp-ratio" min="1" max="20" step="0.5" value="2" style="flex:1">
+      <span class="value" id="comp-ratio-val">2.0</span>
+    </div>
+    <div class="param-row">
+      <label>Makeup</label>
+      <input type="range" id="comp-makeup" min="-6" max="12" step="0.5" value="0" style="flex:1">
+      <span class="value" id="comp-makeup-val">0.0 dB</span>
     </div>
   </div>
 
@@ -1826,10 +1874,26 @@ function applyParamsToUI(p) {
   $('air-intensity').value = p.air.intensity;
   $('air-intensity-val').textContent = p.air.intensity.toFixed(2);
 
-  // Saturation (Warmth)
+  // Saturation
   const sat = p.saturation !== undefined ? p.saturation : 0.3;
   $('saturation-slider').value = sat;
   $('saturation-val').textContent = sat.toFixed(2);
+
+  const m = p.master || {};
+  $('eq-low-cut').value = m.eq_low_cut_hz ?? 20;
+  $('eq-low-cut-val').textContent = (m.eq_low_cut_hz ?? 20) + ' Hz';
+  $('eq-bass').value = m.eq_bass_db ?? 0;
+  $('eq-bass-val').textContent = (+(m.eq_bass_db ?? 0)).toFixed(1) + ' dB';
+  $('eq-mid').value = m.eq_mid_db ?? 0;
+  $('eq-mid-val').textContent = (+(m.eq_mid_db ?? 0)).toFixed(1) + ' dB';
+  $('eq-air').value = m.eq_air_db ?? 0;
+  $('eq-air-val').textContent = (+(m.eq_air_db ?? 0)).toFixed(1) + ' dB';
+  $('comp-threshold').value = m.comp_threshold_db ?? 0;
+  $('comp-threshold-val').textContent = (m.comp_threshold_db ?? 0) + ' dB';
+  $('comp-ratio').value = m.comp_ratio ?? 2;
+  $('comp-ratio-val').textContent = (+(m.comp_ratio ?? 2)).toFixed(1);
+  $('comp-makeup').value = m.comp_makeup_db ?? 0;
+  $('comp-makeup-val').textContent = (+(m.comp_makeup_db ?? 0)).toFixed(1) + ' dB';
 
   // Layers
   buildLayerTabs(p.layers);
@@ -2336,6 +2400,15 @@ function collectParams() {
 
   // Saturation
   p.saturation = parseFloat($('saturation-slider').value);
+  p.master = {
+    eq_low_cut_hz: parseFloat($('eq-low-cut').value),
+    eq_bass_db: parseFloat($('eq-bass').value),
+    eq_mid_db: parseFloat($('eq-mid').value),
+    eq_air_db: parseFloat($('eq-air').value),
+    comp_threshold_db: parseFloat($('comp-threshold').value),
+    comp_ratio: parseFloat($('comp-ratio').value),
+    comp_makeup_db: parseFloat($('comp-makeup').value),
+  };
 
   return p;
 }
@@ -3580,6 +3653,17 @@ function init() {
   });
 
   // Slider value displays (with undo on change, throttled input)
+  function linkSlider(sliderId, valId, formatter) {
+    const handler = () => {
+      $(valId).textContent = formatter($(sliderId).value);
+      updateBinauralUI();
+      markDirty();
+    };
+    $(sliderId).addEventListener('input', throttle(handler, 16));
+    $(sliderId).addEventListener('change', handler);
+    $(sliderId).addEventListener('mousedown', () => { pushUndo(); });
+  }
+
   const sliderPairs = [
     ['binaural-beat', 'binaural-beat-val', 1],
     ['binaural-carrier', 'binaural-carrier-val', 0],
@@ -3592,15 +3676,18 @@ function init() {
     ['mutate-amount', 'mutate-amount-val', 2],
   ];
   sliderPairs.forEach(([sliderId, valId, decimals]) => {
-    const handler = () => {
-      $(valId).textContent = parseFloat($(sliderId).value).toFixed(decimals);
-      updateBinauralUI();
-      markDirty();
-    };
-    $(sliderId).addEventListener('input', throttle(handler, 16));
-    $(sliderId).addEventListener('change', handler); // final value always fires
-    $(sliderId).addEventListener('mousedown', () => { pushUndo(); });
+    linkSlider(sliderId, valId, v => parseFloat(v).toFixed(decimals));
   });
+
+  // EQ sliders
+  linkSlider('eq-low-cut', 'eq-low-cut-val', v => v + ' Hz');
+  linkSlider('eq-bass', 'eq-bass-val', v => (+v).toFixed(1) + ' dB');
+  linkSlider('eq-mid', 'eq-mid-val', v => (+v).toFixed(1) + ' dB');
+  linkSlider('eq-air', 'eq-air-val', v => (+v).toFixed(1) + ' dB');
+  // Compressor sliders
+  linkSlider('comp-threshold', 'comp-threshold-val', v => v + ' dB');
+  linkSlider('comp-ratio', 'comp-ratio-val', v => (+v).toFixed(1));
+  linkSlider('comp-makeup', 'comp-makeup-val', v => (+v).toFixed(1) + ' dB');
 
   // Keyboard shortcuts
   initKeyboardShortcuts();

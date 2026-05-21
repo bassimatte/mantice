@@ -20,6 +20,7 @@ from scipy.signal import butter, sosfilt, sosfilt_zi
 
 from . import config
 from .granular_layer import StreamingGranularLayer
+from .master_processing import MasterProcessor
 
 # Use lower sample rate for real-time streaming (less CPU)
 SR = config.STREAM_SAMPLE_RATE
@@ -434,6 +435,7 @@ class StreamingDroneEngine:
         self.panners = []
         self.choruses = []
         self.saturation = float(preset.get("saturation", 0.3))
+        self._master = MasterProcessor(preset.get("master", {}), SR)
 
         for layer_cfg in preset["layers"]:
             if not layer_cfg.get("enabled", True):
@@ -512,6 +514,8 @@ class StreamingDroneEngine:
         peak = np.max(np.abs(stereo))
         if peak > 0.92:
             stereo = stereo * (0.92 / peak)
+
+        stereo = self._master.process(stereo)
 
         # Handle crossfade from hot-reload
         if self._crossfade_remaining > 0 and self._old_engine is not None:
@@ -609,6 +613,7 @@ class _ShallowCopy:
         self._dc_zi_L = engine._dc_zi_L.copy()
         self._dc_zi_R = engine._dc_zi_R.copy()
         self.saturation = engine.saturation
+        self._master = engine._master.copy_state()
         self._crossfade_remaining = 0
         self._old_engine = None
 
@@ -631,6 +636,8 @@ class _ShallowCopy:
         peak = np.max(np.abs(stereo))
         if peak > 0.92:
             stereo = stereo * (0.92 / peak)
+
+        stereo = self._master.process(stereo)
 
         return stereo
 
