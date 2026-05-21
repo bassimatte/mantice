@@ -16,7 +16,14 @@ Launch: python main.py --gui
 import asyncio
 import json
 import io
+import os
+import re
+import base64
 import threading
+import uuid
+import urllib.request
+import urllib.error
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -47,6 +54,10 @@ _ROOT = Path(__file__).resolve().parent.parent
 _PRESETS_DIR = _ROOT / "presets"
 _EXPORTS_DIR = _ROOT / "exports"
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO = "bassimatte/mantice"
+GITHUB_BRANCH = "main"
 
 
 def _find_all_presets() -> list[dict]:
@@ -427,6 +438,80 @@ async def export_preset_endpoint(request: Request):
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/share")
+async def share_preset_endpoint(request: Request):
+    """Save current preset YAML to the shared/ folder in the GitHub repo and return its ID."""
+    if not GITHUB_TOKEN:
+        return JSONResponse({"ok": False, "error": "Sharing not configured on this server"}, status_code=503)
+    body = await request.json()
+    params = body.get("params")
+    if not params:
+        return JSONResponse({"ok": False, "error": "No params"}, status_code=400)
+    try:
+        import yaml as _yaml
+        preset_data = _ui_params_to_preset(params)
+        preset_name = params.get("name", "Untitled")
+        safe_name = "".join(c for c in preset_name if c.isalnum() or c in " -_").strip().replace(" ", "_")
+        short_id = uuid.uuid4().hex[:6]
+        date_str = datetime.utcnow().strftime("%Y%m%d")
+        file_id = f"{safe_name}_{date_str}_{short_id}"
+        yaml_str = _yaml.dump(preset_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        content_b64 = base64.b64encode(yaml_str.encode("utf-8")).decode("ascii")
+        api_gh_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared/{file_id}.yaml"
+        payload = json.dumps({
+            "message": f"Share preset: {preset_name}",
+            "content": content_b64,
+            "branch": GITHUB_BRANCH
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            api_gh_url, data=payload, method="PUT",
+            headers={
+                "Authorization": f"token {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github.v3+json",
+                "Content-Type": "application/json",
+                "User-Agent": "Mantice/1.0",
+            }
+        )
+        loop = asyncio.get_event_loop()
+        def do_gh_put():
+            with urllib.request.urlopen(req) as resp:
+                return resp.status
+        status = await loop.run_in_executor(None, do_gh_put)
+        if status in (200, 201):
+            return JSONResponse({"ok": True, "id": file_id})
+        return JSONResponse({"ok": False, "error": f"GitHub API returned {status}"}, status_code=500)
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode()
+        return JSONResponse({"ok": False, "error": f"GitHub API error {e.code}: {err_body}"}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/load-shared")
+async def load_shared_preset(id: str):
+    """Fetch a shared preset YAML from the GitHub repo and return parsed params."""
+    if not re.match(r'^[a-zA-Z0-9_\-]{1,120}$', id):
+        return JSONResponse({"ok": False, "error": "Invalid ID"}, status_code=400)
+    raw_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}/shared/{id}.yaml"
+    try:
+        import yaml as _yaml
+        loop = asyncio.get_event_loop()
+        def fetch_yaml():
+            req = urllib.request.Request(raw_url, headers={"User-Agent": "Mantice/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.read().decode("utf-8")
+        yaml_str = await loop.run_in_executor(None, fetch_yaml)
+        preset_data = _yaml.safe_load(yaml_str)
+        params = _preset_to_ui_params(preset_data)
+        return JSONResponse({"ok": True, "params": params})
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return JSONResponse({"ok": False, "error": "Shared preset not found"}, status_code=404)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 

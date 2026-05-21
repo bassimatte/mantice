@@ -939,6 +939,7 @@ main {
       <div class="file-menu-item" id="btn-save">💾 Save</div>
       <div class="file-menu-item" id="btn-save-as">📄 Save As</div>
       <div class="file-menu-item" id="btn-restore">↺ Restore</div>
+      <div class="file-menu-item" id="btn-share">🔗 Share Link</div>
       <div class="file-menu-item" id="btn-export">⬡ Export Preset</div>
       <div class="file-menu-item" id="btn-delete" style="color:var(--danger)">🗑 Delete</div>
       <div class="settings-divider"></div>
@@ -1542,6 +1543,26 @@ async function loadPresetList() {
   allPresets = await api('/api/presets');
   buildTagFilter();
   renderPresetList();
+  // If URL contains #shared=<id>, load that shared preset instead of default
+  const sharedMatch = window.location.hash.match(/[#&]shared=([^&]+)/);
+  if (sharedMatch) {
+    const id = sharedMatch[1];
+    setStatus('Loading shared preset…');
+    try {
+      const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
+      if (data.ok) {
+        currentParams = data.params;
+        applyParamsToUI(currentParams);
+        markClean();
+        setStatus('🔗 Shared preset loaded: ' + (data.params.name || id));
+        return;
+      } else {
+        setStatus('Could not load shared preset: ' + data.error);
+      }
+    } catch (e) {
+      setStatus('Shared preset error: ' + e.message);
+    }
+  }
   // Load default preset on first load
   if (allPresets.length && !currentParams) {
     const isMobile = window.innerWidth <= 768;
@@ -3020,6 +3041,25 @@ async function doMutate() {
 }
 
 // ── Export preset ────────────────────────────────────────────────────────────
+async function doSharePreset() {
+  if (!currentParams) { setStatus('No preset loaded'); return; }
+  setStatus('Sharing…');
+  try {
+    const params = collectParams();
+    const data = await api('/api/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ params })
+    });
+    if (!data.ok) { setStatus('Share failed: ' + data.error); return; }
+    const shareUrl = window.location.origin + window.location.pathname + '#shared=' + data.id;
+    await navigator.clipboard.writeText(shareUrl);
+    setStatus('🔗 Link copied! — ' + shareUrl.split('#')[1]);
+  } catch (e) {
+    setStatus('Share error: ' + e.message);
+  }
+}
+
 async function doExportPreset() {
   if (!currentParams) { setStatus('No preset loaded'); return; }
   setStatus('Exporting...');
@@ -3337,6 +3377,7 @@ function init() {
 
   // Export
   $('btn-export').addEventListener('click', doExportPreset);
+  $('btn-share').addEventListener('click', doSharePreset);
   $('btn-save').addEventListener('click', doSavePreset);
   $('btn-save-as').addEventListener('click', doSaveAs);
   $('btn-restore').addEventListener('click', doRestore);
