@@ -57,14 +57,18 @@ python main.py --preset "presets/essentials/Warm Pad.yaml" --duration 120
 
 ## 🎛 Features
 
-- **FM Synthesis** — up to 20 detuned voices per layer with configurable harmonics
+- **FM Synthesis** — up to 12 detuned voices per layer with configurable harmonics
+- **Subtractive Synthesis** — dual detuned oscillators (saw/square/triangle) + sub-oscillator, Reese bass style
+- **Per-Layer Filter & LFO** — biquad LP/HP/BP filter with LFO modulation (sine/triangle/square)
 - **Granular Clouds** — sample-based grain synthesis with CC0 sound sources
-- **Spatial Motion** — per-layer panning trajectories (orbit, drift, bounce)
+- **Spatial Motion** — per-layer panning trajectories (orbit, drift, bounce) with elevation
 - **Binaural Beats** — theta/delta/alpha entrainment with configurable depth
 - **FDN Reverb** — 8-tap feedback delay network (or custom impulse responses)
 - **Chorus** — multi-voice modulation for width and shimmer
-- **42 Presets** — across 5 categories (essentials, cinematic, experimental, sacred, subharmonic)
-- **Real-time Web UI** — stream, tweak, save, and export from your browser
+- **Master EQ & Compressor** — 4-band EQ + feedforward compressor on master bus
+- **44 Presets** — across 6 categories (essentials, cinematic, experimental, sacred, subharmonic, reese)
+- **Real-time Web UI** — stream, tweak, save, and export from your browser; layer sub-tabs (Synth/Filter/Space/FX)
+- **Generator** — mood-biased random preset generator with FM/Subtractive type selection
 - **Preset Save/Load** — create, modify, and share YAML preset files
 
 ---
@@ -112,6 +116,29 @@ python main.py --preset "presets/essentials/Warm Pad.yaml" --duration 120
 |---------|----------|-------|---------|-------------|
 | FM Ratios | `fm.ratios` | list of floats | [1.0] | Modulator frequency ratios |
 | FM Index | `fm.index` | 0.0–5.0 | 0.1 | Modulation depth (higher = more harmonics) |
+
+#### Subtractive Synthesis
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Waveform | `waveform` | saw / square / triangle | saw | Oscillator waveform shape |
+| Detune | `detune_cents` | 0–50 cents | 8.0 | Spread between detuned oscillator pairs |
+| Sub Mix | `sub_mix` | 0.0–1.0 | 0.3 | Level of the sub-oscillator (one octave below) |
+
+Set `type: subtractive` at layer level to use this engine instead of FM.
+
+#### Per-Layer Filter & LFO
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Filter Type | `filter_type` | off / lp / hp / bp | off | Biquad filter type |
+| Cutoff | `filter_cutoff` | 20–20000 Hz | 2000 | Filter cutoff frequency |
+| Resonance | `filter_resonance` | 0.1–10 | 1.0 | Q factor / resonance peak |
+| LFO Rate | `filter_lfo_rate` | 0.01–5 Hz | 0.1 | Cutoff modulation speed |
+| LFO Depth | `filter_lfo_depth` | 0.0–1.0 | 0.0 | Modulation amount (0 = off) |
+| LFO Shape | `filter_lfo_shape` | sine / triangle / square | sine | LFO waveform |
+
+Works on all layer types. Filter is applied after chorus.
 
 #### Harmonics (V15)
 
@@ -304,6 +331,38 @@ layers:
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z | Redo |
 | Ctrl+ / Ctrl- | Zoom in/out |
+
+---
+
+## What's New in V21.0
+
+### Subtractive Synthesis
+- New layer type: **Subtractive** — dual detuned oscillator pairs (saw/square/triangle) + sine sub-oscillator one octave below
+- Classic Reese bass character: set waveform=saw, detune=15–25 cents, sub_mix=0.4–0.6
+- Per-layer **biquad filter** (LP/HP/BP) with resonance, applied after synthesis
+- Filter **LFO** modulates cutoff with sine/triangle/square at configurable rate and depth
+
+### UI Restructuring
+- Layer parameters reorganised into sub-tabs: **Synth** / **Filter** / **Space** / **FX**
+- New **Global FX** card consolidates Binaural, Reverb, and Earth & Air in one place
+- **Add / Remove** layer buttons (max 5 layers)
+- Solo toggle now correctly un-solos on second click
+- Chorus label added in FX tab
+
+### Generator Improvements
+- Generator now picks **FM or Subtractive** layers per mood profile (checkboxes: ☑ FM ☑ Subtractive)
+- Layers capped at 3, voices at 12 (FM) / 6 (Subtractive) for streaming safety
+- Mood-specific subtractive character: waveform, detune range, filter type, LFO rate/depth
+
+### New Presets
+| Preset | Category | Showcase |
+|--------|----------|----------|
+| **Reese Protocol** | experimental | Saw Reese bass + LP filter sweep + sub floor |
+| **Steel Cathedral** | cinematic | Triangle choir + LP/BP moving filters + hall reverb |
+
+### Bug Fixes
+- Mutate after Generate now works correctly (nested v2 structure reconstruction)
+- `preset_loader.py`: filter and subtractive fields now survive normalisation
 
 ---
 

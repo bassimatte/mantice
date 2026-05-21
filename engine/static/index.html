@@ -1146,10 +1146,22 @@ main {
           each contributes a different voice to the whole.</p>
 
           <h4>FM Synthesis Engine</h4>
-          <p>Each layer uses <strong>Frequency Modulation (FM)</strong> synthesis as its core.
+          <p>Each FM layer uses <strong>Frequency Modulation</strong> synthesis as its core.
           Multiple detuned voices per layer create rich, beating textures. The FM index controls
           harmonic complexity — low values produce pure tones, higher values create metallic,
           bell-like timbres.</p>
+
+          <h4>Subtractive Synthesis Engine</h4>
+          <p>Subtractive layers use classic <strong>waveform oscillators</strong> — sawtooth, square, or triangle —
+          instead of FM. Two detuned oscillator pairs (±detune cents) create the thick, beating quality
+          of a Reese bass. A third sub-oscillator one octave below adds weight. The output is then
+          shaped by the per-layer filter for the full subtractive sound design workflow.</p>
+
+          <h4>Per-Layer Filter & LFO</h4>
+          <p>Every layer (FM, Subtractive, or Granular) has a <strong>biquad filter</strong>
+          (Low-pass, High-pass, or Band-pass) with resonance control. An LFO can modulate the
+          filter cutoff over time using sine, triangle, or square shapes — creating slowly evolving
+          filter sweeps or rhythmic tonal movement.</p>
 
           <h4>Harmonics & Noise</h4>
           <p>On top of FM, each layer can add <strong>harmonic overtones</strong> (up to 16 partials
@@ -1172,6 +1184,12 @@ main {
           <h4>Chorus</h4>
           <p>A per-layer <strong>chorus</strong> effect adds width and shimmer through modulated
           delay copies. Slow rates create gentle swaying; faster rates add vibrato-like movement.</p>
+
+          <h4>Layer Sub-tabs & Global FX</h4>
+          <p>Layer parameters are organised into four sub-tabs: <strong>Synth</strong> (oscillator type and tuning),
+          <strong>Filter</strong> (biquad filter + LFO), <strong>Space</strong> (quadrant, trajectory, elevation),
+          and <strong>FX</strong> (chorus). Global processing — Binaural, Reverb, and Earth &amp; Air —
+          lives in a single <strong>Global FX</strong> card below the layers.</p>
         </div>
 
         <h3>Global Processing</h3>
@@ -1206,6 +1224,10 @@ main {
           and hear changes instantly. <strong>Render</strong> computes the full duration at high
           quality for export. Use the <strong>seed</strong> to reproduce exact results, or leave
           it random for variation.</p>
+          <p>The <strong>Generator</strong> creates random presets biased by mood. Choose which
+          synthesis types to include — <em>FM</em> and/or <em>Subtractive</em> — then click Generate.
+          <strong>Mutate</strong> takes the current preset and introduces controlled variation
+          (use the Amount slider to set how wild).</p>
           <p>Presets are stored as YAML files — human-readable, version-controllable, and shareable.
           Use Save/Save As to create your own library.</p>
         </div>
@@ -1316,14 +1338,35 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>Seed</td><td>any integer</td><td>random</td><td>Reproducible output</td></tr>
         </table>
 
-        <h3>Layer — Synthesis</h3>
+        <h3>Layer — Synthesis (FM)</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
           <tr><td>Root Frequency</td><td>20–8000 Hz</td><td>110</td><td>Fundamental frequency of the layer</td></tr>
-          <tr><td>Voices</td><td>1–20</td><td>8</td><td>Number of detuned oscillator copies</td></tr>
+          <tr><td>Voices</td><td>1–12</td><td>8</td><td>Number of detuned oscillator copies</td></tr>
           <tr><td>Ratios</td><td>floats</td><td>[1.0]</td><td>Frequency multipliers relative to root</td></tr>
           <tr><td>FM Index</td><td>0.0–5.0</td><td>0.1</td><td>FM modulation depth (higher = more harmonics)</td></tr>
         </table>
+
+        <h3>Layer — Synthesis (Subtractive)</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Waveform</td><td>saw / square / triangle</td><td>saw</td><td>Oscillator waveform shape</td></tr>
+          <tr><td>Detune</td><td>0–50 cents</td><td>8</td><td>Spread between the two detuned oscillator pairs — wider = thicker beating</td></tr>
+          <tr><td>Sub Mix</td><td>0.0–1.0</td><td>0.3</td><td>Level of the sub-oscillator (one octave below root) — adds low-end weight</td></tr>
+        </table>
+        <p class="docs-note">Subtractive layers produce richer bass and lead textures than FM. Combine with a LP filter + slow LFO for a classic Reese bass effect.</p>
+
+        <h3>Layer — Filter & LFO</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Type</td><td>off / LP / HP / BP</td><td>off</td><td>Biquad filter type (Low-pass, High-pass, Band-pass)</td></tr>
+          <tr><td>Cutoff</td><td>20–20000 Hz</td><td>2000</td><td>Filter cutoff frequency</td></tr>
+          <tr><td>Resonance</td><td>0.1–10</td><td>1.0</td><td>Filter Q / resonance peak at cutoff</td></tr>
+          <tr><td>LFO Rate</td><td>0.01–5 Hz</td><td>0.1</td><td>Speed of cutoff modulation</td></tr>
+          <tr><td>LFO Depth</td><td>0.0–1.0</td><td>0.0</td><td>How much the LFO moves the cutoff (0 = off)</td></tr>
+          <tr><td>LFO Shape</td><td>sine / triangle / square</td><td>sine</td><td>LFO waveform shape</td></tr>
+        </table>
+        <p class="docs-note">Filter is applied after synthesis and chorus. Works on all layer types (FM, Subtractive, Granular).</p>
 
         <h3>Layer — Harmonics</h3>
         <table class="docs-table">
