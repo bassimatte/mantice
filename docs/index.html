@@ -300,13 +300,27 @@ aside h3 {
 }
 
 /* Tag filter */
+#tag-filter-details {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+#tag-filter-details > summary {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 5px 8px;
+  user-select: none;
+}
 .tag-filter {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
-  padding: 6px 8px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--border);
+  padding: 4px 8px 8px;
+  border-top: none;
+  margin-bottom: 0;
+  border-bottom: none;
 }
 .tag-btn {
   font-family: 'Space Mono', monospace;
@@ -1366,7 +1380,10 @@ python batch_render_freesound.py --metadata-only</pre>
 
 <aside>
   <h3>Presets</h3>
-  <div class="tag-filter" id="tag-filter"></div>
+  <details id="tag-filter-details">
+    <summary>Filter by tag</summary>
+    <div class="tag-filter" id="tag-filter"></div>
+  </details>
   <div id="preset-list"></div>
 
   <div class="sidebar-section">
