@@ -1736,7 +1736,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || '';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
