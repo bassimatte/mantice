@@ -1,0 +1,178 @@
+meta: {}
+seed: null
+duration: 180.0
+spatial_depth: 1.2
+spatial_wet: 0.0
+saturation: 0.3
+swarm_density: 0.5
+layers:
+- name: Low Drone
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 87.31
+  voices: 5
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.034
+  amp_min: 0.0061
+  amp_max: 0.0316
+  drift: 0.0044
+  mix: 1.02
+  band: sub
+  quadrant: rear_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Mid Resonance
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 207.65
+  voices: 6
+  ratios:
+  - 1
+  - 1.5
+  fm_ratios:
+  - 1
+  - 2
+  fm_index: 0.011
+  amp_min: 0.0136
+  amp_max: 0.0371
+  drift: 0.003
+  mix: 1.11
+  band: mid
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Core Tone
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 174.61
+  voices: 5
+  ratios:
+  - 1
+  - 1.5
+  fm_ratios:
+  - 1
+  - 2.5
+  - 3
+  fm_index: 0.018
+  amp_min: 0.0109
+  amp_max: 0.0678
+  drift: 0.005
+  mix: 0.51
+  band: sub
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Amber Field
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 155.56
+  voices: 5
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  - 2.5
+  - 3
+  fm_index: 0.026
+  amp_min: 0.0022
+  amp_max: 0.066
+  drift: 0.0049
+  mix: 1.09
+  band: sub
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+earth: null
+air: null
