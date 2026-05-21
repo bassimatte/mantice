@@ -136,6 +136,60 @@ header .status {
 }
 .zoom-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ── Settings dropdown ──────────────────────────── */
+.settings-menu {
+  position: relative;
+}
+#btn-settings {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+}
+.settings-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  min-width: 150px;
+  z-index: 2000;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.settings-dropdown.open { display: block; }
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+}
+.settings-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex: 1;
+}
+.settings-divider {
+  border-top: 1px solid var(--border);
+  margin: 6px 0;
+}
+.settings-info-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius);
+}
+.settings-info-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ── Sidebar ────────────────────────────────────── */
 aside {
   background: var(--surface);
@@ -434,6 +488,7 @@ main {
   .zoom-btn { display: none; }
   /* Info button and hamburger pushed to right */
   #btn-docs { margin-left: 0; order: 98; }
+  .settings-menu { order: 98; }
   .hamburger { order: 99; }
 
   /* Preset name bar below header */
@@ -846,10 +901,24 @@ main {
   </div>
   <span class="now-playing" id="now-playing"></span>
   <span class="status" id="status">READY</span>
-  <button class="zoom-btn" id="btn-zoom-out" title="Zoom out (Ctrl+-)">−</button>
-  <button class="zoom-btn" id="btn-zoom-in" title="Zoom in (Ctrl+=)">+</button>
-  <button class="zoom-btn" id="btn-theme-header" title="Toggle dark/light mode">◑</button>
-  <button class="transport-btn btn-info" id="btn-docs" title="Settings Reference">ⓘ</button>
+  <div class="settings-menu" id="settings-menu">
+    <button class="zoom-btn" id="btn-settings" title="Settings">⚙</button>
+    <div class="settings-dropdown" id="settings-dropdown">
+      <div class="settings-row">
+        <span class="settings-label">Zoom</span>
+        <button class="zoom-btn" id="btn-zoom-out" title="Zoom out (Ctrl+-)">−</button>
+        <button class="zoom-btn" id="btn-zoom-in" title="Zoom in (Ctrl+=)">+</button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Theme</span>
+        <button class="zoom-btn" id="btn-theme-header" title="Toggle dark/light mode">◑</button>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-row">
+        <button class="settings-info-btn" id="btn-docs-settings">ⓘ Info &amp; Docs</button>
+      </div>
+    </div>
+  </div>
 </header>
 <div id="mobile-now-playing" class="mobile-now-playing"></div>
 
@@ -2834,7 +2903,7 @@ async function doRender() {
     doPlay(); // auto-play after render
 
     const sizeMB = (blob.size / (1024*1024)).toFixed(1);
-    setStatus(`✓ SAVED → exports/${filename} (${sizeMB} MB)`);
+    setStatus(`✓ Downloaded: ${filename} (${sizeMB} MB)`);
     setTimeout(() => { setProgress(0); }, 3000);
   } catch (e) {
     clearInterval(progressInterval);
@@ -3168,6 +3237,21 @@ function init() {
   // Theme toggle
   $('btn-theme-toggle').addEventListener('click', toggleTheme);
   $('btn-theme-header').addEventListener('click', toggleTheme);
+
+  // Settings dropdown
+  const settingsBtn = $('btn-settings');
+  const settingsDropdown = $('settings-dropdown');
+  settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    settingsDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!$('settings-menu').contains(e.target)) settingsDropdown.classList.remove('open');
+  });
+  $('btn-docs-settings').addEventListener('click', () => {
+    settingsDropdown.classList.remove('open');
+    $('docs-overlay').classList.add('open');
+  });
 
   // Docs tab switching
   document.querySelectorAll('.docs-tab').forEach(tab => {
