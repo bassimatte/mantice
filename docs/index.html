@@ -365,6 +365,24 @@ aside h3 {
 }
 .mood-btn:hover { border-color: var(--accent); color: var(--text); }
 .mood-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.gen-type-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.gen-type-row label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.gen-type-row input[type=checkbox] { accent-color: var(--accent); width: 11px; height: 11px; cursor: pointer; }
 .generator-actions {
   display: flex;
   gap: 4px;
@@ -845,6 +863,30 @@ main {
 .layer-tab.disabled { opacity: 0.35; text-decoration: line-through; }
 .layer-tab.disabled.active { background: var(--layer-color, var(--accent)); opacity: 0.6; }
 
+/* Layer sub-tabs */
+.layer-subtabs {
+  display: flex;
+  gap: 2px;
+  margin: 8px 0 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.layer-subtab {
+  padding: 3px 10px;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -5px;
+}
+.layer-subtab:hover { color: var(--text); }
+.layer-subtab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+
 /* Layer enable toggle */
 .layer-toggle-row {
   display: flex;
@@ -1104,10 +1146,22 @@ main {
           each contributes a different voice to the whole.</p>
 
           <h4>FM Synthesis Engine</h4>
-          <p>Each layer uses <strong>Frequency Modulation (FM)</strong> synthesis as its core.
+          <p>Each FM layer uses <strong>Frequency Modulation</strong> synthesis as its core.
           Multiple detuned voices per layer create rich, beating textures. The FM index controls
           harmonic complexity — low values produce pure tones, higher values create metallic,
           bell-like timbres.</p>
+
+          <h4>Subtractive Synthesis Engine</h4>
+          <p>Subtractive layers use classic <strong>waveform oscillators</strong> — sawtooth, square, or triangle —
+          instead of FM. Two detuned oscillator pairs (±detune cents) create the thick, beating quality
+          of a Reese bass. A third sub-oscillator one octave below adds weight. The output is then
+          shaped by the per-layer filter for the full subtractive sound design workflow.</p>
+
+          <h4>Per-Layer Filter & LFO</h4>
+          <p>Every layer (FM, Subtractive, or Granular) has a <strong>biquad filter</strong>
+          (Low-pass, High-pass, or Band-pass) with resonance control. An LFO can modulate the
+          filter cutoff over time using sine, triangle, or square shapes — creating slowly evolving
+          filter sweeps or rhythmic tonal movement.</p>
 
           <h4>Harmonics & Noise</h4>
           <p>On top of FM, each layer can add <strong>harmonic overtones</strong> (up to 16 partials
@@ -1130,6 +1184,12 @@ main {
           <h4>Chorus</h4>
           <p>A per-layer <strong>chorus</strong> effect adds width and shimmer through modulated
           delay copies. Slow rates create gentle swaying; faster rates add vibrato-like movement.</p>
+
+          <h4>Layer Sub-tabs & Global FX</h4>
+          <p>Layer parameters are organised into four sub-tabs: <strong>Synth</strong> (oscillator type and tuning),
+          <strong>Filter</strong> (biquad filter + LFO), <strong>Space</strong> (quadrant, trajectory, elevation),
+          and <strong>FX</strong> (chorus). Global processing — Binaural, Reverb, and Earth &amp; Air —
+          lives in a single <strong>Global FX</strong> card below the layers.</p>
         </div>
 
         <h3>Global Processing</h3>
@@ -1164,6 +1224,10 @@ main {
           and hear changes instantly. <strong>Render</strong> computes the full duration at high
           quality for export. Use the <strong>seed</strong> to reproduce exact results, or leave
           it random for variation.</p>
+          <p>The <strong>Generator</strong> creates random presets biased by mood. Choose which
+          synthesis types to include — <em>FM</em> and/or <em>Subtractive</em> — then click Generate.
+          <strong>Mutate</strong> takes the current preset and introduces controlled variation
+          (use the Amount slider to set how wild).</p>
           <p>Presets are stored as YAML files — human-readable, version-controllable, and shareable.
           Use Save/Save As to create your own library.</p>
         </div>
@@ -1274,14 +1338,35 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>Seed</td><td>any integer</td><td>random</td><td>Reproducible output</td></tr>
         </table>
 
-        <h3>Layer — Synthesis</h3>
+        <h3>Layer — Synthesis (FM)</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
           <tr><td>Root Frequency</td><td>20–8000 Hz</td><td>110</td><td>Fundamental frequency of the layer</td></tr>
-          <tr><td>Voices</td><td>1–20</td><td>8</td><td>Number of detuned oscillator copies</td></tr>
+          <tr><td>Voices</td><td>1–12</td><td>8</td><td>Number of detuned oscillator copies</td></tr>
           <tr><td>Ratios</td><td>floats</td><td>[1.0]</td><td>Frequency multipliers relative to root</td></tr>
           <tr><td>FM Index</td><td>0.0–5.0</td><td>0.1</td><td>FM modulation depth (higher = more harmonics)</td></tr>
         </table>
+
+        <h3>Layer — Synthesis (Subtractive)</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Waveform</td><td>saw / square / triangle</td><td>saw</td><td>Oscillator waveform shape</td></tr>
+          <tr><td>Detune</td><td>0–50 cents</td><td>8</td><td>Spread between the two detuned oscillator pairs — wider = thicker beating</td></tr>
+          <tr><td>Sub Mix</td><td>0.0–1.0</td><td>0.3</td><td>Level of the sub-oscillator (one octave below root) — adds low-end weight</td></tr>
+        </table>
+        <p class="docs-note">Subtractive layers produce richer bass and lead textures than FM. Combine with a LP filter + slow LFO for a classic Reese bass effect.</p>
+
+        <h3>Layer — Filter & LFO</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Type</td><td>off / LP / HP / BP</td><td>off</td><td>Biquad filter type (Low-pass, High-pass, Band-pass)</td></tr>
+          <tr><td>Cutoff</td><td>20–20000 Hz</td><td>2000</td><td>Filter cutoff frequency</td></tr>
+          <tr><td>Resonance</td><td>0.1–10</td><td>1.0</td><td>Filter Q / resonance peak at cutoff</td></tr>
+          <tr><td>LFO Rate</td><td>0.01–5 Hz</td><td>0.1</td><td>Speed of cutoff modulation</td></tr>
+          <tr><td>LFO Depth</td><td>0.0–1.0</td><td>0.0</td><td>How much the LFO moves the cutoff (0 = off)</td></tr>
+          <tr><td>LFO Shape</td><td>sine / triangle / square</td><td>sine</td><td>LFO waveform shape</td></tr>
+        </table>
+        <p class="docs-note">Filter is applied after synthesis and chorus. Works on all layer types (FM, Subtractive, Granular).</p>
 
         <h3>Layer — Harmonics</h3>
         <table class="docs-table">
@@ -1432,6 +1517,10 @@ python batch_render_freesound.py --metadata-only</pre>
       <button class="mood-btn" data-mood="nature">nature</button>
       <button class="mood-btn" data-mood="chaotic">chaotic</button>
     </div>
+    <div class="gen-type-row">
+      <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
+      <label><input type="checkbox" id="gen-type-subtractive" checked> Subtractive</label>
+    </div>
     <div class="generator-actions">
       <button class="btn" id="btn-generate">🎲 Generate</button>
       <button class="btn btn-outline" id="btn-mutate">🧬 Mutate</button>
@@ -1459,6 +1548,84 @@ python batch_render_freesound.py --metadata-only</pre>
     <div class="visualizer-container">
       <canvas id="aurora-canvas"></canvas>
       <canvas id="spectrum-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Layer Parameters -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <h2 style="margin:0">Layers</h2>
+      <button id="btn-add-layer" title="Add layer" style="padding:2px 8px;font-size:14px;line-height:1;background:var(--bg);border:1px solid var(--border);color:var(--accent);cursor:pointer;border-radius:3px;font-family:'Space Mono',monospace;" onclick="doAddLayer()">+</button>
+    </div>
+    <div class="layer-tabs" id="layer-tabs"></div>
+    <div id="layer-params"></div>
+  </div>
+
+  <!-- Global FX -->
+  <div class="card" id="global-fx-card">
+    <h2>Global FX</h2>
+    <div class="layer-subtabs" id="global-fx-tabs">
+      <button class="layer-subtab active" data-gfx="space">Binaural</button>
+      <button class="layer-subtab" data-gfx="reverb">Reverb</button>
+      <button class="layer-subtab" data-gfx="earth">Earth &amp; Air</button>
+    </div>
+
+    <!-- Space (Binaural) -->
+    <div class="gfx-content" data-gfx="space">
+      <div class="toggle-row">
+        <label>Enabled</label>
+        <div class="toggle" id="binaural-toggle"></div>
+      </div>
+      <div class="radio-group" id="binaural-method">
+        <label><input type="radio" name="binaural-method" value="detune" checked> Detune</label>
+        <label><input type="radio" name="binaural-method" value="carrier"> Carrier</label>
+      </div>
+      <div class="param-row">
+        <label>Beat Hz</label>
+        <input type="range" id="binaural-beat" min="0.5" max="40" step="0.5" value="6.0">
+        <span class="value" id="binaural-beat-val">6.0</span>
+      </div>
+      <div id="binaural-carrier-params" style="display:none">
+        <div class="param-row">
+          <label>Carrier Hz</label>
+          <input type="range" id="binaural-carrier" min="60" max="500" step="1" value="200">
+          <span class="value" id="binaural-carrier-val">200</span>
+        </div>
+        <div class="param-row">
+          <label>Carrier Amp</label>
+          <input type="range" id="binaural-carrier-amp" min="0.01" max="0.5" step="0.01" value="0.15">
+          <span class="value" id="binaural-carrier-amp-val">0.15</span>
+        </div>
+      </div>
+      <div style="font-size:11px; color:var(--text-dim); margin-top:8px" id="binaural-info">θ Theta — meditation / creativity</div>
+    </div>
+
+    <!-- Reverb -->
+    <div class="gfx-content" data-gfx="reverb" style="display:none">
+      <div class="toggle-row">
+        <label>Enabled</label>
+        <div class="toggle" id="reverb-toggle"></div>
+      </div>
+      <div class="param-row">
+        <label>Space</label>
+        <select id="reverb-space" style="flex:1; background:var(--surface2); color:var(--text); border:1px solid var(--border); font-family:'Space Mono',monospace; font-size:10px; padding:3px 6px;">
+          <option value="cathedral">Cathedral</option>
+          <option value="cave">Cave</option>
+          <option value="hall">Hall</option>
+          <option value="plate">Plate</option>
+          <option value="infinite">Infinite</option>
+        </select>
+      </div>
+      <div class="param-row"><label>Mix</label><input type="range" id="reverb-mix" min="0.0" max="1.0" step="0.05" value="0.30"><span class="value" id="reverb-mix-val">0.30</span></div>
+      <div class="param-row"><label>Decay Trim</label><input type="range" id="reverb-decay-trim" min="0.1" max="1.0" step="0.05" value="1.00"><span class="value" id="reverb-decay-trim-val">1.00</span></div>
+    </div>
+
+    <!-- Earth & Air -->
+    <div class="gfx-content" data-gfx="earth" style="display:none">
+      <div class="toggle-row"><label>Earth</label><div class="toggle" id="earth-toggle"></div></div>
+      <div class="param-row"><label>Pressure</label><input type="range" id="earth-pressure" min="0.0" max="1.0" step="0.05" value="0.4"><span class="value" id="earth-pressure-val">0.40</span></div>
+      <div class="toggle-row" style="margin-top:12px"><label>Air</label><div class="toggle" id="air-toggle"></div></div>
+      <div class="param-row"><label>Intensity</label><input type="range" id="air-intensity" min="0.0" max="0.5" step="0.01" value="0.12"><span class="value" id="air-intensity-val">0.12</span></div>
     </div>
   </div>
 
@@ -1515,77 +1682,6 @@ python batch_render_freesound.py --metadata-only</pre>
       <span class="value" id="comp-makeup-val">0.0 dB</span>
     </div>
   </div>
-
-  <!-- Layer Parameters -->
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <h2 style="margin:0">Layers</h2>
-      <button id="btn-add-layer" title="Add layer" style="padding:2px 8px;font-size:14px;line-height:1;background:var(--bg);border:1px solid var(--border);color:var(--accent);cursor:pointer;border-radius:3px;font-family:'Space Mono',monospace;" onclick="doAddLayer()">+</button>
-    </div>
-    <div class="layer-tabs" id="layer-tabs"></div>
-    <div id="layer-params"></div>
-  </div>
-
-  <!-- Binaural -->
-  <div class="card card-collapsible">
-    <h2>Binaural Beats</h2>
-    <div class="toggle-row">
-      <label>Enabled</label>
-      <div class="toggle" id="binaural-toggle"></div>
-    </div>
-    <div class="radio-group" id="binaural-method">
-      <label><input type="radio" name="binaural-method" value="detune" checked> Detune</label>
-      <label><input type="radio" name="binaural-method" value="carrier"> Carrier</label>
-    </div>
-    <div class="param-row">
-      <label>Beat Hz</label>
-      <input type="range" id="binaural-beat" min="0.5" max="40" step="0.5" value="6.0">
-      <span class="value" id="binaural-beat-val">6.0</span>
-    </div>
-    <div id="binaural-carrier-params" style="display:none">
-      <div class="param-row">
-        <label>Carrier Hz</label>
-        <input type="range" id="binaural-carrier" min="60" max="500" step="1" value="200">
-        <span class="value" id="binaural-carrier-val">200</span>
-      </div>
-      <div class="param-row">
-        <label>Carrier Amp</label>
-        <input type="range" id="binaural-carrier-amp" min="0.01" max="0.5" step="0.01" value="0.15">
-        <span class="value" id="binaural-carrier-amp-val">0.15</span>
-      </div>
-    </div>
-    <div style="font-size:11px; color:var(--text-dim); margin-top:8px" id="binaural-info">θ Theta — meditation / creativity</div>
-  </div>
-
-  <!-- Reverb -->
-  <div class="card card-collapsible">
-    <h2>Convolution Reverb</h2>
-    <div class="toggle-row">
-      <label>Enabled</label>
-      <div class="toggle" id="reverb-toggle"></div>
-    </div>
-    <div class="param-row">
-      <label>Space</label>
-      <select id="reverb-space" style="flex:1; background:var(--surface2); color:var(--text); border:1px solid var(--border); font-family:'Space Mono',monospace; font-size:10px; padding:3px 6px;">
-        <option value="cathedral">Cathedral</option>
-        <option value="cave">Cave</option>
-        <option value="hall">Hall</option>
-        <option value="plate">Plate</option>
-        <option value="infinite">Infinite</option>
-      </select>
-    </div>
-    <div class="param-row"><label>Mix</label><input type="range" id="reverb-mix" min="0.0" max="1.0" step="0.05" value="0.30"><span class="value" id="reverb-mix-val">0.30</span></div>
-    <div class="param-row"><label>Decay Trim</label><input type="range" id="reverb-decay-trim" min="0.1" max="1.0" step="0.05" value="1.00"><span class="value" id="reverb-decay-trim-val">1.00</span></div>
-  </div>
-
-  <!-- Earth & Air -->
-  <div class="card card-collapsible">
-    <h2>Earth & Air</h2>
-    <div class="toggle-row"><label>Earth</label><div class="toggle" id="earth-toggle"></div></div>
-    <div class="param-row"><label>Pressure</label><input type="range" id="earth-pressure" min="0.0" max="1.0" step="0.05" value="0.4"><span class="value" id="earth-pressure-val">0.40</span></div>
-    <div class="toggle-row" style="margin-top:12px"><label>Air</label><div class="toggle" id="air-toggle"></div></div>
-    <div class="param-row"><label>Intensity</label><input type="range" id="air-intensity" min="0.0" max="0.5" step="0.01" value="0.12"><span class="value" id="air-intensity-val">0.12</span></div>
-  </div>
 </main>
 
 <script>
@@ -1640,7 +1736,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || '';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -1916,6 +2012,7 @@ function applyParamsToUI(p) {
 
 // ── Layer tabs ──────────────────────────────────────────────────────────────
 let activeLayerIdx = 0;
+let activeLayerSubTab = 'synth';
 
 function getLayerColor(rootHz) {
   if (rootHz < 50) return '#1a3a7a';
@@ -2006,7 +2103,17 @@ function showLayerParams(layer) {
       <select id="lp-type" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
         <option value="fm" ${layerType === 'fm' ? 'selected' : ''}>FM Synthesis</option>
         <option value="granular" ${layerType === 'granular' ? 'selected' : ''}>Granular</option>
+        <option value="subtractive" ${layerType === 'subtractive' ? 'selected' : ''}>Subtractive</option>
       </select>
+    </div>
+  `;
+
+  const subTabHtml = `
+    <div class="layer-subtabs">
+      <button class="layer-subtab ${activeLayerSubTab==='synth'?'active':''}" data-subtab="synth">Synth</button>
+      <button class="layer-subtab ${activeLayerSubTab==='filter'?'active':''}" data-subtab="filter">Filter</button>
+      <button class="layer-subtab ${activeLayerSubTab==='space'?'active':''}" data-subtab="space">Space</button>
+      <button class="layer-subtab ${activeLayerSubTab==='fx'?'active':''}" data-subtab="fx">FX</button>
     </div>
   `;
 
@@ -2029,7 +2136,6 @@ function showLayerParams(layer) {
   `).join('');
 
   const harmonicsHtml = `
-    <h3 style="font-size:8px; text-transform:uppercase; letter-spacing:0.15em; color:var(--text-dim); margin:10px 0 6px; border-top:1px solid var(--border); padding-top:8px;">Harmonics</h3>
     <div class="param-row">
       <label>Harmonics</label>
       <input type="range" id="lp-harmonics" min="1" max="8" step="1" value="${layer.harmonics || 4}" ${!isEnabled ? 'disabled' : ''}>
@@ -2043,7 +2149,6 @@ function showLayerParams(layer) {
   `;
 
   const textureHtml = `
-    <h3 style="font-size:8px; text-transform:uppercase; letter-spacing:0.15em; color:var(--text-dim); margin:10px 0 6px; border-top:1px solid var(--border); padding-top:8px;">Texture</h3>
     <div class="param-row">
       <label>Noise</label>
       <input type="range" id="lp-noise_amount" min="0" max="0.3" step="0.01" value="${layer.noise_amount || 0}" ${!isEnabled ? 'disabled' : ''}>
@@ -2093,8 +2198,53 @@ function showLayerParams(layer) {
     </div>
   `;
 
+  const subtractiveHtml = `
+    <div class="param-row">
+      <label>Waveform</label>
+      <select id="lp-waveform" ${!isEnabled?'disabled':''} style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="saw" ${(layer.waveform||'saw')==='saw'?'selected':''}>Sawtooth</option>
+        <option value="square" ${(layer.waveform||'saw')==='square'?'selected':''}>Square</option>
+        <option value="triangle" ${(layer.waveform||'saw')==='triangle'?'selected':''}>Triangle</option>
+      </select>
+    </div>
+    <div class="param-row">
+      <label>Root Hz</label>
+      <input type="range" id="lp-root" min="20" max="2000" step="0.1" value="${layer.root||110}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-root-val">${(layer.root||110).toFixed(1)}</span>
+    </div>
+    <div class="param-row">
+      <label>Voices</label>
+      <input type="range" id="lp-voices" min="1" max="8" step="1" value="${layer.voices||2}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-voices-val">${layer.voices||2}</span>
+    </div>
+    <div class="param-row">
+      <label>Detune (¢)</label>
+      <input type="range" id="lp-detune_cents" min="0" max="50" step="1" value="${layer.detune_cents||8}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-detune_cents-val">${layer.detune_cents||8}</span>
+    </div>
+    <div class="param-row">
+      <label>Sub Mix</label>
+      <input type="range" id="lp-sub_mix" min="0" max="1" step="0.01" value="${layer.sub_mix||0.3}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-sub_mix-val">${(layer.sub_mix||0.3).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Drift</label>
+      <input type="range" id="lp-drift" min="0" max="0.05" step="0.001" value="${layer.drift||0.01}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-drift-val">${(layer.drift||0.01).toFixed(3)}</span>
+    </div>
+    <div class="param-row">
+      <label>Mix</label>
+      <input type="range" id="lp-mix" min="0" max="2" step="0.05" value="${layer.mix||0.8}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-mix-val">${(layer.mix||0.8).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Loudness</label>
+      <input type="range" id="lp-loudness" min="0" max="0.15" step="0.001" value="${layer.amp_max||0.04}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-loudness-val">${(layer.amp_max||0.04).toFixed(3)}</span>
+    </div>
+  `;
+
   const elevationHtml = `
-    <h3 style="font-size:8px; text-transform:uppercase; letter-spacing:0.15em; color:var(--text-dim); margin:10px 0 6px; border-top:1px solid var(--border); padding-top:8px;">Elevation</h3>
     <div class="param-row">
       <label>Elevation</label>
       <input type="range" id="lp-elevation" min="-90" max="90" step="5" value="${layer.elevation || 0}" ${!isEnabled ? 'disabled' : ''}>
@@ -2123,7 +2273,7 @@ function showLayerParams(layer) {
   `;
 
   const chorusHtml = `
-    <h3 style="font-size:8px; text-transform:uppercase; letter-spacing:0.15em; color:var(--text-dim); margin:10px 0 6px; border-top:1px solid var(--border); padding-top:8px;">Chorus</h3>
+    <div class="card-subsection-label">Chorus</div>
     <div class="param-row">
       <label>Mix</label>
       <input type="range" id="lp-chorus_mix" min="0" max="1" step="0.01" value="${layer.chorus_mix || 0}" ${!isEnabled ? 'disabled' : ''}>
@@ -2149,7 +2299,6 @@ function showLayerParams(layer) {
   const spatialMotion = layer.spatial_motion || { quadrant: layer.quadrant || 'center', trajectory_x: layer.trajectory_x || 'drift', speed: layer.speed || 0.01 };
 
   const spatialHtml = `
-    <h3 style="font-size:8px; text-transform:uppercase; letter-spacing:0.15em; color:var(--text-dim); margin:10px 0 6px; border-top:1px solid var(--border); padding-top:8px;">Spatial Motion</h3>
     <div class="param-row">
       <label>Position</label>
       <select id="lp-quadrant" ${!isEnabled ? 'disabled' : ''} style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
@@ -2177,15 +2326,71 @@ function showLayerParams(layer) {
     </div>
   `;
 
-  // Assemble HTML based on layer type
   let synthHtml;
   if (layerType === 'granular') {
     synthHtml = granularHtml;
+  } else if (layerType === 'subtractive') {
+    synthHtml = subtractiveHtml;
   } else {
     synthHtml = fmHtml + harmonicsHtml + textureHtml;
   }
 
-  $('layer-params').innerHTML = toggleHtml + synthHtml + spatialHtml + elevationHtml + chorusHtml;
+  const synthDiv = `<div class="layer-subtab-content" data-subtab="synth" style="display:${activeLayerSubTab==='synth'?'block':'none'}">${synthHtml}</div>`;
+  const filterHtml = `
+    <div class="layer-subtab-content" data-subtab="filter" style="display:${activeLayerSubTab==='filter'?'block':'none'}">
+      <div class="param-row">
+        <label>Type</label>
+        <select id="lp-filter_type" ${!isEnabled?'disabled':''} style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+          <option value="off" ${(layer.filter_type||'off')==='off'?'selected':''}>Off</option>
+          <option value="lp" ${(layer.filter_type||'off')==='lp'?'selected':''}>Low Pass</option>
+          <option value="hp" ${(layer.filter_type||'off')==='hp'?'selected':''}>High Pass</option>
+          <option value="bp" ${(layer.filter_type||'off')==='bp'?'selected':''}>Band Pass</option>
+        </select>
+      </div>
+      <div class="param-row">
+        <label>Cutoff</label>
+        <input type="range" id="lp-filter_cutoff" min="40" max="8000" step="10" value="${layer.filter_cutoff||2000}" ${!isEnabled?'disabled':''}>
+        <span class="value" id="lp-filter_cutoff-val">${layer.filter_cutoff||2000} Hz</span>
+      </div>
+      <div class="param-row">
+        <label>Resonance</label>
+        <input type="range" id="lp-filter_resonance" min="0.1" max="8" step="0.1" value="${layer.filter_resonance||1.0}" ${!isEnabled?'disabled':''}>
+        <span class="value" id="lp-filter_resonance-val">${(layer.filter_resonance||1.0).toFixed(1)}</span>
+      </div>
+      <div class="card-subsection-label" style="margin-top:10px;">LFO</div>
+      <div class="param-row">
+        <label>Rate</label>
+        <input type="range" id="lp-filter_lfo_rate" min="0.01" max="4" step="0.01" value="${layer.filter_lfo_rate||0.1}" ${!isEnabled?'disabled':''}>
+        <span class="value" id="lp-filter_lfo_rate-val">${(layer.filter_lfo_rate||0.1).toFixed(2)} Hz</span>
+      </div>
+      <div class="param-row">
+        <label>Depth</label>
+        <input type="range" id="lp-filter_lfo_depth" min="0" max="1" step="0.01" value="${layer.filter_lfo_depth||0}" ${!isEnabled?'disabled':''}>
+        <span class="value" id="lp-filter_lfo_depth-val">${(layer.filter_lfo_depth||0).toFixed(2)}</span>
+      </div>
+      <div class="param-row">
+        <label>Shape</label>
+        <select id="lp-filter_lfo_shape" ${!isEnabled?'disabled':''} style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+          <option value="sine" ${(layer.filter_lfo_shape||'sine')==='sine'?'selected':''}>Sine</option>
+          <option value="triangle" ${(layer.filter_lfo_shape||'sine')==='triangle'?'selected':''}>Triangle</option>
+          <option value="square" ${(layer.filter_lfo_shape||'sine')==='square'?'selected':''}>Square</option>
+          <option value="random" ${(layer.filter_lfo_shape||'sine')==='random'?'selected':''}>Random</option>
+        </select>
+      </div>
+    </div>
+  `;
+  const spaceDiv = `<div class="layer-subtab-content" data-subtab="space" style="display:${activeLayerSubTab==='space'?'block':'none'}">${spatialHtml + elevationHtml}</div>`;
+  const fxDiv = `<div class="layer-subtab-content" data-subtab="fx" style="display:${activeLayerSubTab==='fx'?'block':'none'}">${chorusHtml}</div>`;
+
+  $('layer-params').innerHTML = toggleHtml + subTabHtml + synthDiv + filterHtml + spaceDiv + fxDiv;
+
+  $('layer-params').querySelectorAll('.layer-subtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeLayerSubTab = btn.dataset.subtab;
+      $('layer-params').querySelectorAll('.layer-subtab').forEach(b => b.classList.toggle('active', b.dataset.subtab === activeLayerSubTab));
+      $('layer-params').querySelectorAll('.layer-subtab-content').forEach(d => d.style.display = d.dataset.subtab === activeLayerSubTab ? 'block' : 'none');
+    });
+  });
 
   // Layer enable toggle
   const toggleEl = $('layer-enable-toggle');
@@ -2199,9 +2404,14 @@ function showLayerParams(layer) {
 
   // Solo button
   $('layer-solo-btn').addEventListener('click', () => {
-    currentParams.layers.forEach((l, i) => {
-      l.enabled = (i === activeLayerIdx);
-    });
+    const isSoloed = currentParams.layers.every((l, i) => i === activeLayerIdx ? l.enabled !== false : l.enabled === false);
+    if (isSoloed) {
+      // Un-solo: restore all layers
+      currentParams.layers.forEach(l => { l.enabled = true; });
+    } else {
+      // Solo: disable all except current
+      currentParams.layers.forEach((l, i) => { l.enabled = (i === activeLayerIdx); });
+    }
     buildLayerTabs(currentParams.layers);
   });
 
@@ -2213,8 +2423,28 @@ function showLayerParams(layer) {
     markDirty();
   });
 
+  const filterFields = ['filter_type', 'filter_cutoff', 'filter_resonance', 'filter_lfo_rate', 'filter_lfo_depth', 'filter_lfo_shape'];
+  filterFields.forEach(field => {
+    const el = $('lp-' + field);
+    if (!el) return;
+    const isSelect = el.tagName === 'SELECT';
+    const evtName = isSelect ? 'change' : 'input';
+    if (!isSelect) el.addEventListener('mousedown', () => pushUndo());
+    el.addEventListener(evtName, () => {
+      const v = isSelect ? el.value : parseFloat(el.value);
+      currentParams.layers[activeLayerIdx][field] = v;
+      const valEl = $('lp-' + field + '-val');
+      if (valEl && !isSelect) {
+        if (field === 'filter_cutoff') valEl.textContent = v + ' Hz';
+        else if (field === 'filter_lfo_rate') valEl.textContent = v.toFixed(2) + ' Hz';
+        else valEl.textContent = v.toFixed(field === 'filter_resonance' ? 1 : 2);
+      }
+      markDirty();
+    });
+  });
+
   // Bind FM sliders (only if FM type)
-  if (layerType !== 'granular') {
+  if (layerType === 'fm') {
     fmParams.forEach(p => {
       const slider = $(`lp-${p.id}`);
       if (!slider) return;
@@ -2268,6 +2498,43 @@ function showLayerParams(layer) {
       noiseColorSel.addEventListener('change', () => {
         pushUndo();
         currentParams.layers[activeLayerIdx].noise_color = noiseColorSel.value;
+        markDirty();
+      });
+    }
+  }
+
+  // Bind subtractive controls
+  if (layerType === 'subtractive') {
+    const subtractiveParams = ['root', 'voices', 'detune_cents', 'sub_mix', 'drift', 'mix'];
+    subtractiveParams.forEach(id => {
+      const slider = $(`lp-${id}`);
+      if (!slider) return;
+      slider.addEventListener('mousedown', () => pushUndo());
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        const dec = id === 'drift' ? 3 : id === 'root' ? 1 : id === 'sub_mix' || id === 'mix' ? 2 : 0;
+        $(`lp-${id}-val`).textContent = v.toFixed(dec);
+        if (id === 'voices') currentParams.layers[activeLayerIdx][id] = parseInt(v);
+        else currentParams.layers[activeLayerIdx][id] = v;
+        markDirty();
+      });
+    });
+    const loudnessSlider = $('lp-loudness');
+    if (loudnessSlider) {
+      loudnessSlider.addEventListener('mousedown', () => pushUndo());
+      loudnessSlider.addEventListener('input', () => {
+        const v = parseFloat(loudnessSlider.value);
+        $('lp-loudness-val').textContent = v.toFixed(3);
+        currentParams.layers[activeLayerIdx].amp_max = v;
+        currentParams.layers[activeLayerIdx].amp_min = Math.min(0.005, v * 0.15);
+        markDirty();
+      });
+    }
+    const waveformSel = $('lp-waveform');
+    if (waveformSel) {
+      waveformSel.addEventListener('change', () => {
+        pushUndo();
+        currentParams.layers[activeLayerIdx].waveform = waveformSel.value;
         markDirty();
       });
     }
@@ -3403,11 +3670,15 @@ async function doRender() {
 // ── Waveform drawing ────────────────────────────────────────────────────────
 // ── Generator ───────────────────────────────────────────────────────────────
 async function doGenerate() {
+  const allowedTypes = [];
+  if (document.getElementById('gen-type-fm').checked) allowedTypes.push('fm');
+  if (document.getElementById('gen-type-subtractive').checked) allowedTypes.push('subtractive');
+  if (allowedTypes.length === 0) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
   const data = await api('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mood: selectedMood })
+    body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes })
   });
   if (data.ok) {
     currentParams = data.params;
@@ -3425,13 +3696,16 @@ async function doGenerate() {
 }
 
 async function doMutate() {
-  if (!currentPresetPath) { setStatus('Load a preset first'); return; }
+  if (!currentParams) { setStatus('Load a preset first'); return; }
   const amount = parseFloat($('mutate-amount').value);
   setStatus('Mutating…');
+  const body = { amount };
+  if (currentPresetPath) body.path = currentPresetPath;
+  else body.params = collectParams();
   const data = await api('/api/mutate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path: currentPresetPath, amount })
+    body: JSON.stringify(body)
   });
   if (data.ok) {
     currentParams = data.params;
@@ -3890,6 +4164,14 @@ function init() {
   document.querySelectorAll('.card-collapsible h2').forEach(h2 => {
     h2.addEventListener('click', () => {
       h2.parentElement.classList.toggle('collapsed');
+    });
+  });
+
+  // ── Global FX sub-tabs ───────────────────────────────────────────────────────
+  document.querySelectorAll('#global-fx-tabs .layer-subtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#global-fx-tabs .layer-subtab').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('#global-fx-card .gfx-content').forEach(d => d.style.display = d.dataset.gfx === btn.dataset.gfx ? 'block' : 'none');
     });
   });
 
