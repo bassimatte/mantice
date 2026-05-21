@@ -489,9 +489,10 @@ async def generate_endpoint(request: Request):
     body = await request.json()
     mood = body.get("mood")
     seed = body.get("seed")
+    allowed_types = body.get("allowed_types") or ["fm", "subtractive", "granular"]
     try:
         import yaml as _yaml, tempfile
-        preset_data = generate_preset(mood=mood, seed=seed)
+        preset_data = generate_preset(mood=mood, seed=seed, allowed_types=allowed_types)
         with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False, mode='w', encoding='utf-8') as f:
             _yaml.dump(preset_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
             tmp_path = Path(f.name)

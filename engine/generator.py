@@ -119,6 +119,31 @@ _QUADRANTS = ["front_left", "front_right", "rear_left", "rear_right", "center"]
 _TRAJECTORIES_X = ["orbit", "pendulum", "drift", "spiral", "none"]
 _TRAJECTORIES_Y = ["depth", "none"]
 
+# Streaming safety caps — keep real-time preview responsive
+_MAX_LAYERS = 3
+_MAX_VOICES_FM = 12          # FM: each voice is one oscillator pair
+_MAX_VOICES_SUBTRACTIVE = 6  # Subtractive: each voice = 3 oscillators internally
+
+# Granular sample pool
+_GRANULAR_SAMPLES = [
+    "singing_bowl.ogg",
+    "tibetan_bowl.ogg",
+    "gong.ogg",
+    "metal_hit.ogg",
+]
+
+# Per-mood subtractive character
+_SUB_PROFILES = {
+    "dark":       dict(waveforms=["saw","square"],     detune=(12,28), sub_mix=(0.35,0.65), filters=["lp","lp","bp"],  cutoff=(200,700),   res=(1.8,3.5), lfo_rate=(0.04,0.15), lfo_depth=(0.4,0.8),  lfo_shapes=["sine","triangle"]),
+    "bright":     dict(waveforms=["triangle","saw"],   detune=(4,12),  sub_mix=(0.15,0.4),  filters=["bp","hp"],       cutoff=(1500,4000), res=(1.2,2.5), lfo_rate=(0.2,0.5),  lfo_depth=(0.2,0.5),  lfo_shapes=["sine","triangle"]),
+    "cinematic":  dict(waveforms=["saw","triangle"],   detune=(8,22),  sub_mix=(0.4,0.9),   filters=["lp","lp","bp"],  cutoff=(400,1200),  res=(1.5,3.0), lfo_rate=(0.04,0.12),lfo_depth=(0.3,0.7),  lfo_shapes=["sine","triangle"]),
+    "minimal":    dict(waveforms=["triangle","saw"],   detune=(3,8),   sub_mix=(0.3,0.6),   filters=["lp","off"],      cutoff=(600,1800),  res=(0.8,1.5), lfo_rate=(0.02,0.08),lfo_depth=(0.1,0.35), lfo_shapes=["sine"]),
+    "industrial": dict(waveforms=["saw","square","square"], detune=(15,35), sub_mix=(0.5,1.0), filters=["lp","bp","hp"], cutoff=(300,2000), res=(2.0,4.5), lfo_rate=(0.1,0.4),  lfo_depth=(0.3,0.7),  lfo_shapes=["square","triangle","sine"]),
+    "nature":     dict(waveforms=["triangle","saw"],   detune=(5,15),  sub_mix=(0.2,0.5),   filters=["lp","bp"],       cutoff=(500,2000),  res=(1.0,2.0), lfo_rate=(0.08,0.25),lfo_depth=(0.2,0.5),  lfo_shapes=["sine","triangle"]),
+    "chaotic":    dict(waveforms=["saw","square","triangle"], detune=(10,40), sub_mix=(0.3,0.9), filters=["lp","bp","hp"], cutoff=(200,3000), res=(1.5,5.0), lfo_rate=(0.05,0.6), lfo_depth=(0.2,0.9),  lfo_shapes=["sine","triangle","square"]),
+    "mixed":      dict(waveforms=["saw","triangle","square"], detune=(8,24),  sub_mix=(0.3,0.7), filters=["lp","bp"],    cutoff=(300,2000),  res=(1.2,3.0), lfo_rate=(0.05,0.3), lfo_depth=(0.2,0.6),  lfo_shapes=["sine","triangle"]),
+}
+
 _NAME_PARTS_A = [
     "Ancient", "Frozen", "Burning", "Infinite", "Hollow", "Crystal", "Iron",
     "Solar", "Lunar", "Void", "Phantom", "Tectonic", "Spectral", "Magnetic",
@@ -206,21 +231,28 @@ def _cap_preset_cost(preset: dict, max_cost: float = 500) -> None:
 
 # ── Generator ─────────────────────────────────────────────────────────────────
 
-def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None) -> dict:
+def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
+                    allowed_types: Optional[List[str]] = None) -> dict:
     """
     Generate a fully random preset, optionally biased by mood.
+    allowed_types: list of layer types to allow, e.g. ["fm", "subtractive", "granular"].
+                   Defaults to ["fm", "subtractive", "granular"].
     Returns a raw dict ready to be saved as YAML.
     """
     if seed is not None:
         random.seed(seed)
 
+    if not allowed_types:
+        allowed_types = ["fm", "subtractive", "granular"]
+
     # Select mood profile or use neutral defaults
     if mood and mood in _MOOD_PROFILES:
         profile = _MOOD_PROFILES[mood]
     else:
-        # Neutral: pick a random mood as base for variety
         profile = random.choice(list(_MOOD_PROFILES.values()))
         mood = "mixed"
+
+    sub_profile = _SUB_PROFILES.get(mood, _SUB_PROFILES["mixed"])
 
     name = _random_name()
     slug = name.lower().replace(" ", "_")
@@ -228,46 +260,113 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None) -> d
     # Duration
     duration = random.choice([60, 90, 120, 150, 180])
 
-    # Number of layers
-    n_layers = random.choices([1, 2, 3, 4, 5], weights=[5, 30, 35, 20, 10])[0]
+    # Number of layers — capped at _MAX_LAYERS for streaming safety
+    n_layers = random.choices(
+        [1, 2, 3],
+        weights=[15, 45, 40]
+    )[0]
 
     layers = []
     for i in range(n_layers):
         root = random.uniform(*profile["root_range"])
-        # Quantize to nearest semitone for musicality
         root = 440 * (2 ** (round(12 * math.log2(root / 440)) / 12))
 
-        voices = min(random.randint(*profile["voice_range"]), 20)  # cap at 20 per layer
-        ratios = random.choice(profile["ratios_pool"])
-        fm_ratios = random.choice([[1.0], [1.0, 1.5], [1.0, 2.0], [1.0, 2.5, 3.0]])
-        fm_index = random.uniform(*profile["fm_index_range"])
-        drift = random.uniform(*profile["drift_range"])
+        layer_type = random.choice(allowed_types)
 
-        layer = {
-            "name": _layer_name_for_freq(root, i),
-            "enabled": True,
-            "synthesis": {
-                "root": round(root, 2),
-                "voices": voices,
-                "ratios": ratios,
-            },
-            "fm": {
-                "ratios": fm_ratios,
-                "index": round(fm_index, 3),
-            },
-            "dynamics": {
-                "mix": round(random.uniform(0.4, 1.2), 2),
-                "amp_min": round(random.uniform(0.002, 0.02), 4),
-                "amp_max": round(random.uniform(0.03, 0.08), 4),
-                "drift": round(drift, 4),
-            },
-            "spatial_motion": {
-                "quadrant": random.choice(_QUADRANTS),
-                "speed": round(random.uniform(0.002, 0.012), 4),
-                "trajectory_x": random.choice(_TRAJECTORIES_X),
-                "trajectory_y": random.choice(_TRAJECTORIES_Y),
-            },
+        ratios = random.choice(profile["ratios_pool"])
+        drift  = random.uniform(*profile["drift_range"])
+
+        spatial = {
+            "quadrant":     random.choice(_QUADRANTS),
+            "speed":        round(random.uniform(0.002, 0.012), 4),
+            "trajectory_x": random.choice(_TRAJECTORIES_X),
+            "trajectory_y": random.choice(_TRAJECTORIES_Y),
         }
+        dynamics = {
+            "mix":     round(random.uniform(0.4, 1.2), 2),
+            "amp_min": round(random.uniform(0.002, 0.02), 4),
+            "amp_max": round(random.uniform(0.03, 0.08), 4),
+            "drift":   round(drift, 4),
+        }
+
+        if layer_type == "subtractive":
+            voices = min(random.randint(*profile["voice_range"]), _MAX_VOICES_SUBTRACTIVE)
+            layer = {
+                "name":    _layer_name_for_freq(root, i),
+                "enabled": True,
+                "type":    "subtractive",
+                "synthesis":     {"root": round(root, 2), "voices": voices, "ratios": ratios},
+                "fm":            {"ratios": [1.0], "index": 0.0},
+                "dynamics":      dynamics,
+                "spatial_motion": spatial,
+                "waveform":        random.choice(sub_profile["waveforms"]),
+                "detune_cents":    round(random.uniform(*sub_profile["detune"]), 1),
+                "sub_mix":         round(random.uniform(*sub_profile["sub_mix"]), 2),
+                "filter_type":     random.choice(sub_profile["filters"]),
+                "filter_cutoff":   round(random.uniform(*sub_profile["cutoff"]), 1),
+                "filter_resonance":round(random.uniform(*sub_profile["res"]), 2),
+                "filter_lfo_rate": round(random.uniform(*sub_profile["lfo_rate"]), 3),
+                "filter_lfo_depth":round(random.uniform(*sub_profile["lfo_depth"]), 2),
+                "filter_lfo_shape":random.choice(sub_profile["lfo_shapes"]),
+                "chorus_rate":  round(random.uniform(0.2, 0.8), 2),
+                "chorus_depth": round(random.uniform(0.004, 0.015), 4),
+                "chorus_mix":   round(random.uniform(0.1, 0.5), 2),
+                "chorus_voices": random.choice([2, 3]),
+            }
+
+        elif layer_type == "granular":
+            voices = min(random.randint(*profile["voice_range"]), _MAX_VOICES_FM)
+            layer = {
+                "name":    _layer_name_for_freq(root, i),
+                "enabled": True,
+                "type":    "granular",
+                "source":      random.choice(_GRANULAR_SAMPLES),
+                "grain_size":  round(random.uniform(40, 200), 1),
+                "density":     round(random.uniform(8, 30), 1),
+                "pitch_spread":round(random.uniform(0.1, 0.6), 2),
+                "position":    round(random.uniform(0.1, 0.9), 2),
+                "scatter":     round(random.uniform(0.2, 0.8), 2),
+                "envelope":    random.choice(["hann", "triangle", "trapezoid"]),
+                "synthesis":     {"root": round(root, 2), "voices": voices, "ratios": ratios},
+                "fm":            {"ratios": [1.0], "index": 0.0},
+                "dynamics":      dynamics,
+                "spatial_motion": spatial,
+                "filter_type":     random.choice(["off", "lp", "bp"]),
+                "filter_cutoff":   round(random.uniform(500.0, 3000.0), 1),
+                "filter_resonance":round(random.uniform(0.7, 2.0), 2),
+                "filter_lfo_rate": round(random.uniform(0.05, 0.3), 3),
+                "filter_lfo_depth":round(random.uniform(0.0, 0.4), 2),
+                "filter_lfo_shape":random.choice(["sine", "triangle"]),
+                "chorus_rate":  round(random.uniform(0.3, 0.7), 2),
+                "chorus_depth": round(random.uniform(0.003, 0.01), 4),
+                "chorus_mix":   round(random.uniform(0.0, 0.3), 2),
+                "chorus_voices": 2,
+            }
+
+        else:  # fm
+            voices = min(random.randint(*profile["voice_range"]), _MAX_VOICES_FM)
+            fm_ratios = random.choice([[1.0], [1.0, 1.5], [1.0, 2.0], [1.0, 2.5, 3.0]])
+            fm_index  = random.uniform(*profile["fm_index_range"])
+            layer = {
+                "name":    _layer_name_for_freq(root, i),
+                "enabled": True,
+                "type":    "fm",
+                "synthesis":     {"root": round(root, 2), "voices": voices, "ratios": ratios},
+                "fm":            {"ratios": fm_ratios, "index": round(fm_index, 3)},
+                "dynamics":      dynamics,
+                "spatial_motion": spatial,
+                "filter_type":     random.choice(["off", "off", "lp", "hp"]),
+                "filter_cutoff":   round(random.uniform(400.0, 4000.0), 1),
+                "filter_resonance":round(random.uniform(0.7, 2.0), 2),
+                "filter_lfo_rate": round(random.uniform(0.05, 0.2), 3),
+                "filter_lfo_depth":round(random.uniform(0.0, 0.3), 2),
+                "filter_lfo_shape":random.choice(["sine", "triangle"]),
+                "chorus_rate":  round(random.uniform(0.3, 0.8), 2),
+                "chorus_depth": round(random.uniform(0.003, 0.01), 4),
+                "chorus_mix":   round(random.uniform(0.0, 0.35), 2),
+                "chorus_voices": random.choice([2, 3]),
+            }
+
         layers.append(layer)
 
     # Reverb

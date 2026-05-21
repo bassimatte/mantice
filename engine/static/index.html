@@ -365,6 +365,24 @@ aside h3 {
 }
 .mood-btn:hover { border-color: var(--accent); color: var(--text); }
 .mood-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.gen-type-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.gen-type-row label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.gen-type-row input[type=checkbox] { accent-color: var(--accent); width: 11px; height: 11px; cursor: pointer; }
 .generator-actions {
   display: flex;
   gap: 4px;
@@ -1455,6 +1473,11 @@ python batch_render_freesound.py --metadata-only</pre>
       <button class="mood-btn" data-mood="industrial">industrial</button>
       <button class="mood-btn" data-mood="nature">nature</button>
       <button class="mood-btn" data-mood="chaotic">chaotic</button>
+    </div>
+    <div class="gen-type-row">
+      <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
+      <label><input type="checkbox" id="gen-type-subtractive" checked> Subtractive</label>
+      <label><input type="checkbox" id="gen-type-granular"> Granular</label>
     </div>
     <div class="generator-actions">
       <button class="btn" id="btn-generate">🎲 Generate</button>
@@ -3605,11 +3628,16 @@ async function doRender() {
 // ── Waveform drawing ────────────────────────────────────────────────────────
 // ── Generator ───────────────────────────────────────────────────────────────
 async function doGenerate() {
+  const allowedTypes = [];
+  if (document.getElementById('gen-type-fm').checked) allowedTypes.push('fm');
+  if (document.getElementById('gen-type-subtractive').checked) allowedTypes.push('subtractive');
+  if (document.getElementById('gen-type-granular').checked) allowedTypes.push('granular');
+  if (allowedTypes.length === 0) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
   const data = await api('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mood: selectedMood })
+    body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes })
   });
   if (data.ok) {
     currentParams = data.params;
