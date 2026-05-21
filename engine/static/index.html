@@ -272,6 +272,33 @@ aside h3 {
 .preset-item:hover { color: var(--text); border-left-color: var(--text-dim); background: var(--surface2); }
 .preset-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-glow); }
 
+/* ── Preset source sections (Official / Community) ── */
+.preset-source-section { margin-bottom: 4px; }
+.preset-source-header {
+  font-size: 9px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  padding: 8px 12px 4px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+}
+.preset-source-header::before { content: '▾'; font-size: 10px; }
+.preset-source-section:not([open]) > .preset-source-header::before { content: '▸'; }
+.preset-source-header::-webkit-details-marker { display: none; }
+.preset-source-header:hover { color: var(--text); }
+.preset-item-shared {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  font-style: italic;
+  margin: 4px 8px;
+}
+
 /* Tag filter */
 .tag-filter {
   display: flex;
@@ -1538,6 +1565,7 @@ async function api(path, opts = {}) {
 // ── Load presets list ───────────────────────────────────────────────────────
 let allPresets = [];
 let activeTagFilter = null;
+let sharedPresetEntry = null; // { name, params } — ephemeral entry loaded via #shared= URL
 
 async function loadPresetList() {
   allPresets = await api('/api/presets');
@@ -1551,7 +1579,9 @@ async function loadPresetList() {
     try {
       const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
       if (data.ok) {
+        sharedPresetEntry = { name: data.params.name || id, params: data.params };
         currentParams = data.params;
+        renderPresetList();
         applyParamsToUI(currentParams);
         markClean();
         setStatus('🔗 Shared preset loaded: ' + (data.params.name || id));
@@ -1594,22 +1624,55 @@ function renderPresetList() {
     ? allPresets.filter(p => (p.tags || []).includes(activeTagFilter))
     : allPresets;
 
-  // Group by category
-  const categories = {};
-  filtered.forEach(p => {
-    const cat = p.category || 'uncategorized';
-    if (!categories[cat]) categories[cat] = [];
-    categories[cat].push(p);
-  });
+  const official = filtered.filter(p => p.source !== 'community');
+  const community = filtered.filter(p => p.source === 'community');
 
-  container.innerHTML = Object.entries(categories).map(([cat, items]) => `
-    <details class="preset-category" open>
-      <summary>${cat}</summary>
-      ${items.map(p => `<div class="preset-item" data-path="${p.path}" title="${(p.tags||[]).join(', ')}">${p.name}</div>`).join('')}
-    </details>
-  `).join('');
+  function groupByCategory(list) {
+    const cats = {};
+    list.forEach(p => {
+      const cat = p.category || 'uncategorized';
+      if (!cats[cat]) cats[cat] = [];
+      cats[cat].push(p);
+    });
+    return cats;
+  }
 
-  container.querySelectorAll('.preset-item').forEach(el => {
+  function renderSection(list, label) {
+    if (!list.length) return '';
+    const groups = groupByCategory(list);
+    const inner = Object.entries(groups).map(([cat, items]) => `
+      <details class="preset-category" open>
+        <summary>${cat}</summary>
+        ${items.map(p => `<div class="preset-item" data-path="${p.path}" title="${(p.tags||[]).join(', ')}">${p.name}</div>`).join('')}
+      </details>`).join('');
+    return `<details class="preset-source-section" open>
+      <summary class="preset-source-header">${label}</summary>${inner}
+    </details>`;
+  }
+
+  const sharedHtml = sharedPresetEntry
+    ? `<div class="preset-item preset-item-shared" id="shared-entry-item">🔗 ${sharedPresetEntry.name}</div>`
+    : '';
+
+  container.innerHTML = sharedHtml + renderSection(official, 'Official') + renderSection(community, 'Community');
+
+  if (sharedPresetEntry) {
+    const el = $('shared-entry-item');
+    if (el) {
+      el.classList.toggle('active', currentParams === sharedPresetEntry.params);
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.preset-item').forEach(e => e.classList.remove('active'));
+        el.classList.add('active');
+        currentParams = sharedPresetEntry.params;
+        applyParamsToUI(currentParams);
+        markClean();
+        updateNowPlaying();
+        setStatus('Shared preset loaded');
+      });
+    }
+  }
+
+  container.querySelectorAll('.preset-item[data-path]').forEach(el => {
     el.addEventListener('click', () => loadPreset(el.dataset.path, el));
   });
 }

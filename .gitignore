@@ -17,3 +17,5 @@ exports/
 # OS
 .DS_Store
 Thumbs.db
+
+presets/generated/

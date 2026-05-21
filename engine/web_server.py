@@ -53,6 +53,7 @@ from .generator import generate_preset, mutate_preset, save_generated_preset
 _ROOT = Path(__file__).resolve().parent.parent
 _PRESETS_DIR = _ROOT / "presets"
 _EXPORTS_DIR = _ROOT / "exports"
+_SHARED_DIR = _ROOT / "shared"
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
@@ -61,16 +62,13 @@ GITHUB_BRANCH = "main"
 
 
 def _find_all_presets() -> list[dict]:
-    """Scan preset directories and return metadata list."""
+    """Scan preset directories and return metadata list with source field."""
+    import yaml as _yaml
     presets = []
-    for yaml_file in sorted(_PRESETS_DIR.rglob("*.yaml")):
-        rel = yaml_file.relative_to(_PRESETS_DIR)
-        category = rel.parts[0] if len(rel.parts) > 1 else "uncategorized"
-        # Quick parse just the name and tags
-        name = yaml_file.stem
-        tags = []
+
+    def _parse(yaml_file):
+        name, tags = yaml_file.stem, []
         try:
-            import yaml as _yaml
             with yaml_file.open(encoding="utf-8") as f:
                 raw = _yaml.safe_load(f)
             if raw:
@@ -78,13 +76,25 @@ def _find_all_presets() -> list[dict]:
                 tags = (raw.get("meta") or {}).get("tags", [])
         except Exception:
             pass
-        presets.append({
-            "name": name,
-            "category": category,
-            "tags": tags,
-            "path": str(yaml_file),
-            "filename": yaml_file.name,
-        })
+        return name, tags
+
+    # Official presets — skip generated/ folder
+    for yaml_file in sorted(_PRESETS_DIR.rglob("*.yaml")):
+        rel = yaml_file.relative_to(_PRESETS_DIR)
+        if rel.parts[0] == "generated":
+            continue
+        category = rel.parts[0] if len(rel.parts) > 1 else "uncategorized"
+        name, tags = _parse(yaml_file)
+        presets.append({"name": name, "category": category, "tags": tags,
+                        "path": str(yaml_file), "filename": yaml_file.name, "source": "official"})
+
+    # Community presets from shared/
+    if _SHARED_DIR.exists():
+        for yaml_file in sorted(_SHARED_DIR.glob("*.yaml")):
+            name, tags = _parse(yaml_file)
+            presets.append({"name": name, "category": "community", "tags": tags,
+                            "path": str(yaml_file), "filename": yaml_file.name, "source": "community"})
+
     return presets
 
 
@@ -381,13 +391,17 @@ async def generate_endpoint(request: Request):
     mood = body.get("mood")
     seed = body.get("seed")
     try:
+        import yaml as _yaml, tempfile
         preset_data = generate_preset(mood=mood, seed=seed)
-        # Save it
-        saved_path = save_generated_preset(preset_data, output_dir=_PRESETS_DIR / "generated")
-        # Load it back through the normaliser
-        preset = load_preset(saved_path)
-        params = _preset_to_ui_params(preset)
-        return JSONResponse({"ok": True, "params": params, "saved_to": str(saved_path)})
+        with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False, mode='w', encoding='utf-8') as f:
+            _yaml.dump(preset_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            tmp_path = Path(f.name)
+        try:
+            preset = load_preset(tmp_path)
+            params = _preset_to_ui_params(preset)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+        return JSONResponse({"ok": True, "params": params})
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -403,11 +417,17 @@ async def mutate_endpoint(request: Request):
     if not path:
         return JSONResponse({"ok": False, "error": "No preset path"}, status_code=400)
     try:
+        import yaml as _yaml, tempfile
         mutated_data = mutate_preset(path, amount=amount)
-        saved_path = save_generated_preset(mutated_data, output_dir=_PRESETS_DIR / "generated")
-        preset = load_preset(saved_path)
-        params = _preset_to_ui_params(preset)
-        return JSONResponse({"ok": True, "params": params, "saved_to": str(saved_path)})
+        with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False, mode='w', encoding='utf-8') as f:
+            _yaml.dump(mutated_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            tmp_path = Path(f.name)
+        try:
+            preset = load_preset(tmp_path)
+            params = _preset_to_ui_params(preset)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+        return JSONResponse({"ok": True, "params": params})
     except Exception as e:
         import traceback
         traceback.print_exc()
