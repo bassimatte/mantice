@@ -1,0 +1,184 @@
+meta: {}
+seed: null
+duration: 120.0
+spatial_depth: 2.9
+spatial_wet: 0.0
+saturation: 0.3
+swarm_density: 0.5
+layers:
+- name: Low Drone
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 58.27
+  voices: 20
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 1.197
+  amp_min: 0.0156
+  amp_max: 0.0731
+  drift: 0.0141
+  mix: 0.79
+  band: sub
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Bass Foundation
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 55.0
+  voices: 20
+  ratios:
+  - 0.5
+  - 1
+  - 1.5
+  - 2.5
+  fm_ratios:
+  - 1
+  - 2
+  fm_index: 1.171
+  amp_min: 0.015
+  amp_max: 0.0641
+  drift: 0.0358
+  mix: 0.41
+  band: sub
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Deep Fundament
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 46.25
+  voices: 18
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 1.154
+  amp_min: 0.011
+  amp_max: 0.0389
+  drift: 0.0363
+  mix: 0.61
+  band: sub
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Tectonic Bass
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 34.65
+  voices: 18
+  ratios:
+  - 0.5
+  - 1
+  - 1.5
+  - 2.5
+  fm_ratios:
+  - 1
+  fm_index: 0.799
+  amp_min: 0.0085
+  amp_max: 0.0793
+  drift: 0.0247
+  mix: 0.49
+  band: sub
+  quadrant: rear_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+earth:
+  enabled: true
+  tectonic_frequency: 20
+  pressure: 0.2
+  movement: 0.018
+air: null
