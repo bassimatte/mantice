@@ -1577,13 +1577,17 @@ async function loadPresetList() {
     try {
       const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
       if (data.ok) {
-        sharedPresetEntry = { name: data.params.name || id, params: data.params };
+        const genericNames = ['MANTICE', 'Untitled', 'untitled', ''];
+        const displayName = (!data.params.name || genericNames.includes(data.params.name))
+          ? id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ')
+          : data.params.name;
+        sharedPresetEntry = { name: displayName, params: data.params };
         currentSharedId = id;
         currentParams = data.params;
         renderPresetList();
         applyParamsToUI(currentParams);
         markClean();
-        setStatus('🔗 Shared preset loaded: ' + (data.params.name || id));
+        setStatus('🔗 Shared preset loaded: ' + displayName);
         return;
       } else {
         setStatus('Could not load shared preset: ' + data.error);

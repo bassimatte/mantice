@@ -228,7 +228,9 @@ def _ui_params_to_preset(params: dict) -> dict:
     air = params.get("air", {})
 
     preset = {
-        "meta": {},
+        "meta": {
+            "name": params.get("name", "Untitled"),
+        },
         "seed": None,
         "duration": float(params.get("duration", 60)),
         "spatial_depth": float(params.get("spatial_depth", 1.0)),
