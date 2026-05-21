@@ -88,12 +88,51 @@ def _find_all_presets() -> list[dict]:
         presets.append({"name": name, "category": category, "tags": tags,
                         "path": str(yaml_file), "filename": yaml_file.name, "source": "official"})
 
-    # Community presets from shared/
-    if _SHARED_DIR.exists():
-        for yaml_file in sorted(_SHARED_DIR.glob("*.yaml")):
-            name, tags = _parse(yaml_file)
-            presets.append({"name": name, "category": "community", "tags": tags,
-                            "path": str(yaml_file), "filename": yaml_file.name, "source": "community"})
+    # Community presets — fetch live from GitHub Contents API so new shares appear immediately
+    # (Render's local shared/ folder is stale until next deploy)
+    try:
+        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared"
+        gh_req = urllib.request.Request(
+            api_url,
+            headers={"User-Agent": "Mantice/1.0", "Accept": "application/vnd.github.v3+json"}
+        )
+        if GITHUB_TOKEN:
+            gh_req.add_header("Authorization", f"token {GITHUB_TOKEN}")
+        with urllib.request.urlopen(gh_req, timeout=6) as resp:
+            files = json.loads(resp.read().decode())
+        for f in files:
+            if not isinstance(f, dict):
+                continue
+            fname = f.get("name", "")
+            if not fname.endswith(".yaml") or fname in (".gitkeep.yaml", ".gitkeep"):
+                continue
+            stem = fname[:-5]
+            display_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+            presets.append({
+                "name": display_name or stem,
+                "category": "community",
+                "tags": [],
+                "id": stem,
+                "path": f"shared/{fname}",
+                "filename": fname,
+                "source": "community"
+            })
+    except Exception:
+        # Fallback: scan local shared/ dir (available after deploy)
+        if _SHARED_DIR.exists():
+            for yaml_file in sorted(_SHARED_DIR.glob("*.yaml")):
+                stem = yaml_file.stem
+                name, tags = _parse(yaml_file)
+                display_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                presets.append({
+                    "name": display_name or name,
+                    "category": "community",
+                    "tags": tags,
+                    "id": stem,
+                    "path": str(yaml_file),
+                    "filename": yaml_file.name,
+                    "source": "community"
+                })
 
     return presets
 
@@ -268,7 +307,9 @@ async def index():
 
 @app.get("/api/presets")
 async def list_presets():
-    return JSONResponse(_find_all_presets())
+    loop = asyncio.get_event_loop()
+    presets = await loop.run_in_executor(None, _find_all_presets)
+    return JSONResponse(presets)
 
 
 @app.get("/api/samples")

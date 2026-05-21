@@ -1655,7 +1655,7 @@ function renderPresetList() {
     return cats;
   }
 
-  function renderSection(list, label) {
+  function renderOfficialSection(list) {
     if (!list.length) return '';
     const groups = groupByCategory(list);
     const inner = Object.entries(groups).map(([cat, items]) => `
@@ -1664,15 +1664,26 @@ function renderPresetList() {
         ${items.map(p => `<div class="preset-item" data-path="${p.path}" title="${(p.tags||[]).join(', ')}">${p.name}</div>`).join('')}
       </details>`).join('');
     return `<details class="preset-source-section" open>
-      <summary class="preset-source-header">${label}</summary>${inner}
+      <summary class="preset-source-header">Official</summary>${inner}
     </details>`;
   }
 
-  const sharedHtml = sharedPresetEntry
-    ? `<div class="preset-item preset-item-shared" id="shared-entry-item">🔗 ${sharedPresetEntry.name}</div>`
-    : '';
+  function renderCommunitySection(list) {
+    // Prepend ephemeral sharedPresetEntry if present and not already in list
+    const ephemeralHtml = sharedPresetEntry
+      ? `<div class="preset-item preset-item-shared active" id="shared-entry-item">🔗 ${sharedPresetEntry.name}</div>`
+      : '';
+    const itemsHtml = list.map(p =>
+      `<div class="preset-item" data-id="${p.id}" title="${p.name}">${p.name}</div>`
+    ).join('');
+    if (!ephemeralHtml && !itemsHtml) return '';
+    return `<details class="preset-source-section" open>
+      <summary class="preset-source-header">Community</summary>
+      ${ephemeralHtml}${itemsHtml}
+    </details>`;
+  }
 
-  container.innerHTML = sharedHtml + renderSection(official, 'Official') + renderSection(community, 'Community');
+  container.innerHTML = renderOfficialSection(official) + renderCommunitySection(community);
 
   if (sharedPresetEntry) {
     const el = $('shared-entry-item');
@@ -1690,8 +1701,14 @@ function renderPresetList() {
     }
   }
 
+  // Official presets — load via API path
   container.querySelectorAll('.preset-item[data-path]').forEach(el => {
     el.addEventListener('click', () => loadPreset(el.dataset.path, el));
+  });
+
+  // Community presets — load via /api/load-shared
+  container.querySelectorAll('.preset-item[data-id]').forEach(el => {
+    el.addEventListener('click', () => loadCommunityPreset(el.dataset.id, el));
   });
 }
 
@@ -1714,6 +1731,29 @@ async function loadPreset(path, el) {
   redoStack.length = 0;
   updateNowPlaying();
   setStatus('Preset loaded');
+}
+
+async function loadCommunityPreset(id, el) {
+  document.querySelectorAll('.preset-item').forEach(e => e.classList.remove('active'));
+  if (el) el.classList.add('active');
+  setStatus('Loading…');
+  const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
+  if (!data.ok) { setStatus('Error: ' + data.error); return; }
+  const genericNames = ['MANTICE', 'Untitled', 'untitled', ''];
+  const displayName = (!data.params.name || genericNames.includes(data.params.name))
+    ? id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ')
+    : data.params.name;
+  currentParams = data.params;
+  currentPresetPath = null;
+  currentSharedId = id;
+  renderedBuffer = null;
+  applyParamsToUI(currentParams);
+  if (!isStreaming) stopAurora();
+  markClean();
+  undoStack.length = 0;
+  redoStack.length = 0;
+  updateNowPlaying();
+  setStatus('Community preset loaded: ' + displayName);
 }
 
 // ── Apply params to UI controls ─────────────────────────────────────────────
@@ -3158,6 +3198,12 @@ async function doSharePreset() {
     if (!data.ok) { setStatus('Share failed: ' + data.error); return; }
     currentSharedId = data.id;
     savedParamsSnapshot = JSON.stringify(collectParams()); // now "clean" relative to this share
+    // Immediately inject into allPresets so it appears in Community sidebar without reload
+    const displayName = data.id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ').trim();
+    if (!allPresets.find(p => p.id === data.id)) {
+      allPresets.push({ name: displayName, id: data.id, source: 'community', category: 'community', tags: [], path: `shared/${data.id}.yaml`, filename: `${data.id}.yaml` });
+      renderPresetList();
+    }
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + data.id;
     await navigator.clipboard.writeText(shareUrl);
     setStatus('🔗 Link copied! — #shared=' + data.id);
