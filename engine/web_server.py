@@ -491,15 +491,84 @@ async def generate_endpoint(request: Request):
 
 @app.post("/api/mutate")
 async def mutate_endpoint(request: Request):
-    """Mutate a preset and return the mutated parameters."""
+    """Mutate a preset and return the mutated parameters.
+    Accepts either {path, amount} or {params, amount}."""
     body = await request.json()
     path = body.get("path")
+    ui_params = body.get("params")
     amount = float(body.get("amount", 0.3))
-    if not path:
-        return JSONResponse({"ok": False, "error": "No preset path"}, status_code=400)
+    if not path and not ui_params:
+        return JSONResponse({"ok": False, "error": "No preset path or params"}, status_code=400)
     try:
         import yaml as _yaml, tempfile
-        mutated_data = mutate_preset(path, amount=amount)
+        if path:
+            # Load raw YAML (mutate_preset expects the raw v2 dict, not the normalised one)
+            with open(path, encoding="utf-8") as f:
+                raw_preset = _yaml.safe_load(f)
+        else:
+            # Build a v2-structured raw preset from current UI params
+            flat = _ui_params_to_preset(ui_params)
+            raw_layers = []
+            for l in flat.get("layers", []):
+                raw_layers.append({
+                    "name": l.get("name", "Layer"),
+                    "enabled": l.get("enabled", True),
+                    "type": l.get("type", "fm"),
+                    "source": l.get("source", "singing_bowl.ogg"),
+                    "grain_size": l.get("grain_size", 80),
+                    "density": l.get("density", 15),
+                    "pitch_spread": l.get("pitch_spread", 0.3),
+                    "position": l.get("position", 0.5),
+                    "scatter": l.get("scatter", 0.5),
+                    "envelope": l.get("envelope", "hann"),
+                    "synthesis": {
+                        "root": l.get("root", 220),
+                        "voices": l.get("voices", 4),
+                        "ratios": l.get("ratios", [1.0]),
+                    },
+                    "fm": {
+                        "ratios": l.get("fm_ratios", [1.0]),
+                        "index": l.get("fm_index", 0.5),
+                    },
+                    "dynamics": {
+                        "mix": l.get("mix", 1.0),
+                        "amp_min": l.get("amp_min", 0.005),
+                        "amp_max": l.get("amp_max", 0.04),
+                        "drift": l.get("drift", 0.002),
+                    },
+                    "spatial_motion": {
+                        "quadrant": l.get("quadrant", "center"),
+                        "speed": l.get("speed", 0.005),
+                        "trajectory_x": l.get("trajectory_x", "drift"),
+                        "trajectory_y": l.get("trajectory_y", "none"),
+                    },
+                    "harmonics": l.get("harmonics", 4),
+                    "harmonic_decay": l.get("harmonic_decay", 0.7),
+                    "noise_amount": l.get("noise_amount", 0.0),
+                    "noise_color": l.get("noise_color", "pink"),
+                    "elevation": l.get("elevation", 0.0),
+                    "elevation_motion": l.get("elevation_motion", "static"),
+                    "elevation_speed": l.get("elevation_speed", 0.1),
+                    "elevation_range": l.get("elevation_range", 60.0),
+                    "chorus_mix": l.get("chorus_mix", 0.0),
+                    "chorus_rate": l.get("chorus_rate", 0.5),
+                    "chorus_depth": l.get("chorus_depth", 0.005),
+                    "chorus_voices": l.get("chorus_voices", 2),
+                })
+            m = flat.get("master", {})
+            raw_preset = {
+                "meta": flat.get("meta", {}),
+                "global": {"duration_seconds": int(flat.get("duration", 60))},
+                "spatial": {"depth": flat.get("spatial_depth", 1.0), "wetness": flat.get("spatial_wet", 0.7)},
+                "saturation": flat.get("saturation", 0.3),
+                "master": m,
+                "reverb": flat.get("reverb"),
+                "binaural": flat.get("binaural"),
+                "earth": flat.get("earth"),
+                "air": flat.get("air"),
+                "layers": raw_layers,
+            }
+        mutated_data = mutate_preset(raw_preset, amount=amount)
         with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False, mode='w', encoding='utf-8') as f:
             _yaml.dump(mutated_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
             tmp_path = Path(f.name)
