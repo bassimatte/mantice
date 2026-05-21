@@ -1,0 +1,227 @@
+meta:
+  name: Solar Choir
+seed: null
+duration: 60.0
+spatial_depth: 0.72
+spatial_wet: 0.73
+saturation: 0.3
+swarm_density: 0.5
+layers:
+- name: Low Drone
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 55.0
+  voices: 20
+  ratios:
+  - 0.5
+  - 2
+  - 1.5
+  fm_ratios:
+  - 1.5
+  - 3
+  - 2.71
+  - 2
+  fm_index: 0.16
+  amp_min: 0.0009
+  amp_max: 0.0145
+  drift: 0.01
+  mix: 1.32
+  band: sub
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Bass Foundation
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 110.0
+  voices: 20
+  ratios:
+  - 1
+  - 2.71
+  - 0.5
+  - 1.25
+  fm_ratios:
+  - 1.5
+  - 2.71
+  fm_index: 0.07
+  amp_min: 0.0017
+  amp_max: 0.0191
+  drift: 0.025
+  mix: 0.57
+  band: sub
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Tonal Weave
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 432.0
+  voices: 20
+  ratios:
+  - 2.71
+  - 3
+  - 1
+  - 0.5
+  - 4
+  fm_ratios:
+  - 1.5
+  - 3
+  - 2.71
+  - 2
+  fm_index: 0.14
+  amp_min: 0.0034
+  amp_max: 0.012
+  drift: 0.023
+  mix: 0.36
+  band: mid
+  quadrant: rear_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Deep Hum
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 88.0
+  voices: 20
+  ratios:
+  - 2
+  - 2.71
+  - 1.5
+  - 4
+  fm_ratios:
+  - 1.5
+  - 1
+  - 2.71
+  fm_index: 0.23
+  amp_min: 0.0008
+  amp_max: 0.0261
+  drift: 0.028
+  mix: 1.29
+  band: sub
+  quadrant: rear_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+- name: Dense Texture
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 220.0
+  voices: 20
+  ratios:
+  - 4
+  - 1
+  - 1.5
+  fm_ratios:
+  - 3
+  - 1
+  fm_index: 0.23
+  amp_min: 0.0032
+  amp_max: 0.0158
+  drift: 0.033
+  mix: 0.68
+  band: mid
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+binaural: null
+reverb: null
+earth: null
+air: null
