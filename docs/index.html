@@ -925,8 +925,7 @@ main {
   <div class="header-transport">
     <button class="transport-btn btn-preview" id="btn-preview" title="Preview [Space]">▶</button>
     <button class="transport-btn btn-stop" id="btn-stop" title="Stop [S]">⏹</button>
-    <button class="transport-btn btn-render" id="btn-render" title="Render [R]">⬤</button>
-    <svg class="progress-ring" id="progress-ring" viewBox="0 0 64 64">
+    <svg class="progress-ring" id="progress-ring" viewBox="0 0 64 64" style="display:none">
       <circle class="ring-bg" cx="32" cy="32" r="28"/>
       <circle class="ring-fill" id="progress-ring-fill" cx="32" cy="32" r="28" stroke-dasharray="175.93" stroke-dashoffset="175.93"/>
     </svg>
@@ -2954,7 +2953,7 @@ async function doRender() {
   } catch (e) {
     clearInterval(progressInterval);
     setStatus(`RENDER ERROR: ${e.message}`);
-    $('progress-ring').style.opacity = '0.4';
+    setProgress(0);
   }
 }
 
@@ -3209,10 +3208,14 @@ setTheme(localStorage.getItem('mantice-theme') || 'dark');
 function setProgress(pct) {
   const ring = $('progress-ring-fill');
   if (!ring) return;
+  const svg = $('progress-ring');
+  if (pct <= 0) {
+    if (svg) svg.style.display = 'none';
+    return;
+  }
+  if (svg) svg.style.display = '';
   const circumference = 2 * Math.PI * 28; // r=28
   ring.style.strokeDashoffset = circumference * (1 - pct / 100);
-  const svg = $('progress-ring');
-  if (svg) svg.style.opacity = pct > 0 && pct < 100 ? '1' : '0.4';
 }
 
 // ── iOS Audio Unlock ────────────────────────────────────────────────────────
@@ -3271,7 +3274,6 @@ function init() {
   // Transport buttons
   $('btn-preview').addEventListener('click', doPreview);
   $('btn-stop').addEventListener('click', stopAudio);
-  $('btn-render').addEventListener('click', doRender);
 
   // Docs modal
   $('docs-close').addEventListener('click', () => $('docs-overlay').classList.remove('open'));
