@@ -347,6 +347,18 @@ async def list_samples():
     return {"samples": sorted(files)}
 
 
+@app.get("/samples/{filename}")
+async def serve_sample(filename: str):
+    """Serve a sample audio file for the granular scope waveform preview."""
+    from fastapi.responses import FileResponse
+    if not re.match(r'^[\w\-. ]+\.(ogg|wav|flac|mp3)$', filename):
+        return JSONResponse({"error": "Invalid filename"}, status_code=400)
+    sample_path = _ROOT / "samples" / filename
+    if not sample_path.exists():
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    return FileResponse(str(sample_path))
+
+
 @app.get("/api/preset/load")
 async def load_preset_endpoint(path: str):
     try:

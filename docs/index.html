@@ -732,6 +732,18 @@ main {
   padding-bottom: 3px;
 }
 
+/* Granular scope */
+.granular-scope {
+  width: 100%;
+  height: 52px;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin: 6px 0 8px;
+  background: var(--bg);
+  cursor: default;
+}
+
 /* Transport */
 .transport-secondary { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .transport-btn {
@@ -2018,6 +2030,7 @@ function showLayerParams(layer) {
         <option value="${layer.source || 'singing_bowl.ogg'}">${layer.source || 'singing_bowl.ogg'}</option>
       </select>
     </div>
+    <canvas class="granular-scope" id="granular-scope-canvas"></canvas>
   ` + granularParams.map(p => `
     <div class="param-row">
       <label>${p.label}</label>
@@ -2225,6 +2238,7 @@ function showLayerParams(layer) {
         $(`lp-${p.id}-val`).textContent = v.toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0);
         currentParams.layers[activeLayerIdx][p.id] = v;
         markDirty();
+        if (p.id === 'position' || p.id === 'scatter') updateGranularScope();
       });
     });
     // Source dropdown — populate from API
@@ -2234,6 +2248,7 @@ function showLayerParams(layer) {
       sel.innerHTML = (data.samples || []).map(s =>
         `<option value="${s}" ${s === (layer.source || 'singing_bowl.ogg') ? 'selected' : ''}>${s}</option>`
       ).join('');
+      updateGranularScope(); // redraw after options populated
     }).catch(() => {});
     const sourceSel = $('lp-source');
     if (sourceSel) {
@@ -2241,6 +2256,7 @@ function showLayerParams(layer) {
         pushUndo();
         currentParams.layers[activeLayerIdx].source = sourceSel.value;
         markDirty();
+        updateGranularScope();
       });
     }
     const envSel = $('lp-envelope');
@@ -2251,6 +2267,8 @@ function showLayerParams(layer) {
         markDirty();
       });
     }
+    // Init scope
+    initGranularScope(layer.source || 'singing_bowl.ogg', layer.position ?? 0.5, layer.scatter ?? 0.5);
   }
 
   // Spatial controls (shared by both types)
@@ -2785,6 +2803,114 @@ function showRenderedSpectrum(audioBuf) {
     const xPos = ((Math.log10(f) - logMin) / (logMax - logMin)) * W;
     const label = f >= 1000 ? `${f/1000}k` : `${f}`;
     ctx.fillText(label, xPos, H - 4);
+  }
+}
+
+// ── Granular Scope ───────────────────────────────────────────────────────────
+const _waveformCache = new Map(); // source filename → Float32Array (downsampled)
+
+async function _loadWaveform(source) {
+  if (_waveformCache.has(source)) return _waveformCache.get(source);
+  try {
+    const url = apiUrl('/samples/' + encodeURIComponent(source));
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const buf = await resp.arrayBuffer();
+    const actx = new (window.AudioContext || window.webkitAudioContext)();
+    const decoded = await actx.decodeAudioData(buf);
+    actx.close();
+    // Downsample to 512 points for drawing
+    const raw = decoded.getChannelData(0);
+    const pts = 512;
+    const step = Math.floor(raw.length / pts);
+    const down = new Float32Array(pts);
+    for (let i = 0; i < pts; i++) {
+      let max = 0;
+      for (let j = 0; j < step; j++) max = Math.max(max, Math.abs(raw[i * step + j] || 0));
+      down[i] = max;
+    }
+    _waveformCache.set(source, down);
+    return down;
+  } catch (e) { return null; }
+}
+
+function _drawGranularScope(canvas, waveform, position, scatter) {
+  const W = canvas.offsetWidth || 200;
+  const H = canvas.offsetHeight || 52;
+  if (canvas.width !== W * devicePixelRatio || canvas.height !== H * devicePixelRatio) {
+    canvas.width = W * devicePixelRatio;
+    canvas.height = H * devicePixelRatio;
+  }
+  const ctx = canvas.getContext('2d');
+  const dpr = devicePixelRatio;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const isDark = document.documentElement.dataset.theme !== 'light';
+  const colWave  = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
+  const colGlow  = isDark ? 'rgba(130,180,255,0.18)' : 'rgba(80,120,220,0.15)';
+  const colLine  = isDark ? 'rgba(130,200,255,0.85)' : 'rgba(60,100,200,0.85)';
+  const colLabel = isDark ? 'rgba(130,180,255,0.5)'  : 'rgba(60,100,200,0.5)';
+
+  // Waveform
+  if (waveform) {
+    ctx.fillStyle = colWave;
+    const pts = waveform.length;
+    for (let i = 0; i < pts; i++) {
+      const x = (i / pts) * W * dpr;
+      const barH = waveform[i] * H * dpr * 0.9;
+      ctx.fillRect(x, (H * dpr - barH) / 2, Math.max(1, W * dpr / pts - 0.5), barH);
+    }
+  }
+
+  // Scatter zone
+  const px = position * W * dpr;
+  const sw = scatter * W * dpr;
+  const grd = ctx.createLinearGradient(px - sw, 0, px + sw, 0);
+  grd.addColorStop(0,   'transparent');
+  grd.addColorStop(0.3, colGlow);
+  grd.addColorStop(0.5, isDark ? 'rgba(130,200,255,0.30)' : 'rgba(80,130,230,0.25)');
+  grd.addColorStop(0.7, colGlow);
+  grd.addColorStop(1,   'transparent');
+  ctx.fillStyle = grd;
+  ctx.fillRect(px - sw, 0, sw * 2, H * dpr);
+
+  // Position cursor
+  ctx.strokeStyle = colLine;
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(px, 2 * dpr);
+  ctx.lineTo(px, (H - 2) * dpr);
+  ctx.stroke();
+
+  // Labels
+  ctx.font = `${8 * dpr}px 'Space Mono', monospace`;
+  ctx.fillStyle = colLabel;
+  ctx.textAlign = 'left';
+  ctx.fillText((position * 100).toFixed(0) + '%', Math.min(px + 4 * dpr, (W - 28) * dpr), 10 * dpr);
+}
+
+async function initGranularScope(source, position, scatter) {
+  const canvas = $('granular-scope-canvas');
+  if (!canvas) return;
+  const waveform = await _loadWaveform(source);
+  _drawGranularScope(canvas, waveform, position, scatter);
+}
+
+function updateGranularScope() {
+  const canvas = $('granular-scope-canvas');
+  if (!canvas) return;
+  const layer = currentParams?.layers[activeLayerIdx];
+  if (!layer || layer.type !== 'granular') return;
+  const source = $('lp-source')?.value || layer.source || 'singing_bowl.ogg';
+  const pos = parseFloat($('lp-position')?.value ?? layer.position ?? 0.5);
+  const scat = parseFloat($('lp-scatter')?.value ?? layer.scatter ?? 0.5);
+  const cached = _waveformCache.get(source) || null;
+  _drawGranularScope(canvas, cached, pos, scat);
+  // If not cached yet, load and redraw
+  if (!_waveformCache.has(source)) {
+    _loadWaveform(source).then(wf => {
+      if (wf) _drawGranularScope(canvas, wf, pos, scat);
+    });
   }
 }
 
@@ -3510,6 +3636,7 @@ function setTheme(theme) {
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || 'dark';
   setTheme(current === 'dark' ? 'light' : 'dark');
+  updateGranularScope(); // recolor scope for new theme
 }
 // Restore saved theme
 setTheme(localStorage.getItem('mantice-theme') || 'dark');
@@ -3774,4 +3901,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
-
