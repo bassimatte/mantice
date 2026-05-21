@@ -1,0 +1,173 @@
+meta:
+  name: Reese Protocol
+  slug: reese_protocol
+  category: experimental
+  mood:
+  - dark
+  - hypnotic
+  - industrial
+  description: Classic Reese bass drones with LP filter sweeps and a sub-oscillator floor
+  author: Matteo Bassi
+  engine_version: MANTICE_V21
+  tags:
+  - reese
+  - subtractive
+  - bass
+  - filter
+  - dark
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.55
+reverb:
+  space: cave
+  mix: 0.18
+  decay_trim: 0.9
+spatial:
+  depth: 1.2
+  wetness: 0.45
+  swarm_density: 0.3
+earth:
+  enabled: true
+  tectonic_freq: 18
+  pressure: 0.5
+air:
+  enabled: false
+  intensity: 0.0
+  turbulence: 0.0
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 4.0
+  carrier_hz: 55
+  carrier_amp: 0.1
+layers:
+- name: Reese Bass
+  enabled: true
+  type: subtractive
+  synthesis:
+    root: 55
+    voices: 6
+    ratios:
+    - 1.0
+    - 2.0
+    - 0.5
+  fm:
+    ratios:
+    - 1.0
+    index: 0.0
+  dynamics:
+    mix: 1.0
+    amp_min: 0.02
+    amp_max: 0.06
+    drift: 0.006
+  spatial_motion:
+    quadrant: center
+    speed: 0.004
+    trajectory_x: pendulum
+    trajectory_y: none
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  waveform: saw
+  detune_cents: 18.0
+  sub_mix: 0.5
+  filter_type: lp
+  filter_cutoff: 550.0
+  filter_resonance: 2.4
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.55
+  filter_lfo_shape: sine
+  chorus_rate: 0.3
+  chorus_depth: 0.008
+  chorus_mix: 0.35
+  chorus_voices: 3
+
+- name: Sub Floor
+  enabled: true
+  type: subtractive
+  synthesis:
+    root: 27.5
+    voices: 3
+    ratios:
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.0
+  dynamics:
+    mix: 0.55
+    amp_min: 0.015
+    amp_max: 0.04
+    drift: 0.003
+  spatial_motion:
+    quadrant: center
+    speed: 0.0
+    trajectory_x: none
+    trajectory_y: none
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  waveform: square
+  detune_cents: 5.0
+  sub_mix: 0.7
+  filter_type: lp
+  filter_cutoff: 120.0
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.05
+  filter_lfo_depth: 0.15
+  filter_lfo_shape: sine
+  chorus_rate: 0.5
+  chorus_depth: 0.003
+  chorus_mix: 0.0
+  chorus_voices: 2
+
+- name: Dark Atmosphere
+  enabled: true
+  type: fm
+  synthesis:
+    root: 220
+    voices: 10
+    ratios:
+    - 1.0
+    - 1.5
+    - 3.0
+    - 0.5
+  fm:
+    ratios:
+    - 1.5
+    - 2.0
+    - 1.0
+    index: 0.45
+  dynamics:
+    mix: 0.35
+    amp_min: 0.005
+    amp_max: 0.022
+    drift: 0.018
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.012
+    trajectory_x: orbit
+    trajectory_y: depth
+  elevation: 15.0
+  elevation_motion: drift
+  elevation_speed: 0.08
+  elevation_range: 30.0
+  harmonics: 5
+  harmonic_decay: 0.65
+  noise_amount: 0.04
+  noise_color: pink
+  filter_type: hp
+  filter_cutoff: 300.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  chorus_rate: 0.6
+  chorus_depth: 0.006
+  chorus_mix: 0.2
+  chorus_voices: 2

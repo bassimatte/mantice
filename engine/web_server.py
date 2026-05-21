@@ -176,6 +176,15 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "chorus_depth": layer.get("chorus_depth", 0.005),
                 "chorus_mix": layer.get("chorus_mix", 0.0),
                 "chorus_voices": layer.get("chorus_voices", 2),
+                "filter_type": layer.get("filter_type", "off"),
+                "filter_cutoff": layer.get("filter_cutoff", 2000),
+                "filter_resonance": layer.get("filter_resonance", 1.0),
+                "filter_lfo_rate": layer.get("filter_lfo_rate", 0.1),
+                "filter_lfo_depth": layer.get("filter_lfo_depth", 0.0),
+                "filter_lfo_shape": layer.get("filter_lfo_shape", "sine"),
+                "waveform": layer.get("waveform", "saw"),
+                "detune_cents": layer.get("detune_cents", 8.0),
+                "sub_mix": layer.get("sub_mix", 0.3),
             })
 
     binaural = preset.get("binaural") or {}
@@ -271,6 +280,15 @@ def _ui_params_to_preset(params: dict) -> dict:
             "chorus_depth": float(l.get("chorus_depth", 0.005)),
             "chorus_mix": float(l.get("chorus_mix", 0.0)),
             "chorus_voices": int(l.get("chorus_voices", 2)),
+            "filter_type": l.get("filter_type", "off"),
+            "filter_cutoff": float(l.get("filter_cutoff", 2000)),
+            "filter_resonance": float(l.get("filter_resonance", 1.0)),
+            "filter_lfo_rate": float(l.get("filter_lfo_rate", 0.1)),
+            "filter_lfo_depth": float(l.get("filter_lfo_depth", 0.0)),
+            "filter_lfo_shape": l.get("filter_lfo_shape", "sine"),
+            "waveform": l.get("waveform", "saw"),
+            "detune_cents": float(l.get("detune_cents", 8.0)),
+            "sub_mix": float(l.get("sub_mix", 0.3)),
         })
 
     binaural = params.get("binaural", {})
@@ -554,6 +572,15 @@ async def mutate_endpoint(request: Request):
                     "chorus_rate": l.get("chorus_rate", 0.5),
                     "chorus_depth": l.get("chorus_depth", 0.005),
                     "chorus_voices": l.get("chorus_voices", 2),
+                    "filter_type": l.get("filter_type", "off"),
+                    "filter_cutoff": float(l.get("filter_cutoff", 2000)),
+                    "filter_resonance": float(l.get("filter_resonance", 1.0)),
+                    "filter_lfo_rate": float(l.get("filter_lfo_rate", 0.1)),
+                    "filter_lfo_depth": float(l.get("filter_lfo_depth", 0.0)),
+                    "filter_lfo_shape": l.get("filter_lfo_shape", "sine"),
+                    "waveform": l.get("waveform", "saw"),
+                    "detune_cents": float(l.get("detune_cents", 8.0)),
+                    "sub_mix": float(l.get("sub_mix", 0.3)),
                 })
             m = flat.get("master", {})
             raw_preset = {
@@ -783,6 +810,15 @@ async def save_preset_endpoint(request: Request):
             l_out["chorus_depth"] = layer.get("chorus_depth", 0.005)
             l_out["chorus_mix"] = layer.get("chorus_mix", 0.0)
             l_out["chorus_voices"] = layer.get("chorus_voices", 2)
+            l_out["filter_type"] = layer.get("filter_type", "off")
+            l_out["filter_cutoff"] = float(layer.get("filter_cutoff", 2000))
+            l_out["filter_resonance"] = float(layer.get("filter_resonance", 1.0))
+            l_out["filter_lfo_rate"] = float(layer.get("filter_lfo_rate", 0.1))
+            l_out["filter_lfo_depth"] = float(layer.get("filter_lfo_depth", 0.0))
+            l_out["filter_lfo_shape"] = layer.get("filter_lfo_shape", "sine")
+            l_out["waveform"] = layer.get("waveform", "saw")
+            l_out["detune_cents"] = float(layer.get("detune_cents", 8.0))
+            l_out["sub_mix"] = float(layer.get("sub_mix", 0.3))
             save_data["layers"].append(l_out)
 
         # Try to preserve meta from original file

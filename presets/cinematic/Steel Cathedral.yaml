@@ -1,0 +1,177 @@
+meta:
+  name: Steel Cathedral
+  slug: steel_cathedral
+  category: cinematic
+  mood:
+  - epic
+  - dark
+  - industrial
+  - sacred
+  description: Detuned saw waves through slow filter sweeps conjure a cathedral of cold iron
+  author: Matteo Bassi
+  engine_version: MANTICE_V21
+  tags:
+  - reese
+  - subtractive
+  - filter
+  - cinematic
+  - cathedral
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.45
+reverb:
+  space: hall
+  mix: 0.35
+  decay_trim: 1.2
+spatial:
+  depth: 1.8
+  wetness: 0.65
+  swarm_density: 0.25
+earth:
+  enabled: true
+  tectonic_freq: 22
+  pressure: 0.45
+air:
+  enabled: true
+  intensity: 0.06
+  turbulence: 0.03
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 3.5
+  carrier_hz: 110
+  carrier_amp: 0.08
+layers:
+- name: Iron Bass
+  enabled: true
+  type: subtractive
+  synthesis:
+    root: 55
+    voices: 5
+    ratios:
+    - 1.0
+    - 2.0
+    - 0.5
+  fm:
+    ratios:
+    - 1.0
+    index: 0.0
+  dynamics:
+    mix: 0.9
+    amp_min: 0.018
+    amp_max: 0.055
+    drift: 0.005
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.006
+    trajectory_x: pendulum
+    trajectory_y: none
+  elevation: -10.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 20.0
+  waveform: saw
+  detune_cents: 24.0
+  sub_mix: 0.35
+  filter_type: lp
+  filter_cutoff: 800.0
+  filter_resonance: 3.0
+  filter_lfo_rate: 0.05
+  filter_lfo_depth: 0.7
+  filter_lfo_shape: triangle
+  chorus_rate: 0.4
+  chorus_depth: 0.01
+  chorus_mix: 0.3
+  chorus_voices: 3
+
+- name: Metal Choir
+  enabled: true
+  type: subtractive
+  synthesis:
+    root: 110
+    voices: 8
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.0
+  dynamics:
+    mix: 0.65
+    amp_min: 0.01
+    amp_max: 0.035
+    drift: 0.012
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.009
+    trajectory_x: orbit
+    trajectory_y: depth
+  elevation: 20.0
+  elevation_motion: drift
+  elevation_speed: 0.06
+  elevation_range: 40.0
+  waveform: triangle
+  detune_cents: 10.0
+  sub_mix: 0.2
+  filter_type: bp
+  filter_cutoff: 1200.0
+  filter_resonance: 2.5
+  filter_lfo_rate: 0.18
+  filter_lfo_depth: 0.45
+  filter_lfo_shape: sine
+  chorus_rate: 0.7
+  chorus_depth: 0.007
+  chorus_mix: 0.4
+  chorus_voices: 3
+
+- name: Steel Overtones
+  enabled: true
+  type: fm
+  synthesis:
+    root: 440
+    voices: 12
+    ratios:
+    - 1.0
+    - 0.5
+    - 2.0
+    - 3.0
+    - 0.25
+  fm:
+    ratios:
+    - 2.0
+    - 3.0
+    - 1.5
+    index: 0.28
+  dynamics:
+    mix: 0.3
+    amp_min: 0.004
+    amp_max: 0.018
+    drift: 0.025
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.015
+    trajectory_x: drift
+    trajectory_y: spiral
+  elevation: 30.0
+  elevation_motion: drift
+  elevation_speed: 0.12
+  elevation_range: 50.0
+  harmonics: 6
+  harmonic_decay: 0.55
+  noise_amount: 0.02
+  noise_color: pink
+  filter_type: hp
+  filter_cutoff: 600.0
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  chorus_rate: 0.9
+  chorus_depth: 0.004
+  chorus_mix: 0.15
+  chorus_voices: 2

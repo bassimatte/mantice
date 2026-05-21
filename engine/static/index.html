@@ -2038,6 +2038,7 @@ function showLayerParams(layer) {
       <select id="lp-type" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
         <option value="fm" ${layerType === 'fm' ? 'selected' : ''}>FM Synthesis</option>
         <option value="granular" ${layerType === 'granular' ? 'selected' : ''}>Granular</option>
+        <option value="subtractive" ${layerType === 'subtractive' ? 'selected' : ''}>Subtractive</option>
       </select>
     </div>
   `;
@@ -2132,6 +2133,52 @@ function showLayerParams(layer) {
     </div>
   `;
 
+  const subtractiveHtml = `
+    <div class="param-row">
+      <label>Waveform</label>
+      <select id="lp-waveform" ${!isEnabled?'disabled':''} style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="saw" ${(layer.waveform||'saw')==='saw'?'selected':''}>Sawtooth</option>
+        <option value="square" ${(layer.waveform||'saw')==='square'?'selected':''}>Square</option>
+        <option value="triangle" ${(layer.waveform||'saw')==='triangle'?'selected':''}>Triangle</option>
+      </select>
+    </div>
+    <div class="param-row">
+      <label>Root Hz</label>
+      <input type="range" id="lp-root" min="20" max="2000" step="0.1" value="${layer.root||110}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-root-val">${(layer.root||110).toFixed(1)}</span>
+    </div>
+    <div class="param-row">
+      <label>Voices</label>
+      <input type="range" id="lp-voices" min="1" max="8" step="1" value="${layer.voices||2}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-voices-val">${layer.voices||2}</span>
+    </div>
+    <div class="param-row">
+      <label>Detune (¢)</label>
+      <input type="range" id="lp-detune_cents" min="0" max="50" step="1" value="${layer.detune_cents||8}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-detune_cents-val">${layer.detune_cents||8}</span>
+    </div>
+    <div class="param-row">
+      <label>Sub Mix</label>
+      <input type="range" id="lp-sub_mix" min="0" max="1" step="0.01" value="${layer.sub_mix||0.3}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-sub_mix-val">${(layer.sub_mix||0.3).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Drift</label>
+      <input type="range" id="lp-drift" min="0" max="0.05" step="0.001" value="${layer.drift||0.01}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-drift-val">${(layer.drift||0.01).toFixed(3)}</span>
+    </div>
+    <div class="param-row">
+      <label>Mix</label>
+      <input type="range" id="lp-mix" min="0" max="2" step="0.05" value="${layer.mix||0.8}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-mix-val">${(layer.mix||0.8).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Loudness</label>
+      <input type="range" id="lp-loudness" min="0" max="0.15" step="0.001" value="${layer.amp_max||0.04}" ${!isEnabled?'disabled':''}>
+      <span class="value" id="lp-loudness-val">${(layer.amp_max||0.04).toFixed(3)}</span>
+    </div>
+  `;
+
   const elevationHtml = `
     <div class="param-row">
       <label>Elevation</label>
@@ -2217,6 +2264,8 @@ function showLayerParams(layer) {
   let synthHtml;
   if (layerType === 'granular') {
     synthHtml = granularHtml;
+  } else if (layerType === 'subtractive') {
+    synthHtml = subtractiveHtml;
   } else {
     synthHtml = fmHtml + harmonicsHtml + textureHtml;
   }
@@ -2330,7 +2379,7 @@ function showLayerParams(layer) {
   });
 
   // Bind FM sliders (only if FM type)
-  if (layerType !== 'granular') {
+  if (layerType === 'fm') {
     fmParams.forEach(p => {
       const slider = $(`lp-${p.id}`);
       if (!slider) return;
@@ -2384,6 +2433,43 @@ function showLayerParams(layer) {
       noiseColorSel.addEventListener('change', () => {
         pushUndo();
         currentParams.layers[activeLayerIdx].noise_color = noiseColorSel.value;
+        markDirty();
+      });
+    }
+  }
+
+  // Bind subtractive controls
+  if (layerType === 'subtractive') {
+    const subtractiveParams = ['root', 'voices', 'detune_cents', 'sub_mix', 'drift', 'mix'];
+    subtractiveParams.forEach(id => {
+      const slider = $(`lp-${id}`);
+      if (!slider) return;
+      slider.addEventListener('mousedown', () => pushUndo());
+      slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        const dec = id === 'drift' ? 3 : id === 'root' ? 1 : id === 'sub_mix' || id === 'mix' ? 2 : 0;
+        $(`lp-${id}-val`).textContent = v.toFixed(dec);
+        if (id === 'voices') currentParams.layers[activeLayerIdx][id] = parseInt(v);
+        else currentParams.layers[activeLayerIdx][id] = v;
+        markDirty();
+      });
+    });
+    const loudnessSlider = $('lp-loudness');
+    if (loudnessSlider) {
+      loudnessSlider.addEventListener('mousedown', () => pushUndo());
+      loudnessSlider.addEventListener('input', () => {
+        const v = parseFloat(loudnessSlider.value);
+        $('lp-loudness-val').textContent = v.toFixed(3);
+        currentParams.layers[activeLayerIdx].amp_max = v;
+        currentParams.layers[activeLayerIdx].amp_min = Math.min(0.005, v * 0.15);
+        markDirty();
+      });
+    }
+    const waveformSel = $('lp-waveform');
+    if (waveformSel) {
+      waveformSel.addEventListener('change', () => {
+        pushUndo();
+        currentParams.layers[activeLayerIdx].waveform = waveformSel.value;
         markDirty();
       });
     }

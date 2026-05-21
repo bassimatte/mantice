@@ -208,6 +208,17 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "chorus_depth": float(layer.get("chorus_depth", 0.005)),
         "chorus_mix": float(layer.get("chorus_mix", 0.0)),
         "chorus_voices": int(layer.get("chorus_voices", 2)),
+        # V21 per-layer filter + LFO
+        "filter_type":      layer.get("filter_type", "off"),
+        "filter_cutoff":    float(layer.get("filter_cutoff", 2000)),
+        "filter_resonance": float(layer.get("filter_resonance", 1.0)),
+        "filter_lfo_rate":  float(layer.get("filter_lfo_rate", 0.1)),
+        "filter_lfo_depth": float(layer.get("filter_lfo_depth", 0.0)),
+        "filter_lfo_shape": layer.get("filter_lfo_shape", "sine"),
+        # V21 subtractive synthesis
+        "waveform":     layer.get("waveform", "saw"),
+        "detune_cents": float(layer.get("detune_cents", 8.0)),
+        "sub_mix":      float(layer.get("sub_mix", 0.3)),
         # V17 granular keys
         "source": layer.get("source", "singing_bowl.ogg"),
         "grain_size": float(layer.get("grain_size", 80)),

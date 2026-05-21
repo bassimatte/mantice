@@ -225,6 +225,103 @@ class StreamingLayer:
             return out
 
 
+class StreamingSubtractiveLayer:
+    """
+    Subtractive synthesis layer: waveform oscillators (saw/square/triangle)
+    with optional dual-oscillator detune and sub-oscillator.
+    Classic Reese bass and other filter-based drone textures.
+    """
+
+    def __init__(self, cfg: dict):
+        self.cfg = cfg
+        n_voices = max(1, int(cfg.get("voices", 2)))
+        self.waveform = cfg.get("waveform", "saw")
+        self.root = float(cfg.get("root", 110.0))
+        self.detune_cents = float(cfg.get("detune_cents", 8.0))
+        self.sub_mix = float(cfg.get("sub_mix", 0.3))
+        self.amp_min = float(cfg.get("amp_min", 0.01))
+        self.amp_max = float(cfg.get("amp_max", 0.06))
+        self.drift = float(cfg.get("drift", 0.002))
+
+        ratios = cfg.get("ratios", [1.0])
+        self.osc1_freqs = np.array([
+            self.root * random.choice(ratios) * (2 ** (self.detune_cents / 1200))
+            for _ in range(n_voices)
+        ], dtype=np.float32)
+        self.osc2_freqs = np.array([
+            self.root * random.choice(ratios) * (2 ** (-self.detune_cents / 1200))
+            for _ in range(n_voices)
+        ], dtype=np.float32)
+        self.sub_freq = self.root * 0.5
+
+        self.amplitudes = np.array([
+            random.uniform(self.amp_min, self.amp_max)
+            for _ in range(n_voices)
+        ], dtype=np.float32)
+
+        self.osc1_phases = np.array([
+            random.uniform(0, 2 * np.pi)
+            for _ in range(n_voices)
+        ], dtype=np.float32)
+        self.osc2_phases = np.array([
+            random.uniform(0, 2 * np.pi)
+            for _ in range(n_voices)
+        ], dtype=np.float32)
+        self.sub_phase = random.uniform(0, 2 * np.pi)
+
+        self.drift_phases = np.array([
+            random.uniform(0, 2 * np.pi)
+            for _ in range(n_voices)
+        ], dtype=np.float32)
+        self.drift_rates = np.array([
+            random.uniform(0.001, 0.005)
+            for _ in range(n_voices)
+        ], dtype=np.float32)
+
+    def _waveform(self, phases: np.ndarray) -> np.ndarray:
+        """Generate waveform samples from phase array (0..2pi)."""
+        p = phases % (2 * np.pi)
+        if self.waveform == "square":
+            return np.where(p < np.pi, np.float32(1.0), np.float32(-1.0)).astype(np.float32)
+        if self.waveform == "triangle":
+            return (
+                np.float32(2.0)
+                * np.abs(p / np.pi - np.floor(p / np.pi + np.float32(0.5)))
+                * np.float32(2.0)
+                - np.float32(1.0)
+            ).astype(np.float32)
+        return (p / np.pi - np.float32(1.0)).astype(np.float32)
+
+    def next_chunk(self, n_samples: int) -> np.ndarray:
+        dt = np.float32(1.0 / SR)
+        t = np.arange(n_samples, dtype=np.float32) * dt
+
+        drift_phases = self.drift_phases[:, None] + (2 * np.pi * self.drift_rates[:, None] * t[None, :])
+        drift = np.sin(drift_phases, dtype=np.float32) * self.drift
+        self.drift_phases = drift_phases[:, -1] % (2 * np.pi)
+
+        inst_freq1 = self.osc1_freqs[:, None] * (1.0 + drift)
+        phase_inc1 = 2 * np.pi * inst_freq1 * dt
+        osc1_phases = self.osc1_phases[:, None] + np.cumsum(phase_inc1, axis=1)
+        sig1 = self._waveform(osc1_phases)
+        self.osc1_phases = osc1_phases[:, -1] % (2 * np.pi)
+
+        inst_freq2 = self.osc2_freqs[:, None] * (1.0 + drift)
+        phase_inc2 = 2 * np.pi * inst_freq2 * dt
+        osc2_phases = self.osc2_phases[:, None] + np.cumsum(phase_inc2, axis=1)
+        sig2 = self._waveform(osc2_phases)
+        self.osc2_phases = osc2_phases[:, -1] % (2 * np.pi)
+
+        combined = np.dot(self.amplitudes, (sig1 + sig2) * 0.5)
+
+        sub_phases = self.sub_phase + 2 * np.pi * self.sub_freq * np.cumsum(np.ones(n_samples, dtype=np.float32) * dt)
+        sub = np.sin(sub_phases, dtype=np.float32) * np.mean(self.amplitudes)
+        self.sub_phase = sub_phases[-1] % (2 * np.pi)
+
+        layer = combined * (1.0 - self.sub_mix) + sub * self.sub_mix
+        return layer * self.cfg.get("mix", 1.0)
+
+
 # ── Stateful spatial panner ───────────────────────────────────────────────────
 
 class StreamingPanner:
@@ -404,6 +501,84 @@ class StreamingChorus:
         return out
 
 
+class StreamingLayerFilter:
+    """Per-layer biquad filter with optional LFO modulation on cutoff."""
+
+    def __init__(self, filter_type: str, cutoff: float, resonance: float,
+                 lfo_rate: float, lfo_depth: float, lfo_shape: str):
+        self.filter_type = filter_type
+        self.base_cutoff = float(cutoff)
+        self.resonance = float(resonance)
+        self.lfo_rate = float(lfo_rate)
+        self.lfo_depth = float(lfo_depth)
+        self.lfo_shape = lfo_shape
+        self.lfo_phase = 0.0
+        self._last_random = 0.0
+        self._sos = None
+        self._zi_L = None
+        self._zi_R = None
+        self._build_filter(self.base_cutoff)
+
+    def _build_filter(self, cutoff: float) -> None:
+        nyq = SR * 0.5
+        fc = float(np.clip(cutoff, 20.0, nyq * 0.99))
+        try:
+            if self.filter_type == "lp":
+                self._sos = butter(2, fc / nyq, btype="low", output="sos")
+            elif self.filter_type == "hp":
+                self._sos = butter(2, fc / nyq, btype="high", output="sos")
+            elif self.filter_type == "bp":
+                lo = np.clip(fc * 0.7, 20, nyq * 0.98)
+                hi = np.clip(fc * 1.4, lo + 10, nyq * 0.99)
+                self._sos = butter(2, [lo / nyq, hi / nyq], btype="band", output="sos")
+            else:
+                self._sos = None
+                return
+        except Exception:
+            self._sos = None
+            return
+        zi = sosfilt_zi(self._sos) * 0.0
+        if self._zi_L is None or self._zi_L.shape != zi.shape:
+            self._zi_L = zi.copy()
+            self._zi_R = zi.copy()
+
+    def _lfo_value(self, n_samples: int) -> float:
+        """Return scalar LFO value in range [-1, 1] for this chunk."""
+        dt = 1.0 / SR
+        phase = self.lfo_phase
+        if self.lfo_shape == "sine":
+            val = np.sin(2 * np.pi * self.lfo_rate * phase)
+        elif self.lfo_shape == "triangle":
+            cycle = (self.lfo_rate * phase) % 1.0
+            val = 1.0 - abs(2.0 * cycle - 1.0) * 2.0
+        elif self.lfo_shape == "square":
+            cycle = (self.lfo_rate * phase) % 1.0
+            val = 1.0 if cycle < 0.5 else -1.0
+        else:
+            if np.random.random() < self.lfo_rate * n_samples / SR:
+                self._last_random = np.random.uniform(-1, 1)
+            val = self._last_random
+        self.lfo_phase += n_samples * dt
+        return float(val)
+
+    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+        if self.filter_type == "off" or self._sos is None:
+            return stereo
+        n = len(stereo)
+        if self.lfo_depth > 0.001:
+            lfo_val = self._lfo_value(n)
+            octaves = lfo_val * self.lfo_depth * 2.0
+            modulated_cutoff = self.base_cutoff * (2.0 ** octaves)
+            self._build_filter(modulated_cutoff)
+        else:
+            self._lfo_value(n)
+        if self._sos is None:
+            return stereo
+        filtered_L, self._zi_L = sosfilt(self._sos, stereo[:, 0], zi=self._zi_L)
+        filtered_R, self._zi_R = sosfilt(self._sos, stereo[:, 1], zi=self._zi_R)
+        return np.stack([filtered_L, filtered_R], axis=1).astype(np.float32)
+
+
 # ── Streaming Engine ──────────────────────────────────────────────────────────
 
 class StreamingDroneEngine:
@@ -434,16 +609,19 @@ class StreamingDroneEngine:
         self.layers = []
         self.panners = []
         self.choruses = []
+        self.filters = []
         self.saturation = float(preset.get("saturation", 0.3))
         self._master = MasterProcessor(preset.get("master", {}), SR)
 
         for layer_cfg in preset["layers"]:
             if not layer_cfg.get("enabled", True):
                 continue
-            # Choose layer type: granular or FM
+            # Choose layer type: granular, subtractive, or FM
             if layer_cfg.get("type") == "granular":
                 samples_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "samples")
                 layer = StreamingGranularLayer(layer_cfg, samples_dir, sample_rate=SR)
+            elif layer_cfg.get("type") == "subtractive":
+                layer = StreamingSubtractiveLayer(layer_cfg)
             else:
                 layer = StreamingLayer(layer_cfg)
             panner = StreamingPanner(
@@ -461,9 +639,18 @@ class StreamingDroneEngine:
                 mix=float(layer_cfg.get("chorus_mix", 0.0)),
                 voices=int(layer_cfg.get("chorus_voices", 2)),
             )
+            layer_filter = StreamingLayerFilter(
+                filter_type=layer_cfg.get("filter_type", "off"),
+                cutoff=float(layer_cfg.get("filter_cutoff", 2000)),
+                resonance=float(layer_cfg.get("filter_resonance", 1.0)),
+                lfo_rate=float(layer_cfg.get("filter_lfo_rate", 0.1)),
+                lfo_depth=float(layer_cfg.get("filter_lfo_depth", 0.0)),
+                lfo_shape=layer_cfg.get("filter_lfo_shape", "sine"),
+            )
             self.layers.append(layer)
             self.panners.append(panner)
             self.choruses.append(chorus)
+            self.filters.append(layer_filter)
 
         # Earth engine (simple streaming sine)
         self.earth_cfg = preset.get("earth")
@@ -487,10 +674,11 @@ class StreamingDroneEngine:
         stereo = np.zeros((n, 2), dtype=np.float32)
 
         # Layers
-        for layer, panner, chorus in zip(self.layers, self.panners, self.choruses):
+        for layer, panner, chorus, layer_filter in zip(self.layers, self.panners, self.choruses, self.filters):
             mono = layer.next_chunk(n)
             panned = panner.next_chunk(mono)
-            stereo += chorus.next_chunk(panned)
+            chorused = chorus.next_chunk(panned)
+            stereo += layer_filter.next_chunk(chorused)
 
         # Earth
         if self.earth_cfg and self.earth_cfg.get("enabled", True):
@@ -603,6 +791,7 @@ class _ShallowCopy:
         self.layers  = engine.layers
         self.panners = engine.panners
         self.choruses = engine.choruses
+        self.filters = engine.filters
         self.earth_cfg = engine.earth_cfg
         self.air_cfg   = engine.air_cfg
         self.earth_phase = engine.earth_phase
@@ -619,10 +808,11 @@ class _ShallowCopy:
 
     def next_chunk(self, n: int) -> np.ndarray:
         stereo = np.zeros((n, 2), dtype=np.float32)
-        for layer, panner, chorus in zip(self.layers, self.panners, self.choruses):
+        for layer, panner, chorus, layer_filter in zip(self.layers, self.panners, self.choruses, self.filters):
             mono = layer.next_chunk(n)
             panned = panner.next_chunk(mono)
-            stereo += chorus.next_chunk(panned)
+            chorused = chorus.next_chunk(panned)
+            stereo += layer_filter.next_chunk(chorused)
 
         stereo[:, 0], self._dc_zi_L = sosfilt(self._dc_sos, stereo[:, 0], zi=self._dc_zi_L)
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)
