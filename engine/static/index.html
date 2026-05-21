@@ -190,6 +190,38 @@ header .status {
 }
 .settings-info-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ── Files dropdown ─────────────────────────────── */
+.files-menu-wrapper {
+  position: relative;
+}
+#btn-files {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+}
+.files-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  min-width: 190px;
+  z-index: 2000;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.files-dropdown.open { display: block; }
+.dropdown-section-label {
+  font-size: 9px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 4px 4px;
+  font-weight: 700;
+}
+
 /* ── Sidebar ────────────────────────────────────── */
 aside {
   background: var(--surface);
@@ -901,6 +933,40 @@ main {
   </div>
   <span class="now-playing" id="now-playing"></span>
   <span class="status" id="status">READY</span>
+  <div class="files-menu-wrapper" id="files-menu-wrapper">
+    <button class="zoom-btn" id="btn-files" title="Files">⊞</button>
+    <div class="files-dropdown" id="files-dropdown">
+      <div class="dropdown-section-label">Presets</div>
+      <div class="file-menu-item" id="btn-save">💾 Save</div>
+      <div class="file-menu-item" id="btn-save-as">📄 Save As</div>
+      <div class="file-menu-item" id="btn-restore">↺ Restore</div>
+      <div class="file-menu-item" id="btn-export">⬡ Export Preset</div>
+      <div class="file-menu-item" id="btn-delete" style="color:var(--danger)">🗑 Delete</div>
+      <div class="settings-divider"></div>
+      <div class="dropdown-section-label">Export Audio</div>
+      <div class="settings-row">
+        <span class="settings-label">Duration</span>
+        <input type="number" id="duration" value="60" min="5" max="3600" style="width:60px; font-size:11px; background:var(--surface); color:var(--text); border:1px solid var(--border); padding:2px 4px;">
+        <span style="font-size:11px; color:var(--text-dim)">s</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Format</span>
+        <select id="format" style="font-size:11px; background:var(--surface); color:var(--text); border:1px solid var(--border); padding:2px 4px;">
+          <option value="wav">WAV</option>
+          <option value="flac">FLAC</option>
+          <option value="ogg">OGG</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Hi-Res</span>
+        <div class="toggle" id="hires-toggle" title="48kHz / 24-bit"></div>
+        <span style="font-size:10px; color:var(--text-dim)">48k / 24b</span>
+      </div>
+      <div class="settings-row" style="margin-top:4px">
+        <button class="btn btn-outline btn-render" id="btn-render-files" style="width:100%; font-size:11px; padding:5px 0">⬤ Render &amp; Download</button>
+      </div>
+    </div>
+  </div>
   <div class="settings-menu" id="settings-menu">
     <button class="zoom-btn" id="btn-settings" title="Settings">⚙</button>
     <div class="settings-dropdown" id="settings-dropdown">
@@ -1299,16 +1365,6 @@ python batch_render_freesound.py --metadata-only</pre>
     </div>
   </div>
 
-  <div class="sidebar-section file-menu-wrapper">
-    <div class="file-menu" id="file-menu">
-      <div class="file-menu-item" id="btn-save">💾 Save</div>
-      <div class="file-menu-item" id="btn-save-as">📄 Save As</div>
-      <div class="file-menu-item" id="btn-restore">↺ Restore</div>
-      <div class="file-menu-item" id="btn-export">⬡ Export</div>
-      <div class="file-menu-item" id="btn-delete" style="color: var(--danger);">🗑 Delete</div>
-    </div>
-    <button class="btn btn-outline" id="btn-file-menu" style="width:100%">FILE ▾</button>
-  </div>
 </aside>
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
@@ -1322,26 +1378,16 @@ python batch_render_freesound.py --metadata-only</pre>
     </div>
   </div>
 
-  <!-- Settings -->
+  <!-- Master -->
   <div class="card card-collapsible">
-    <h2>Settings</h2>
-    <div class="transport-secondary">
-      <label style="font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em">Duration:</label>
-      <input type="number" id="duration" value="60" min="5" max="3600" style="width:70px">
-      <label style="font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em">Format:</label>
-      <select id="format">
-        <option value="wav">WAV</option>
-        <option value="flac">FLAC</option>
-        <option value="ogg">OGG</option>
-      </select>
-      <label style="font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em">Hi-Res</label>
-      <div class="toggle" id="hires-toggle" title="48kHz / 24-bit"></div>
-      <label style="font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em">Seed Lock</label>
+    <h2>Master</h2>
+    <div class="param-row">
+      <label>Seed</label>
       <div class="toggle on" id="seed-lock" data-state="1" title="Fixed seed for reproducible preview"></div>
       <input type="number" id="seed-value" value="42" min="0" max="99999" style="width:50px; font-size:10px" title="Preview seed">
     </div>
     <div class="param-row" style="margin-top:6px;">
-      <label style="font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.05em">Warmth</label>
+      <label>Warmth</label>
       <input type="range" id="saturation-slider" min="0" max="1" step="0.05" value="0.3" style="flex:1">
       <span class="value" id="saturation-val" style="font-size:10px; color:var(--text-lcd); min-width:32px">0.30</span>
     </div>
@@ -3243,6 +3289,7 @@ function init() {
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     settingsDropdown.classList.toggle('open');
+    $('files-dropdown').classList.remove('open');
   });
   document.addEventListener('click', (e) => {
     if (!$('settings-menu').contains(e.target)) settingsDropdown.classList.remove('open');
@@ -3321,15 +3368,26 @@ function init() {
   // Keyboard shortcuts
   initKeyboardShortcuts();
 
-  // ── File Menu Dropdown ──────────────────────────────────────────────────────
-  const fileMenuBtn = $('btn-file-menu');
-  const fileMenu = $('file-menu');
-  fileMenuBtn.addEventListener('click', (e) => {
+  // ── Files Dropdown ──────────────────────────────────────────────────────────
+  const filesBtn = $('btn-files');
+  const filesDropdown = $('files-dropdown');
+  filesBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    fileMenu.classList.toggle('open');
+    filesDropdown.classList.toggle('open');
+    $('settings-dropdown').classList.remove('open');
   });
-  document.addEventListener('click', () => { fileMenu.classList.remove('open'); });
-  fileMenu.addEventListener('click', () => { fileMenu.classList.remove('open'); });
+  document.addEventListener('click', () => { filesDropdown.classList.remove('open'); });
+  filesDropdown.addEventListener('click', (e) => {
+    // keep open when interacting with inputs/selects/toggles inside
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && !e.target.classList.contains('toggle')) {
+      // only close on preset action items
+      if (e.target.classList.contains('file-menu-item') || e.target.id === 'btn-render-files') {
+        filesDropdown.classList.remove('open');
+      }
+    }
+    e.stopPropagation();
+  });
+  $('btn-render-files').addEventListener('click', doRender);
 
   // ── Collapsible Cards ───────────────────────────────────────────────────────
   document.querySelectorAll('.card-collapsible h2').forEach(h2 => {
