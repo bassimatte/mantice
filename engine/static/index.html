@@ -3228,7 +3228,6 @@ function init() {
   $('btn-render').addEventListener('click', doRender);
 
   // Docs modal
-  $('btn-docs').addEventListener('click', () => $('docs-overlay').classList.add('open'));
   $('docs-close').addEventListener('click', () => $('docs-overlay').classList.remove('open'));
   $('docs-overlay').addEventListener('click', (e) => {
     if (e.target === $('docs-overlay')) $('docs-overlay').classList.remove('open');
