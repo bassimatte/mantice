@@ -12,14 +12,14 @@ spatial panning, binaural beats, FDN reverb, and a real-time Web UI.
 
 ## 🎧 Try it Online
 
-**[▶ Launch Mantice](https://yourusername.github.io/mantice)** — runs in your browser, no install needed.
+**[▶ Launch Mantice](https://bassimatte.github.io/mantice/)** — runs in your browser, no install needed.
 
 ---
 
 ## 💻 Run Locally
 
 ```bash
-git clone https://github.com/yourusername/mantice.git
+git clone https://github.com/bassimatte/mantice.git
 cd mantice
 pip install -r requirements.txt
 python main.py --gui
@@ -74,7 +74,7 @@ python main.py --preset "presets/essentials/Warm Pad.yaml" --duration 120
 ### GitHub Pages (frontend)
 1. Push to GitHub
 2. Settings → Pages → Source: `/docs` folder
-3. Your UI is live at `https://yourusername.github.io/mantice`
+3. Your UI is live at `https://bassimatte.github.io/mantice/`
 
 ### Render (backend)
 1. Connect your GitHub repo on [render.com](https://render.com)
@@ -409,7 +409,7 @@ Located at: `presets/sacred/Theta Gateway.yaml`
 - **`--mood`** biases generation toward a sonic character:
   `dark`, `bright`, `cinematic`, `minimal`, `industrial`, `nature`, `chaotic`
 - **`--generate-count N`** produces multiple presets in one run.
-- Output lands in `presets/generated/` — never pollutes hand-crafted categories.
+- Output is ephemeral (not saved to disk) — use **Share Link** to preserve a generated preset permanently.
 - Generated presets include `meta.origin: "generated"` for traceability.
 
 ### Preset mutation
@@ -453,7 +453,7 @@ python main.py --generate --mood minimal --seed 42
 | **Primordial Forest** | ritual | Organic, nature-inspired, air-heavy |
 | **Om** | sacred | Minimal, pure tone, meditative |
 
-Total preset count: **25** across 5 categories (sacred, experimental, cinematic, ritual, subharmonic) + generated/.
+Total preset count: **25** across 5 categories (sacred, experimental, cinematic, ritual, subharmonic).
 
 ## What's new in V7.0
 
