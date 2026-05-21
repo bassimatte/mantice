@@ -1563,6 +1563,7 @@ async function api(path, opts = {}) {
 let allPresets = [];
 let activeTagFilter = null;
 let sharedPresetEntry = null; // { name, params } — ephemeral entry loaded via #shared= URL
+let currentSharedId = null;   // ID of the currently loaded community preset (null if official/generated)
 
 async function loadPresetList() {
   allPresets = await api('/api/presets');
@@ -1577,6 +1578,7 @@ async function loadPresetList() {
       const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
       if (data.ok) {
         sharedPresetEntry = { name: data.params.name || id, params: data.params };
+        currentSharedId = id;
         currentParams = data.params;
         renderPresetList();
         applyParamsToUI(currentParams);
@@ -1684,6 +1686,7 @@ async function loadPreset(path, el) {
 
   currentParams = data.params;
   currentPresetPath = path;
+  currentSharedId = null; // loading an official preset clears shared context
   renderedBuffer = null; // clear so Play does preview, not old render
   applyParamsToUI(currentParams);
   if (!isStreaming) stopAurora();  // don't kill waveform if audio is still playing
@@ -3066,6 +3069,7 @@ async function doGenerate() {
   if (data.ok) {
     currentParams = data.params;
     currentPresetPath = null; // generated preset has no saved path
+    currentSharedId = null;
     applyParamsToUI(currentParams);
     markDirty();
     updateNowPlaying();
@@ -3089,6 +3093,7 @@ async function doMutate() {
   if (data.ok) {
     currentParams = data.params;
     currentPresetPath = null; // mutated preset has no saved path
+    currentSharedId = null;
     applyParamsToUI(currentParams);
     markDirty();
     updateNowPlaying();
@@ -3103,6 +3108,17 @@ async function doMutate() {
 // ── Export preset ────────────────────────────────────────────────────────────
 async function doSharePreset() {
   if (!currentParams) { setStatus('No preset loaded'); return; }
+
+  // If this is an unmodified community preset, just copy its existing link
+  if (currentSharedId && savedParamsSnapshot &&
+      JSON.stringify(collectParams()) === savedParamsSnapshot) {
+    const shareUrl = window.location.origin + window.location.pathname + '#shared=' + currentSharedId;
+    await navigator.clipboard.writeText(shareUrl);
+    setStatus('🔗 Link copied! — #shared=' + currentSharedId);
+    return;
+  }
+
+  // Otherwise upload as a new shared preset
   setStatus('Sharing…');
   try {
     const params = collectParams();
@@ -3112,9 +3128,11 @@ async function doSharePreset() {
       body: JSON.stringify({ params })
     });
     if (!data.ok) { setStatus('Share failed: ' + data.error); return; }
+    currentSharedId = data.id;
+    savedParamsSnapshot = JSON.stringify(collectParams()); // now "clean" relative to this share
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + data.id;
     await navigator.clipboard.writeText(shareUrl);
-    setStatus('🔗 Link copied! — ' + shareUrl.split('#')[1]);
+    setStatus('🔗 Link copied! — #shared=' + data.id);
   } catch (e) {
     setStatus('Share error: ' + e.message);
   }
