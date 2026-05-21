@@ -1518,7 +1518,10 @@ python batch_render_freesound.py --metadata-only</pre>
 
   <!-- Layer Parameters -->
   <div class="card">
-    <h2>Layers</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <h2 style="margin:0">Layers</h2>
+      <button id="btn-add-layer" title="Add layer" style="padding:2px 8px;font-size:14px;line-height:1;background:var(--bg);border:1px solid var(--border);color:var(--accent);cursor:pointer;border-radius:3px;font-family:'Space Mono',monospace;" onclick="doAddLayer()">+</button>
+    </div>
     <div class="layer-tabs" id="layer-tabs"></div>
     <div id="layer-params"></div>
   </div>
@@ -1939,7 +1942,48 @@ function buildLayerTabs(layers) {
       buildLayerTabs(currentParams.layers);
     });
   });
+  // Show/hide + button at layer limit
+  const addBtn = $('btn-add-layer');
+  if (addBtn) addBtn.style.display = layers.length >= 5 ? 'none' : '';
   showLayerParams(layers[activeLayerIdx]);
+}
+
+function doAddLayer() {
+  if (!currentParams || currentParams.layers.length >= 5) return;
+  pushUndo();
+  // Pick a root that contrasts with existing layers
+  const usedRoots = currentParams.layers.map(l => l.root || (l.synthesis && l.synthesis.root) || 220);
+  const candidates = [55, 110, 220, 440, 880, 174.6, 130.8, 261.6];
+  const root = candidates.find(r => !usedRoots.some(u => Math.abs(u - r) < 30)) || 220;
+  const idx = currentParams.layers.length;
+  const names = ['Sub', 'Bass', 'Mid', 'Alto', 'High', 'Air'];
+  const newLayer = {
+    name: names[idx] || ('Layer ' + idx),
+    enabled: true,
+    type: 'fm',
+    root: root,
+    voices: 4,
+    fm_index: 1.0,
+    drift: 0.01,
+    mix: 0.8,
+    amp_min: 0.005,
+    amp_max: 0.04,
+    chorus_mix: 0,
+    spatial_motion: { quadrant: 'front', speed: 0.005, trajectory_x: 'sine', trajectory_y: 'cosine' }
+  };
+  currentParams.layers.push(newLayer);
+  activeLayerIdx = currentParams.layers.length - 1;
+  buildLayerTabs(currentParams.layers);
+  markDirty();
+}
+
+function doRemoveLayer() {
+  if (!currentParams || currentParams.layers.length <= 1) return;
+  pushUndo();
+  currentParams.layers.splice(activeLayerIdx, 1);
+  activeLayerIdx = Math.min(activeLayerIdx, currentParams.layers.length - 1);
+  buildLayerTabs(currentParams.layers);
+  markDirty();
 }
 
 function showLayerParams(layer) {
@@ -1947,6 +1991,7 @@ function showLayerParams(layer) {
   const isEnabled = layer.enabled !== false;
   const layerType = layer.type || 'fm';
 
+  const numLayers = currentParams.layers.length;
   const toggleHtml = `
     <div class="layer-toggle-row">
       <label>Enabled</label>
@@ -1954,6 +1999,7 @@ function showLayerParams(layer) {
         <div class="toggle-knob"></div>
       </div>
       <button class="solo-btn" id="layer-solo-btn" title="Solo this layer">S</button>
+      <button class="solo-btn" id="layer-remove-btn" title="Remove this layer" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-dim);" ${numLayers <= 1 ? 'disabled' : ''} onclick="doRemoveLayer()">×</button>
     </div>
     <div class="param-row">
       <label>Type</label>
