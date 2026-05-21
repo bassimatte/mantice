@@ -516,7 +516,12 @@ async def share_preset_endpoint(request: Request):
     try:
         import yaml as _yaml
         preset_data = _ui_params_to_preset(params)
-        preset_name = params.get("name", "Untitled")
+        preset_name = params.get("name", "") or ""
+        _GENERIC = {"MANTICE", "Untitled", "untitled", "Untitled Preset", ""}
+        if preset_name.strip() in _GENERIC:
+            from .generator import _random_name
+            preset_name = _random_name()
+            preset_data["meta"]["name"] = preset_name  # fix the YAML too
         safe_name = "".join(c for c in preset_name if c.isalnum() or c in " -_").strip().replace(" ", "_")
         short_id = uuid.uuid4().hex[:6]
         date_str = datetime.utcnow().strftime("%Y%m%d")
