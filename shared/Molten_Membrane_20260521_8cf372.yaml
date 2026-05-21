@@ -1,0 +1,181 @@
+meta:
+  name: Molten Membrane
+seed: null
+duration: 60.0
+spatial_depth: 1.2
+spatial_wet: 0.45
+saturation: 0.55
+master:
+  eq:
+    low_cut_hz: 20.0
+    bass_db: 0.0
+    mid_db: 0.0
+    air_db: 0.0
+  comp:
+    threshold_db: 0.0
+    ratio: 2.0
+    makeup_db: 0.0
+swarm_density: 0.5
+layers:
+- name: Reese Bass
+  enabled: true
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 55.0
+  voices: 6
+  ratios:
+  - 1
+  - 2
+  - 0.5
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.02
+  amp_max: 0.06
+  drift: 0.006
+  mix: 1.0
+  band: sub
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.3
+  chorus_depth: 0.008
+  chorus_mix: 0.35
+  chorus_voices: 3
+  filter_type: lp
+  filter_cutoff: 550.0
+  filter_resonance: 2.4
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.55
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 18.0
+  sub_mix: 0.5
+- name: Sub Floor
+  enabled: true
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 27.5
+  voices: 3
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.015
+  amp_max: 0.04
+  drift: 0.003
+  mix: 0.55
+  band: sub
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.003
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 120.0
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.05
+  filter_lfo_depth: 0.15
+  filter_lfo_shape: sine
+  waveform: square
+  detune_cents: 5.0
+  sub_mix: 0.7
+- name: Dark Atmosphere
+  enabled: true
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 220.0
+  voices: 10
+  ratios:
+  - 1
+  - 1.5
+  - 3
+  - 0.5
+  fm_ratios:
+  - 1.5
+  - 2
+  - 1
+  fm_index: 0.45
+  amp_min: 0.005
+  amp_max: 0.022
+  drift: 0.018
+  mix: 0.35
+  band: mid
+  quadrant: rear_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  harmonics: 5
+  harmonic_decay: 0.65
+  noise_amount: 0.04
+  noise_color: pink
+  elevation: 15.0
+  elevation_motion: drift
+  elevation_speed: 0.08
+  elevation_range: 30.0
+  chorus_rate: 0.6
+  chorus_depth: 0.006
+  chorus_mix: 0.2
+  chorus_voices: 2
+  filter_type: hp
+  filter_cutoff: 300.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 4
+  carrier_hz: 60
+  carrier_amplitude: 0.15
+reverb: null
+earth:
+  enabled: true
+  tectonic_frequency: 18
+  pressure: 0.5
+  movement: 0.02
+air: null
