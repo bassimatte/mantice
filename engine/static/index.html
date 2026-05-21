@@ -1569,7 +1569,8 @@ async function loadPresetList() {
   allPresets = await api('/api/presets');
   buildTagFilter();
   renderPresetList();
-  // If URL contains #shared=<id>, load that shared preset instead of default
+
+  // #shared=<id> — community shared preset
   const sharedMatch = window.location.hash.match(/[#&]shared=([^&]+)/);
   if (sharedMatch) {
     const id = sharedMatch[1];
@@ -1596,6 +1597,19 @@ async function loadPresetList() {
       setStatus('Shared preset error: ' + e.message);
     }
   }
+
+  // #preset=<path> — direct link to an official preset
+  const presetMatch = window.location.hash.match(/[#&]preset=([^&]+)/);
+  if (presetMatch) {
+    const path = decodeURIComponent(presetMatch[1]);
+    const match = allPresets.find(p => p.path === path);
+    if (match) {
+      loadPreset(match.path, null);
+      setStatus('🔗 Preset loaded: ' + match.name);
+      return;
+    }
+  }
+
   // Load default preset on first load
   if (allPresets.length && !currentParams) {
     const isMobile = window.innerWidth <= 768;
@@ -3112,17 +3126,26 @@ async function doMutate() {
 // ── Export preset ────────────────────────────────────────────────────────────
 async function doSharePreset() {
   if (!currentParams) { setStatus('No preset loaded'); return; }
+  const isClean = savedParamsSnapshot && JSON.stringify(collectParams()) === savedParamsSnapshot;
 
-  // If this is an unmodified community preset, just copy its existing link
-  if (currentSharedId && savedParamsSnapshot &&
-      JSON.stringify(collectParams()) === savedParamsSnapshot) {
+  // Unmodified community preset → reuse existing link
+  if (currentSharedId && isClean) {
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + currentSharedId;
     await navigator.clipboard.writeText(shareUrl);
     setStatus('🔗 Link copied! — #shared=' + currentSharedId);
     return;
   }
 
-  // Otherwise upload as a new shared preset
+  // Unmodified official preset → direct #preset= link (no backend call, no copy)
+  if (currentPresetPath && isClean) {
+    const shareUrl = window.location.origin + window.location.pathname + '#preset=' + encodeURIComponent(currentPresetPath);
+    await navigator.clipboard.writeText(shareUrl);
+    const name = allPresets.find(p => p.path === currentPresetPath)?.name || currentPresetPath;
+    setStatus('🔗 Link copied! — ' + name);
+    return;
+  }
+
+  // Modified or generated preset → upload as new shared preset
   setStatus('Sharing…');
   try {
     const params = collectParams();
