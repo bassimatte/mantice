@@ -3842,7 +3842,7 @@ function doImportPresetFile() {
   $('import-preset-input').click();
 }
 
-$('import-preset-input').addEventListener('change', async function () {
+async function handleImportPresetFile() {
   const file = this.files[0];
   if (!file) return;
   this.value = ''; // reset so same file can be re-imported
@@ -3874,11 +3874,12 @@ $('import-preset-input').addEventListener('change', async function () {
   } catch (e) {
     setStatus('Import error: ' + e.message);
   }
-});
+}
 
 async function doExportPreset() {
   if (!currentParams) { setStatus('No preset loaded'); return; }
   setStatus('Exporting...');
+  try {
     const res = await fetch(apiUrl('/api/export-preset'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4182,6 +4183,7 @@ function init() {
   $('btn-share').addEventListener('click', doSharePreset);
   $('btn-restore').addEventListener('click', doRestore);
   $('btn-import-file').addEventListener('click', () => { $('files-dropdown').classList.remove('open'); doImportPresetFile(); });
+  $('import-preset-input').addEventListener('change', handleImportPresetFile);
 
   // Mood buttons
   document.querySelectorAll('.mood-btn').forEach(btn => {
