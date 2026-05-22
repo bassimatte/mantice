@@ -598,9 +598,12 @@ main {
   header .status { display: none; }
   .now-playing { display: none; }
   .zoom-btn { display: none; }
-  /* Info button and hamburger pushed to right */
-  #btn-docs { margin-left: 0; order: 98; }
-  .settings-menu { order: 98; }
+  /* Files and Settings buttons stay visible on mobile */
+  #btn-files  { display: flex; }
+  #btn-settings { display: flex; }
+  /* Order the header wrappers: files | settings | hamburger */
+  .files-menu-wrapper { order: 96; }
+  .settings-menu { order: 97; }
   .hamburger { order: 99; }
 
   /* Preset name bar below header */
