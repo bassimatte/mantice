@@ -41,12 +41,16 @@ def pan_layer(
     trajectory_x: str,
     trajectory_y: str,
     speed:        float,
+    pan:          float = 0.0,
+    width:        float = 1.0,
 ) -> np.ndarray:
     """
     Take a mono layer signal and return a stereo (N, 2) array positioned
     according to the layer's spatial_motion parameters.
 
-    quadrant    → base left/right position
+    pan         → explicit pan override: -1.0 (L) to +1.0 (R), 0 = use quadrant
+    width       → stereo spread: 0=mono, 1=normal, 2=extra-wide
+    quadrant    → base left/right position (used when pan==0)
     trajectory_x → pan automation over time
     trajectory_y → depth (distance) automation
     speed       → LFO frequency for trajectory (Hz)
@@ -54,7 +58,7 @@ def pan_layer(
     samples = len(mono)
     t       = np.linspace(0, samples / config.SAMPLE_RATE, samples, endpoint=False)
 
-    base_pan = _QUADRANT_PAN.get(quadrant, 0.5)
+    base_pan = (pan + 1.0) / 2.0 if pan != 0.0 else _QUADRANT_PAN.get(quadrant, 0.5)
 
     # ── pan automation (trajectory_x) ──────────────────────────────────────
     if trajectory_x == "orbit":
@@ -104,7 +108,15 @@ def pan_layer(
     left  = src * gain_left
     right = src * gain_right
 
-    return np.stack([left, right], axis=1)
+    stereo = np.stack([left, right], axis=1)
+
+    # Stereo width (mid/side)
+    if abs(width - 1.0) > 0.01:
+        mid  = (stereo[:, 0] + stereo[:, 1]) * 0.5
+        side = (stereo[:, 0] - stereo[:, 1]) * 0.5
+        stereo = np.stack([mid + side * width, mid - side * width], axis=1)
+
+    return stereo
 
 
 def add_depth(stereo: np.ndarray, depth: float, wet: float) -> np.ndarray:

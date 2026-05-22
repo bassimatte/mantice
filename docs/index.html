@@ -1423,7 +1423,9 @@ python batch_render_freesound.py --metadata-only</pre>
         <h3>Layer — Spatial Motion</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Quadrant</td><td>center, front_left, front_right, rear_left, rear_right</td><td>center</td><td>Starting stereo position</td></tr>
+          <tr><td>Pan</td><td>-1.0 (L) – 0 (C) – +1.0 (R)</td><td>0</td><td>Precise stereo placement; overrides Quadrant when non-zero</td></tr>
+          <tr><td>Width</td><td>0–2</td><td>1</td><td>Stereo spread via M/S: 0=mono, 1=normal, 2=extra-wide</td></tr>
+          <tr><td>Quadrant</td><td>center, front_left, front_right, rear_left, rear_right</td><td>center</td><td>Coarse starting stereo position (overridden by Pan)</td></tr>
           <tr><td>Trajectory X/Y</td><td>none, drift, orbit, bounce, random</td><td>none</td><td>Motion pattern</td></tr>
           <tr><td>Speed</td><td>0.0–1.0</td><td>0.01</td><td>Movement speed</td></tr>
         </table>
@@ -2396,8 +2398,20 @@ function showLayerParams(layer) {
   `;
 
   const spatialMotion = layer.spatial_motion || { quadrant: layer.quadrant || 'center', trajectory_x: layer.trajectory_x || 'drift', speed: layer.speed || 0.01 };
+  const layerPan   = layer.pan   ?? 0.0;
+  const layerWidth = layer.width ?? 1.0;
 
   const spatialHtml = `
+    <div class="param-row">
+      <label>Pan</label>
+      <input type="range" id="lp-pan" min="-1" max="1" step="0.01" value="${layerPan}" ${!isEnabled ? 'disabled' : ''}>
+      <span class="value" id="lp-pan-val">${layerPan >= 0 ? (layerPan === 0 ? 'C' : 'R ' + layerPan.toFixed(2)) : 'L ' + Math.abs(layerPan).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Width</label>
+      <input type="range" id="lp-width" min="0" max="2" step="0.05" value="${layerWidth}" ${!isEnabled ? 'disabled' : ''}>
+      <span class="value" id="lp-width-val">${layerWidth.toFixed(2)}</span>
+    </div>
     <div class="param-row">
       <label>Position</label>
       <select id="lp-quadrant" ${!isEnabled ? 'disabled' : ''} style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
@@ -2687,6 +2701,22 @@ function showLayerParams(layer) {
   }
 
   // Spatial controls (shared by both types)
+  const panSlider = $('lp-pan');
+  panSlider.addEventListener('mousedown', () => { pushUndo(); });
+  panSlider.addEventListener('input', () => {
+    const v = parseFloat(panSlider.value);
+    $('lp-pan-val').textContent = v === 0 ? 'C' : (v > 0 ? 'R ' + v.toFixed(2) : 'L ' + Math.abs(v).toFixed(2));
+    currentParams.layers[activeLayerIdx].pan = v;
+    markDirty();
+  });
+  const widthSlider = $('lp-width');
+  widthSlider.addEventListener('mousedown', () => { pushUndo(); });
+  widthSlider.addEventListener('input', () => {
+    const v = parseFloat(widthSlider.value);
+    $('lp-width-val').textContent = v.toFixed(2);
+    currentParams.layers[activeLayerIdx].width = v;
+    markDirty();
+  });
   const speedSlider = $('lp-spatial-speed');
   speedSlider.addEventListener('mousedown', () => { pushUndo(); });
   speedSlider.addEventListener('input', () => {

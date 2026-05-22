@@ -236,6 +236,8 @@ class DroneEngine:
                     trajectory_x = layer_cfg["trajectory_x"],
                     trajectory_y = layer_cfg["trajectory_y"],
                     speed        = layer_cfg["speed"],
+                    pan          = float(layer_cfg.get("pan", 0.0)),
+                    width        = float(layer_cfg.get("width", 1.0)),
                 )
                 stereo_mix += stereo_layer
             _step()

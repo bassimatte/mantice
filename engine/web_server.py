@@ -271,6 +271,8 @@ def _ui_params_to_preset(params: dict) -> dict:
             "trajectory_x": l.get("trajectory_x", "drift"),
             "trajectory_y": l.get("trajectory_y", "none"),
             "speed": float(l.get("speed", 0.01)),
+            "pan": float(l.get("pan", 0.0)),
+            "width": float(l.get("width", 1.0)),
             "harmonics": int(l.get("harmonics", 4)),
             "harmonic_decay": float(l.get("harmonic_decay", 0.7)),
             "noise_amount": float(l.get("noise_amount", 0.0)),
@@ -594,6 +596,8 @@ async def mutate_endpoint(request: Request):
                         "trajectory_x": l.get("trajectory_x", "drift"),
                         "trajectory_y": l.get("trajectory_y", "none"),
                     },
+                    "pan": float(l.get("pan", 0.0)),
+                    "width": float(l.get("width", 1.0)),
                     "harmonics": l.get("harmonics", 4),
                     "harmonic_decay": l.get("harmonic_decay", 0.7),
                     "noise_amount": l.get("noise_amount", 0.0),
@@ -836,6 +840,8 @@ async def save_preset_endpoint(request: Request):
                 "trajectory_x": layer.get("trajectory_x", "none"),
                 "trajectory_y": layer.get("trajectory_y", "none"),
             }
+            l_out["pan"] = float(layer.get("pan", 0.0))
+            l_out["width"] = float(layer.get("width", 1.0))
             l_out["elevation"] = layer.get("elevation", 0.0)
             l_out["elevation_motion"] = layer.get("elevation_motion", "static")
             l_out["elevation_speed"] = layer.get("elevation_speed", 0.1)

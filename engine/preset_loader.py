@@ -164,6 +164,8 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "speed":        float(layer.get("speed", 0.01)),
         "trajectory_x": layer.get("trajectory_x", "none"),
         "trajectory_y": layer.get("trajectory_y", "none"),
+        "pan":          float(layer.get("pan", 0.0)),
+        "width":        float(layer.get("width", 1.0)),
     }
 
 
@@ -227,6 +229,9 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "position": float(layer.get("position", 0.5)),
         "scatter": float(layer.get("scatter", 0.5)),
         "envelope": layer.get("envelope", "hann"),
+        # V22 pan & width
+        "pan":   float(layer.get("pan", 0.0)),
+        "width": float(layer.get("width", 1.0)),
     }
 
 

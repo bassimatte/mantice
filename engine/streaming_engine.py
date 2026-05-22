@@ -334,8 +334,14 @@ class StreamingPanner:
 
     def __init__(self, quadrant: str, trajectory_x: str, speed: float,
                  elevation: float = 0.0, elevation_motion: str = "static",
-                 elevation_speed: float = 0.1, elevation_range: float = 60.0):
-        self.base_pan     = self._QUADRANT_PAN.get(quadrant, 0.5)
+                 elevation_speed: float = 0.1, elevation_range: float = 60.0,
+                 pan: float = 0.0, width: float = 1.0):
+        # Pan: -1.0 (L) to +1.0 (R); 0 = use quadrant. Width: 0=mono, 1=normal, 2=wide.
+        if pan != 0.0:
+            self.base_pan = (pan + 1.0) / 2.0
+        else:
+            self.base_pan = self._QUADRANT_PAN.get(quadrant, 0.5)
+        self.width        = float(width)
         self.trajectory_x = trajectory_x
         self.speed        = speed
         self.phase        = 0.0  # continuous LFO phase
@@ -427,6 +433,20 @@ class StreamingPanner:
             right = low_R * low_gain + high_R * high_gain
 
         return np.stack([left, right], axis=1)
+
+    def _apply_width(self, stereo: np.ndarray) -> np.ndarray:
+        """Mid/side width processing. width=0 mono, width=1 normal, width=2 extra-wide."""
+        if abs(self.width - 1.0) < 0.01:
+            return stereo
+        mid  = (stereo[:, 0] + stereo[:, 1]) * 0.5
+        side = (stereo[:, 0] - stereo[:, 1]) * 0.5
+        w = self.width
+        out = np.stack([mid + side * w, mid - side * w], axis=1)
+        return out
+
+    def process(self, mono: np.ndarray) -> np.ndarray:
+        """Pan + width in one call."""
+        return self._apply_width(self.next_chunk(mono))
 
 
 # ── Streaming Chorus ──────────────────────────────────────────────────────────
@@ -632,6 +652,8 @@ class StreamingDroneEngine:
                 elevation_motion = layer_cfg.get("elevation_motion", "static"),
                 elevation_speed  = float(layer_cfg.get("elevation_speed", 0.1)),
                 elevation_range  = float(layer_cfg.get("elevation_range", 60.0)),
+                pan              = float(layer_cfg.get("pan", 0.0)),
+                width            = float(layer_cfg.get("width", 1.0)),
             )
             chorus = StreamingChorus(
                 rate=float(layer_cfg.get("chorus_rate", 0.5)),
@@ -676,7 +698,7 @@ class StreamingDroneEngine:
         # Layers
         for layer, panner, chorus, layer_filter in zip(self.layers, self.panners, self.choruses, self.filters):
             mono = layer.next_chunk(n)
-            panned = panner.next_chunk(mono)
+            panned = panner.process(mono)  # pan + width
             chorused = chorus.next_chunk(panned)
             stereo += layer_filter.next_chunk(chorused)
 
