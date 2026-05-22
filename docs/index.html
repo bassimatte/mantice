@@ -888,8 +888,9 @@ main {
 }
 .layer-tab:hover { border-color: var(--text-dim); border-bottom-color: var(--layer-color, var(--text-dim)); }
 .layer-tab.active { background: var(--layer-color, var(--accent)); color: #000; border-color: var(--layer-color, var(--accent)); font-weight: 700; }
-.layer-tab.disabled { opacity: 0.35; text-decoration: line-through; }
-.layer-tab.disabled.active { background: var(--layer-color, var(--accent)); opacity: 0.6; }
+.layer-tab.muted { opacity: 0.4; }
+.layer-tab.muted.active { background: var(--layer-color, var(--accent)); opacity: 0.65; }
+.layer-tab.muted::after { content: ' M'; font-size: 8px; opacity: 0.8; }
 
 /* Layer sub-tabs */
 .layer-subtabs {
@@ -948,6 +949,7 @@ main {
   transition: all 0.1s;
 }
 .solo-btn:hover { border-color: var(--accent); color: var(--accent); }
+.solo-btn.active-mute { background: #ff6b2b33; border-color: #ff6b2b; color: #ff6b2b; }
 
 /* Progress */
 .progress-bar {
@@ -1596,9 +1598,8 @@ python batch_render_freesound.py --metadata-only</pre>
 
   <!-- Layer Parameters -->
   <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <div style="margin-bottom:6px;">
       <h2 style="margin:0">Layers</h2>
-      <button id="btn-add-layer" title="Add layer" style="padding:2px 8px;font-size:14px;line-height:1;background:var(--bg);border:1px solid var(--border);color:var(--accent);cursor:pointer;border-radius:3px;font-family:'Space Mono',monospace;" onclick="doAddLayer()">+</button>
     </div>
     <div class="layer-tabs" id="layer-tabs"></div>
     <div id="layer-params"></div>
@@ -2128,7 +2129,7 @@ function buildLayerTabs(layers) {
   const tabs = $('layer-tabs');
   tabs.innerHTML = layers.map((l, i) => {
     const color = getLayerColor(l.root);
-    return `<button class="layer-tab ${i === activeLayerIdx ? 'active' : ''} ${l.enabled === false ? 'disabled' : ''}" data-idx="${i}" style="--layer-color:${color}">${l.name || 'Layer ' + i}</button>`;
+    return `<button class="layer-tab ${i === activeLayerIdx ? 'active' : ''} ${l.muted ? 'muted' : ''}" data-idx="${i}" style="--layer-color:${color}">${l.name || 'Layer ' + i}</button>`;
   }).join('');
   // Set CSS custom properties for layer colors
   layers.forEach((l, i) => {
@@ -2140,9 +2141,6 @@ function buildLayerTabs(layers) {
       buildLayerTabs(currentParams.layers);
     });
   });
-  // Show/hide + button at layer limit
-  const addBtn = $('btn-add-layer');
-  if (addBtn) addBtn.style.display = layers.length >= 5 ? 'none' : '';
   showLayerParams(layers[activeLayerIdx]);
 }
 
@@ -2157,7 +2155,7 @@ function doAddLayer() {
   const names = ['Sub', 'Bass', 'Mid', 'Alto', 'High', 'Air'];
   const newLayer = {
     name: names[idx] || ('Layer ' + idx),
-    enabled: true,
+    muted: false,
     type: 'fm',
     root: root,
     voices: 4,
@@ -2199,16 +2197,13 @@ function doRemoveLayer() {
 
 function showLayerParams(layer) {
   if (!layer) { $('layer-params').innerHTML = ''; return; }
-  const isEnabled = layer.enabled !== false;
+  const isMuted = layer.muted === true;
   const layerType = layer.type || 'fm';
 
   const numLayers = currentParams.layers.length;
   const toggleHtml = `
     <div class="layer-toggle-row">
-      <label>Enabled</label>
-      <div class="toggle ${isEnabled ? 'on' : ''}" id="layer-enable-toggle" data-state="${isEnabled ? '1' : '0'}">
-        <div class="toggle-knob"></div>
-      </div>
+      <button class="solo-btn ${isMuted ? 'active-mute' : ''}" id="layer-mute-btn" title="Mute layer">M</button>
       <button class="solo-btn" id="layer-solo-btn" title="Solo this layer">S</button>
       <button class="solo-btn" id="layer-copy-btn" title="Duplicate layer" ${numLayers >= 5 ? 'disabled' : ''} onclick="doCopyLayer()">⧉</button>
       <button class="solo-btn" id="layer-remove-btn" title="Remove this layer" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-dim);" ${numLayers <= 1 ? 'disabled' : ''} onclick="doRemoveLayer()">×</button>
@@ -2519,27 +2514,27 @@ function showLayerParams(layer) {
     });
   });
 
-  // Layer enable toggle
-  const toggleEl = $('layer-enable-toggle');
-  toggleEl.addEventListener('click', () => {
-    const newState = toggleEl.dataset.state !== '1';
-    toggleEl.dataset.state = newState ? '1' : '0';
-    toggleEl.classList.toggle('on', newState);
-    currentParams.layers[activeLayerIdx].enabled = newState;
+  // Mute button
+  $('layer-mute-btn').addEventListener('click', () => {
+    pushUndo();
+    const layer = currentParams.layers[activeLayerIdx];
+    layer.muted = !layer.muted;
     buildLayerTabs(currentParams.layers);
+    markDirty();
   });
 
   // Solo button
   $('layer-solo-btn').addEventListener('click', () => {
-    const isSoloed = currentParams.layers.every((l, i) => i === activeLayerIdx ? l.enabled !== false : l.enabled === false);
+    const isSoloed = currentParams.layers.every((l, i) => i === activeLayerIdx ? !l.muted : l.muted);
     if (isSoloed) {
-      // Un-solo: restore all layers
-      currentParams.layers.forEach(l => { l.enabled = true; });
+      // Un-solo: unmute all layers
+      currentParams.layers.forEach(l => { l.muted = false; });
     } else {
-      // Solo: disable all except current
-      currentParams.layers.forEach((l, i) => { l.enabled = (i === activeLayerIdx); });
+      // Solo: mute all except current
+      currentParams.layers.forEach((l, i) => { l.muted = (i !== activeLayerIdx); });
     }
     buildLayerTabs(currentParams.layers);
+    markDirty();
   });
 
   // Type selector
@@ -2916,7 +2911,7 @@ function getLayerFrequencies() {
   // Extract base frequencies from currentParams layers
   if (!currentParams || !currentParams.layers) return [];
   return currentParams.layers
-    .filter(l => l.enabled !== false)
+    .filter(l => !l.muted)
     .map((l, i) => ({
       freq: l.base_freq || l.frequency || 100,
       color: AURORA_COLORS[i % AURORA_COLORS.length],

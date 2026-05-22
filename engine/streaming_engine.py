@@ -634,7 +634,7 @@ class StreamingDroneEngine:
         self._master = MasterProcessor(preset.get("master", {}), SR)
 
         for layer_cfg in preset["layers"]:
-            if not layer_cfg.get("enabled", True):
+            if layer_cfg.get("muted", False):
                 continue
             # Choose layer type: granular, subtractive, or FM
             if layer_cfg.get("type") == "granular":

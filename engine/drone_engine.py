@@ -217,7 +217,7 @@ class DroneEngine:
         binaural_method = binaural_cfg.get("method", "detune") if binaural_active else None
 
         for layer_cfg in cfg["layers"]:
-            if not layer_cfg["enabled"]:
+            if layer_cfg.get("muted", False):
                 continue
 
             layer_result = DroneLayer(

@@ -149,7 +149,7 @@ def _normalize_layer_v1(layer: dict) -> dict:
     root = float(layer["root"])
     return {
         "name":         layer.get("name", "Layer"),
-        "enabled":      bool(layer.get("enabled", True)),
+        "muted":        bool(layer.get("muted", False)) or not bool(layer.get("enabled", True)),
         "root":         root,
         "voices":       int(layer["voices"]),
         "ratios":       [float(r) for r in layer.get("ratios", [1.0])],
@@ -179,7 +179,7 @@ def _normalize_layer_v2(layer: dict) -> dict:
     root  = float(synth.get("root", 110))
     return {
         "name":         layer.get("name", "Layer"),
-        "enabled":      bool(layer.get("enabled", True)),
+        "muted":        bool(layer.get("muted", False)) or not bool(layer.get("enabled", True)),
         "type":         layer_type,
         # FM synthesis keys (used when type == "fm")
         "root":         root,

@@ -163,7 +163,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "mix": layer.get("mix", 1.0),
                 "band": layer.get("band", "mid"),
                 "quadrant": layer.get("quadrant", "center"),
-                "enabled": layer.get("enabled", True),
+                "muted": bool(layer.get("muted", False)) or not bool(layer.get("enabled", True)),
                 "harmonics": layer.get("harmonics", 4),
                 "harmonic_decay": layer.get("harmonic_decay", 0.7),
                 "noise_amount": layer.get("noise_amount", 0.0),
@@ -248,7 +248,7 @@ def _ui_params_to_preset(params: dict) -> dict:
     for l in params.get("layers", []):
         layers.append({
             "name": l.get("name", "Layer"),
-            "enabled": l.get("enabled", True),
+            "muted": bool(l.get("muted", False)),
             "type": l.get("type", "fm"),
             "source": l.get("source", "singing_bowl.ogg"),
             "grain_size": float(l.get("grain_size", 80)),
@@ -566,7 +566,7 @@ async def mutate_endpoint(request: Request):
             for l in flat.get("layers", []):
                 raw_layers.append({
                     "name": l.get("name", "Layer"),
-                    "enabled": l.get("enabled", True),
+                    "muted": bool(l.get("muted", False)),
                     "type": l.get("type", "fm"),
                     "source": l.get("source", "singing_bowl.ogg"),
                     "grain_size": l.get("grain_size", 80),
@@ -803,7 +803,7 @@ async def save_preset_endpoint(request: Request):
         for layer in preset_data.get("layers", []):
             l_out = {
                 "name": layer.get("name", "Layer"),
-                "enabled": layer.get("enabled", True),
+                "muted": bool(layer.get("muted", False)),
                 "type": layer.get("type", "fm"),
             }
             if layer.get("type") == "granular":
