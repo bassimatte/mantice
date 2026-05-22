@@ -2136,8 +2136,12 @@ function buildLayerTabs(layers) {
   });
   tabs.querySelectorAll('.layer-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      activeLayerIdx = parseInt(btn.dataset.idx);
-      buildLayerTabs(currentParams.layers);
+      const idx = parseInt(btn.dataset.idx);
+      if (idx !== activeLayerIdx) {
+        activeLayerIdx = idx;
+        buildLayerTabs(currentParams.layers);
+      }
+      // No rebuild when clicking already-active tab — preserves element for dblclick
     });
     btn.addEventListener('dblclick', (e) => {
       e.stopPropagation();
