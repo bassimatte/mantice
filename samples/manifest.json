@@ -52,5 +52,113 @@
     "duration": 6.28125,
     "user": "8bitmyketison",
     "preview": "https://cdn.freesound.org/previews/699/699755_15173053-hq.ogg"
+  },
+  {
+    "file": "singing_saw.ogg",
+    "id": null,
+    "name": "singing saw",
+    "label": "singing_saw",
+    "duration": null,
+    "user": "unknown",
+    "preview": ""
+  },
+  {
+    "file": "chime.ogg",
+    "id": null,
+    "name": "chime",
+    "label": "chime",
+    "duration": null,
+    "user": "unknown",
+    "preview": ""
+  },
+  {
+    "file": "breath.ogg",
+    "id": null,
+    "name": "breath",
+    "label": "breath",
+    "duration": null,
+    "user": "unknown",
+    "preview": ""
+  },
+  {
+    "file": "throat_singing.ogg",
+    "id": null,
+    "name": "throat singing",
+    "label": "throat_singing",
+    "duration": null,
+    "user": "unknown",
+    "preview": ""
+  },
+  {
+    "file": "rock_scrape.ogg",
+    "id": 846434,
+    "name": "Low Stone Rubbing \u2013 Deep Rock Scrape",
+    "label": "rock_scrape",
+    "duration": 9.67989,
+    "user": "NikoletB",
+    "preview": "https://cdn.freesound.org/previews/846/846434_1856262-hq.ogg"
+  },
+  {
+    "file": "gravel.ogg",
+    "id": 679104,
+    "name": "Walking on leaves (Brezzo di Bedero- Italy).wav",
+    "label": "gravel",
+    "duration": 17.52,
+    "user": "IlMotografo",
+    "preview": "https://cdn.freesound.org/previews/679/679104_12704565-hq.ogg"
+  },
+  {
+    "file": "fire_crackle.ogg",
+    "id": 676385,
+    "name": "Fire Crackling",
+    "label": "fire_crackle",
+    "duration": 11.5963,
+    "user": "StevenMyat_",
+    "preview": "https://cdn.freesound.org/previews/676/676385_14682249-hq.ogg"
+  },
+  {
+    "file": "rain.ogg",
+    "id": 329576,
+    "name": "dribbling rain (snow melt from roof) [2]",
+    "label": "rain",
+    "duration": 45.1953,
+    "user": "pillonoise",
+    "preview": "https://cdn.freesound.org/previews/329/329576_2120176-hq.ogg"
+  },
+  {
+    "file": "leaf_rustle.ogg",
+    "id": 581234,
+    "name": "Spooky leaves (but looped)",
+    "label": "leaf_rustle",
+    "duration": 10.629,
+    "user": "happygummy",
+    "preview": "https://cdn.freesound.org/previews/581/581234_13116811-hq.ogg"
+  },
+  {
+    "file": "bubbles.ogg",
+    "id": 478653,
+    "name": "bubbles.deep.loop.ogg",
+    "label": "bubbles",
+    "duration": 2.97098,
+    "user": "xUMR",
+    "preview": "https://cdn.freesound.org/previews/478/478653_5953161-hq.ogg"
+  },
+  {
+    "file": "sub_rumble.ogg",
+    "id": 338869,
+    "name": "machination-dry.wav",
+    "label": "sub_rumble",
+    "duration": 2.0,
+    "user": "newagesoup",
+    "preview": "https://cdn.freesound.org/previews/338/338869_4067257-hq.ogg"
+  },
+  {
+    "file": "stick_crack.ogg",
+    "id": 683793,
+    "name": "Twigs Breaking",
+    "label": "stick_crack",
+    "duration": 1.77198,
+    "user": "Elements-Library",
+    "preview": "https://cdn.freesound.org/previews/683/683793_14876768-hq.ogg"
   }
 ]

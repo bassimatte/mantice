@@ -365,10 +365,21 @@ async def list_presets():
 @app.get("/api/samples")
 async def list_samples():
     """List available audio samples for granular synthesis."""
-    import os
-    samples_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "samples")
-    files = [f for f in os.listdir(samples_dir) if f.endswith(('.ogg', '.wav', '.flac', '.mp3'))]
-    return {"samples": sorted(files)}
+    import json as _json
+    samples_dir = _ROOT / "samples"
+    manifest_path = samples_dir / "manifest.json"
+    label_map = {}
+    if manifest_path.exists():
+        try:
+            with open(manifest_path) as f:
+                manifest = _json.load(f)
+            for entry in manifest:
+                label_map[entry["file"]] = entry.get("label", "").replace("_", " ").title()
+        except Exception:
+            pass
+    files = sorted(f for f in os.listdir(samples_dir) if f.endswith((".ogg", ".wav", ".flac", ".mp3")))
+    samples = [{"file": f, "label": label_map.get(f) or f.rsplit(".", 1)[0].replace("_", " ").title()} for f in files]
+    return {"samples": samples}
 
 
 @app.get("/samples/{filename}")

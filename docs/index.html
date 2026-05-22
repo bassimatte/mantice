@@ -1451,7 +1451,7 @@ python batch_render_freesound.py --metadata-only</pre>
         <h3>Layer — Granular</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Source</td><td>sample filename</td><td>singing_bowl.ogg</td><td>Audio file to use as grain source</td></tr>
+          <tr><td>Source</td><td>18 CC0 samples</td><td>Singing Bowl</td><td>Audio file to use as grain source (Sacred, Nature, Earth, Atmosphere)</td></tr>
           <tr><td>Grain Size</td><td>20–200 ms</td><td>80</td><td>Duration of each grain (short=glitchy, long=smooth)</td></tr>
           <tr><td>Density</td><td>1–50 /sec</td><td>15</td><td>Grains per second (sparse=pointillistic, dense=continuous)</td></tr>
           <tr><td>Pitch Spread</td><td>0–2 semitones</td><td>0.3</td><td>Random pitch variation per grain</td></tr>
@@ -2657,9 +2657,12 @@ function showLayerParams(layer) {
     fetch(apiUrl('/api/samples')).then(r => r.json()).then(data => {
       const sel = $('lp-source');
       if (!sel) return;
-      sel.innerHTML = (data.samples || []).map(s =>
-        `<option value="${s}" ${s === (layer.source || 'singing_bowl.ogg') ? 'selected' : ''}>${s}</option>`
-      ).join('');
+      sel.innerHTML = (data.samples || []).map(s => {
+        const file = s.file || s;
+        const label = s.label || file;
+        const selected = file === (layer.source || 'singing_bowl.ogg') ? 'selected' : '';
+        return `<option value="${file}" ${selected}>${label}</option>`;
+      }).join('');
       updateGranularScope(); // redraw after options populated
     }).catch(() => {});
     const sourceSel = $('lp-source');
