@@ -13,10 +13,12 @@ from scipy.signal import butter, sosfilt, sosfilt_zi
 _DEFAULT_ATTACK_MS  = 50.0
 _DEFAULT_RELEASE_MS = 200.0
 _DEFAULT_KNEE_DB    = 0.0   # 0 = hard knee; >0 = soft knee width in dB
-_BASS_HZ  = 100.0
-_MID_HZ   = 1000.0
-_AIR_HZ   = 8000.0
-_MID_Q    = 1.0
+# EQ defaults — all tunable at runtime via the "eq" preset dict
+_BASS_HZ     = 100.0    # Low shelf center
+_LO_MID_HZ   = 250.0    # Lo-mid bell center
+_HI_MID_HZ   = 2500.0   # Hi-mid bell center
+_AIR_HZ      = 10000.0  # High shelf center
+_BELL_Q      = 1.0      # Default Q for bell bands
 
 
 def _as_stereo(audio: np.ndarray) -> tuple[np.ndarray, np.dtype]:
@@ -82,6 +84,19 @@ def _peaking_sos(fs: float, fc: float, gain_db: float, q: float) -> np.ndarray:
 
 
 def _build_filter_chain(master_cfg: dict[str, Any] | None, sr: float) -> list[np.ndarray]:
+    """Build the master EQ filter chain from the preset's ``master.eq`` dict.
+
+    Five bands in series:
+    - **Low Cut** — 2nd-order Butterworth high-pass (Scipy ``butter``).
+    - **Bass** — Low shelf (Audio EQ Cookbook, S = sqrt(2) / 2).
+    - **Lo Mid** — Peaking bell (Audio EQ Cookbook constant-Q).
+    - **Hi Mid** — Peaking bell (same formula, different center).
+    - **Air** — High shelf (Audio EQ Cookbook, S = sqrt(2) / 2).
+
+    Each band is implemented as a single biquad SOS section and is only added
+    to the chain when its gain is non-zero (|gain| >= 0.1 dB), keeping the
+    pass-through case zero-overhead.
+    """
     master_cfg = master_cfg or {}
     eq = master_cfg.get("eq", {}) or {}
     filters: list[np.ndarray] = []
@@ -92,15 +107,26 @@ def _build_filter_chain(master_cfg: dict[str, Any] | None, sr: float) -> list[np
 
     bass_db = float(eq.get("bass_db", 0.0))
     if abs(bass_db) >= 0.1:
-        filters.append(_low_shelf_sos(sr, _BASS_HZ, bass_db))
+        bass_hz = float(eq.get("bass_hz", _BASS_HZ))
+        filters.append(_low_shelf_sos(sr, bass_hz, bass_db))
 
-    mid_db = float(eq.get("mid_db", 0.0))
-    if abs(mid_db) >= 0.1:
-        filters.append(_peaking_sos(sr, _MID_HZ, mid_db, _MID_Q))
+    # Backward-compat: old presets use "mid_db" → treated as lo_mid_db
+    lo_mid_db = float(eq.get("lo_mid_db", eq.get("mid_db", 0.0)))
+    if abs(lo_mid_db) >= 0.1:
+        lo_mid_hz = float(eq.get("lo_mid_hz", _LO_MID_HZ))
+        lo_mid_q  = float(eq.get("lo_mid_q",  _BELL_Q))
+        filters.append(_peaking_sos(sr, lo_mid_hz, lo_mid_db, lo_mid_q))
+
+    hi_mid_db = float(eq.get("hi_mid_db", 0.0))
+    if abs(hi_mid_db) >= 0.1:
+        hi_mid_hz = float(eq.get("hi_mid_hz", _HI_MID_HZ))
+        hi_mid_q  = float(eq.get("hi_mid_q",  _BELL_Q))
+        filters.append(_peaking_sos(sr, hi_mid_hz, hi_mid_db, hi_mid_q))
 
     air_db = float(eq.get("air_db", 0.0))
     if abs(air_db) >= 0.1:
-        filters.append(_high_shelf_sos(sr, _AIR_HZ, air_db))
+        air_hz = float(eq.get("air_hz", _AIR_HZ))
+        filters.append(_high_shelf_sos(sr, air_hz, air_db))
 
     return filters
 

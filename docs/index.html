@@ -1694,20 +1694,59 @@ python batch_render_freesound.py --metadata-only</pre>
       <input type="range" id="eq-low-cut" min="20" max="400" step="5" value="20" style="flex:1">
       <span class="value" id="eq-low-cut-val">20 Hz</span>
     </div>
+    <!-- Bass shelf -->
     <div class="param-row">
       <label>Bass</label>
       <input type="range" id="eq-bass" min="-12" max="12" step="0.5" value="0" style="flex:1">
       <span class="value" id="eq-bass-val">0.0 dB</span>
     </div>
-    <div class="param-row">
-      <label>Mid</label>
-      <input type="range" id="eq-mid" min="-12" max="12" step="0.5" value="0" style="flex:1">
-      <span class="value" id="eq-mid-val">0.0 dB</span>
+    <div class="param-row eq-subrow" id="eq-bass-hz-row" style="display:none">
+      <label style="padding-left:14px;color:var(--text-dim)">↳ Freq</label>
+      <input type="range" id="eq-bass-hz" min="40" max="500" step="5" value="100" style="flex:1">
+      <span class="value" id="eq-bass-hz-val">100 Hz</span>
     </div>
+    <!-- Lo Mid bell -->
+    <div class="param-row">
+      <label>Lo Mid</label>
+      <input type="range" id="eq-lo-mid" min="-12" max="12" step="0.5" value="0" style="flex:1">
+      <span class="value" id="eq-lo-mid-val">0.0 dB</span>
+    </div>
+    <div class="param-row eq-subrow" id="eq-lo-mid-hz-row" style="display:none">
+      <label style="padding-left:14px;color:var(--text-dim)">↳ Freq</label>
+      <input type="range" id="eq-lo-mid-hz" min="100" max="1000" step="10" value="250" style="flex:1">
+      <span class="value" id="eq-lo-mid-hz-val">250 Hz</span>
+    </div>
+    <div class="param-row eq-subrow" id="eq-lo-mid-q-row" style="display:none">
+      <label style="padding-left:14px;color:var(--text-dim)">↳ Q</label>
+      <input type="range" id="eq-lo-mid-q" min="0.3" max="5" step="0.1" value="1.0" style="flex:1">
+      <span class="value" id="eq-lo-mid-q-val">1.0</span>
+    </div>
+    <!-- Hi Mid bell -->
+    <div class="param-row">
+      <label>Hi Mid</label>
+      <input type="range" id="eq-hi-mid" min="-12" max="12" step="0.5" value="0" style="flex:1">
+      <span class="value" id="eq-hi-mid-val">0.0 dB</span>
+    </div>
+    <div class="param-row eq-subrow" id="eq-hi-mid-hz-row" style="display:none">
+      <label style="padding-left:14px;color:var(--text-dim)">↳ Freq</label>
+      <input type="range" id="eq-hi-mid-hz" min="500" max="8000" step="100" value="2500" style="flex:1">
+      <span class="value" id="eq-hi-mid-hz-val">2500 Hz</span>
+    </div>
+    <div class="param-row eq-subrow" id="eq-hi-mid-q-row" style="display:none">
+      <label style="padding-left:14px;color:var(--text-dim)">↳ Q</label>
+      <input type="range" id="eq-hi-mid-q" min="0.3" max="5" step="0.1" value="1.0" style="flex:1">
+      <span class="value" id="eq-hi-mid-q-val">1.0</span>
+    </div>
+    <!-- Air shelf -->
     <div class="param-row">
       <label>Air</label>
       <input type="range" id="eq-air" min="-12" max="12" step="0.5" value="0" style="flex:1">
       <span class="value" id="eq-air-val">0.0 dB</span>
+    </div>
+    <div class="param-row eq-subrow" id="eq-air-hz-row" style="display:none">
+      <label style="padding-left:14px;color:var(--text-dim)">↳ Freq</label>
+      <input type="range" id="eq-air-hz" min="2000" max="16000" step="500" value="10000" style="flex:1">
+      <span class="value" id="eq-air-hz-val">10000 Hz</span>
     </div>
 
     <div class="card-subsection-label">Compressor</div>
@@ -2090,12 +2129,38 @@ function applyParamsToUI(p) {
   const m = p.master || {};
   $('eq-low-cut').value = m.eq_low_cut_hz ?? 20;
   $('eq-low-cut-val').textContent = (m.eq_low_cut_hz ?? 20) + ' Hz';
+
   $('eq-bass').value = m.eq_bass_db ?? 0;
   $('eq-bass-val').textContent = (+(m.eq_bass_db ?? 0)).toFixed(1) + ' dB';
-  $('eq-mid').value = m.eq_mid_db ?? 0;
-  $('eq-mid-val').textContent = (+(m.eq_mid_db ?? 0)).toFixed(1) + ' dB';
+  $('eq-bass-hz').value = m.eq_bass_hz ?? 100;
+  $('eq-bass-hz-val').textContent = (m.eq_bass_hz ?? 100) + ' Hz';
+  $('eq-bass-hz-row').style.display = Math.abs(m.eq_bass_db ?? 0) >= 0.1 ? '' : 'none';
+
+  $('eq-lo-mid').value = m.eq_lo_mid_db ?? 0;
+  $('eq-lo-mid-val').textContent = (+(m.eq_lo_mid_db ?? 0)).toFixed(1) + ' dB';
+  $('eq-lo-mid-hz').value = m.eq_lo_mid_hz ?? 250;
+  $('eq-lo-mid-hz-val').textContent = (m.eq_lo_mid_hz ?? 250) + ' Hz';
+  $('eq-lo-mid-q').value = m.eq_lo_mid_q ?? 1.0;
+  $('eq-lo-mid-q-val').textContent = (+(m.eq_lo_mid_q ?? 1.0)).toFixed(1);
+  const _loMidOpen = Math.abs(m.eq_lo_mid_db ?? 0) >= 0.1;
+  $('eq-lo-mid-hz-row').style.display = _loMidOpen ? '' : 'none';
+  $('eq-lo-mid-q-row').style.display  = _loMidOpen ? '' : 'none';
+
+  $('eq-hi-mid').value = m.eq_hi_mid_db ?? 0;
+  $('eq-hi-mid-val').textContent = (+(m.eq_hi_mid_db ?? 0)).toFixed(1) + ' dB';
+  $('eq-hi-mid-hz').value = m.eq_hi_mid_hz ?? 2500;
+  $('eq-hi-mid-hz-val').textContent = (m.eq_hi_mid_hz ?? 2500) + ' Hz';
+  $('eq-hi-mid-q').value = m.eq_hi_mid_q ?? 1.0;
+  $('eq-hi-mid-q-val').textContent = (+(m.eq_hi_mid_q ?? 1.0)).toFixed(1);
+  const _hiMidOpen = Math.abs(m.eq_hi_mid_db ?? 0) >= 0.1;
+  $('eq-hi-mid-hz-row').style.display = _hiMidOpen ? '' : 'none';
+  $('eq-hi-mid-q-row').style.display  = _hiMidOpen ? '' : 'none';
+
   $('eq-air').value = m.eq_air_db ?? 0;
   $('eq-air-val').textContent = (+(m.eq_air_db ?? 0)).toFixed(1) + ' dB';
+  $('eq-air-hz').value = m.eq_air_hz ?? 10000;
+  $('eq-air-hz-val').textContent = (m.eq_air_hz ?? 10000) + ' Hz';
+  $('eq-air-hz-row').style.display = Math.abs(m.eq_air_db ?? 0) >= 0.1 ? '' : 'none';
   $('comp-threshold').value = m.comp_threshold_db ?? 0;
   $('comp-threshold-val').textContent = (m.comp_threshold_db ?? 0) + ' dB';
   $('comp-ratio').value = m.comp_ratio ?? 2;
@@ -2953,9 +3018,16 @@ function collectParams() {
   p.saturation = parseFloat($('saturation-slider').value);
   p.master = {
     eq_low_cut_hz: parseFloat($('eq-low-cut').value),
-    eq_bass_db: parseFloat($('eq-bass').value),
-    eq_mid_db: parseFloat($('eq-mid').value),
-    eq_air_db: parseFloat($('eq-air').value),
+    eq_bass_db:    parseFloat($('eq-bass').value),
+    eq_bass_hz:    parseFloat($('eq-bass-hz').value),
+    eq_lo_mid_db:  parseFloat($('eq-lo-mid').value),
+    eq_lo_mid_hz:  parseFloat($('eq-lo-mid-hz').value),
+    eq_lo_mid_q:   parseFloat($('eq-lo-mid-q').value),
+    eq_hi_mid_db:  parseFloat($('eq-hi-mid').value),
+    eq_hi_mid_hz:  parseFloat($('eq-hi-mid-hz').value),
+    eq_hi_mid_q:   parseFloat($('eq-hi-mid-q').value),
+    eq_air_db:     parseFloat($('eq-air').value),
+    eq_air_hz:     parseFloat($('eq-air-hz').value),
     comp_threshold_db: parseFloat($('comp-threshold').value),
     comp_ratio:        parseFloat($('comp-ratio').value),
     comp_attack_ms:    parseFloat($('comp-attack').value),
@@ -4398,11 +4470,27 @@ function init() {
     linkSlider(sliderId, valId, v => parseFloat(v).toFixed(decimals));
   });
 
-  // EQ sliders
+  // EQ sliders — gain sliders show/hide freq & Q sub-rows on change
   linkSlider('eq-low-cut', 'eq-low-cut-val', v => v + ' Hz');
-  linkSlider('eq-bass', 'eq-bass-val', v => (+v).toFixed(1) + ' dB');
-  linkSlider('eq-mid', 'eq-mid-val', v => (+v).toFixed(1) + ' dB');
-  linkSlider('eq-air', 'eq-air-val', v => (+v).toFixed(1) + ' dB');
+
+  function eqGainSlider(gainId, valId, ...subRowIds) {
+    linkSlider(gainId, valId, v => (+v).toFixed(1) + ' dB');
+    $(gainId).addEventListener('input', () => {
+      const open = Math.abs(parseFloat($(gainId).value)) >= 0.1;
+      subRowIds.forEach(id => { $(id).style.display = open ? '' : 'none'; });
+    });
+  }
+  eqGainSlider('eq-bass',   'eq-bass-val',   'eq-bass-hz-row');
+  eqGainSlider('eq-lo-mid', 'eq-lo-mid-val', 'eq-lo-mid-hz-row', 'eq-lo-mid-q-row');
+  eqGainSlider('eq-hi-mid', 'eq-hi-mid-val', 'eq-hi-mid-hz-row', 'eq-hi-mid-q-row');
+  eqGainSlider('eq-air',    'eq-air-val',    'eq-air-hz-row');
+
+  linkSlider('eq-bass-hz',   'eq-bass-hz-val',   v => v + ' Hz');
+  linkSlider('eq-lo-mid-hz', 'eq-lo-mid-hz-val', v => v + ' Hz');
+  linkSlider('eq-lo-mid-q',  'eq-lo-mid-q-val',  v => (+v).toFixed(1));
+  linkSlider('eq-hi-mid-hz', 'eq-hi-mid-hz-val', v => v + ' Hz');
+  linkSlider('eq-hi-mid-q',  'eq-hi-mid-q-val',  v => (+v).toFixed(1));
+  linkSlider('eq-air-hz',    'eq-air-hz-val',    v => v + ' Hz');
   // Compressor sliders
   linkSlider('comp-threshold', 'comp-threshold-val', v => v + ' dB');
   linkSlider('comp-ratio',     'comp-ratio-val',     v => (+v).toFixed(1));
