@@ -956,6 +956,13 @@ async def ws_preview(websocket: WebSocket):
                 engine = None
                 await websocket.send_text(json.dumps({"status": "stopped"}))
 
+            elif action == "reload":
+                # Hot-reload with new params (crossfade) — no interruption to streaming
+                params = data.get("params")
+                if params and engine:
+                    new_preset = _ui_params_to_preset(params)
+                    engine.reload(new_preset, crossfade_secs=1.0)
+
     except WebSocketDisconnect:
         _active_streams[stream_id] = False
     except Exception:

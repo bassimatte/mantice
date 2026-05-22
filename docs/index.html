@@ -2552,6 +2552,7 @@ function showLayerParams(layer) {
     layer.muted = !layer.muted;
     buildLayerTabs(currentParams.layers);
     markDirty();
+    liveReload();
   });
 
   // Solo button
@@ -2566,6 +2567,7 @@ function showLayerParams(layer) {
     }
     buildLayerTabs(currentParams.layers);
     markDirty();
+    liveReload();
   });
 
   // Type selector
@@ -3447,6 +3449,13 @@ function markDirty() {
   if (!currentParams || !savedParamsSnapshot) return;
   const isDirty = JSON.stringify(currentParams) !== savedParamsSnapshot;
   $('dirty-indicator').style.display = isDirty ? 'inline' : 'none';
+}
+
+// Hot-reload streaming engine with current params if a stream is active
+function liveReload() {
+  if (ws && ws.readyState === WebSocket.OPEN && isStreaming) {
+    ws.send(JSON.stringify({ action: 'reload', params: collectParams() }));
+  }
 }
 
 // ── Keyboard Shortcuts ───────────────────────────────────────────────────────
