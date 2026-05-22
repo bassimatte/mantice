@@ -1089,10 +1089,10 @@ main {
     <button class="zoom-btn" id="btn-files" title="Files">◳</button>
     <div class="files-dropdown" id="files-dropdown">
       <div class="dropdown-section-label">Presets</div>
-      <div class="file-menu-item" id="btn-restore">↺ Restore</div>
+      <div class="file-menu-item" id="btn-restore">↺ Default</div>
       <div class="file-menu-item" id="btn-share">🔗 Share</div>
       <div class="file-menu-item" id="btn-export">⬇ Download</div>
-      <div class="file-menu-item" id="btn-import-file">📂 Load from file</div>
+      <div class="file-menu-item" id="btn-import-file">📂 Load</div>
       <input type="file" id="import-preset-input" accept=".yaml,.yml" style="display:none">
       <div class="settings-divider"></div>
       <div class="dropdown-section-label">Export Audio</div>
@@ -3871,6 +3871,7 @@ async function handleImportPresetFile() {
     markClean();
     updateNowPlaying(rawName);
     setStatus('📂 Loaded from file: ' + rawName);
+    doPreview();
   } catch (e) {
     setStatus('Import error: ' + e.message);
   }
