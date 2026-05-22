@@ -1492,6 +1492,22 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>Air: Intensity</td><td>0.0–1.0</td><td>0.12</td><td>High-frequency breath/wind</td></tr>
           <tr><td>Air: Turbulence</td><td>0.0–0.2</td><td>0.04</td><td>High-freq chaos amount</td></tr>
         </table>
+        <h3>Master EQ</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Low Cut</td><td>20–400 Hz</td><td>20</td><td>High-pass cut-off — removes sub-rumble below this frequency</td></tr>
+          <tr><td>Bass Gain</td><td>−12–+12 dB</td><td>0</td><td>Low-shelf boost/cut around Bass Freq</td></tr>
+          <tr><td>Bass Freq</td><td>40–500 Hz</td><td>100</td><td>Low-shelf transition point (visible when Bass ≠ 0)</td></tr>
+          <tr><td>Lo Mid Gain</td><td>−12–+12 dB</td><td>0</td><td>Bell boost/cut in the low-mid range</td></tr>
+          <tr><td>Lo Mid Freq</td><td>100–1000 Hz</td><td>250</td><td>Bell centre frequency (visible when Lo Mid ≠ 0)</td></tr>
+          <tr><td>Lo Mid Q</td><td>0.3–5.0</td><td>1.0</td><td>Bell width — higher Q = narrower, more surgical (visible when Lo Mid ≠ 0)</td></tr>
+          <tr><td>Hi Mid Gain</td><td>−12–+12 dB</td><td>0</td><td>Bell boost/cut in the high-mid range</td></tr>
+          <tr><td>Hi Mid Freq</td><td>500–8000 Hz</td><td>2500</td><td>Bell centre frequency (visible when Hi Mid ≠ 0)</td></tr>
+          <tr><td>Hi Mid Q</td><td>0.3–5.0</td><td>1.0</td><td>Bell width (visible when Hi Mid ≠ 0)</td></tr>
+          <tr><td>Air Gain</td><td>−12–+12 dB</td><td>0</td><td>High-shelf boost/cut for presence and sparkle</td></tr>
+          <tr><td>Air Freq</td><td>2000–16000 Hz</td><td>10000</td><td>High-shelf transition point (visible when Air ≠ 0)</td></tr>
+        </table>
+        <p class="docs-note">5-band master EQ. Bass and Air are shelving filters (±6 dB/oct). Lo Mid and Hi Mid are constant-Q peaking (bell) filters — same formulas used in professional DAW EQs (Audio EQ Cookbook). Freq and Q sub-controls are hidden when a band's gain is at 0 to keep the UI clean. Filters run in series: Low Cut → Bass → Lo Mid → Hi Mid → Air.</p>
         <h3>Master Compressor</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
