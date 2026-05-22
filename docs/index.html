@@ -2139,6 +2139,30 @@ function buildLayerTabs(layers) {
       activeLayerIdx = parseInt(btn.dataset.idx);
       buildLayerTabs(currentParams.layers);
     });
+    btn.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      const currentName = currentParams.layers[idx].name || ('Layer ' + idx);
+      const input = document.createElement('input');
+      input.value = currentName;
+      input.style.cssText = 'width:80px;font-family:"Space Mono",monospace;font-size:10px;background:var(--bg);color:var(--text-lcd);border:1px solid var(--accent);padding:1px 4px;outline:none;';
+      btn.innerHTML = '';
+      btn.appendChild(input);
+      input.focus();
+      input.select();
+      const commit = () => {
+        const newName = input.value.trim() || currentName;
+        pushUndo();
+        currentParams.layers[idx].name = newName;
+        buildLayerTabs(currentParams.layers);
+        markDirty();
+      };
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') { buildLayerTabs(currentParams.layers); }
+      });
+      input.addEventListener('blur', commit);
+    });
   });
   showLayerParams(layers[activeLayerIdx]);
 }
