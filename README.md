@@ -100,6 +100,28 @@ python main.py --preset "presets/essentials/Warm Pad.yaml" --duration 120
 | Seed | `seed` | any integer | random | Reproducible output |
 | Saturation (Warmth) | `saturation` | 0.0–1.0 | 0.3 | Master soft saturation / tape warmth (normalized tanh waveshaping) |
 
+### Master Bus
+
+#### Master Compressor
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Threshold | `master.comp.threshold_db` | -40–0 dB | 0 | Level above which compression starts |
+| Ratio | `master.comp.ratio` | 1–20 | 2.0 | Compression ratio (e.g. 4 = 4:1) |
+| Attack | `master.comp.attack_ms` | 1–500 ms | 50 | Time to reach full compression after threshold crossed |
+| Release | `master.comp.release_ms` | 10–2000 ms | 200 | Time to return to unity after level drops below threshold |
+| Knee | `master.comp.knee_db` | 0–12 dB | 0 | Soft-knee width — gradual onset around threshold |
+| Makeup Gain | `master.comp.makeup_db` | -6–12 dB | 0 | Output gain after compression |
+
+#### Master EQ
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Low Gain | `master.eq.low_db` | -12–12 dB | 0 | Low shelf boost/cut (< 200 Hz) |
+| Low-Mid Gain | `master.eq.low_mid_db` | -12–12 dB | 0 | Low-mid peak (200–800 Hz) |
+| High-Mid Gain | `master.eq.high_mid_db` | -12–12 dB | 0 | High-mid peak (800–4000 Hz) |
+| High Gain | `master.eq.high_db` | -12–12 dB | 0 | High shelf boost/cut (> 4000 Hz) |
+
 ### Layer Settings (per layer)
 
 #### Synthesis

@@ -207,8 +207,11 @@ def _preset_to_ui_params(preset: dict) -> dict:
             "eq_mid_db": float(eq.get("mid_db", 0.0)),
             "eq_air_db": float(eq.get("air_db", 0.0)),
             "comp_threshold_db": float(comp.get("threshold_db", 0.0)),
-            "comp_ratio": float(comp.get("ratio", 2.0)),
-            "comp_makeup_db": float(comp.get("makeup_db", 0.0)),
+            "comp_ratio":        float(comp.get("ratio", 2.0)),
+            "comp_attack_ms":    float(comp.get("attack_ms", 50.0)),
+            "comp_release_ms":   float(comp.get("release_ms", 200.0)),
+            "comp_knee_db":      float(comp.get("knee_db", 0.0)),
+            "comp_makeup_db":    float(comp.get("makeup_db", 0.0)),
         },
         "layers": layers_info,
         "binaural": {
@@ -315,8 +318,11 @@ def _ui_params_to_preset(params: dict) -> dict:
             },
             "comp": {
                 "threshold_db": float(master_ui.get("comp_threshold_db", 0.0)),
-                "ratio": float(master_ui.get("comp_ratio", 2.0)),
-                "makeup_db": float(master_ui.get("comp_makeup_db", 0.0)),
+                "ratio":        float(master_ui.get("comp_ratio", 2.0)),
+                "attack_ms":    float(master_ui.get("comp_attack_ms", 50.0)),
+                "release_ms":   float(master_ui.get("comp_release_ms", 200.0)),
+                "knee_db":      float(master_ui.get("comp_knee_db", 0.0)),
+                "makeup_db":    float(master_ui.get("comp_makeup_db", 0.0)),
             }
         },
         "swarm_density": 0.5,

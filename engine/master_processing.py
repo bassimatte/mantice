@@ -10,12 +10,13 @@ import numpy as np
 from scipy.signal import butter, sosfilt, sosfilt_zi
 
 
-_ATTACK_MS = 50.0
-_RELEASE_MS = 200.0
-_BASS_HZ = 100.0
-_MID_HZ = 1000.0
-_AIR_HZ = 8000.0
-_MID_Q = 1.0
+_DEFAULT_ATTACK_MS  = 50.0
+_DEFAULT_RELEASE_MS = 200.0
+_DEFAULT_KNEE_DB    = 0.0   # 0 = hard knee; >0 = soft knee width in dB
+_BASS_HZ  = 100.0
+_MID_HZ   = 1000.0
+_AIR_HZ   = 8000.0
+_MID_Q    = 1.0
 
 
 def _as_stereo(audio: np.ndarray) -> tuple[np.ndarray, np.dtype]:
@@ -107,18 +108,21 @@ def _build_filter_chain(master_cfg: dict[str, Any] | None, sr: float) -> list[np
 def _compress_stereo(audio: np.ndarray, sr: float, comp_cfg: dict[str, Any] | None, env_state: float = 0.0) -> tuple[np.ndarray, float]:
     comp_cfg = comp_cfg or {}
     threshold_db = float(comp_cfg.get("threshold_db", 0.0))
-    ratio = float(comp_cfg.get("ratio", 2.0))
-    makeup_db = float(comp_cfg.get("makeup_db", 0.0))
+    ratio        = float(comp_cfg.get("ratio", 2.0))
+    makeup_db    = float(comp_cfg.get("makeup_db", 0.0))
+    attack_ms    = float(comp_cfg.get("attack_ms",  _DEFAULT_ATTACK_MS))
+    release_ms   = float(comp_cfg.get("release_ms", _DEFAULT_RELEASE_MS))
+    knee_db      = float(comp_cfg.get("knee_db",    _DEFAULT_KNEE_DB))
 
     if ratio <= 1.01 and abs(makeup_db) < 0.1:
         return audio, float(env_state)
 
     threshold = 10 ** (threshold_db / 20.0)
-    makeup = 10 ** (makeup_db / 20.0)
-    attack_coef = exp(-1.0 / (_ATTACK_MS * 0.001 * sr))
-    release_coef = exp(-1.0 / (_RELEASE_MS * 0.001 * sr))
+    makeup    = 10 ** (makeup_db / 20.0)
+    attack_coef  = exp(-1.0 / (max(attack_ms,  0.1) * 0.001 * sr))
+    release_coef = exp(-1.0 / (max(release_ms, 1.0) * 0.001 * sr))
     level = np.max(np.abs(audio), axis=1)
-    env = np.empty_like(level)
+    env   = np.empty_like(level)
     current = float(env_state)
 
     for i, sample_level in enumerate(level):
@@ -128,9 +132,24 @@ def _compress_stereo(audio: np.ndarray, sr: float, comp_cfg: dict[str, Any] | No
 
     gain = np.ones_like(env)
     if ratio > 1.01:
-        mask = env > threshold
-        if np.any(mask):
-            gain[mask] = (threshold / np.maximum(env[mask], 1e-12)) ** (1.0 - 1.0 / ratio)
+        if knee_db > 0.1:
+            # Soft knee: blend between unity gain and compressed gain
+            # over a ±knee_db/2 window around threshold
+            half_knee = knee_db / 2.0
+            knee_lo = threshold * (10 ** (-half_knee / 20.0))
+            knee_hi = threshold * (10 ** ( half_knee / 20.0))
+            above   = env > threshold
+            in_knee = (env >= knee_lo) & ~above
+            if np.any(above):
+                gain[above] = (threshold / np.maximum(env[above], 1e-12)) ** (1.0 - 1.0 / ratio)
+            if np.any(in_knee):
+                t = (env[in_knee] - knee_lo) / np.maximum(knee_hi - knee_lo, 1e-12)
+                soft_ratio = 1.0 + (ratio - 1.0) * t
+                gain[in_knee] = (threshold / np.maximum(env[in_knee], 1e-12)) ** (1.0 - 1.0 / soft_ratio)
+        else:
+            mask = env > threshold
+            if np.any(mask):
+                gain[mask] = (threshold / np.maximum(env[mask], 1e-12)) ** (1.0 - 1.0 / ratio)
 
     return audio * gain[:, None] * makeup, current
 
