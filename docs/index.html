@@ -949,6 +949,8 @@ main {
 }
 .solo-btn:hover { border-color: var(--accent); color: var(--accent); }
 .solo-btn.active-mute { background: #ff6b2b33; border-color: #ff6b2b; color: #ff6b2b; }
+.snap-btn { font-size: 9px; background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; padding: 0 3px; margin-left: 3px; border-radius: 2px; line-height: 1.4; vertical-align: middle; }
+.snap-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent)1a; }
 
 /* Progress */
 .progress-bar {
@@ -2124,6 +2126,23 @@ function getLayerColor(rootHz) {
   return '#2bffd4';
 }
 
+// ── Note / pitch utilities ────────────────────────────────────────────────────
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function hzToNote(hz) {
+  if (!hz || hz <= 0) return '—';
+  const n = Math.round(12 * Math.log2(hz / 440) + 69);
+  const name = NOTE_NAMES[((n % 12) + 12) % 12];
+  const octave = Math.floor(n / 12) - 1;
+  return name + octave;
+}
+function snapToSemitone(hz) {
+  const n = Math.round(12 * Math.log2(hz / 440) + 69);
+  return parseFloat((440 * Math.pow(2, (n - 69) / 12)).toFixed(3));
+}
+function rootLabel(hz) {
+  return parseFloat(hz).toFixed(1) + ' ' + hzToNote(hz);
+}
+
 function buildLayerTabs(layers) {
   const tabs = $('layer-tabs');
   tabs.innerHTML = layers.map((l, i) => {
@@ -2270,9 +2289,9 @@ function showLayerParams(layer) {
 
   const fmHtml = fmParams.map(p => `
     <div class="param-row">
-      <label>${p.label}</label>
+      <label>${p.label}${p.id === 'root' ? `<button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button>` : ''}</label>
       <input type="range" id="lp-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" >
-      <span class="value" id="lp-${p.id}-val">${Number(p.val).toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0)}</span>
+      <span class="value" id="lp-${p.id}-val">${p.id === 'root' ? rootLabel(p.val) : Number(p.val).toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0)}</span>
     </div>
   `).join('');
 
@@ -2349,9 +2368,9 @@ function showLayerParams(layer) {
       </select>
     </div>
     <div class="param-row">
-      <label>Root Hz</label>
+      <label>Root Hz <button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button></label>
       <input type="range" id="lp-root" min="20" max="2000" step="0.1" value="${layer.root||110}" >
-      <span class="value" id="lp-root-val">${(layer.root||110).toFixed(1)}</span>
+      <span class="value" id="lp-root-val">${rootLabel(layer.root||110)}</span>
     </div>
     <div class="param-row">
       <label>Voices</label>
@@ -2578,6 +2597,26 @@ function showLayerParams(layer) {
     markDirty();
   });
 
+  // Root snap toggle (present for FM and Subtractive)
+  const snapBtn = $('lp-root-snap');
+  if (snapBtn) {
+    snapBtn.addEventListener('click', () => {
+      const layer = currentParams.layers[activeLayerIdx];
+      layer.rootSnap = !layer.rootSnap;
+      snapBtn.classList.toggle('active', layer.rootSnap);
+      if (layer.rootSnap) {
+        const slider = $('lp-root');
+        if (slider) {
+          const snapped = snapToSemitone(parseFloat(slider.value));
+          slider.value = snapped;
+          layer.root = snapped;
+          $('lp-root-val').textContent = rootLabel(snapped);
+          markDirty();
+        }
+      }
+    });
+  }
+
   const filterFields = ['filter_type', 'filter_cutoff', 'filter_resonance', 'filter_lfo_rate', 'filter_lfo_depth', 'filter_lfo_shape'];
   filterFields.forEach(field => {
     const el = $('lp-' + field);
@@ -2605,8 +2644,12 @@ function showLayerParams(layer) {
       if (!slider) return;
       slider.addEventListener('mousedown', () => { pushUndo(); });
       slider.addEventListener('input', () => {
-        const v = parseFloat(slider.value);
-        $(`lp-${p.id}-val`).textContent = v.toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0);
+        let v = parseFloat(slider.value);
+        if (p.id === 'root' && currentParams.layers[activeLayerIdx].rootSnap) {
+          v = snapToSemitone(v);
+          slider.value = v;
+        }
+        $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(v) : v.toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0);
         if (p.id === 'loudness') {
           currentParams.layers[activeLayerIdx].amp_max = v;
           currentParams.layers[activeLayerIdx].amp_min = Math.min(0.005, v * 0.15);
@@ -2666,9 +2709,12 @@ function showLayerParams(layer) {
       if (!slider) return;
       slider.addEventListener('mousedown', () => pushUndo());
       slider.addEventListener('input', () => {
-        const v = parseFloat(slider.value);
-        const dec = id === 'drift' ? 3 : id === 'root' ? 1 : id === 'sub_mix' || id === 'mix' ? 2 : 0;
-        $(`lp-${id}-val`).textContent = v.toFixed(dec);
+        let v = parseFloat(slider.value);
+        if (id === 'root' && currentParams.layers[activeLayerIdx].rootSnap) {
+          v = snapToSemitone(v);
+          slider.value = v;
+        }
+        $(`lp-${id}-val`).textContent = id === 'root' ? rootLabel(v) : v.toFixed(id === 'drift' ? 3 : id === 'sub_mix' || id === 'mix' ? 2 : 0);
         if (id === 'voices') currentParams.layers[activeLayerIdx][id] = parseInt(v);
         else currentParams.layers[activeLayerIdx][id] = v;
         markDirty();
