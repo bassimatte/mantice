@@ -2175,6 +2175,19 @@ function doAddLayer() {
   markDirty();
 }
 
+function doCopyLayer() {
+  if (!currentParams || currentParams.layers.length >= 5) return;
+  pushUndo();
+  const src = currentParams.layers[activeLayerIdx];
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.name = src.name + ' copy';
+  // Insert immediately after the current layer
+  currentParams.layers.splice(activeLayerIdx + 1, 0, copy);
+  activeLayerIdx = activeLayerIdx + 1;
+  buildLayerTabs(currentParams.layers);
+  markDirty();
+}
+
 function doRemoveLayer() {
   if (!currentParams || currentParams.layers.length <= 1) return;
   pushUndo();
@@ -2197,6 +2210,7 @@ function showLayerParams(layer) {
         <div class="toggle-knob"></div>
       </div>
       <button class="solo-btn" id="layer-solo-btn" title="Solo this layer">S</button>
+      <button class="solo-btn" id="layer-copy-btn" title="Duplicate layer" ${numLayers >= 5 ? 'disabled' : ''} onclick="doCopyLayer()">⧉</button>
       <button class="solo-btn" id="layer-remove-btn" title="Remove this layer" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-dim);" ${numLayers <= 1 ? 'disabled' : ''} onclick="doRemoveLayer()">×</button>
     </div>
     <div class="param-row">
