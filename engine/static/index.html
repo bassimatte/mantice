@@ -1092,6 +1092,8 @@ main {
       <div class="file-menu-item" id="btn-restore">↺ Restore</div>
       <div class="file-menu-item" id="btn-share">🔗 Share</div>
       <div class="file-menu-item" id="btn-export">⬇ Download</div>
+      <div class="file-menu-item" id="btn-import-file">📂 Load from file</div>
+      <input type="file" id="import-preset-input" accept=".yaml,.yml" style="display:none">
       <div class="settings-divider"></div>
       <div class="dropdown-section-label">Export Audio</div>
       <div class="settings-row">
@@ -1787,6 +1789,7 @@ async function api(path, opts = {}) {
 
 // ── Load presets list ───────────────────────────────────────────────────────
 let allPresets = [];
+let localPresets = [];   // [ { localId, name, params } ] — user-uploaded YAML files
 let activeTagFilter = null;
 let sharedPresetEntry = null; // { name, params } — ephemeral entry loaded via #shared= URL
 let currentSharedId = null;   // ID of the currently loaded community preset (null if official/generated)
@@ -1868,8 +1871,8 @@ function renderPresetList() {
     ? allPresets.filter(p => (p.tags || []).includes(activeTagFilter))
     : allPresets;
 
-  const official = filtered.filter(p => p.source !== 'community');
-  const community = filtered.filter(p => p.source === 'community');
+  const official  = filtered.filter(p => p.source !== 'community' && p.source !== 'local');
+  const community = filtered.filter(p => p.source === 'community' || p.source === 'local');
 
   function groupByCategory(list) {
     const cats = {};
@@ -1895,17 +1898,36 @@ function renderPresetList() {
   }
 
   function renderCommunitySection(list) {
-    // Prepend ephemeral sharedPresetEntry if present and not already in list
+    const online = list.filter(p => p.source === 'community');
+    const local  = list.filter(p => p.source === 'local');
+
+    // Ephemeral shared-link entry always goes in Online
     const ephemeralHtml = sharedPresetEntry
       ? `<div class="preset-item preset-item-shared active" id="shared-entry-item">🔗 ${sharedPresetEntry.name}</div>`
       : '';
-    const itemsHtml = list.map(p =>
+    const onlineHtml = online.map(p =>
       `<div class="preset-item" data-id="${p.id}" title="${p.name}">${p.name}</div>`
     ).join('');
-    if (!ephemeralHtml && !itemsHtml) return '';
+    const localHtml = local.map(p =>
+      `<div class="preset-item" data-local-id="${p.localId}" title="${p.name}">📂 ${p.name}</div>`
+    ).join('');
+
+    if (!ephemeralHtml && !onlineHtml && !localHtml) return '';
+
+    const onlineSection = (ephemeralHtml || onlineHtml) ? `
+      <details class="preset-category" open>
+        <summary>Online</summary>
+        ${ephemeralHtml}${onlineHtml}
+      </details>` : '';
+    const localSection = localHtml ? `
+      <details class="preset-category" open>
+        <summary>Local</summary>
+        ${localHtml}
+      </details>` : '';
+
     return `<details class="preset-source-section" open>
       <summary class="preset-source-header">Community</summary>
-      ${ephemeralHtml}${itemsHtml}
+      ${onlineSection}${localSection}
     </details>`;
   }
 
@@ -1935,6 +1957,23 @@ function renderPresetList() {
   // Community presets — load via /api/load-shared
   container.querySelectorAll('.preset-item[data-id]').forEach(el => {
     el.addEventListener('click', () => loadCommunityPreset(el.dataset.id, el));
+  });
+
+  // Local presets — load from in-memory params
+  container.querySelectorAll('.preset-item[data-local-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const entry = localPresets.find(p => p.localId === el.dataset.localId);
+      if (!entry) return;
+      document.querySelectorAll('.preset-item').forEach(e => e.classList.remove('active'));
+      el.classList.add('active');
+      currentParams = entry.params;
+      currentPresetPath = null;
+      currentSharedId = null;
+      applyParamsToUI(currentParams);
+      markClean();
+      updateNowPlaying(entry.name);
+      setStatus('Local preset loaded: ' + entry.name);
+    });
   });
 }
 
@@ -3798,10 +3837,48 @@ async function doSharePreset() {
   }
 }
 
+// ── Import preset from local YAML file ──────────────────────────────────────
+function doImportPresetFile() {
+  $('import-preset-input').click();
+}
+
+$('import-preset-input').addEventListener('change', async function () {
+  const file = this.files[0];
+  if (!file) return;
+  this.value = ''; // reset so same file can be re-imported
+  setStatus('Loading ' + file.name + '…');
+  try {
+    const yamlText = await file.text();
+    const data = await api('/api/preset/load-yaml', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ yaml: yamlText }),
+    });
+    if (!data.ok) { setStatus('Import failed: ' + data.error); return; }
+
+    const rawName = data.name || file.name.replace(/\.(yaml|yml)$/i, '');
+    const localId = 'local_' + Date.now();
+    const entry = { localId, name: rawName, params: data.params, source: 'local', category: 'local', tags: [] };
+    localPresets.push(entry);
+    allPresets.push(entry);
+    renderPresetList();
+
+    // Auto-select the just-loaded preset
+    currentParams = data.params;
+    currentPresetPath = null;
+    currentSharedId = null;
+    applyParamsToUI(currentParams);
+    markClean();
+    updateNowPlaying(rawName);
+    setStatus('📂 Loaded from file: ' + rawName);
+  } catch (e) {
+    setStatus('Import error: ' + e.message);
+  }
+});
+
 async function doExportPreset() {
   if (!currentParams) { setStatus('No preset loaded'); return; }
   setStatus('Exporting...');
-  try {
     const res = await fetch(apiUrl('/api/export-preset'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4104,6 +4181,7 @@ function init() {
   $('btn-export').addEventListener('click', doExportPreset);
   $('btn-share').addEventListener('click', doSharePreset);
   $('btn-restore').addEventListener('click', doRestore);
+  $('btn-import-file').addEventListener('click', () => { $('files-dropdown').classList.remove('open'); doImportPresetFile(); });
 
   // Mood buttons
   document.querySelectorAll('.mood-btn').forEach(btn => {

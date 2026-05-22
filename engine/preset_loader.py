@@ -339,6 +339,23 @@ def _validate(preset: dict) -> None:
 
 # ── public API ────────────────────────────────────────────────────────────────
 
+def load_preset_from_yaml_string(yaml_text: str) -> dict:
+    """
+    Load and normalise a preset from a raw YAML string (e.g. uploaded by the user).
+    Inheritance is NOT resolved (the file is standalone).
+    Raises ValueError if the preset is structurally invalid.
+    """
+    raw = yaml.safe_load(yaml_text) or {}
+    layers = raw.get("layers") or []
+    is_v2 = bool(layers) and "synthesis" in layers[0]
+    if is_v2 or "global" in raw:
+        preset = _from_v2(raw)
+    else:
+        preset = _from_v1(raw)
+    _validate(preset)
+    return preset
+
+
 def load_preset(path) -> dict:
     """
     Load and normalise a preset from *path* (.json or .yaml/.yml).

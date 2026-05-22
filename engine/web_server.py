@@ -42,7 +42,7 @@ except ImportError:
     )
 
 from . import config
-from .preset_loader import load_preset
+from .preset_loader import load_preset, load_preset_from_yaml_string
 from .drone_engine import DroneEngine
 from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
@@ -383,6 +383,22 @@ async def load_preset_endpoint(path: str):
         preset = load_preset(path)
         params = _preset_to_ui_params(preset)
         return JSONResponse({"ok": True, "params": params})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
+@app.post("/api/preset/load-yaml")
+async def load_preset_yaml_endpoint(request: Request):
+    """Accept raw YAML text from a user-uploaded file and return UI params."""
+    try:
+        body = await request.json()
+        yaml_text = body.get("yaml", "")
+        if not yaml_text:
+            return JSONResponse({"ok": False, "error": "Empty YAML"}, status_code=400)
+        preset = load_preset_from_yaml_string(yaml_text)
+        params = _preset_to_ui_params(preset)
+        name = preset.get("name") or ""
+        return JSONResponse({"ok": True, "params": params, "name": name})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
