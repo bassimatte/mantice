@@ -918,9 +918,11 @@ class StreamingFDNReverb:
         self.buf       = np.zeros((self._N_LINES, self.max_d), dtype=np.float64)
         self.write_ptr = 0
 
-        # Pre-delay circular buffer
-        self._pre_buf = np.zeros(self._MAX_PRE_DELAY + 4096, dtype=np.float64)
-        self._pre_ptr = 0
+        # Pre-delay FIFO: stores the last (pd + CHUNK_SIZE) samples.
+        # fdn_in = oldest n samples; new chunk appended at end.
+        # This is always correct regardless of pd vs chunk size relationship.
+        _chunk = 2048
+        self._pre_fifo = np.zeros(self._pre_delay_samps + _chunk, dtype=np.float64)
 
         # Per-line LFO state
         rng = np.random.default_rng(seed=42)
@@ -933,11 +935,11 @@ class StreamingFDNReverb:
         """Deep-copy mutable state for crossfade old_engine."""
         import copy
         clone = copy.copy(self)
-        clone.buf        = self.buf.copy()
-        clone._damp_zi   = self._damp_zi.copy()
-        clone._pre_buf   = self._pre_buf.copy()
-        clone._lfo_phases= self._lfo_phases.copy()
-        clone._lfo_rates = self._lfo_rates.copy()
+        clone.buf         = self.buf.copy()
+        clone._damp_zi    = self._damp_zi.copy()
+        clone._pre_fifo   = self._pre_fifo.copy()
+        clone._lfo_phases = self._lfo_phases.copy()
+        clone._lfo_rates  = self._lfo_rates.copy()
         return clone
 
     # ------------------------------------------------------------------
@@ -954,24 +956,10 @@ class StreamingFDNReverb:
         # ── Pre-delay ────────────────────────────────────────────────────
         pd = self._pre_delay_samps
         if pd > 0:
-            L   = len(self._pre_buf)
-            ptr = self._pre_ptr
-            # Read FIRST (before writing) so short pd values are causal
-            rs = (ptr - pd) % L
-            if rs + n <= L:
-                fdn_in = self._pre_buf[rs:rs+n].copy()
-            else:
-                t2 = L - rs
-                fdn_in = np.concatenate([self._pre_buf[rs:], self._pre_buf[:n-t2]])
-            # Then write current chunk into the delay buffer
-            end = ptr + n
-            if end <= L:
-                self._pre_buf[ptr:end] = mono
-            else:
-                tail = L - ptr
-                self._pre_buf[ptr:]    = mono[:tail]
-                self._pre_buf[:n-tail] = mono[tail:]
-            self._pre_ptr = (ptr + n) % L
+            # FIFO shift: oldest n samples become fdn_in; new mono appended
+            fdn_in = self._pre_fifo[:n].copy()
+            self._pre_fifo[:-n] = self._pre_fifo[n:]
+            self._pre_fifo[-n:] = mono
         else:
             fdn_in = mono
 
