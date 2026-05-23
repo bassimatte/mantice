@@ -1635,26 +1635,39 @@ python batch_render_freesound.py --metadata-only</pre>
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Subtractive</label>
     </div>
-    <div style="display:flex; align-items:center; gap:6px; margin-top:6px; flex-wrap:nowrap;">
-      <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;white-space:nowrap;">
-        <input type="checkbox" id="gen-harmonic-mode"> Harm.
-      </label>
-      <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:40px;">
-        <option>C</option><option>C#</option><option>D</option><option>D#</option>
-        <option>E</option><option>F</option><option>F#</option><option>G</option>
-        <option>G#</option><option>A</option><option>A#</option><option>B</option>
-      </select>
-      <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:60px;">
-        <option value="major">Maj</option>
-        <option value="minor">Min</option>
-        <option value="pentatonic_major">P.Maj</option>
-        <option value="pentatonic_minor">P.Min</option>
-        <option value="dorian">Dor</option>
-        <option value="phrygian">Phryg</option>
-        <option value="lydian">Lyd</option>
-        <option value="mixolydian">Mixo</option>
-        <option value="chromatic">Chr</option>
-      </select>
+    <div style="display:flex; flex-direction:column; gap:4px; margin-top:6px;">
+      <div style="display:flex; align-items:center; gap:4px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="gen-harmonic-mode"> Harm.
+        </label>
+        <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:40px;">
+          <option>C</option><option>C#</option><option>D</option><option>D#</option>
+          <option>E</option><option>F</option><option>F#</option><option>G</option>
+          <option>G#</option><option>A</option><option>A#</option><option>B</option>
+        </select>
+        <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:60px;">
+          <option value="major">Maj</option>
+          <option value="minor">Min</option>
+          <option value="pentatonic_major">P.Maj</option>
+          <option value="pentatonic_minor">P.Min</option>
+          <option value="dorian">Dor</option>
+          <option value="phrygian">Phryg</option>
+          <option value="lydian">Lyd</option>
+          <option value="mixolydian">Mixo</option>
+          <option value="chromatic">Chr</option>
+        </select>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <select id="tuning-system" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 3px; font-family:'Space Mono',monospace; font-size:10px;">
+          <option value="12-TET">12-TET (Equal)</option>
+          <option value="Pythagorean">Pythagorean</option>
+          <option value="5-limit JI">5-limit JI</option>
+          <option value="Meantone">Meantone (¼-comma)</option>
+          <option value="19-TET">19-TET</option>
+          <option value="31-TET">31-TET</option>
+        </select>
+        <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
+      </div>
     </div>
     <div class="generator-actions">
       <button class="btn" id="btn-generate">🎲 Generate</button>
@@ -1802,18 +1815,6 @@ python batch_render_freesound.py --metadata-only</pre>
       <label>Saturation</label>
       <input type="range" id="saturation-slider" min="0" max="1" step="0.05" value="0.3" style="flex:1">
       <span class="value" id="saturation-val" style="font-size:10px; color:var(--text-lcd); min-width:32px">0.30</span>
-    </div>
-    <div class="param-row">
-      <label>Tuning</label>
-      <select id="tuning-system" style="flex:1; font-size:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border); border-radius:3px; padding:1px 3px">
-        <option value="12-TET">12-TET (Equal)</option>
-        <option value="Pythagorean">Pythagorean</option>
-        <option value="5-limit JI">5-limit JI</option>
-        <option value="Meantone">Meantone (¼-comma)</option>
-        <option value="19-TET">19-TET</option>
-        <option value="31-TET">31-TET</option>
-      </select>
-      <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; margin-left:3px; background:var(--btn-bg); color:var(--text-main); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap">Apply</button>
     </div>
 
     <div class="card-subsection-label">EQ</div>
@@ -2391,19 +2392,25 @@ function updateRootCentsDisplay(hz) {
   span.textContent = (cents >= 0 ? '+' : '') + cents.toFixed(1) + '¢';
 }
 
-function applyTuning() {
-  const tuning = $('tuning-system').value;
+// Core tuning math — modifies params.layers in place, no UI side effects
+function _applyTuningOffsets(params, tuning) {
   const offsets = TUNING_SYSTEMS[tuning];
-  if (!offsets || !currentParams) return;
-  pushUndo();
-  currentParams.layers.forEach(layer => {
+  if (!offsets) return;
+  params.layers.forEach(layer => {
     if (!layer.root || layer.root <= 0) return;
     const midi = Math.round(12 * Math.log2(layer.root / 440) + 69);
     const hz12tet = 440 * Math.pow(2, (midi - 69) / 12);
     const degree = ((midi % 12) + 12) % 12;
     layer.root = parseFloat((hz12tet * Math.pow(2, offsets[degree] / 1200)).toFixed(3));
   });
-  currentParams.tuning_system = tuning;
+  params.tuning_system = tuning;
+}
+
+function applyTuning() {
+  const tuning = $('tuning-system').value;
+  if (!TUNING_SYSTEMS[tuning] || !currentParams) return;
+  pushUndo();
+  _applyTuningOffsets(currentParams, tuning);
   buildLayerTabs(currentParams.layers);
   showLayerParams(currentParams.layers[activeLayerIdx]);
   markDirty();
@@ -4497,6 +4504,8 @@ async function doGenerate() {
     currentParams = data.params;
     currentPresetPath = null; // generated preset has no saved path
     currentSharedId = null;
+    const activeTuning = $('tuning-system').value;
+    if (activeTuning !== '12-TET') _applyTuningOffsets(currentParams, activeTuning);
     applyParamsToUI(currentParams);
     markClean(); // treat generated params as new baseline — prevents spurious liveReload
     updateNowPlaying();
@@ -4524,6 +4533,8 @@ async function doMutate() {
     currentParams = data.params;
     currentPresetPath = null; // mutated preset has no saved path
     currentSharedId = null;
+    const activeTuning = $('tuning-system').value;
+    if (activeTuning !== '12-TET') _applyTuningOffsets(currentParams, activeTuning);
     applyParamsToUI(currentParams);
     markClean(); // treat mutated params as new baseline — prevents spurious liveReload
     updateNowPlaying();
