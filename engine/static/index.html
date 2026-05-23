@@ -386,6 +386,7 @@ aside h3 {
 .generator-actions {
   display: flex;
   gap: 4px;
+  margin-top: 8px;
   margin-bottom: 5px;
 }
 .generator-actions .btn {
@@ -1588,6 +1589,8 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>Bubbles</td><td>bubbles.deep.loop.ogg</td><td>xUMR</td><td><a href="https://freesound.org/people/xUMR/sounds/478653/" target="_blank" style="color:var(--accent)">#478653</a></td></tr>
           <tr><td>Sub Rumble</td><td>machination-dry.wav</td><td>newagesoup</td><td><a href="https://freesound.org/people/newagesoup/sounds/338869/" target="_blank" style="color:var(--accent)">#338869</a></td></tr>
           <tr><td>Stick Crack</td><td>Twigs Breaking</td><td>Elements-Library</td><td><a href="https://freesound.org/people/Elements-Library/sounds/683793/" target="_blank" style="color:var(--accent)">#683793</a></td></tr>
+          <tr><td>Gears</td><td>Stripped gears in VAV box</td><td>itickets</td><td><a href="https://freesound.org/people/itickets/sounds/490919/" target="_blank" style="color:var(--accent)">#490919</a></td></tr>
+          <tr><td>Ice</td><td>Ice Cracking</td><td>northern87</td><td><a href="https://freesound.org/people/northern87/sounds/369982/" target="_blank" style="color:var(--accent)">#369982</a></td></tr>
         </table>
       </div>
 
@@ -1678,6 +1681,7 @@ python batch_render_freesound.py --metadata-only</pre>
       <button class="layer-subtab active" data-gfx="space">Binaural</button>
       <button class="layer-subtab" data-gfx="reverb">Reverb</button>
       <button class="layer-subtab" data-gfx="earth">Earth &amp; Air</button>
+      <button class="layer-subtab" data-gfx="flanger">Flanger</button>
     </div>
 
     <!-- Space (Binaural) -->
@@ -1736,6 +1740,30 @@ python batch_render_freesound.py --metadata-only</pre>
       <div class="param-row"><label>Pressure</label><input type="range" id="earth-pressure" min="0.0" max="1.0" step="0.05" value="0.4"><span class="value" id="earth-pressure-val">0.40</span></div>
       <div class="toggle-row" style="margin-top:12px"><label>Air</label><div class="toggle" id="air-toggle"></div></div>
       <div class="param-row"><label>Intensity</label><input type="range" id="air-intensity" min="0.0" max="0.5" step="0.01" value="0.12"><span class="value" id="air-intensity-val">0.12</span></div>
+    </div>
+
+    <!-- Flanger -->
+    <div class="gfx-content" data-gfx="flanger" style="display:none">
+      <div class="param-row">
+        <label>Wet</label>
+        <input type="range" id="flanger-wet" min="0" max="1" step="0.01" value="0">
+        <span class="value" id="flanger-wet-val">0.00</span>
+      </div>
+      <div class="param-row">
+        <label>Rate</label>
+        <input type="range" id="flanger-rate" min="0.01" max="2" step="0.01" value="0.25">
+        <span class="value" id="flanger-rate-val">0.25 Hz</span>
+      </div>
+      <div class="param-row">
+        <label>Depth</label>
+        <input type="range" id="flanger-depth" min="0" max="1" step="0.01" value="0.5">
+        <span class="value" id="flanger-depth-val">0.50</span>
+      </div>
+      <div class="param-row">
+        <label>Feedback</label>
+        <input type="range" id="flanger-feedback" min="0" max="0.95" step="0.01" value="0.4">
+        <span class="value" id="flanger-feedback-val">0.40</span>
+      </div>
     </div>
   </div>
 
@@ -2190,6 +2218,17 @@ function applyParamsToUI(p) {
   setToggle('air-toggle', p.air.enabled);
   $('air-intensity').value = p.air.intensity;
   $('air-intensity-val').textContent = p.air.intensity.toFixed(2);
+
+  // Flanger
+  const fl = p.flanger || {};
+  $('flanger-wet').value = fl.wet ?? 0;
+  $('flanger-wet-val').textContent = (fl.wet ?? 0).toFixed(2);
+  $('flanger-rate').value = fl.rate ?? 0.25;
+  $('flanger-rate-val').textContent = (fl.rate ?? 0.25).toFixed(2) + ' Hz';
+  $('flanger-depth').value = fl.depth ?? 0.5;
+  $('flanger-depth-val').textContent = (fl.depth ?? 0.5).toFixed(2);
+  $('flanger-feedback').value = fl.feedback ?? 0.4;
+  $('flanger-feedback-val').textContent = (fl.feedback ?? 0.4).toFixed(2);
 
   // Saturation
   const sat = p.saturation !== undefined ? p.saturation : 0.3;
@@ -2685,46 +2724,67 @@ function showLayerParams(layer) {
   }
 
   const synthDiv = `<div class="layer-subtab-content" data-subtab="synth" style="display:${activeLayerSubTab==='synth'?'block':'none'}">${synthHtml}</div>`;
+  const ft = layer.filter_type || 'off';
+  const showCutoff = ['lp','hp','bp','comb'].includes(ft);
+  const showRes    = ft !== 'off';
+  const showLFO    = ['lp','hp','bp'].includes(ft);
+  const showVowel  = ft === 'formant';
+  const resLabel   = ft === 'comb' ? 'Feedback' : ft === 'formant' ? 'Strength' : 'Resonance';
+  const cutoffLabel = ft === 'comb' ? 'Comb Freq' : 'Cutoff';
   const filterHtml = `
     <div class="layer-subtab-content" data-subtab="filter" style="display:${activeLayerSubTab==='filter'?'block':'none'}">
       <div class="param-row">
         <label>Type</label>
         <select id="lp-filter_type"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
-          <option value="off" ${(layer.filter_type||'off')==='off'?'selected':''}>Off</option>
-          <option value="lp" ${(layer.filter_type||'off')==='lp'?'selected':''}>Low Pass</option>
-          <option value="hp" ${(layer.filter_type||'off')==='hp'?'selected':''}>High Pass</option>
-          <option value="bp" ${(layer.filter_type||'off')==='bp'?'selected':''}>Band Pass</option>
+          <option value="off" ${ft==='off'?'selected':''}>Off</option>
+          <option value="lp" ${ft==='lp'?'selected':''}>Low Pass</option>
+          <option value="hp" ${ft==='hp'?'selected':''}>High Pass</option>
+          <option value="bp" ${ft==='bp'?'selected':''}>Band Pass</option>
+          <option value="comb" ${ft==='comb'?'selected':''}>Comb</option>
+          <option value="formant" ${ft==='formant'?'selected':''}>Formant</option>
         </select>
       </div>
-      <div class="param-row">
-        <label>Cutoff</label>
+      <div class="param-row" style="display:${showCutoff?'':'none'}">
+        <label>${cutoffLabel}</label>
         <input type="range" id="lp-filter_cutoff" min="40" max="8000" step="10" value="${layer.filter_cutoff||2000}" >
         <span class="value" id="lp-filter_cutoff-val">${layer.filter_cutoff||2000} Hz</span>
       </div>
-      <div class="param-row">
-        <label>Resonance</label>
+      <div class="param-row" style="display:${showRes?'':'none'}">
+        <label>${resLabel}</label>
         <input type="range" id="lp-filter_resonance" min="0.1" max="8" step="0.1" value="${layer.filter_resonance||1.0}" >
         <span class="value" id="lp-filter_resonance-val">${(layer.filter_resonance||1.0).toFixed(1)}</span>
       </div>
-      <div class="card-subsection-label" style="margin-top:10px;">LFO</div>
-      <div class="param-row">
-        <label>Rate</label>
-        <input type="range" id="lp-filter_lfo_rate" min="0.01" max="4" step="0.01" value="${layer.filter_lfo_rate||0.1}" >
-        <span class="value" id="lp-filter_lfo_rate-val">${(layer.filter_lfo_rate||0.1).toFixed(2)} Hz</span>
-      </div>
-      <div class="param-row">
-        <label>Depth</label>
-        <input type="range" id="lp-filter_lfo_depth" min="0" max="1" step="0.01" value="${layer.filter_lfo_depth||0}" >
-        <span class="value" id="lp-filter_lfo_depth-val">${(layer.filter_lfo_depth||0).toFixed(2)}</span>
-      </div>
-      <div class="param-row">
-        <label>Shape</label>
-        <select id="lp-filter_lfo_shape"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
-          <option value="sine" ${(layer.filter_lfo_shape||'sine')==='sine'?'selected':''}>Sine</option>
-          <option value="triangle" ${(layer.filter_lfo_shape||'sine')==='triangle'?'selected':''}>Triangle</option>
-          <option value="square" ${(layer.filter_lfo_shape||'sine')==='square'?'selected':''}>Square</option>
-          <option value="random" ${(layer.filter_lfo_shape||'sine')==='random'?'selected':''}>Random</option>
+      <div class="param-row" style="display:${showVowel?'':'none'}">
+        <label>Vowel</label>
+        <select id="lp-filter_vowel" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+          <option value="a" ${(layer.filter_vowel||'a')==='a'?'selected':''}>A (aah)</option>
+          <option value="e" ${(layer.filter_vowel||'a')==='e'?'selected':''}>E (ee)</option>
+          <option value="i" ${(layer.filter_vowel||'a')==='i'?'selected':''}>I (ih)</option>
+          <option value="o" ${(layer.filter_vowel||'a')==='o'?'selected':''}>O (oh)</option>
+          <option value="u" ${(layer.filter_vowel||'a')==='u'?'selected':''}>U (oo)</option>
         </select>
+      </div>
+      <div id="lp-lfo-section" style="display:${showLFO?'block':'none'}">
+        <div class="card-subsection-label" style="margin-top:10px;">LFO</div>
+        <div class="param-row">
+          <label>Rate</label>
+          <input type="range" id="lp-filter_lfo_rate" min="0.01" max="4" step="0.01" value="${layer.filter_lfo_rate||0.1}" >
+          <span class="value" id="lp-filter_lfo_rate-val">${(layer.filter_lfo_rate||0.1).toFixed(2)} Hz</span>
+        </div>
+        <div class="param-row">
+          <label>Depth</label>
+          <input type="range" id="lp-filter_lfo_depth" min="0" max="1" step="0.01" value="${layer.filter_lfo_depth||0}" >
+          <span class="value" id="lp-filter_lfo_depth-val">${(layer.filter_lfo_depth||0).toFixed(2)}</span>
+        </div>
+        <div class="param-row">
+          <label>Shape</label>
+          <select id="lp-filter_lfo_shape"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+            <option value="sine" ${(layer.filter_lfo_shape||'sine')==='sine'?'selected':''}>Sine</option>
+            <option value="triangle" ${(layer.filter_lfo_shape||'sine')==='triangle'?'selected':''}>Triangle</option>
+            <option value="square" ${(layer.filter_lfo_shape||'sine')==='square'?'selected':''}>Square</option>
+            <option value="random" ${(layer.filter_lfo_shape||'sine')==='random'?'selected':''}>Random</option>
+          </select>
+        </div>
       </div>
     </div>
   `;
@@ -2794,7 +2854,7 @@ function showLayerParams(layer) {
     });
   }
 
-  const filterFields = ['filter_type', 'filter_cutoff', 'filter_resonance', 'filter_lfo_rate', 'filter_lfo_depth', 'filter_lfo_shape'];
+  const filterFields = ['filter_type', 'filter_cutoff', 'filter_resonance', 'filter_lfo_rate', 'filter_lfo_depth', 'filter_lfo_shape', 'filter_vowel'];
   filterFields.forEach(field => {
     const el = $('lp-' + field);
     if (!el) return;
@@ -2804,6 +2864,13 @@ function showLayerParams(layer) {
     el.addEventListener(evtName, () => {
       const v = isSelect ? el.value : parseFloat(el.value);
       currentParams.layers[activeLayerIdx][field] = v;
+      if (field === 'filter_type') {
+        // Rebuild filter UI to show/hide appropriate rows for new type
+        showLayerParams(currentParams.layers[activeLayerIdx]);
+        markDirty();
+        liveReload();
+        return;
+      }
       const valEl = $('lp-' + field + '-val');
       if (valEl && !isSelect) {
         if (field === 'filter_cutoff') valEl.textContent = v + ' Hz';
@@ -3299,6 +3366,13 @@ function collectParams() {
   p.earth.pressure = parseFloat($('earth-pressure').value);
   p.air.enabled = $('air-toggle').dataset.state === '1';
   p.air.intensity = parseFloat($('air-intensity').value);
+
+  // Flanger
+  p.flanger = p.flanger || {};
+  p.flanger.wet      = parseFloat($('flanger-wet').value);
+  p.flanger.rate     = parseFloat($('flanger-rate').value);
+  p.flanger.depth    = parseFloat($('flanger-depth').value);
+  p.flanger.feedback = parseFloat($('flanger-feedback').value);
 
   // Saturation
   p.saturation = parseFloat($('saturation-slider').value);
@@ -4069,8 +4143,6 @@ async function setupWorklet(ctx) {
 }
 
 async function doPreview() {
-  // If rendered audio exists, play it instead of streaming
-  if (renderedBuffer) { doPlay(); return; }
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
 
@@ -4803,10 +4875,14 @@ function init() {
     ['air-intensity', 'air-intensity-val', 2],
     ['saturation-slider', 'saturation-val', 2],
     ['mutate-amount', 'mutate-amount-val', 2],
+    ['flanger-wet', 'flanger-wet-val', 2],
+    ['flanger-depth', 'flanger-depth-val', 2],
+    ['flanger-feedback', 'flanger-feedback-val', 2],
   ];
   sliderPairs.forEach(([sliderId, valId, decimals]) => {
     linkSlider(sliderId, valId, v => parseFloat(v).toFixed(decimals));
   });
+  linkSlider('flanger-rate', 'flanger-rate-val', v => parseFloat(v).toFixed(2) + ' Hz');
 
   // EQ sliders — gain sliders show/hide freq & Q sub-rows on change
   linkSlider('eq-low-cut', 'eq-low-cut-val', v => v + ' Hz');

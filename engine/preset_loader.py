@@ -217,6 +217,7 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "filter_lfo_rate":  float(layer.get("filter_lfo_rate", 0.1)),
         "filter_lfo_depth": float(layer.get("filter_lfo_depth", 0.0)),
         "filter_lfo_shape": layer.get("filter_lfo_shape", "sine"),
+        "filter_vowel":     layer.get("filter_vowel", "a"),
         # V21 subtractive synthesis
         "waveform":     layer.get("waveform", "saw"),
         "detune_cents": float(layer.get("detune_cents", 8.0)),
@@ -250,6 +251,7 @@ def _from_v1(raw: dict) -> dict:
         "air":           raw.get("air"),
         "reverb":        raw.get("reverb"),
         "binaural":      raw.get("binaural"),
+        "flanger":       raw.get("flanger"),
         "layers": [
             _normalize_layer_v1(l)
             for l in raw.get("layers", [])
@@ -274,6 +276,7 @@ def _from_v2(raw: dict) -> dict:
         "air":           raw.get("air"),
         "reverb":        raw.get("reverb"),
         "binaural":      raw.get("binaural"),
+        "flanger":       raw.get("flanger"),
         "saturation":    float(raw.get("saturation", 0.3)),
         "layers": [
             _normalize_layer_v2(l)

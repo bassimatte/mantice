@@ -186,6 +186,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "filter_lfo_rate": layer.get("filter_lfo_rate", 0.1),
                 "filter_lfo_depth": layer.get("filter_lfo_depth", 0.0),
                 "filter_lfo_shape": layer.get("filter_lfo_shape", "sine"),
+                "filter_vowel": layer.get("filter_vowel", "a"),
                 "waveform": layer.get("waveform", "saw"),
                 "detune_cents": layer.get("detune_cents", 8.0),
                 "sub_mix": layer.get("sub_mix", 0.3),
@@ -199,6 +200,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
     reverb = preset.get("reverb") or {}
     earth = preset.get("earth") or {}
     air = preset.get("air") or {}
+    flanger = preset.get("flanger") or {}
     master = preset.get("master", {}) or {}
     eq = master.get("eq", {}) or {}
     comp = master.get("comp", {}) or {}
@@ -255,6 +257,12 @@ def _preset_to_ui_params(preset: dict) -> dict:
             "movement": air.get("movement", 0.01),
             "turbulence": air.get("turbulence", 0.04),
         },
+        "flanger": {
+            "wet":      float(flanger.get("wet", 0.0)),
+            "rate":     float(flanger.get("rate", 0.25)),
+            "depth":    float(flanger.get("depth", 0.5)),
+            "feedback": float(flanger.get("feedback", 0.4)),
+        },
     }
 
 
@@ -307,6 +315,7 @@ def _ui_params_to_preset(params: dict) -> dict:
             "filter_lfo_rate": float(l.get("filter_lfo_rate", 0.1)),
             "filter_lfo_depth": float(l.get("filter_lfo_depth", 0.0)),
             "filter_lfo_shape": l.get("filter_lfo_shape", "sine"),
+            "filter_vowel": l.get("filter_vowel", "a"),
             "waveform": l.get("waveform", "saw"),
             "detune_cents": float(l.get("detune_cents", 8.0)),
             "sub_mix": float(l.get("sub_mix", 0.3)),
@@ -319,6 +328,7 @@ def _ui_params_to_preset(params: dict) -> dict:
     reverb = params.get("reverb", {})
     earth = params.get("earth", {})
     air = params.get("air", {})
+    flanger_ui = params.get("flanger", {})
     master_ui = params.get("master", {})
 
     preset = {
@@ -360,6 +370,12 @@ def _ui_params_to_preset(params: dict) -> dict:
         "reverb": reverb if reverb.get("enabled") else None,
         "earth": earth if earth.get("enabled") else None,
         "air": air if air.get("enabled") else None,
+        "flanger": {
+            "wet":      float(flanger_ui.get("wet", 0.0)),
+            "rate":     float(flanger_ui.get("rate", 0.25)),
+            "depth":    float(flanger_ui.get("depth", 0.5)),
+            "feedback": float(flanger_ui.get("feedback", 0.4)),
+        } if float(flanger_ui.get("wet", 0.0)) > 0 else None,
     }
     return preset
 

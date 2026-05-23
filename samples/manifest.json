@@ -169,5 +169,23 @@
     "duration": 1.77198,
     "user": "Elements-Library",
     "preview": "https://cdn.freesound.org/previews/683/683793_14876768-hq.ogg"
+  },
+  {
+    "file": "gears.ogg",
+    "id": 490919,
+    "name": "Stripped gears in VAV box",
+    "label": "Gears",
+    "duration": 13.18,
+    "user": "itickets",
+    "preview": "https://cdn.freesound.org/previews/490/490919_9638973-hq.ogg"
+  },
+  {
+    "file": "ice.ogg",
+    "id": 369982,
+    "name": "Ice Cracking",
+    "label": "Ice",
+    "duration": 20.0,
+    "user": "northern87",
+    "preview": "https://cdn.freesound.org/previews/369/369982_1196518-hq.ogg"
   }
 ]

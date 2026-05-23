@@ -1,0 +1,180 @@
+meta:
+  name: Iron Choir
+  slug: iron-choir
+  category: experimental
+  mood:
+  - metallic
+  - industrial
+  - otherworldly
+  description: Comb filter resonance turns FM oscillators into a spectral metal choir
+  author: Matteo Bassi
+  engine_version: MANTICE_V21
+  tags:
+  - comb
+  - metallic
+  - experimental
+  - fm
+  - resonance
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.4
+reverb:
+  space: hall
+  mix: 0.35
+  decay_trim: 1.1
+spatial:
+  depth: 1.0
+  wetness: 0.6
+  swarm_density: 0.3
+earth:
+  enabled: false
+  tectonic_freq: 18
+  pressure: 0.0
+air:
+  enabled: false
+  intensity: 0.0
+  turbulence: 0.0
+binaural:
+  enabled: false
+  method: detune
+  beat_hz: 6.0
+  carrier_hz: 200
+  carrier_amp: 0.15
+layers:
+- name: Metal Bass
+  enabled: true
+  type: fm
+  synthesis:
+    root: 110
+    voices: 6
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.3
+  harmonics: 5
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 1.0
+    amp_min: 0.025
+    amp_max: 0.065
+    drift: 0.004
+  spatial_motion:
+    quadrant: center
+    speed: 0.0
+    trajectory_x: none
+    trajectory_y: none
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  filter_type: comb
+  filter_cutoff: 110.0
+  filter_resonance: 6.5
+  filter_lfo_rate: 0.0
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  chorus_rate: 0.4
+  chorus_depth: 0.004
+  chorus_mix: 0.1
+  chorus_voices: 2
+
+- name: Upper Harmonics
+  enabled: true
+  type: fm
+  synthesis:
+    root: 220
+    voices: 8
+    ratios:
+    - 1.0
+    - 1.5
+    - 3.0
+    - 4.0
+  fm:
+    ratios:
+    - 2.0
+    - 3.0
+    index: 0.5
+  harmonics: 6
+  harmonic_decay: 0.6
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 0.7
+    amp_min: 0.012
+    amp_max: 0.04
+    drift: 0.008
+  spatial_motion:
+    quadrant: center
+    speed: 0.006
+    trajectory_x: drift
+    trajectory_y: none
+  elevation: 10.0
+  elevation_motion: drift
+  elevation_speed: 0.05
+  elevation_range: 30.0
+  filter_type: comb
+  filter_cutoff: 220.0
+  filter_resonance: 7.0
+  filter_lfo_rate: 0.0
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  chorus_rate: 0.3
+  chorus_depth: 0.006
+  chorus_mix: 0.15
+  chorus_voices: 2
+
+- name: Spectral Crown
+  enabled: true
+  type: fm
+  synthesis:
+    root: 440
+    voices: 5
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 3.0
+    - 1.0
+    index: 0.7
+  harmonics: 4
+  harmonic_decay: 0.5
+  noise_amount: 0.02
+  noise_color: pink
+  dynamics:
+    mix: 0.45
+    amp_min: 0.006
+    amp_max: 0.022
+    drift: 0.012
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.01
+    trajectory_x: pendulum
+    trajectory_y: none
+  elevation: 20.0
+  elevation_motion: drift
+  elevation_speed: 0.07
+  elevation_range: 45.0
+  filter_type: comb
+  filter_cutoff: 440.0
+  filter_resonance: 5.5
+  filter_lfo_rate: 0.0
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  chorus_rate: 0.5
+  chorus_depth: 0.003
+  chorus_mix: 0.1
+  chorus_voices: 2
