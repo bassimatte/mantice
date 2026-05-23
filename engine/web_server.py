@@ -576,6 +576,9 @@ async def freesound_load_by_id(id: str):
             _json.dump(cache_manifest, f, indent=2)
 
     return JSONResponse({"ok": True, "filename": relative_path, "label": f"FS: {name}"})
+
+
+@app.get("/api/preset/load")
 async def load_preset_endpoint(path: str):
     try:
         preset = load_preset(path)

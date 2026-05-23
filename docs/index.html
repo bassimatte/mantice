@@ -3886,6 +3886,10 @@ async function _flushAndRestart() {
   // 5. Restart server stream with updated params
   ws.send(JSON.stringify({ action: 'start', params: collectParams(), seed: currentSeed }));
   setStatus('Buffering…');
+
+  // 6. Restart visualizer animation loops (stopSpectrum killed them)
+  drawSpectrum();
+  startAurora();
 }
 
 // Hot-reload streaming engine with current params if a stream is active
