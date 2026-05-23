@@ -370,6 +370,45 @@ def judge(m: dict) -> list[str]:
     return issues
 
 
+def judge_no_clicks(m: dict) -> list[str]:
+    """Like judge() but skips click / boundary / RMS-spike checks.
+
+    Use for intentionally percussive sample sources where sharp transients
+    are expected content (rice_grains, stick_crack, fire_crackle, etc.).
+    Still catches NaN, silence, and hard clipping.
+    """
+    issues = []
+    if m["has_nan"]:
+        issues.append("NaN/Inf in output")
+    if m["peak"] > CLIP_THRESHOLD:
+        issues.append(f"clipping  peak={m['peak']:.4f}")
+    if m["rms"] < SILENCE_RMS:
+        issues.append(f"silence  rms={m['rms']:.2e}")
+    return issues
+
+
+def judge_no_rms_spike(m: dict) -> list[str]:
+    """Like judge() but skips the RMS-spike check.
+
+    Use when two samples have inherently different loudness levels so a
+    relative amplitude change during a crossfade is expected, not a bug.
+    """
+    issues = []
+    if m["has_nan"]:
+        issues.append("NaN/Inf in output")
+    if m["click_count"] >= CLICK_COUNT_FAIL:
+        issues.append(f"clicks={m['click_count']}  max_jump={m['click_max']:.3f}")
+    if m["boundary_clicks"] >= BOUNDARY_CLICK_FAIL:
+        issues.append(f"chunk-boundary clicks={m['boundary_clicks']}  max={m['boundary_max']:.3f}")
+    if m["peak"] > CLIP_THRESHOLD:
+        issues.append(f"clipping  peak={m['peak']:.4f}")
+    if m["rms"] < SILENCE_RMS:
+        issues.append(f"silence  rms={m['rms']:.2e}")
+    if m["dc"] > DC_THRESHOLD:
+        issues.append(f"DC offset={m['dc']:.4f}")
+    return issues
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Test result
 # ═════════════════════════════════════════════════════════════════════════════
@@ -389,12 +428,14 @@ class Result:
 
 def run_test(section: str, name: str, desc: str,
              fn: Callable[[], np.ndarray],
-             keep_audio: bool = False) -> Result:
+             keep_audio: bool = False,
+             judge_fn: Callable = None) -> Result:
+    judge_fn = judge_fn or judge
     t0 = time.time()
     try:
         audio = fn()
         metrics = analyze(audio)
-        issues = judge(metrics)
+        issues = judge_fn(metrics)
         return Result(
             section=section, name=name, desc=desc,
             passed=len(issues) == 0,
@@ -482,6 +523,61 @@ def suite_fm(quick: bool) -> list[tuple]:
     tests.append(("5layer_max_mix", "FM 5-layer dense stack (clipping check)",
                    lambda _p=p: render(_p)))
 
+    # ── Group 1 / Group 3 additions ──────────────────────────────────────────
+
+    # Chorus enabled (previously always chorus_mix=0)
+    for cmix in ([0.3, 0.7] if not quick else [0.5]):
+        p = _preset([_fm(chorus_mix=cmix, chorus_rate=0.5, chorus_depth=0.008)])
+        tests.append((f"chorus_mix_{cmix}", f"FM chorus_mix={cmix}",
+                       lambda _p=p: render(_p)))
+
+    # Filter vowel variants (only "a" was tested before via default)
+    for vowel in (["a", "e", "i", "o", "u"] if not quick else ["i", "o"]):
+        p = _preset([_fm(filter_type="vowel", filter_vowel=vowel)])
+        tests.append((f"filter_vowel_{vowel}", f"FM vowel formant={vowel}",
+                       lambda _p=p: render(_p)))
+
+    # Pan extremes
+    for pan in ([-1.0, 0.0, 1.0] if not quick else [-1.0, 1.0]):
+        p = _preset([_fm(pan=pan)])
+        tests.append((f"pan_{pan:+.0f}", f"FM pan={pan:+.1f}",
+                       lambda _p=p: render(_p)))
+
+    # Width extremes (0=mono, 2=extra-wide)
+    for w in ([0.0, 1.0, 2.0] if not quick else [0.0, 2.0]):
+        p = _preset([_fm(width=w)])
+        tests.append((f"width_{w}", f"FM width={w}",
+                       lambda _p=p: render(_p)))
+
+    # Elevation motion variants
+    for em in (["rise", "fall", "float", "breathe"] if not quick else ["float", "breathe"]):
+        p = _preset([_fm(elevation=30.0, elevation_motion=em, elevation_speed=0.2,
+                         elevation_range=45.0)])
+        tests.append((f"elevation_{em}", f"FM elevation_motion={em}",
+                       lambda _p=p: render(_p)))
+
+    # Noise color variants
+    for color in (["pink", "white", "brown"] if not quick else ["white", "brown"]):
+        p = _preset([_fm(noise_amount=0.5, noise_color=color)])
+        tests.append((f"noise_color_{color}", f"FM noise_color={color}",
+                       lambda _p=p: render(_p)))
+
+    # Harmonics extremes (1 = no overtones, 8/12 = rich stack)
+    for h in ([1, 4, 8, 12] if not quick else [1, 8]):
+        p = _preset([_fm(harmonics=h, harmonic_decay=0.6)])
+        tests.append((f"harmonics_{h}", f"FM harmonics={h}",
+                       lambda _p=p: render(_p)))
+
+    # FM near Nyquist — alias folding risk
+    p = _preset([_fm(root=8000, fm_index=0.3, band="high")])
+    tests.append(("fm_near_nyquist", "FM root=8000Hz (near Nyquist)",
+                   lambda _p=p: render(_p)))
+
+    # FM near DC — modulator sweeps through 0 Hz
+    p = _preset([_fm(root=20, fm_index=3.0, band="sub")])
+    tests.append(("fm_near_dc", "FM root=20Hz near DC (high fm_index)",
+                   lambda _p=p: render(_p)))
+
     return tests
 
 
@@ -521,6 +617,27 @@ def suite_sub(quick: bool) -> list[tuple]:
     tests.append(("filter_highq_lfo", "Sub high-Q filter (resonance=8) + fast LFO",
                    lambda _p=p: render(_p)))
 
+    # ── Group 1 / Group 2 / Group 3 additions ────────────────────────────────
+
+    # Hard distortion type (previously only "soft" was tested)
+    for drive in ([0.3, 0.7, 1.0] if not quick else [0.5, 1.0]):
+        p = _preset([_sub(distortion_drive=drive, distortion_type="hard")])
+        tests.append((f"dist_hard_{drive}", f"Sub hard distortion drive={drive}",
+                       lambda _p=p: render(_p)))
+
+    # Filter LFO shapes — square (instantaneous jump) and sample_hold are highest risk
+    for shape in (["triangle", "square", "sample_hold"] if not quick else ["square", "sample_hold"]):
+        p = _preset([_sub(filter_type="lp", filter_cutoff=1200, filter_resonance=3.0,
+                          filter_lfo_rate=1.5, filter_lfo_depth=0.8,
+                          filter_lfo_shape=shape)])
+        tests.append((f"filter_lfo_{shape}", f"Sub filter LFO shape={shape}",
+                       lambda _p=p: render(_p)))
+
+    # Square waveform + high detune → dense beating peaks (medium confidence)
+    p = _preset([_sub(waveform="square", detune_cents=50, voices=6)])
+    tests.append(("square_high_detune", "Sub square waveform + 50ct detune (beating)",
+                   lambda _p=p: render(_p)))
+
     return tests
 
 
@@ -533,13 +650,18 @@ def suite_gran(quick: bool) -> list[tuple]:
     all_samples = ogg_files + wav_files
     if quick:
         all_samples = ["singing_bowl.ogg", "gong.ogg", "metal_resonance.ogg",
-                       "alien_mountains.wav", "throat_singing.ogg"]
+                       "alien_mountains.wav", "throat_singing.ogg",
+                       "washing_machine.wav", "rice_grains.wav"]
 
     # Every sample — default settings
+    # Percussive samples (rice_grains, stick_crack, etc.) skip click detection
+    # because sharp transients in the source are expected granular content.
+    _PERCUSSIVE = {"rice_grains.wav", "stick_crack.ogg", "fire_crackle.ogg"}
     for src in all_samples:
         p = _preset([_gran(source=src)])
+        jfn = judge_no_clicks if src in _PERCUSSIVE else None
         tests.append((f"src_{Path(src).stem}", f"Granular source={src}",
-                       lambda _p=p: render(_p)))
+                       lambda _p=p: render(_p), jfn))
 
     # Pitch modes × semitones
     modes = ["resample", "stretch", "energetic"]
@@ -588,6 +710,42 @@ def suite_gran(quick: bool) -> list[tuple]:
         _gran(source="gong.ogg",         name="G2"),
     ])
     tests.append(("multilayer_2gran", "Gran 2-layer granular mix",
+                   lambda _p=p: render(_p)))
+
+    # ── Group 1 / Group 2 / Group 3 additions ────────────────────────────────
+
+    # Position at edges (start and near-end of sample buffer)
+    for pos in ([0.0, 0.1, 0.9, 0.99] if not quick else [0.0, 0.95]):
+        p = _preset([_gran(position=pos, position_mode="random")])
+        tests.append((f"position_{pos}", f"Gran position={pos} (buffer edge)",
+                       lambda _p=p: render(_p)))
+
+    # Scatter extremes (0=locked, 1=fully random)
+    for scat in ([0.0, 0.5, 1.0] if not quick else [0.0, 1.0]):
+        p = _preset([_gran(scatter=scat)])
+        tests.append((f"scatter_{scat}", f"Gran scatter={scat}",
+                       lambda _p=p: render(_p)))
+
+    # Tiny grain + high density — maximum grain boundary density
+    p = _preset([_gran(grain_size=5, density=20, source="singing_bowl.ogg")])
+    tests.append(("grain_tiny_5ms", "Gran grain_size=5ms density=20 (dense seams)",
+                   lambda _p=p: render(_p)))
+
+    # Extreme pitch shifts ±24st (max range for resample and stretch)
+    for st in ([-24, -12, +12, +24] if not quick else [-24, +24]):
+        for mode in (["resample", "stretch"] if not quick else ["resample"]):
+            p = _preset([_gran(source="singing_bowl.ogg",
+                                pitch_mode=mode, pitch_semitones=st)])
+            tests.append((f"extreme_pitch_{mode}_st{st:+d}",
+                           f"Gran extreme pitch {st:+d}st ({mode})",
+                           lambda _p=p: render(_p)))
+
+    # 2 different granular sources + different pitch offsets (medium confidence)
+    p = _preset([
+        _gran(source="singing_bowl.ogg", pitch_semitones=+5,  name="G1"),
+        _gran(source="gong.ogg",         pitch_semitones=-3,  name="G2"),
+    ])
+    tests.append(("gran_2src_pitched", "Gran 2 sources + pitch offsets",
                    lambda _p=p: render(_p)))
 
     return tests
@@ -657,6 +815,29 @@ def suite_fx(quick: bool) -> list[tuple]:
         flanger={"rate": 0.2, "depth": 0.4, "feedback": 0.3, "wet": 0.2},
     )
     tests.append(("all_fx_combined", "All FX combined (FM+Gran+Reverb+Earth+Air+Flanger)",
+                   lambda _p=p: render(_p)))
+
+    # ── Group 2 / Group 3 additions ──────────────────────────────────────────
+
+    # Reverb near-divergence: decay_trim=1.0 (max, feedback=0.96) + loud input
+    p = _preset(
+        [_fm(root=110, amp_min=0.05, amp_max=0.09, voices=6)],
+        reverb={"enabled": True, "space": "cathedral", "mix": 0.7,
+                "decay_trim": 1.0, "pre_delay_ms": 0.0},
+    )
+    tests.append(("reverb_max_feedback", "Reverb decay_trim=1.0 (max feedback) + loud FM",
+                   lambda _p=p: render(_p, duration=15)))
+
+    # Saturation + 3 loud layers — summed signal can exceed saturation input headroom.
+    # Uses FM (sine-based) voices for all layers: the focus is headroom management, not
+    # waveform aliasing (square+distortion is already covered by dist_hard_* tests).
+    p = _preset(
+        [_fm(root=110, amp_min=0.03, amp_max=0.07, name="L1"),
+         _fm(root=220, amp_min=0.03, amp_max=0.07, name="L2"),
+         _fm(root=165, amp_min=0.03, amp_max=0.07, name="L3")],
+        saturation=1.0,
+    )
+    tests.append(("sat_multilayer_max", "Saturation=1.0 + 3 loud layers",
                    lambda _p=p: render(_p)))
 
     return tests
@@ -730,6 +911,17 @@ def suite_transition(quick: bool) -> list[tuple]:
     if not quick:
         tests.append(("rapid_reload_stress", "3 hot-reloads in 9s (stress test)",
                        _rapid_reload))
+
+    # ── Group 2 addition ─────────────────────────────────────────────────────
+    # Granular source change: hot-reload swaps sample file mid-stream (new buffer loaded)
+    # RMS spike is expected: singing_bowl decays by t=4s while gong.ogg starts loud.
+    pa_src = _preset([_gran(source="singing_bowl.ogg")])
+    pb_src = _preset([_gran(source="gong.ogg")])
+    tests.append(("gran_src_change", "Gran source change hot-reload (full)",
+                   lambda: render_with_reload(pa_src, pb_src, crossfade=2.0),
+                   judge_no_rms_spike))
+    tests.append(("gran_src_change_seam", "Gran source change hot-reload (seam zoom)",
+                   lambda: render_seam_slice(pa_src, pb_src, crossfade=2.0)))
 
     return tests
 
@@ -904,8 +1096,13 @@ def main() -> int:
     # Build full test list as (section, name, desc, fn)
     all_tests: list[tuple] = []
     for sec in sections:
-        for name, desc, fn in SUITES[sec](args.quick):
-            all_tests.append((sec, name, desc, fn))
+        for entry in SUITES[sec](args.quick):
+            if len(entry) == 3:
+                name, desc, fn = entry
+                all_tests.append((sec, name, desc, fn, None))
+            else:
+                name, desc, fn, jfn = entry
+                all_tests.append((sec, name, desc, fn, jfn))
 
     total = len(all_tests)
     mode  = "QUICK" if args.quick else "FULL"
@@ -920,13 +1117,13 @@ def main() -> int:
     current_sec = None
     t_suite_start = time.time()
 
-    for sec, name, desc, fn in all_tests:
+    for sec, name, desc, fn, jfn in all_tests:
         if sec != current_sec:
             current_sec = sec
             label = _SECTION_LABELS.get(sec, sec)
             print(f"\n  {B}{C}── {label} {'─'*(48 - len(label))}{R}")
 
-        r = run_test(sec, name, desc, fn, keep_audio=args.save_flagged)
+        r = run_test(sec, name, desc, fn, keep_audio=args.save_flagged, judge_fn=jfn)
         results.append(r)
         print_result(r, args.verbose)
 

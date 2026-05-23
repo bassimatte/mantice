@@ -349,17 +349,14 @@ class StreamingSubtractiveLayer:
     def _waveform(self, phases: np.ndarray, freqs_hz: np.ndarray) -> np.ndarray:
         """Generate waveform samples from phase array (0..2pi).
 
-        For the saw wave, a 2nd-order PolyBLEP correction is applied to
-        band-limit the discontinuity at the phase reset.  This suppresses
-        the aliasing step that would otherwise be amplified by distortion
-        and appear as audible clicks.
+        For the saw and square waves, a 2nd-order PolyBLEP correction is applied
+        to band-limit the discontinuities.  Without it, the instantaneous jumps
+        are amplified by distortion / saturation and appear as audible clicks.
 
         freqs_hz: (n_voices,) — needed to compute the per-voice phase
         increment (dt = f/SR) used by the PolyBLEP kernel.
         """
         p = phases % (2 * np.pi)
-        if self.waveform == "square":
-            return np.where(p < np.pi, np.float32(1.0), np.float32(-1.0)).astype(np.float32)
         if self.waveform == "triangle":
             return (
                 np.float32(2.0)
@@ -368,26 +365,36 @@ class StreamingSubtractiveLayer:
                 - np.float32(1.0)
             ).astype(np.float32)
 
+        t  = p / (2 * np.pi)                              # (n_voices, n_samples)
+        dt = np.clip(freqs_hz / SR, 1e-6, 0.5)[:, None]  # (n_voices, 1)
+
+        def _polyblep(t_arr):
+            """2nd-order PolyBLEP correction at t=0 transition."""
+            lo  = t_arr < dt
+            t_lo = t_arr / dt
+            blep_lo = 2.0 * t_lo - t_lo * t_lo - 1.0     # 2t−t²−1  (−1 → 0)
+            hi  = t_arr > (1.0 - dt)
+            t_hi = (t_arr - 1.0) / dt
+            blep_hi = t_hi * t_hi + 2.0 * t_hi + 1.0     # (t+1)²   ( 0 → +1)
+            return np.where(lo, blep_lo, np.where(hi, blep_hi, 0.0))
+
+        if self.waveform == "square":
+            # Naive square: +1 for t<0.5, −1 for t≥0.5.
+            # Two discontinuities per period:
+            #   rising edge (+2 jump) at t=0   → add polyblep(t)
+            #   falling edge (−2 jump) at t=0.5 → subtract polyblep((t−0.5)%1)
+            sq = np.where(t < 0.5, 1.0, -1.0)
+            t_fall = (t - 0.5) % 1.0
+            correction = _polyblep(t) - _polyblep(t_fall)
+            return (sq + correction).astype(np.float32)
+
         # ── Band-limited sawtooth with PolyBLEP correction ────────────────
         # t ∈ [0, 1) is the normalised phase; naive saw = 2t − 1.
         # PolyBLEP subtracts a small polynomial at each phase-reset boundary
         # so the waveform smoothly approaches 0 on both sides of the jump,
         # reducing the discontinuity from amplitude 2 to ~0.
-        t  = p / (2 * np.pi)                              # (n_voices, n_samples)
-        dt = np.clip(freqs_hz / SR, 1e-6, 0.5)[:, None]  # (n_voices, 1)
         saw = 2.0 * t - 1.0
-
-        # Region just AFTER the reset (t < dt): correction goes −1 → 0
-        low  = t < dt
-        t_lo = t / dt                                      # normalised to [0, 1)
-        blep_lo = t_lo + t_lo - t_lo * t_lo - 1.0         # = 2t−t²−1
-
-        # Region just BEFORE the reset (t > 1−dt): correction goes 0 → +1
-        high = t > (1.0 - dt)
-        t_hi = (t - 1.0) / dt                             # normalised to (−1, 0]
-        blep_hi = t_hi * t_hi + t_hi + t_hi + 1.0        # = t²+2t+1 = (t+1)²
-
-        correction = np.where(low, blep_lo, np.where(high, blep_hi, 0.0))
+        correction = _polyblep(t)
         return (saw - correction).astype(np.float32)
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
