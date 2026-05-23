@@ -5014,10 +5014,10 @@ function init() {
       el.href = `${BASE}/commit/${sha}`;
       el.title = `GitHub commit ${sha.slice(0, 7)}`;
     }
-    // Try backend first (non-blocking)
+    // Try backend first (non-blocking); treat "unknown" as missing
     try {
       const v = await api('/api/version');
-      if (v && v.sha) { _applyVersion(v.sha); return; }
+      if (v && v.sha && v.sha !== 'unknown') { _applyVersion(v.sha); return; }
     } catch (_) {}
     // Fallback: GitHub public API (no auth needed, 60 req/hr limit)
     try {

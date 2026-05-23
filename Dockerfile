@@ -2,9 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system deps for scipy/numpy
+# Install system deps for scipy/numpy and git for version reporting
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps (no sounddevice needed for server mode)

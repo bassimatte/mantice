@@ -487,15 +487,17 @@ async def list_presets():
 async def get_version():
     """Return the running git commit SHA and GitHub repo URL."""
     import subprocess
-    try:
-        sha = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=str(Path(__file__).parent.parent),
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip()
-    except Exception:
-        sha = "unknown"
+    sha = os.environ.get("GIT_SHA", "")
+    if not sha:
+        try:
+            sha = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=str(Path(__file__).parent.parent),
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+        except Exception:
+            sha = "unknown"
     return JSONResponse({
         "sha": sha,
         "repo": "https://github.com/bassimatte/mantice",
