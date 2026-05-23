@@ -464,7 +464,22 @@ async def render_endpoint(request: Request):
 
         # Run CPU-heavy render in thread
         loop = asyncio.get_event_loop()
-        audio = await loop.run_in_executor(None, lambda: DroneEngine(preset).build())
+        seed = int(body.get("seed", 42))
+
+        def _render():
+            engine = StreamingDroneEngine(preset, seed=seed)
+            sr = config.STREAM_SAMPLE_RATE
+            total_samples = int(preset["duration"] * sr)
+            chunk_size = 8192
+            chunks = []
+            remaining = total_samples
+            while remaining > 0:
+                n = min(chunk_size, remaining)
+                chunks.append(engine.next_chunk(n))
+                remaining -= n
+            return np.concatenate(chunks, axis=0)
+
+        audio = await loop.run_in_executor(None, _render)
 
         print(f"  [render] Done. Encoding {fmt}…")
         import soundfile as sf
@@ -481,7 +496,7 @@ async def render_endpoint(request: Request):
         filename = f"{safe_name}.{fmt}"
         export_path = exports_dir / filename
 
-        sr = config.SAMPLE_RATE
+        sr = config.STREAM_SAMPLE_RATE
         bd = config.BIT_DEPTH
         subtypes = {"wav": bd, "flac": bd, "ogg": "VORBIS"}
         sf.write(str(export_path), audio, sr, format=fmt.upper(), subtype=subtypes.get(fmt))

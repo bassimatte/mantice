@@ -3748,6 +3748,7 @@ let ws = null;
 let streamingCtx = null;
 let nextPlayTime = 0;
 let isStreaming = false;
+let currentSeed = 42;  // seed used for the current/last stream — sent with render
 let chunksBuffered = 0;
 const CHUNK_SIZE = 8192;
 const PRE_BUFFER_CHUNKS = 6;
@@ -3871,8 +3872,8 @@ async function doPreview() {
   ws.binaryType = 'arraybuffer';
 
   ws.onopen = () => {
-    const seed = $('seed-lock').dataset.state === '1' ? parseInt($('seed-value').value) || 42 : Math.floor(Math.random() * 99999);
-    ws.send(JSON.stringify({ action: 'start', params, seed }));
+    currentSeed = $('seed-lock').dataset.state === '1' ? parseInt($('seed-value').value) || 42 : Math.floor(Math.random() * 99999);
+    ws.send(JSON.stringify({ action: 'start', params, seed: currentSeed }));
     isStreaming = true;
     setStatus('Buffering…');
   };
@@ -3994,7 +3995,7 @@ async function doRender() {
     const res = await fetch(apiUrl('/api/render'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params, format: fmt, hires }),
+      body: JSON.stringify({ params, format: fmt, hires, seed: currentSeed }),
       signal: controller.signal
     });
 
