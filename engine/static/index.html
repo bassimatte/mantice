@@ -4156,7 +4156,10 @@ async function _flushAndRestart() {
   startCtxKeepAlive();
 
   const streamAnalyser = startSpectrum(streamingCtx);
-  streamAnalyser.connect(streamingCtx.destination);
+  startupGain = streamingCtx.createGain();
+  startupGain.gain.value = 0;
+  streamAnalyser.connect(startupGain);
+  startupGain.connect(streamingCtx.destination);
 
   // 5. Restart server stream with updated params
   ws.send(JSON.stringify({ action: 'start', params: collectParams(), seed: currentSeed }));
@@ -4252,6 +4255,7 @@ const CHUNK_SIZE = 2048;
 const PRE_BUFFER_CHUNKS = 2;
 let workletNode = null;
 let ctxKeepAlive = null;
+let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
 
 function startCtxKeepAlive() {
   stopCtxKeepAlive();
@@ -4355,7 +4359,10 @@ async function doPreview() {
   chunksBuffered = 0;
 
   const streamAnalyser = startSpectrum(streamingCtx);
-  streamAnalyser.connect(streamingCtx.destination);
+  startupGain = streamingCtx.createGain();
+  startupGain.gain.value = 0;          // start silent — ramp scheduled on first chunk
+  streamAnalyser.connect(startupGain);
+  startupGain.connect(streamingCtx.destination);
   drawSpectrum();
   startAurora();
 
@@ -4413,6 +4420,11 @@ async function doPreview() {
         nextPlayTime = streamingCtx.currentTime + 0.05;
         setStatus('▶ Streaming…');
         stopCtxKeepAlive(); // real audio flowing, no longer need keepalive
+        // Smooth fade-in: 0 → 1 over 80ms to avoid the hard silence→audio click
+        if (startupGain) {
+          startupGain.gain.setValueAtTime(0, nextPlayTime);
+          startupGain.gain.linearRampToValueAtTime(1.0, nextPlayTime + 0.08);
+        }
       }
 
       if (chunksBuffered >= PRE_BUFFER_CHUNKS) {
@@ -4449,6 +4461,7 @@ function stopAudio() {
   }
   streamingCtx = null;
   chunksBuffered = 0;
+  startupGain = null;
   // Stop rendered audio playback
   if (playbackSource) {
     try { playbackSource.stop(); } catch(e) {}

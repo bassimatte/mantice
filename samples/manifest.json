@@ -197,5 +197,25 @@
     "duration": 39.5,
     "user": "simonus18",
     "preview": ""
+  },
+  {
+    "file": "washing_machine.wav",
+    "id": 824247,
+    "name": "Washing Machine (Seismic Mic)",
+    "label": "Washing Machine",
+    "duration": 13.46,
+    "user": "bassimat",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "preview": "https://cdn.freesound.org/previews/824/824247_hq.ogg"
+  },
+  {
+    "file": "rice_grains.wav",
+    "id": 823855,
+    "name": "Rice Grains (Contact Mic)",
+    "label": "Rice Grains",
+    "duration": 7.39,
+    "user": "bassimat",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "preview": "https://cdn.freesound.org/previews/823/823855_hq.ogg"
   }
 ]
