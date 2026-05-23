@@ -57,6 +57,75 @@ _SHARED_DIR = _ROOT / "shared"
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _SAMPLES_DIR = _ROOT / "samples"
 _FS_CACHE_DIR = _SAMPLES_DIR / "freesound_cache"
+_PITCH_CACHE_FILE = _SAMPLES_DIR / "pitch_cache.json"
+
+# In-memory pitch cache; populated at startup and on-demand
+_pitch_cache: dict = {}
+
+
+def _load_pitch_cache():
+    """Load cached sample pitches from disk and share with granular_layer module."""
+    global _pitch_cache
+    try:
+        if _PITCH_CACHE_FILE.exists():
+            with open(_PITCH_CACHE_FILE) as _f:
+                _pitch_cache = json.load(_f)
+    except Exception:
+        _pitch_cache = {}
+    try:
+        from .granular_layer import _PITCH_CACHE as _gl_cache
+        _gl_cache.update(_pitch_cache)
+    except Exception:
+        pass
+
+
+def _save_pitch_cache():
+    try:
+        with open(_PITCH_CACHE_FILE, 'w') as _f:
+            json.dump(_pitch_cache, _f, indent=2)
+    except Exception:
+        pass
+
+
+def _detect_pitch_hz_sync(filepath: str):
+    """Detect fundamental pitch of an audio file using librosa.yin. Returns Hz or None."""
+    try:
+        import librosa
+        y, sr = librosa.load(filepath, sr=22050, duration=5.0, mono=True)
+        f0 = librosa.yin(y, fmin=50, fmax=2000, sr=sr)
+        voiced = f0[(f0 > 50) & (f0 < 2000)]
+        if len(voiced) > 20:
+            return float(round(float(np.median(voiced)), 2))
+    except Exception:
+        pass
+    return None
+
+
+def _background_pitch_scan():
+    """Scan all sample files for pitch (runs in thread pool at startup)."""
+    import time
+    changed = False
+    for directory, prefix in [(_SAMPLES_DIR, ""), (_FS_CACHE_DIR, "freesound_cache/")]:
+        if not directory.exists():
+            continue
+        for fname in os.listdir(directory):
+            if not fname.endswith((".ogg", ".wav", ".flac", ".mp3")):
+                continue
+            key = prefix + fname if prefix else fname
+            if key in _pitch_cache:
+                continue  # already cached
+            path = directory / fname
+            hz = _detect_pitch_hz_sync(str(path))
+            _pitch_cache[key] = hz
+            changed = True
+            time.sleep(0.01)  # yield between files
+    if changed:
+        _save_pitch_cache()
+        try:
+            from .granular_layer import _PITCH_CACHE as _gl_cache
+            _gl_cache.update(_pitch_cache)
+        except Exception:
+            pass
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO = "bassimatte/mantice"
@@ -395,6 +464,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Load pitch detection cache at startup, then scan new files in background
+_load_pitch_cache()
+import threading as _threading
+_threading.Thread(target=_background_pitch_scan, daemon=True).start()
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -458,6 +532,29 @@ async def serve_sample(filepath: str):
     if not sample_path.exists():
         return JSONResponse({"error": "Not found"}, status_code=404)
     return FileResponse(str(sample_path))
+
+
+@app.get("/api/sample-pitch/{filepath:path}")
+async def get_sample_pitch(filepath: str):
+    """Return detected fundamental Hz for a sample. Detects on demand if not cached."""
+    if not re.match(r'^[\w\-./]+\.(ogg|wav|flac|mp3)$', filepath) or ".." in filepath:
+        return JSONResponse({"hz": None, "error": "Invalid path"}, status_code=400)
+    if filepath in _pitch_cache:
+        return {"hz": _pitch_cache[filepath], "cached": True}
+    # On-demand detection (runs in thread executor to avoid blocking)
+    sample_path = _SAMPLES_DIR / filepath
+    if not sample_path.exists():
+        return JSONResponse({"hz": None, "error": "Not found"}, status_code=404)
+    loop = asyncio.get_event_loop()
+    hz = await loop.run_in_executor(None, _detect_pitch_hz_sync, str(sample_path))
+    _pitch_cache[filepath] = hz
+    _save_pitch_cache()
+    try:
+        from .granular_layer import _PITCH_CACHE as _gl_cache
+        _gl_cache[filepath] = hz
+    except Exception:
+        pass
+    return {"hz": hz, "cached": False}
 
 
 @app.get("/api/freesound/search")

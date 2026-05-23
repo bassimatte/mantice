@@ -2601,6 +2601,7 @@ function showLayerParams(layer) {
   const granularParams = [
     { id: 'grain_size', label: 'Grain Size (ms)', min: 20, max: 200, step: 1, val: layer.grain_size || 80 },
     { id: 'density', label: 'Density (/sec)', min: 1, max: 50, step: 1, val: layer.density || 15 },
+    { id: 'pitch_semitones', label: 'Pitch (st)', min: -24, max: 24, step: 0.5, val: layer.pitch_semitones ?? 0 },
     { id: 'pitch_spread', label: 'Pitch Spread', min: 0, max: 2, step: 0.1, val: layer.pitch_spread || 0.3 },
     { id: 'position', label: 'Position', min: 0, max: 1, step: 0.01, val: layer.position || 0.5 },
     { id: 'scatter', label: 'Scatter', min: 0, max: 1, step: 0.01, val: layer.scatter || 0.5 },
@@ -2637,6 +2638,25 @@ function showLayerParams(layer) {
       <span class="value" id="lp-${p.id}-val">${Number(p.val).toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0)}</span>
     </div>
   `).join('') + `
+    <div class="param-row">
+      <label>Smpl Hz</label>
+      <input type="number" id="lp-sample_root_hz" min="20" max="2000" step="0.1"
+        value="${layer.sample_root_hz || ''}"
+        placeholder="auto"
+        style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd);
+               padding:2px 4px; font-family:'Space Mono',monospace; font-size:10px;">
+      <span class="value" id="lp-sample_root_hz-note" style="font-size:9px; color:var(--text-dim); min-width:28px">
+        ${layer.sample_root_hz ? '≈ ' + hzToNote(layer.sample_root_hz) : '—'}
+      </span>
+    </div>
+    <div class="param-row">
+      <label>Mode</label>
+      <select id="lp-pitch_mode" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="resample" ${(layer.pitch_mode||'resample')==='resample'?'selected':''}>Resample</option>
+        <option value="stretch"  ${(layer.pitch_mode||'resample')==='stretch' ?'selected':''}>Stretch</option>
+        <option value="energetic" ${(layer.pitch_mode||'resample')==='energetic'?'selected':''}>Energetic</option>
+      </select>
+    </div>
     <div class="param-row">
       <label>Envelope</label>
       <select id="lp-envelope"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
@@ -3117,6 +3137,25 @@ function showLayerParams(layer) {
       sourceSel.addEventListener('change', () => {
         pushUndo();
         currentParams.layers[activeLayerIdx].source = sourceSel.value;
+        // Auto-fetch detected pitch for this sample
+        const sampleRootInput = $('lp-sample_root_hz');
+        const sampleNoteSpan = $('lp-sample_root_hz-note');
+        if (sampleRootInput && !currentParams.layers[activeLayerIdx].sample_root_hz) {
+          sampleRootInput.value = '';
+          if (sampleNoteSpan) sampleNoteSpan.textContent = '…';
+          fetch(apiUrl(`/api/sample-pitch/${encodeURIComponent(sourceSel.value)}`))
+            .then(r => r.json())
+            .then(d => {
+              if (d.hz && sampleRootInput) {
+                sampleRootInput.value = d.hz.toFixed(1);
+                if (sampleNoteSpan) sampleNoteSpan.textContent = '≈ ' + hzToNote(d.hz);
+                // Store in layer only as suggestion (user can clear to revert to auto)
+                currentParams.layers[activeLayerIdx]._detected_pitch_hz = d.hz;
+              } else if (sampleNoteSpan) {
+                sampleNoteSpan.textContent = '—';
+              }
+            }).catch(() => { if (sampleNoteSpan) sampleNoteSpan.textContent = '—'; });
+        }
         markDirty();
         updateGranularScope();
       });
@@ -3286,6 +3325,54 @@ function showLayerParams(layer) {
         markDirty();
       });
     }
+
+    // Pitch mode select
+    const pitchModeSel = $('lp-pitch_mode');
+    if (pitchModeSel) {
+      pitchModeSel.addEventListener('change', () => {
+        pushUndo();
+        currentParams.layers[activeLayerIdx].pitch_mode = pitchModeSel.value;
+        markDirty();
+      });
+    }
+
+    // Sample root Hz input (manual override / auto-detect display)
+    const sampleRootInput = $('lp-sample_root_hz');
+    if (sampleRootInput) {
+      sampleRootInput.addEventListener('change', () => {
+        const v = parseFloat(sampleRootInput.value);
+        const noteSpan = $('lp-sample_root_hz-note');
+        if (!isNaN(v) && v > 0) {
+          currentParams.layers[activeLayerIdx].sample_root_hz = v;
+          if (noteSpan) noteSpan.textContent = '≈ ' + hzToNote(v);
+        } else {
+          // Empty → auto (null)
+          currentParams.layers[activeLayerIdx].sample_root_hz = null;
+          sampleRootInput.value = '';
+          if (noteSpan) noteSpan.textContent = '—';
+        }
+        markDirty();
+      });
+
+      // On layer panel open: auto-fetch pitch if no value set
+      if (!layer.sample_root_hz) {
+        const noteSpan = $('lp-sample_root_hz-note');
+        if (noteSpan) noteSpan.textContent = '…';
+        fetch(apiUrl(`/api/sample-pitch/${encodeURIComponent(layer.source || 'singing_bowl.ogg')}`))
+          .then(r => r.json())
+          .then(d => {
+            if (d.hz && $('lp-sample_root_hz')) {
+              $('lp-sample_root_hz').value = d.hz.toFixed(1);
+              if ($('lp-sample_root_hz-note')) $('lp-sample_root_hz-note').textContent = '≈ ' + hzToNote(d.hz);
+            } else if ($('lp-sample_root_hz-note')) {
+              $('lp-sample_root_hz-note').textContent = '—';
+            }
+          }).catch(() => {
+            if ($('lp-sample_root_hz-note')) $('lp-sample_root_hz-note').textContent = '—';
+          });
+      }
+    }
+
     // Init scope
     initGranularScope(layer.source || 'singing_bowl.ogg', layer.position ?? 0.5, layer.scatter ?? 0.5);
   }
