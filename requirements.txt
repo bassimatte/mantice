@@ -4,6 +4,7 @@ soundfile
 PyYAML
 sounddevice
 lameenc
+librosa
 
 # Web UI (optional — only needed for --gui)
 fastapi
