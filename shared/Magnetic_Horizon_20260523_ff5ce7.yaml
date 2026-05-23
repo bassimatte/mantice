@@ -1,0 +1,201 @@
+meta:
+  name: Magnetic Horizon
+seed: null
+duration: 30.0
+spatial_depth: 2.0
+spatial_wet: 0.0
+saturation: 0.2
+master:
+  eq:
+    low_cut_hz: 20.0
+    bass_db: 0.0
+    bass_hz: 100.0
+    lo_mid_db: 0.0
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 0.0
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: 0.0
+    air_hz: 10000.0
+  comp:
+    threshold_db: 0.0
+    ratio: 2.0
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 0.0
+    makeup_db: 0.0
+swarm_density: 0.5
+layers:
+- name: Harmonic Bed
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 392.0
+  voices: 12
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.113
+  amp_min: 0.0187
+  amp_max: 0.0678
+  drift: 0.0192
+  mix: 1.17
+  band: mid
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.17
+  width: 2.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.42
+  chorus_depth: 0.0034
+  chorus_mix: 0.01
+  chorus_voices: 2
+  filter_type: hp
+  filter_cutoff: 3982.5
+  filter_resonance: 1.54
+  filter_lfo_rate: 0.116
+  filter_lfo_depth: 0.16
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+- name: Mid Resonance
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 261.63
+  voices: 12
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.114
+  amp_min: 0.0063
+  amp_max: 0.0634
+  drift: 0.02
+  mix: 0.46
+  band: mid
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: -0.35
+  width: 1.6
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.48
+  chorus_depth: 0.0059
+  chorus_mix: 0.3
+  chorus_voices: 2
+  filter_type: hp
+  filter_cutoff: 1274.8
+  filter_resonance: 1.31
+  filter_lfo_rate: 0.111
+  filter_lfo_depth: 0.03
+  filter_lfo_shape: triangle
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+- name: Core Tone
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 293.66
+  voices: 12
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  - 2
+  fm_index: 0.08
+  amp_min: 0.0117
+  amp_max: 0.037
+  drift: 0.0148
+  mix: 0.55
+  band: mid
+  quadrant: rear_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 0.5
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.78
+  chorus_depth: 0.0095
+  chorus_mix: 0.3
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 1995.3
+  filter_resonance: 1.82
+  filter_lfo_rate: 0.133
+  filter_lfo_depth: 0.02
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+earth:
+  enabled: true
+  tectonic_frequency: 24
+  pressure: 0.4
+  movement: 0.012
+air:
+  enabled: true
+  intensity: 0.23
+  movement: 0.0126
+  turbulence: 0.086
