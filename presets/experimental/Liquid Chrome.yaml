@@ -1,0 +1,186 @@
+meta:
+  name: Liquid Chrome
+  slug: liquid-chrome
+  category: experimental
+  mood:
+  - psychedelic
+  - dreamy
+  - hypnotic
+  description: Heavy flanger sweeps melt the drone into liquid metal shimmer — pure jet-engine meditation
+  author: Matteo Bassi
+  engine_version: MANTICE_V21
+  tags:
+  - flanger
+  - psychedelic
+  - experimental
+  - dreamy
+  - shimmer
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.35
+reverb:
+  space: hall
+  mix: 0.3
+  decay_trim: 1.0
+spatial:
+  depth: 1.2
+  wetness: 0.6
+  swarm_density: 0.3
+earth:
+  enabled: false
+  tectonic_freq: 18
+  pressure: 0.0
+air:
+  enabled: true
+  intensity: 0.08
+  turbulence: 0.04
+binaural:
+  enabled: false
+  method: detune
+  beat_hz: 6.0
+  carrier_hz: 200
+  carrier_amp: 0.15
+flanger:
+  wet: 0.75
+  rate: 0.18
+  depth: 0.85
+  feedback: 0.55
+layers:
+- name: Saw Foundation
+  enabled: true
+  type: subtractive
+  synthesis:
+    root: 110
+    voices: 8
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.0
+  harmonics: 4
+  harmonic_decay: 0.65
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 1.0
+    amp_min: 0.025
+    amp_max: 0.065
+    drift: 0.005
+  spatial_motion:
+    quadrant: center
+    speed: 0.0
+    trajectory_x: none
+    trajectory_y: none
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  waveform: saw
+  detune_cents: 12.0
+  sub_mix: 0.4
+  filter_type: lp
+  filter_cutoff: 1800.0
+  filter_resonance: 1.8
+  filter_lfo_rate: 0.07
+  filter_lfo_depth: 0.4
+  filter_lfo_shape: sine
+  filter_vowel: a
+  chorus_rate: 0.5
+  chorus_depth: 0.007
+  chorus_mix: 0.3
+  chorus_voices: 3
+
+- name: Mid Shimmer
+  enabled: true
+  type: fm
+  synthesis:
+    root: 220
+    voices: 6
+    ratios:
+    - 1.0
+    - 2.0
+    - 1.5
+  fm:
+    ratios:
+    - 1.5
+    - 2.0
+    index: 0.35
+  harmonics: 5
+  harmonic_decay: 0.6
+  noise_amount: 0.02
+  noise_color: pink
+  dynamics:
+    mix: 0.65
+    amp_min: 0.012
+    amp_max: 0.04
+    drift: 0.01
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.008
+    trajectory_x: orbit
+    trajectory_y: none
+  elevation: 10.0
+  elevation_motion: drift
+  elevation_speed: 0.06
+  elevation_range: 40.0
+  filter_type: bp
+  filter_cutoff: 600.0
+  filter_resonance: 2.0
+  filter_lfo_rate: 0.12
+  filter_lfo_depth: 0.3
+  filter_lfo_shape: sine
+  filter_vowel: a
+  chorus_rate: 0.4
+  chorus_depth: 0.005
+  chorus_mix: 0.2
+  chorus_voices: 2
+
+- name: High Haze
+  enabled: true
+  type: fm
+  synthesis:
+    root: 440
+    voices: 5
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 2.0
+    - 1.0
+    index: 0.6
+  harmonics: 3
+  harmonic_decay: 0.5
+  noise_amount: 0.04
+  noise_color: pink
+  dynamics:
+    mix: 0.35
+    amp_min: 0.006
+    amp_max: 0.02
+    drift: 0.015
+  spatial_motion:
+    quadrant: rear_right
+    speed: 0.01
+    trajectory_x: drift
+    trajectory_y: none
+  elevation: 25.0
+  elevation_motion: drift
+  elevation_speed: 0.09
+  elevation_range: 50.0
+  filter_type: lp
+  filter_cutoff: 4000.0
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.05
+  filter_lfo_depth: 0.2
+  filter_lfo_shape: sine
+  filter_vowel: a
+  chorus_rate: 0.6
+  chorus_depth: 0.004
+  chorus_mix: 0.15
+  chorus_voices: 2

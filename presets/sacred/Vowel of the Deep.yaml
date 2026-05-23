@@ -1,0 +1,177 @@
+meta:
+  name: Vowel of the Deep
+  slug: vowel-of-the-deep
+  category: sacred
+  mood:
+  - meditative
+  - vocal
+  - ritual
+  description: Formant filters shape the drone into layered vowel resonances — a timeless throat chant
+  author: Matteo Bassi
+  engine_version: MANTICE_V21
+  tags:
+  - formant
+  - vocal
+  - sacred
+  - meditative
+  - chant
+global:
+  duration_seconds: 60
+  sample_rate: 44100
+  bit_depth: 16-bit
+saturation: 0.3
+reverb:
+  space: cathedral
+  mix: 0.45
+  decay_trim: 1.2
+spatial:
+  depth: 0.8
+  wetness: 0.65
+  swarm_density: 0.3
+earth:
+  enabled: true
+  tectonic_freq: 20
+  pressure: 0.3
+air:
+  enabled: false
+  intensity: 0.0
+  turbulence: 0.0
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 4.0
+  carrier_hz: 110
+  carrier_amp: 0.1
+layers:
+- name: Vowel O — Root
+  enabled: true
+  type: fm
+  synthesis:
+    root: 110
+    voices: 6
+    ratios:
+    - 1.0
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.08
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 1.0
+    amp_min: 0.03
+    amp_max: 0.07
+    drift: 0.004
+  spatial_motion:
+    quadrant: center
+    speed: 0.0
+    trajectory_x: none
+    trajectory_y: none
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  filter_type: formant
+  filter_cutoff: 570.0
+  filter_resonance: 6.5
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: o
+  chorus_rate: 0.3
+  chorus_depth: 0.004
+  chorus_mix: 0.1
+  chorus_voices: 2
+
+- name: Vowel U — Undertone
+  enabled: true
+  type: fm
+  synthesis:
+    root: 82.4
+    voices: 5
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.12
+  harmonics: 5
+  harmonic_decay: 0.75
+  noise_amount: 0.0
+  noise_color: pink
+  dynamics:
+    mix: 0.75
+    amp_min: 0.02
+    amp_max: 0.055
+    drift: 0.005
+  spatial_motion:
+    quadrant: rear_left
+    speed: 0.004
+    trajectory_x: drift
+    trajectory_y: none
+  elevation: -5.0
+  elevation_motion: drift
+  elevation_speed: 0.04
+  elevation_range: 20.0
+  filter_type: formant
+  filter_cutoff: 380.0
+  filter_resonance: 7.0
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: u
+  chorus_rate: 0.4
+  chorus_depth: 0.005
+  chorus_mix: 0.15
+  chorus_voices: 2
+
+- name: Vowel A — Overtone
+  enabled: true
+  type: fm
+  synthesis:
+    root: 220
+    voices: 4
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    - 3.0
+    index: 0.2
+  harmonics: 3
+  harmonic_decay: 0.6
+  noise_amount: 0.01
+  noise_color: pink
+  dynamics:
+    mix: 0.5
+    amp_min: 0.01
+    amp_max: 0.03
+    drift: 0.008
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.005
+    trajectory_x: pendulum
+    trajectory_y: none
+  elevation: 15.0
+  elevation_motion: drift
+  elevation_speed: 0.06
+  elevation_range: 35.0
+  filter_type: formant
+  filter_cutoff: 800.0
+  filter_resonance: 5.5
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  chorus_rate: 0.5
+  chorus_depth: 0.003
+  chorus_mix: 0.0
+  chorus_voices: 2
