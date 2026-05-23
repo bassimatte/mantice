@@ -5009,7 +5009,7 @@ function init() {
     const BASE = 'https://github.com/' + REPO;
     function _applyVersion(sha) {
       const el = $('app-version-link');
-      if (!el || el.textContent !== '…') return; // already set
+      if (!el) return;
       el.textContent = sha.slice(0, 7);
       el.href = `${BASE}/commit/${sha}`;
       el.title = `GitHub commit ${sha.slice(0, 7)}`;
