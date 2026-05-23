@@ -1193,10 +1193,11 @@ main {
           shaped by the per-layer filter for the full subtractive sound design workflow.</p>
 
           <h4>Per-Layer Filter & LFO</h4>
-          <p>Every layer (FM, Subtractive, or Granular) has a <strong>biquad filter</strong>
-          (Low-pass, High-pass, or Band-pass) with resonance control. An LFO can modulate the
-          filter cutoff over time using sine, triangle, or square shapes — creating slowly evolving
-          filter sweeps or rhythmic tonal movement.</p>
+          <p>Every layer has five filter modes: <strong>LP</strong> (low-pass), <strong>HP</strong> (high-pass),
+          <strong>BP</strong> (band-pass), <strong>Comb</strong>, and <strong>Formant</strong>.
+          LP/HP/BP are biquad filters with resonance and optional LFO modulation (sine/triangle/square) on the cutoff.
+          <strong>Comb</strong> creates metallic ringing via feedforward delay — the Cutoff sets the delay frequency, Feedback controls resonance intensity.
+          <strong>Formant</strong> shapes the sound into vowel resonances (A, E, I, O, U) using three parallel bandpass filters at human vocal formant frequencies — ideal for chant-like and throat-singing textures.</p>
 
           <h4>Harmonics & Noise</h4>
           <p>On top of FM, each layer can add <strong>harmonic overtones</strong> (up to 16 partials
@@ -1222,9 +1223,10 @@ main {
 
           <h4>Layer Sub-tabs & Global FX</h4>
           <p>Layer parameters are organised into four sub-tabs: <strong>Synth</strong> (oscillator type and tuning),
-          <strong>Filter</strong> (biquad filter + LFO), <strong>Space</strong> (quadrant, trajectory, elevation),
-          and <strong>FX</strong> (chorus). Global processing — Binaural, Reverb, and Earth &amp; Air —
-          lives in a single <strong>Global FX</strong> card below the layers.</p>
+          <strong>Filter</strong> (filter type + LFO), <strong>Space</strong> (quadrant, trajectory, elevation),
+          and <strong>FX</strong> (chorus + distortion). Global processing — Binaural, Reverb, Earth &amp; Air,
+          and <strong>Flanger</strong> — lives in the <strong>Global FX</strong> card below the layers.
+          The Flanger applies a global LFO-modulated delay post-mix for psychedelic shimmer and jet-engine sweeps.</p>
         </div>
 
         <h3>Global Processing</h3>
@@ -1394,14 +1396,23 @@ python batch_render_freesound.py --metadata-only</pre>
         <h3>Layer — Filter & LFO</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Type</td><td>off / LP / HP / BP</td><td>off</td><td>Biquad filter type (Low-pass, High-pass, Band-pass)</td></tr>
-          <tr><td>Cutoff</td><td>20–20000 Hz</td><td>2000</td><td>Filter cutoff frequency</td></tr>
-          <tr><td>Resonance</td><td>0.1–10</td><td>1.0</td><td>Filter Q / resonance peak at cutoff</td></tr>
-          <tr><td>LFO Rate</td><td>0.01–5 Hz</td><td>0.1</td><td>Speed of cutoff modulation</td></tr>
-          <tr><td>LFO Depth</td><td>0.0–1.0</td><td>0.0</td><td>How much the LFO moves the cutoff (0 = off)</td></tr>
-          <tr><td>LFO Shape</td><td>sine / triangle / square</td><td>sine</td><td>LFO waveform shape</td></tr>
+          <tr><td>Type</td><td>off / LP / HP / BP / Comb / Formant</td><td>off</td><td>Filter type</td></tr>
+          <tr><td>Cutoff</td><td>20–20000 Hz</td><td>2000</td><td>Filter cutoff (LP/HP/BP); comb delay frequency (Comb)</td></tr>
+          <tr><td>Resonance / Feedback / Strength</td><td>0.1–8</td><td>1.0</td><td>Q (LP/HP/BP); feedback gain 0–0.97 (Comb); wet mix 0–1 (Formant)</td></tr>
+          <tr><td>Vowel</td><td>A / E / I / O / U</td><td>A</td><td>Vowel shape — selects F1/F2/F3 formant frequencies (Formant only)</td></tr>
+          <tr><td>LFO Rate</td><td>0.01–5 Hz</td><td>0.1</td><td>Cutoff modulation speed (LP/HP/BP only)</td></tr>
+          <tr><td>LFO Depth</td><td>0.0–1.0</td><td>0.0</td><td>Modulation amount — 0 = off (LP/HP/BP only)</td></tr>
+          <tr><td>LFO Shape</td><td>sine / triangle / square</td><td>sine</td><td>LFO waveform (LP/HP/BP only)</td></tr>
         </table>
-        <p class="docs-note">Filter is applied after synthesis and chorus. Works on all layer types (FM, Subtractive, Granular).</p>
+        <p class="docs-note">Comb: feedforward FIR comb — metallic ringing and spectral combing. Formant: 3-band vowel resonance (A=800/1200/2500, E=400/2000/2800, I=270/2300/3000, O=570/850/2500, U=380/950/2200 Hz). Filter is applied after synthesis and chorus on all layer types.</p>
+
+        <h3>Layer — Distortion</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Drive</td><td>0.0–5.0</td><td>0.0 (off)</td><td>Waveshaping intensity — 0 bypasses the stage</td></tr>
+          <tr><td>Type</td><td>soft / hard</td><td>soft</td><td>Soft = tanh (warm, analog-like); Hard = hard clip (aggressive)</td></tr>
+        </table>
+        <p class="docs-note">Applied after the filter stage. Adds harmonic saturation; at high drive values creates heavy distortion. Keep Drive below 1.0 for subtle warmth.</p>
 
         <h3>Layer — Harmonics</h3>
         <table class="docs-table">
@@ -1521,6 +1532,16 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>Makeup Gain</td><td>-6–12 dB</td><td>0</td><td>Output gain after compression</td></tr>
         </table>
         <p class="docs-note">Feed-forward peak compressor on the master bus. Use a soft knee (4–8 dB) for transparent limiting; fast attack/slow release for pumping effects.</p>
+
+        <h3>Global FX — Flanger</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Wet</td><td>0.0–1.0</td><td>0.0 (off)</td><td>Dry/wet mix — 0 bypasses the effect entirely</td></tr>
+          <tr><td>Rate</td><td>0.01–2.0 Hz</td><td>0.25</td><td>LFO speed — slow for gentle sweeps, faster for jet-engine effect</td></tr>
+          <tr><td>Depth</td><td>0.0–1.0</td><td>0.5</td><td>LFO range — maps to 0.5–10 ms delay sweep</td></tr>
+          <tr><td>Feedback</td><td>0.0–0.95</td><td>0.4</td><td>Signal fed back into delay — higher = more resonant metallic coloring</td></tr>
+        </table>
+        <p class="docs-note">Global effect applied post-mix after all layers are blended. Uses a circular buffer with LFO-modulated read position. Active only when Wet &gt; 0.</p>
       </div>
 
       <!-- ═══ TAB 3: Shortcuts ═══ -->
@@ -1933,7 +1954,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice-dev.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;

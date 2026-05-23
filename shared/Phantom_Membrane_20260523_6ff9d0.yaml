@@ -1,0 +1,206 @@
+meta:
+  name: Phantom Membrane
+seed: null
+duration: 45.0
+spatial_depth: 1.0
+spatial_wet: 0.0
+saturation: 0.3
+master:
+  eq:
+    low_cut_hz: 20.0
+    bass_db: 0.0
+    bass_hz: 100.0
+    lo_mid_db: 0.0
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 0.0
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: -1.0
+    air_hz: 10000.0
+  comp:
+    threshold_db: -18.0
+    ratio: 2.5
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 3.0
+    makeup_db: 4.0
+  output_gain_db: 3.0
+swarm_density: 0.5
+layers:
+- name: Tape Hum
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 1567.982
+  voices: 42
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.03
+  amp_min: 0.0156
+  amp_max: 0.0521
+  drift: 0.008
+  mix: 1.0
+  band: sub
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Saturated Mid
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 188.2
+  voices: 20
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.08
+  amp_min: 0.0083
+  amp_max: 0.0313
+  drift: 0.012
+  mix: 0.7
+  band: mid
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.3
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Tape Wobble
+  muted: false
+  type: subtractive
+  source: stick_crack.ogg
+  grain_size: 151.0
+  density: 20.0
+  pitch_spread: 2.0
+  position: 0.15
+  scatter: 0.37
+  envelope: hann
+  root: 146.832
+  voices: 2
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.02
+  amp_min: 0.0052
+  amp_max: 0.0156
+  drift: 0.025
+  mix: 0.1
+  band: mid
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: random
+  position_chaos: 0.8
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+earth:
+  enabled: true
+  tectonic_frequency: 18
+  pressure: 0.3
+  movement: 0.01
+air: null
