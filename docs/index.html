@@ -386,6 +386,7 @@ aside h3 {
 .generator-actions {
   display: flex;
   gap: 4px;
+  margin-top: 8px;
   margin-bottom: 5px;
 }
 .generator-actions .btn {
@@ -4142,8 +4143,6 @@ async function setupWorklet(ctx) {
 }
 
 async function doPreview() {
-  // If rendered audio exists, play it instead of streaming
-  if (renderedBuffer) { doPlay(); return; }
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
 
