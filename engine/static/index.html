@@ -1079,7 +1079,7 @@ main {
   </div>
   <button class="hamburger" id="btn-hamburger">☰</button>
   <div class="header-transport">
-    <button class="transport-btn btn-preview" id="btn-preview" title="Play [A]">▶ Play [A]</button>
+    <button class="transport-btn btn-preview" id="btn-preview" title="Play [A]">▶</button>
     <button class="transport-btn btn-stop" id="btn-stop" title="Stop [S]">⏹</button>
     <svg class="progress-ring" id="progress-ring" viewBox="0 0 64 64" style="display:none">
       <circle class="ring-bg" cx="32" cy="32" r="28"/>
@@ -1847,8 +1847,8 @@ python batch_render_freesound.py --metadata-only</pre>
     </div>
     <div class="param-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px">
       <label>Output Gain</label>
-      <input type="range" id="output-gain" min="-6" max="12" step="0.5" value="6" style="flex:1">
-      <span class="value" id="output-gain-val">6.0 dB</span>
+      <input type="range" id="output-gain" min="-6" max="12" step="0.5" value="3" style="flex:1">
+      <span class="value" id="output-gain-val">3.0 dB</span>
     </div>
   </div>
 </main>
@@ -2243,8 +2243,8 @@ function applyParamsToUI(p) {
   $('comp-knee-val').textContent = (+(m.comp_knee_db ?? 0)).toFixed(1) + ' dB';
   $('comp-makeup').value = m.comp_makeup_db ?? 0;
   $('comp-makeup-val').textContent = (+(m.comp_makeup_db ?? 0)).toFixed(1) + ' dB';
-  $('output-gain').value = m.output_gain_db ?? 6;
-  $('output-gain-val').textContent = (+(m.output_gain_db ?? 6)).toFixed(1) + ' dB';
+  $('output-gain').value = m.output_gain_db ?? 3;
+  $('output-gain-val').textContent = (+(m.output_gain_db ?? 3)).toFixed(1) + ' dB';
 
   // Layers
   buildLayerTabs(p.layers);
