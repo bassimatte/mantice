@@ -875,6 +875,7 @@ class StreamingDroneEngine:
         self._crossfade_remaining = 0
         self._crossfade_total = 0
         self._old_engine: Optional['StreamingDroneEngine'] = None
+        self._pending_reload: Optional[tuple] = None  # (new_preset, crossfade_secs)
 
     def _build_from_preset(self, preset: dict) -> None:
         self.preset = preset
@@ -964,6 +965,19 @@ class StreamingDroneEngine:
     def next_chunk(self, n_samples: Optional[int] = None) -> np.ndarray:
         """Generate the next chunk of stereo audio (n_samples, 2)."""
         n = n_samples or self.chunk_size
+
+        # Apply any pending reload atomically at a chunk boundary.
+        # This avoids the race condition where _build_from_preset() mutates
+        # self.layers on the event-loop thread while next_chunk() reads them
+        # in the thread-pool executor.
+        if self._pending_reload is not None:
+            new_preset, crossfade_secs = self._pending_reload
+            self._pending_reload = None
+            self._old_engine = _ShallowCopy(self)
+            self._crossfade_total = int(crossfade_secs * SR)
+            self._crossfade_remaining = self._crossfade_total
+            self._build_from_preset(new_preset)
+
         stereo = np.zeros((n, 2), dtype=np.float32)
 
         # Layers
@@ -1023,16 +1037,12 @@ class StreamingDroneEngine:
 
     def reload(self, new_preset: dict, crossfade_secs: float = 3.0) -> None:
         """
-        Hot-reload: swap to a new preset with a smooth crossfade.
-        The old engine continues generating during the crossfade.
+        Queue a hot-reload to the new preset with a smooth crossfade.
+        Applied atomically at the start of the next chunk (avoids race condition
+        between _build_from_preset on the event loop and next_chunk in a thread).
+        If called multiple times before the next chunk fires, only the latest wins.
         """
-        # Clone current state as the "old" engine for crossfade
-        self._old_engine = _ShallowCopy(self)
-        self._crossfade_total = int(crossfade_secs * SR)
-        self._crossfade_remaining = self._crossfade_total
-
-        # Rebuild with new preset
-        self._build_from_preset(new_preset)
+        self._pending_reload = (new_preset, crossfade_secs)
 
     def _earth_chunk(self, n: int) -> np.ndarray:
         cfg = self.earth_cfg

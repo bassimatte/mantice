@@ -1899,6 +1899,11 @@ python batch_render_freesound.py --metadata-only</pre>
       <input type="range" id="output-gain" min="-6" max="12" step="0.5" value="3" style="flex:1">
       <span class="value" id="output-gain-val">3.0 dB</span>
     </div>
+    <div class="param-row" style="margin-top:4px">
+      <label title="Crossfade duration for live parameter changes while streaming">Live Xfade</label>
+      <input type="range" id="live-xfade" min="0.5" max="5" step="0.5" value="1" style="flex:1">
+      <span class="value" id="live-xfade-val">1.0 s</span>
+    </div>
   </div>
 </main>
 
@@ -3998,7 +4003,10 @@ async function _flushAndRestart() {
 // Hot-reload streaming engine with current params if a stream is active
 function liveReload() {
   if (ws && ws.readyState === WebSocket.OPEN && isStreaming) {
-    _flushAndRestart();
+    const xfadeSecs = parseFloat($('live-xfade').value) || 1.0;
+    ws.send(JSON.stringify({ action: 'reload', params: collectParams(), crossfade_secs: xfadeSecs }));
+    setStatus('⟲ Crossfading…');
+    setTimeout(() => { if (isStreaming) setStatus('Streaming'); }, Math.round(xfadeSecs * 1000) + 300);
   }
 }
 
@@ -4934,6 +4942,7 @@ function init() {
   linkSlider('comp-knee',      'comp-knee-val',      v => (+v).toFixed(1) + ' dB');
   linkSlider('comp-makeup',    'comp-makeup-val',    v => (+v).toFixed(1) + ' dB');
   linkSlider('output-gain',    'output-gain-val',    v => (+v).toFixed(1) + ' dB');
+  linkSlider('live-xfade',     'live-xfade-val',     v => (+v).toFixed(1) + ' s');
 
   // Keyboard shortcuts
   initKeyboardShortcuts();

@@ -1182,7 +1182,8 @@ async def ws_preview(websocket: WebSocket):
                 params = data.get("params")
                 if params and engine:
                     new_preset = _ui_params_to_preset(params)
-                    engine.reload(new_preset, crossfade_secs=1.0)
+                    crossfade_secs = float(data.get("crossfade_secs", 1.0))
+                    engine.reload(new_preset, crossfade_secs=crossfade_secs)
 
     except WebSocketDisconnect:
         _active_streams[stream_id] = False
