@@ -1,0 +1,216 @@
+meta:
+  name: Magnetic Sweep
+  slug: magnetic_sweep
+  category: experimental
+  mood:
+  - dark
+  - evolving
+  - hypnotic
+  description: A subtractive saw bass slowly swept by an LP filter LFO  the audio
+    equivalent of a magnetic field bending around a planet. Layer a comb filter on
+    the mid drone for metallic resonance.
+  author: Matteo Bassi
+  engine_version: MANTICE_V22
+  tags:
+  - subtractive
+  - lp-filter
+  - filter-lfo
+  - comb-filter
+  - flanger
+duration: 60.0
+spatial_depth: 1.6
+spatial_wet: 0.4
+saturation: 0.35
+swarm_density: 0.5
+layers:
+- name: Swept Bass
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 55.0
+  voices: 6
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.018
+  amp_max: 0.065
+  drift: 0.008
+  mix: 1.0
+  band: sub
+  quadrant: center
+  trajectory_x: pendulum
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.4
+  chorus_depth: 0.009
+  chorus_mix: 0.3
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 620.0
+  filter_resonance: 2.2
+  filter_lfo_rate: 0.045
+  filter_lfo_depth: 0.72
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 14.0
+  sub_mix: 0.45
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Comb Resonator
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 110.0
+  voices: 5
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.3
+  amp_min: 0.007
+  amp_max: 0.03
+  drift: 0.008
+  mix: 1.0
+  band: mid
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.15
+  chorus_voices: 2
+  filter_type: comb
+  filter_cutoff: 110.0
+  filter_resonance: 3.5
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Space Shimmer
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 330.0
+  voices: 4
+  ratios:
+  - 2
+  - 3
+  - 5
+  fm_ratios:
+  - 1
+  - 2
+  fm_index: 0.55
+  amp_min: 0.004
+  amp_max: 0.016
+  drift: 0.008
+  mix: 1.0
+  band: high
+  quadrant: rear_right
+  trajectory_x: orbit
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.04
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.9
+  chorus_depth: 0.01
+  chorus_mix: 0.35
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+reverb:
+  enabled: true
+  space: cave
+  mix: 0.38
+  decay_trim: 1.1
+  pre_delay_ms: 20.0
+  modulation_depth: 0.0
+earth:
+  enabled: true
+  tectonic_frequency: 20
+  pressure: 0.32
+  movement: 0.018
+flanger:
+  wet: 0.4
+  rate: 0.1
+  depth: 0.62
+  feedback: 0.5

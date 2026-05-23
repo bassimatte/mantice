@@ -1,0 +1,224 @@
+meta:
+  name: Delta Pulse
+  slug: delta_pulse
+  category: subharmonic
+  mood:
+  - deep
+  - delta
+  - sleep
+  - meditative
+  description: Engineered for deep delta brainwave entrainment at 1.5 Hz. Subtractive
+    LP-filtered sub bass, HP-separated mid FM, and an ultra-slow flanger sweep. Deepest
+    sleep drone.
+  author: Matteo Bassi
+  engine_version: MANTICE_V22
+  tags:
+  - binaural
+  - delta
+  - subtractive
+  - lp-filter
+  - hp-filter
+  - flanger
+duration: 60.0
+spatial_depth: 1.5
+spatial_wet: 0.35
+saturation: 0.28
+swarm_density: 0.5
+layers:
+- name: Delta Sub
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 40.0
+  voices: 6
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.018
+  amp_max: 0.065
+  drift: 0.008
+  mix: 1.0
+  band: sub
+  quadrant: center
+  trajectory_x: none
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 110.0
+  filter_resonance: 0.7
+  filter_lfo_rate: 0.02
+  filter_lfo_depth: 0.35
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.75
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Mid Carrier
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 80.0
+  voices: 6
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  - 2
+  fm_index: 0.2
+  amp_min: 0.008
+  amp_max: 0.03
+  drift: 0.008
+  mix: 1.0
+  band: mid
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.3
+  chorus_depth: 0.005
+  chorus_mix: 0.12
+  chorus_voices: 2
+  filter_type: hp
+  filter_cutoff: 200.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Harmonic Sustain
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 160.0
+  voices: 4
+  ratios:
+  - 1
+  - 2
+  - 3
+  - 4
+  fm_ratios:
+  - 1
+  - 2
+  fm_index: 0.35
+  amp_min: 0.004
+  amp_max: 0.018
+  drift: 0.008
+  mix: 1.0
+  band: mid
+  quadrant: rear_right
+  trajectory_x: orbit
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.4
+  chorus_depth: 0.005
+  chorus_mix: 0.2
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 1.5
+  carrier_hz: 40.0
+  carrier_amplitude: 0.15
+reverb:
+  enabled: true
+  space: hall
+  mix: 0.42
+  decay_trim: 1.2
+  pre_delay_ms: 25.0
+  modulation_depth: 0.0
+earth:
+  enabled: true
+  tectonic_frequency: 16
+  pressure: 0.28
+  movement: 0.01
+flanger:
+  wet: 0.2
+  rate: 0.03
+  depth: 0.8
+  feedback: 0.52

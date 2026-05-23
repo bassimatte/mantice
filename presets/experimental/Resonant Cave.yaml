@@ -1,0 +1,216 @@
+meta:
+  name: Resonant Cave
+  slug: resonant_cave
+  category: experimental
+  mood:
+  - dark
+  - metallic
+  - deep
+  description: High-Q comb filter on a dense FM drone  metallic cave walls singing
+    back at you. A square-wave sub floor and stretched water granular create depth
+    beyond the mix.
+  author: Matteo Bassi
+  engine_version: MANTICE_V22
+  tags:
+  - comb-filter
+  - square-wave
+  - granular
+  - stretch-mode
+  - binaural
+duration: 60.0
+spatial_depth: 1.4
+spatial_wet: 0.45
+saturation: 0.28
+swarm_density: 0.5
+layers:
+- name: Cave Resonance
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 82.4
+  voices: 6
+  ratios:
+  - 1
+  - 2
+  - 3
+  - 4
+  fm_ratios:
+  - 1
+  - 2
+  fm_index: 0.35
+  amp_min: 0.01
+  amp_max: 0.045
+  drift: 0.008
+  mix: 1.0
+  band: mid
+  quadrant: center
+  trajectory_x: none
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.1
+  chorus_voices: 2
+  filter_type: comb
+  filter_cutoff: 82.4
+  filter_resonance: 4.2
+  filter_lfo_rate: 0.03
+  filter_lfo_depth: 0.25
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Sub Monolith
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 41.2
+  voices: 4
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.015
+  amp_max: 0.055
+  drift: 0.008
+  mix: 1.0
+  band: sub
+  quadrant: center
+  trajectory_x: none
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 150.0
+  filter_resonance: 0.8
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: square
+  detune_cents: 6.0
+  sub_mix: 0.65
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Water Memory
+  muted: false
+  type: granular
+  source: water.ogg
+  grain_size: 120.0
+  density: 12.0
+  pitch_spread: 0.4
+  position: 0.3
+  scatter: 0.6
+  envelope: hann
+  pitch_mode: stretch
+  root: 82.4
+  voices: 6
+  ratios:
+  - 1.0
+  - 2.0
+  - 3.0
+  fm_ratios:
+  - 1.0
+  - 2.0
+  fm_index: 0.3
+  amp_min: 0.005
+  amp_max: 0.022
+  drift: 0.008
+  mix: 0.55
+  band: high
+  quadrant: rear_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.3
+  chorus_depth: 0.005
+  chorus_mix: 0.2
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 6.0
+  carrier_hz: 82.4
+  carrier_amplitude: 0.11
+reverb:
+  enabled: true
+  space: cave
+  mix: 0.52
+  decay_trim: 1.45
+  pre_delay_ms: 45.0
+  modulation_depth: 0.1
+flanger:
+  wet: 0.22
+  rate: 0.09
+  depth: 0.48
+  feedback: 0.42

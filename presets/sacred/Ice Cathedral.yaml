@@ -1,0 +1,224 @@
+meta:
+  name: Ice Cathedral
+  slug: ice_cathedral
+  category: sacred
+  mood:
+  - ethereal
+  - cold
+  - sacred
+  - vast
+  description: Ice granular in stretch mode  pitch shifts without changing grain duration  layered
+    under crystalline FM overtones in infinite reverb. Frozen sacred space.
+  author: Matteo Bassi
+  engine_version: MANTICE_V22
+  tags:
+  - granular
+  - stretch-mode
+  - ice
+  - infinite-reverb
+  - binaural
+  - theta
+duration: 60.0
+spatial_depth: 2.0
+spatial_wet: 0.55
+saturation: 0.15
+swarm_density: 0.5
+layers:
+- name: Glacial Texture
+  muted: false
+  type: granular
+  source: ice.ogg
+  grain_size: 160.0
+  density: 20.0
+  pitch_spread: 0.5
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: stretch
+  root: 220.0
+  voices: 6
+  ratios:
+  - 1.0
+  - 2.0
+  - 3.0
+  fm_ratios:
+  - 1.0
+  - 2.0
+  fm_index: 0.3
+  amp_min: 0.006
+  amp_max: 0.028
+  drift: 0.008
+  mix: 0.7
+  band: high
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.007
+  chorus_mix: 0.25
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Crystal Harmonics
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 440.0
+  voices: 4
+  ratios:
+  - 1
+  - 2
+  - 4
+  - 6
+  fm_ratios:
+  - 2
+  - 3
+  fm_index: 0.6
+  amp_min: 0.005
+  amp_max: 0.02
+  drift: 0.008
+  mix: 1.0
+  band: high
+  quadrant: rear_left
+  trajectory_x: orbit
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 25.0
+  elevation_motion: float
+  elevation_speed: 0.06
+  elevation_range: 60.0
+  chorus_rate: 0.8
+  chorus_depth: 0.01
+  chorus_mix: 0.4
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Frozen Foundation
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  pitch_mode: resample
+  root: 110.0
+  voices: 6
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.15
+  amp_min: 0.008
+  amp_max: 0.032
+  drift: 0.008
+  mix: 1.0
+  band: mid
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.012
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.08
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.1
+  chorus_voices: 2
+  filter_type: hp
+  filter_cutoff: 160.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.08
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 10.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 5.0
+  carrier_hz: 110.0
+  carrier_amplitude: 0.11
+reverb:
+  enabled: true
+  space: infinite
+  mix: 0.6
+  decay_trim: 1.4
+  pre_delay_ms: 50.0
+  modulation_depth: 0.3
+air:
+  enabled: true
+  intensity: 0.08
+  movement: 0.01
+  turbulence: 0.02
+flanger:
+  wet: 0.3
+  rate: 0.06
+  depth: 0.55
+  feedback: 0.42
