@@ -45,13 +45,22 @@
     "preview": "https://cdn.freesound.org/previews/405/405136_3958938-hq.ogg"
   },
   {
-    "file": "water.ogg",
-    "id": 699755,
-    "name": "Water Gently Flowing Down A Small Brook.wav",
-    "label": "water",
-    "duration": 6.28125,
-    "user": "8bitmyketison",
-    "preview": "https://cdn.freesound.org/previews/699/699755_15173053-hq.ogg"
+    "file": "water_waves.ogg",
+    "id": 681374,
+    "name": "Waves close up",
+    "label": "Water Waves",
+    "duration": 20.0,
+    "user": "skrafft",
+    "preview": "https://cdn.freesound.org/previews/681/681374_13534332-hq.ogg"
+  },
+  {
+    "file": "water_drops.ogg",
+    "id": 476318,
+    "name": "Quarry tunnel ambience - large splash",
+    "label": "Water Drops",
+    "duration": 20.0,
+    "user": "ecfike",
+    "preview": "https://cdn.freesound.org/previews/476/476318_9498275-hq.ogg"
   },
   {
     "file": "singing_saw.ogg",
