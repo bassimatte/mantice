@@ -18,7 +18,7 @@ import urllib.request
 from typing import Optional, Callable
 
 import numpy as np
-from scipy.signal import butter, sosfilt, sosfilt_zi
+from scipy.signal import butter, sosfilt, sosfilt_zi, lfilter
 
 # Formant frequencies (Hz) and bandwidths (Hz) for the five primary vowels
 VOWEL_FORMANTS: dict = {
@@ -833,6 +833,203 @@ class StreamingFlanger:
 
 
 
+
+
+# ── FDN Reverb ────────────────────────────────────────────────────────────────
+
+class StreamingFDNReverb:
+    """
+    8-line Feedback Delay Network reverb for real-time streaming.
+
+    Features:
+      - Block-based processing (all delay lines > chunk size = vectorised)
+      - Hadamard H8 feedback matrix for dense diffusion
+      - Per-line 1-pole damping lowpass
+      - Pre-delay buffer (0–150 ms, inserted before FDN input)
+      - Per-line LFO modulation (slow, breaks metallic resonances)
+      - Stereo decorrelation: even lines → L, odd lines → R
+    """
+
+    # Delay line lengths (samples at 22050 Hz).  ALL values exceed 2048
+    # (one chunk) so the block-based feedback approach is exact.
+    _SPACES: dict[str, list[int]] = {
+        "cathedral": [2053, 2113, 2203, 2311, 2399, 2503, 2617, 2719],
+        "hall":      [2053, 2081, 2131, 2179, 2243, 2311, 2383, 2467],
+        "cave":      [2311, 2411, 2543, 2677, 2789, 2903, 3019, 3137],
+        "plate":     [2053, 2063, 2069, 2081, 2083, 2087, 2089, 2099],
+        "infinite":  [2713, 2879, 3049, 3221, 3413, 3581, 3779, 3943],
+    }
+    # Per-space damping coefficients (higher = duller reverb tail)
+    _DAMP: dict[str, float] = {
+        "cathedral": 0.28, "hall": 0.35, "cave": 0.18,
+        "plate": 0.50,     "infinite": 0.10,
+    }
+
+    # Normalised 8×8 Hadamard matrix
+    _H8 = np.array([
+        [ 1, 1, 1, 1, 1, 1, 1, 1],
+        [ 1,-1, 1,-1, 1,-1, 1,-1],
+        [ 1, 1,-1,-1, 1, 1,-1,-1],
+        [ 1,-1,-1, 1, 1,-1,-1, 1],
+        [ 1, 1, 1, 1,-1,-1,-1,-1],
+        [ 1,-1, 1,-1,-1, 1,-1, 1],
+        [ 1, 1,-1,-1,-1,-1, 1, 1],
+        [ 1,-1,-1, 1,-1, 1, 1,-1],
+    ], dtype=np.float64) / np.sqrt(8)
+
+    _N_LINES       = 8
+    _MAX_PRE_DELAY = int(0.150 * SR)   # 3308 samples @ 22050 Hz
+    _LFO_DEPTH_MAX = 5.0               # ±5 samples maximum modulation
+
+    def __init__(self, reverb_cfg: dict):
+        self.enabled = bool(reverb_cfg.get("enabled", False))
+        self.mix     = float(reverb_cfg.get("mix", 0.3))
+
+        # Map decay_trim (0.1–1.0) → feedback gain (0.60–0.96)
+        decay_trim  = float(reverb_cfg.get("decay_trim", 1.0))
+        self.decay  = 0.60 + decay_trim * 0.36
+
+        # Pre-delay
+        self.pre_delay_ms      = float(reverb_cfg.get("pre_delay_ms", 0.0))
+        self._pre_delay_samps  = min(
+            int(self.pre_delay_ms * SR / 1000.0), self._MAX_PRE_DELAY
+        )
+
+        # Modulation depth (0–1 → 0–5 samples swing)
+        self.mod_depth = float(reverb_cfg.get("modulation_depth", 0.0))
+
+        # Choose space
+        space = reverb_cfg.get("space", "cathedral")
+        self.delays = np.array(
+            self._SPACES.get(space, self._SPACES["cathedral"]), dtype=np.int32
+        )
+        self.max_d  = int(self.delays.max()) + 1
+
+        # Precomputed Hadamard × decay (applied every chunk)
+        self._H8d = self._H8 * self.decay
+
+        # Damping coefficient and filter state (1-pole lowpass, per line)
+        d = self._DAMP.get(space, 0.30)
+        self._damp_b  = np.array([(1.0 - d)], dtype=np.float64)
+        self._damp_a  = np.array([1.0, -d],   dtype=np.float64)
+        self._damp_zi = np.zeros(self._N_LINES, dtype=np.float64)   # shape (8,)
+
+        # Circular delay-line buffers  (N_LINES × max_d)
+        self.buf       = np.zeros((self._N_LINES, self.max_d), dtype=np.float64)
+        self.write_ptr = 0
+
+        # Pre-delay circular buffer
+        self._pre_buf = np.zeros(self._MAX_PRE_DELAY + 4096, dtype=np.float64)
+        self._pre_ptr = 0
+
+        # Per-line LFO state
+        rng = np.random.default_rng(seed=42)
+        self._lfo_phases = rng.uniform(0.0, 2 * np.pi, self._N_LINES)
+        self._lfo_rates  = rng.uniform(0.1, 0.5, self._N_LINES)   # Hz
+
+    # ------------------------------------------------------------------
+
+    def copy_state(self) -> "StreamingFDNReverb":
+        """Deep-copy mutable state for crossfade old_engine."""
+        import copy
+        clone = copy.copy(self)
+        clone.buf        = self.buf.copy()
+        clone._damp_zi   = self._damp_zi.copy()
+        clone._pre_buf   = self._pre_buf.copy()
+        clone._lfo_phases= self._lfo_phases.copy()
+        clone._lfo_rates = self._lfo_rates.copy()
+        return clone
+
+    # ------------------------------------------------------------------
+
+    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+        """Apply FDN reverb to stereo chunk (N, 2). Returns same shape."""
+        if not self.enabled or self.mix < 0.001:
+            return stereo
+
+        n = len(stereo)
+        # Mono sum for reverb input
+        mono = ((stereo[:, 0] + stereo[:, 1]) * 0.5).astype(np.float64)
+
+        # ── Pre-delay ────────────────────────────────────────────────────
+        pd = self._pre_delay_samps
+        if pd > 0:
+            L   = len(self._pre_buf)
+            ptr = self._pre_ptr
+            # Read FIRST (before writing) so short pd values are causal
+            rs = (ptr - pd) % L
+            if rs + n <= L:
+                fdn_in = self._pre_buf[rs:rs+n].copy()
+            else:
+                t2 = L - rs
+                fdn_in = np.concatenate([self._pre_buf[rs:], self._pre_buf[:n-t2]])
+            # Then write current chunk into the delay buffer
+            end = ptr + n
+            if end <= L:
+                self._pre_buf[ptr:end] = mono
+            else:
+                tail = L - ptr
+                self._pre_buf[ptr:]    = mono[:tail]
+                self._pre_buf[:n-tail] = mono[tail:]
+            self._pre_ptr = (ptr + n) % L
+        else:
+            fdn_in = mono
+
+        # ── LFO: advance phases, compute per-line delay offsets (per chunk) ─
+        dt = n / SR
+        self._lfo_phases += 2.0 * np.pi * self._lfo_rates * dt
+        lfo_off = (np.sin(self._lfo_phases) * self._lfo_depth_max
+                   * self.mod_depth).astype(np.int32)
+
+        # ── Read from all 8 delay lines (history only, no within-chunk fb) ─
+        v = np.empty((self._N_LINES, n), dtype=np.float64)
+        for j in range(self._N_LINES):
+            d_j = int(self.delays[j]) + int(lfo_off[j])
+            d_j = max(n + 1, min(d_j, self.max_d - 1))
+            rs  = (self.write_ptr - d_j) % self.max_d
+            if rs + n <= self.max_d:
+                v[j] = self.buf[j, rs:rs+n]
+            else:
+                t2 = self.max_d - rs
+                v[j, :t2]  = self.buf[j, rs:]
+                v[j, t2:]  = self.buf[j, :n-t2]
+
+        # ── Hadamard mix + input injection ───────────────────────────────
+        u = self._H8d @ v                          # (8, n) vectorised
+        u += fdn_in[np.newaxis, :] * 0.125         # spread mono input evenly
+
+        # ── Per-line 1-pole damping lowpass ──────────────────────────────
+        for j in range(self._N_LINES):
+            u_j, zi_out = lfilter(
+                self._damp_b, self._damp_a, u[j],
+                zi=self._damp_zi[j:j+1]   # shape (1,) — correct for lfilter zi
+            )
+            u[j] = u_j
+            self._damp_zi[j] = zi_out[0]
+
+        # ── Write feedback back to delay lines ───────────────────────────
+        wp = self.write_ptr
+        if wp + n <= self.max_d:
+            self.buf[:, wp:wp+n] = u
+        else:
+            tail = self.max_d - wp
+            self.buf[:, wp:]     = u[:, :tail]
+            self.buf[:, :n-tail] = u[:, tail:]
+        self.write_ptr = (wp + n) % self.max_d
+
+        # ── Stereo output: even lines → L, odd lines → R ─────────────────
+        scale = 0.25
+        wet_L = (v[0] + v[2] + v[4] + v[6]) * scale
+        wet_R = (v[1] + v[3] + v[5] + v[7]) * scale
+        wet   = np.column_stack([wet_L, wet_R]).astype(np.float32)
+
+        return (stereo * (1.0 - self.mix) + wet * self.mix).astype(np.float32)
+
+    @property
+    def _lfo_depth_max(self) -> float:
+        return self._LFO_DEPTH_MAX
+
+
 class LayerDistortion:
     """Per-layer waveshaper distortion (soft-clip tanh or hard-clip)."""
 
@@ -962,6 +1159,9 @@ class StreamingDroneEngine:
             wet=float(flanger_cfg.get("wet", 0.0)),
         )
 
+        # Global FDN reverb
+        self._reverb = StreamingFDNReverb(preset.get("reverb") or {})
+
     def next_chunk(self, n_samples: Optional[int] = None) -> np.ndarray:
         """Generate the next chunk of stereo audio (n_samples, 2)."""
         n = n_samples or self.chunk_size
@@ -1005,6 +1205,9 @@ class StreamingDroneEngine:
             drive = 1.0 + self.saturation * 3.0
             norm = np.tanh(drive)
             stereo = np.tanh(stereo * drive) / norm
+
+        # FDN reverb
+        stereo = self._reverb.next_chunk(stereo)
 
         # Normalize chunk (soft limiter to prevent clipping)
         peak = np.max(np.abs(stereo))
@@ -1116,6 +1319,7 @@ class _ShallowCopy:
         self._dc_zi_R = engine._dc_zi_R.copy()
         self.saturation = engine.saturation
         self._master = engine._master.copy_state()
+        self._reverb  = engine._reverb.copy_state()
         self._crossfade_remaining = 0
         self._crossfade_total = 0
         self._old_engine = None
@@ -1137,6 +1341,9 @@ class _ShallowCopy:
             drive = 1.0 + self.saturation * 3.0
             norm = np.tanh(drive)
             stereo = np.tanh(stereo * drive) / norm
+
+        # FDN reverb
+        stereo = self._reverb.next_chunk(stereo)
 
         peak = np.max(np.abs(stereo))
         if peak > 0.92:

@@ -244,6 +244,8 @@ def _preset_to_ui_params(preset: dict) -> dict:
             "space": reverb.get("space", "cathedral"),
             "mix": reverb.get("mix", 0.3),
             "decay_trim": reverb.get("decay_trim", 1.0),
+            "pre_delay_ms": reverb.get("pre_delay_ms", 0.0),
+            "modulation_depth": reverb.get("modulation_depth", 0.0),
         },
         "earth": {
             "enabled": earth.get("enabled", False),

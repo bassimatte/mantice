@@ -1753,6 +1753,8 @@ python batch_render_freesound.py --metadata-only</pre>
       </div>
       <div class="param-row"><label>Mix</label><input type="range" id="reverb-mix" min="0.0" max="1.0" step="0.05" value="0.30"><span class="value" id="reverb-mix-val">0.30</span></div>
       <div class="param-row"><label>Decay Trim</label><input type="range" id="reverb-decay-trim" min="0.1" max="1.0" step="0.05" value="1.00"><span class="value" id="reverb-decay-trim-val">1.00</span></div>
+      <div class="param-row"><label>Pre-Delay</label><input type="range" id="reverb-pre-delay" min="0" max="150" step="1" value="0"><span class="value" id="reverb-pre-delay-val">0 ms</span></div>
+      <div class="param-row"><label>Mod Depth</label><input type="range" id="reverb-mod-depth" min="0" max="1" step="0.05" value="0"><span class="value" id="reverb-mod-depth-val">0.00</span></div>
     </div>
 
     <!-- Earth & Air -->
@@ -2236,6 +2238,10 @@ function applyParamsToUI(p) {
   $('reverb-mix-val').textContent = p.reverb.mix.toFixed(2);
   $('reverb-decay-trim').value = p.reverb.decay_trim;
   $('reverb-decay-trim-val').textContent = p.reverb.decay_trim.toFixed(2);
+  $('reverb-pre-delay').value = p.reverb.pre_delay_ms ?? 0;
+  $('reverb-pre-delay-val').textContent = (p.reverb.pre_delay_ms ?? 0) + ' ms';
+  $('reverb-mod-depth').value = p.reverb.modulation_depth ?? 0;
+  $('reverb-mod-depth-val').textContent = (p.reverb.modulation_depth ?? 0).toFixed(2);
 
   // Earth & Air
   setToggle('earth-toggle', p.earth.enabled);
@@ -3386,6 +3392,8 @@ function collectParams() {
   p.reverb.space = $('reverb-space').value;
   p.reverb.mix = parseFloat($('reverb-mix').value);
   p.reverb.decay_trim = parseFloat($('reverb-decay-trim').value);
+  p.reverb.pre_delay_ms = parseFloat($('reverb-pre-delay').value);
+  p.reverb.modulation_depth = parseFloat($('reverb-mod-depth').value);
 
   // Earth & Air
   p.earth.enabled = $('earth-toggle').dataset.state === '1';
@@ -4900,6 +4908,7 @@ function init() {
     ['binaural-carrier-amp', 'binaural-carrier-amp-val', 2],
     ['reverb-mix', 'reverb-mix-val', 2],
     ['reverb-decay-trim', 'reverb-decay-trim-val', 2],
+    ['reverb-mod-depth', 'reverb-mod-depth-val', 2],
     ['earth-pressure', 'earth-pressure-val', 2],
     ['air-intensity', 'air-intensity-val', 2],
     ['saturation-slider', 'saturation-val', 2],
@@ -4912,6 +4921,7 @@ function init() {
     linkSlider(sliderId, valId, v => parseFloat(v).toFixed(decimals));
   });
   linkSlider('flanger-rate', 'flanger-rate-val', v => parseFloat(v).toFixed(2) + ' Hz');
+  linkSlider('reverb-pre-delay', 'reverb-pre-delay-val', v => parseInt(v) + ' ms');
 
   // EQ sliders — gain sliders show/hide freq & Q sub-rows on change
   linkSlider('eq-low-cut', 'eq-low-cut-val', v => v + ' Hz');
