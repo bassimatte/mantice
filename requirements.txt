@@ -3,6 +3,7 @@ scipy
 soundfile
 PyYAML
 sounddevice
+lameenc
 
 # Web UI (optional — only needed for --gui)
 fastapi

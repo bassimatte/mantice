@@ -1111,6 +1111,7 @@ main {
           <option value="wav">WAV</option>
           <option value="flac">FLAC</option>
           <option value="ogg">OGG</option>
+          <option value="mp3">MP3</option>
         </select>
       </div>
       <div class="settings-row">
@@ -2527,6 +2528,7 @@ function showLayerParams(layer) {
         <button class="solo-btn" id="layer-solo-btn" title="Solo this layer">S</button>
       </div>
       <div style="display:flex;gap:4px;margin-left:auto;">
+        <button class="solo-btn" id="layer-add-btn" title="Add new layer" ${numLayers >= 5 ? 'disabled' : ''} onclick="doAddLayer()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);">+</button>
         <button class="solo-btn" id="layer-copy-btn" title="Duplicate layer" ${numLayers >= 5 ? 'disabled' : ''} onclick="doCopyLayer()">⧉</button>
         <button class="solo-btn" id="layer-remove-btn" title="Remove this layer" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);" ${numLayers <= 1 ? 'disabled' : ''} onclick="doRemoveLayer()">×</button>
       </div>

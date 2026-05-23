@@ -776,21 +776,40 @@ async def render_endpoint(request: Request):
 
         sr = config.STREAM_SAMPLE_RATE
         bd = config.BIT_DEPTH
-        subtypes = {"wav": bd, "flac": bd, "ogg": "VORBIS"}
-        sf.write(str(export_path), audio, sr, format=fmt.upper(), subtype=subtypes.get(fmt))
+
+        def _encode_audio(audio_arr, fmt, sr, bd):
+            """Encode audio array to bytes in the requested format. Returns (bytes, media_type)."""
+            if fmt == "mp3":
+                import lameenc
+                pcm = (audio_arr * 32767).clip(-32768, 32767).astype(np.int16)
+                encoder = lameenc.Encoder()
+                encoder.set_bit_rate(192)
+                encoder.set_in_sample_rate(sr)
+                encoder.set_channels(1)
+                encoder.set_quality(2)
+                data = encoder.encode(pcm.tobytes()) + encoder.flush()
+                return data, "audio/mpeg"
+            else:
+                subtypes = {"wav": bd, "flac": bd, "ogg": "VORBIS"}
+                buf = io.BytesIO()
+                sf.write(buf, audio_arr, sr, format=fmt.upper(), subtype=subtypes.get(fmt))
+                buf.seek(0)
+                media = {"wav": "audio/wav", "flac": "audio/flac", "ogg": "audio/ogg"}
+                return buf.read(), media.get(fmt, "application/octet-stream")
+
+        # Save to disk
+        audio_bytes, media_type = _encode_audio(audio, fmt, sr, bd)
+        with open(str(export_path), "wb") as _f:
+            _f.write(audio_bytes)
         print(f"  [render] Saved: {export_path}")
 
-        # Also return as download
-        buf = io.BytesIO()
-        sf.write(buf, audio, sr, format=fmt.upper(), subtype=subtypes.get(fmt))
-        buf.seek(0)
-        file_size = buf.getbuffer().nbytes
+        file_size = len(audio_bytes)
+        buf = io.BytesIO(audio_bytes)
         print(f"  [render] Sending file ({file_size // 1024} KB)")
 
-        media_types = {"wav": "audio/wav", "flac": "audio/flac", "ogg": "audio/ogg"}
         return StreamingResponse(
             buf,
-            media_type=media_types.get(fmt, "application/octet-stream"),
+            media_type=media_type,
             headers={
                 "Content-Disposition": f"attachment; filename={filename}",
                 "Content-Length": str(file_size),
