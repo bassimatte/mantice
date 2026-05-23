@@ -55,10 +55,14 @@ _PRESETS_DIR = _ROOT / "presets"
 _EXPORTS_DIR = _ROOT / "exports"
 _SHARED_DIR = _ROOT / "shared"
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
+_SAMPLES_DIR = _ROOT / "samples"
+_FS_CACHE_DIR = _SAMPLES_DIR / "freesound_cache"
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO = "bassimatte/mantice"
 GITHUB_BRANCH = "main"
+FREESOUND_API_KEY = os.environ.get("FREESOUND_API_KEY", "zwjXCAeWopixCMievVQ5q1FLmyh1DBvMf4HJuqNE")
+FREESOUND_BASE = "https://freesound.org/apiv2"
 
 
 def _find_all_presets() -> list[dict]:
@@ -387,34 +391,132 @@ async def list_presets():
 
 @app.get("/api/samples")
 async def list_samples():
-    """List available audio samples for granular synthesis."""
+    """List available audio samples for granular synthesis (built-in + Freesound cache)."""
     import json as _json
-    samples_dir = _ROOT / "samples"
-    manifest_path = samples_dir / "manifest.json"
     label_map = {}
-    if manifest_path.exists():
+    if (_SAMPLES_DIR / "manifest.json").exists():
         try:
-            with open(manifest_path) as f:
-                manifest = _json.load(f)
-            for entry in manifest:
-                label_map[entry["file"]] = entry.get("label", "").replace("_", " ").title()
+            with open(_SAMPLES_DIR / "manifest.json") as f:
+                for e in _json.load(f):
+                    label_map[e["file"]] = e.get("label", "").replace("_", " ").title()
         except Exception:
             pass
-    files = sorted(f for f in os.listdir(samples_dir) if f.endswith((".ogg", ".wav", ".flac", ".mp3")))
-    samples = [{"file": f, "label": label_map.get(f) or f.rsplit(".", 1)[0].replace("_", " ").title()} for f in files]
+
+    # Built-in samples
+    files = sorted(f for f in os.listdir(_SAMPLES_DIR) if f.endswith((".ogg", ".wav", ".flac", ".mp3")))
+    samples = [{"file": f, "label": label_map.get(f) or f.rsplit(".", 1)[0].replace("_", " ").title(), "source": "builtin"} for f in files]
+
+    # Freesound cached samples
+    if _FS_CACHE_DIR.exists():
+        cache_manifest_path = _FS_CACHE_DIR / "manifest.json"
+        cache_meta = {}
+        if cache_manifest_path.exists():
+            try:
+                with open(cache_manifest_path) as f:
+                    cache_meta = {str(e["id"]): e for e in _json.load(f)}
+            except Exception:
+                pass
+        for f in sorted(os.listdir(_FS_CACHE_DIR)):
+            if f.endswith((".ogg", ".wav", ".flac", ".mp3")):
+                fid = f.rsplit(".", 1)[0]
+                meta = cache_meta.get(fid, {})
+                label = meta.get("name", fid)[:40]
+                user = meta.get("username", "")
+                samples.append({"file": f"freesound_cache/{f}", "label": f"FS: {label}", "user": user, "source": "freesound"})
+
     return {"samples": samples}
 
 
-@app.get("/samples/{filename}")
-async def serve_sample(filename: str):
-    """Serve a sample audio file for the granular scope waveform preview."""
+@app.get("/samples/{filepath:path}")
+async def serve_sample(filepath: str):
+    """Serve a sample audio file (supports freesound_cache/ subdirectory)."""
     from fastapi.responses import FileResponse
-    if not re.match(r'^[\w\-. ]+\.(ogg|wav|flac|mp3)$', filename):
-        return JSONResponse({"error": "Invalid filename"}, status_code=400)
-    sample_path = _ROOT / "samples" / filename
+    # Sanitize: only allow safe filenames/subdirs
+    if not re.match(r'^[\w\-./]+\.(ogg|wav|flac|mp3)$', filepath) or ".." in filepath:
+        return JSONResponse({"error": "Invalid path"}, status_code=400)
+    sample_path = _SAMPLES_DIR / filepath
     if not sample_path.exists():
         return JSONResponse({"error": "Not found"}, status_code=404)
     return FileResponse(str(sample_path))
+
+
+@app.get("/api/freesound/search")
+async def freesound_search(q: str, page_size: int = 8):
+    """Proxy Freesound search — returns CC0-licensed sounds matching the query."""
+    import json as _json
+    filt = urllib.request.quote('license:"Creative Commons 0" duration:[2 TO 30]')
+    url = (f"{FREESOUND_BASE}/search/text/"
+           f"?query={urllib.request.quote(q)}"
+           f"&filter={filt}"
+           f"&sort=rating_desc"
+           f"&fields=id,name,duration,previews,username,avg_rating"
+           f"&page_size={min(page_size, 12)}"
+           f"&token={FREESOUND_API_KEY}")
+    try:
+        loop = asyncio.get_event_loop()
+        def _fetch():
+            req = urllib.request.Request(url, headers={"User-Agent": "MANTICE/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return _json.loads(r.read())
+        data = await loop.run_in_executor(None, _fetch)
+        results = []
+        for r in data.get("results", []):
+            preview = r["previews"].get("preview-hq-ogg") or r["previews"].get("preview-hq-mp3", "")
+            if preview:
+                results.append({"id": r["id"], "name": r["name"], "duration": round(r["duration"], 1),
+                                 "username": r["username"], "preview_url": preview,
+                                 "rating": r.get("avg_rating", 0)})
+        return JSONResponse({"ok": True, "results": results})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/freesound/cache")
+async def freesound_cache_sound(request: Request):
+    """Download a Freesound preview to local cache and return the filename for use in granular layer."""
+    import json as _json
+    body = await request.json()
+    sound_id = str(body.get("id", ""))
+    preview_url = body.get("preview_url", "")
+    name = body.get("name", sound_id)[:60]
+    username = body.get("username", "")
+
+    if not sound_id or not preview_url:
+        return JSONResponse({"ok": False, "error": "id and preview_url required"}, status_code=400)
+    if not re.match(r'^https://cdn\.freesound\.org/', preview_url):
+        return JSONResponse({"ok": False, "error": "Invalid preview URL"}, status_code=400)
+
+    _FS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    ext = "ogg" if preview_url.endswith(".ogg") else "mp3"
+    filename = f"{sound_id}.{ext}"
+    cache_path = _FS_CACHE_DIR / filename
+    relative_path = f"freesound_cache/{filename}"
+
+    if not cache_path.exists():
+        try:
+            loop = asyncio.get_event_loop()
+            def _download():
+                urllib.request.urlretrieve(preview_url, str(cache_path))
+            await loop.run_in_executor(None, _download)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": f"Download failed: {e}"}, status_code=500)
+
+    # Update cache manifest
+    cache_manifest_path = _FS_CACHE_DIR / "manifest.json"
+    cache_manifest = []
+    if cache_manifest_path.exists():
+        try:
+            with open(cache_manifest_path) as f:
+                cache_manifest = _json.load(f)
+        except Exception:
+            pass
+    if not any(str(e.get("id")) == sound_id for e in cache_manifest):
+        cache_manifest.append({"id": sound_id, "name": name, "username": username, "file": filename, "preview_url": preview_url})
+        with open(cache_manifest_path, "w") as f:
+            _json.dump(cache_manifest, f, indent=2)
+
+    return JSONResponse({"ok": True, "filename": relative_path, "label": f"FS: {name}"})
+
 
 
 @app.get("/api/preset/load")

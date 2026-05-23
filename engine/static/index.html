@@ -2439,9 +2439,20 @@ function showLayerParams(layer) {
   const granularHtml = `
     <div class="param-row">
       <label>Source</label>
-      <select id="lp-source"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
-        <option value="${layer.source || 'singing_bowl.ogg'}">${layer.source || 'singing_bowl.ogg'}</option>
-      </select>
+      <div style="grid-column:2/4; display:flex; gap:3px; align-items:center;">
+        <select id="lp-source" style="flex:1; min-width:0; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 4px; font-family:'Space Mono',monospace; font-size:10px;">
+          <option value="${layer.source || 'singing_bowl.ogg'}">${layer.source || 'singing_bowl.ogg'}</option>
+        </select>
+        <button id="fs-open-btn" title="Search Freesound.org" style="background:var(--bg); border:1px solid var(--border); color:var(--accent); padding:2px 5px; font-size:10px; cursor:pointer; border-radius:3px;">🔍</button>
+      </div>
+    </div>
+    <div id="fs-panel" style="display:none; grid-column:1/4; background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:6px; margin:2px 0;">
+      <div style="display:flex; gap:4px; margin-bottom:4px;">
+        <input type="text" id="fs-query" placeholder="search freesound.org (CC0)…" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px; border-radius:3px;">
+        <button id="fs-search-btn" style="background:var(--accent); border:none; color:#000; padding:3px 8px; font-size:10px; cursor:pointer; border-radius:3px; font-weight:bold;">Go</button>
+      </div>
+      <div id="fs-status" style="font-size:9px; color:var(--muted); margin-bottom:2px;"></div>
+      <div id="fs-results" style="max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:2px;"></div>
     </div>
     <canvas class="granular-scope" id="granular-scope-canvas"></canvas>
   ` + granularParams.map(p => `
@@ -2882,7 +2893,7 @@ function showLayerParams(layer) {
         if (p.id === 'position' || p.id === 'scatter') updateGranularScope();
       });
     });
-    // Source dropdown — populate from API
+    // Source dropdown — populate from API (includes freesound cache)
     fetch(apiUrl('/api/samples')).then(r => r.json()).then(data => {
       const sel = $('lp-source');
       if (!sel) return;
@@ -2892,7 +2903,7 @@ function showLayerParams(layer) {
         const selected = file === (layer.source || 'singing_bowl.ogg') ? 'selected' : '';
         return `<option value="${file}" ${selected}>${label}</option>`;
       }).join('');
-      updateGranularScope(); // redraw after options populated
+      updateGranularScope();
     }).catch(() => {});
     const sourceSel = $('lp-source');
     if (sourceSel) {
@@ -2903,6 +2914,100 @@ function showLayerParams(layer) {
         updateGranularScope();
       });
     }
+
+    // ── Freesound search panel ────────────────────────────────────────────────
+    let _fsPreviewAudio = null;
+    const fsOpenBtn = $('fs-open-btn');
+    const fsPanel   = $('fs-panel');
+    const fsQueryEl = $('fs-query');
+    const fsSearchBtn = $('fs-search-btn');
+    const fsResults = $('fs-results');
+    const fsStatus  = $('fs-status');
+
+    if (fsOpenBtn && fsPanel) {
+      fsOpenBtn.addEventListener('click', () => {
+        const open = fsPanel.style.display === 'none';
+        fsPanel.style.display = open ? '' : 'none';
+        fsOpenBtn.style.background = open ? 'var(--accent)' : 'var(--bg)';
+        fsOpenBtn.style.color = open ? '#000' : 'var(--accent)';
+        if (open && fsQueryEl) fsQueryEl.focus();
+      });
+    }
+
+    async function runFreesoundSearch() {
+      const q = fsQueryEl?.value?.trim();
+      if (!q) return;
+      fsStatus.textContent = 'Searching…';
+      fsResults.innerHTML = '';
+      try {
+        const res = await fetch(apiUrl(`/api/freesound/search?q=${encodeURIComponent(q)}&page_size=8`));
+        const data = await res.json();
+        if (!data.ok || !data.results?.length) { fsStatus.textContent = data.error || 'No results.'; return; }
+        fsStatus.textContent = `${data.results.length} results (CC0):`;
+        fsResults.innerHTML = data.results.map(r => `
+          <div data-fs-id="${r.id}" style="display:flex; align-items:center; gap:4px; padding:2px 4px; background:var(--bg); border-radius:3px; font-size:9px; color:var(--text-lcd);">
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.name} by ${r.username}">${r.name}</span>
+            <span style="color:var(--muted); flex-shrink:0;">${r.duration}s</span>
+            <button class="fs-preview-btn" data-url="${r.preview_url}" style="background:transparent; border:1px solid var(--border); color:var(--accent); padding:1px 4px; font-size:9px; cursor:pointer; border-radius:2px;" title="Preview">▶</button>
+            <button class="fs-use-btn" data-id="${r.id}" data-url="${r.preview_url}" data-name="${r.name.replace(/"/g,'')}" data-user="${r.username}" style="background:var(--accent); border:none; color:#000; padding:1px 5px; font-size:9px; cursor:pointer; border-radius:2px; font-weight:bold;" title="Use in layer">✓</button>
+          </div>`).join('');
+
+        // Preview buttons
+        fsResults.querySelectorAll('.fs-preview-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (_fsPreviewAudio) { _fsPreviewAudio.pause(); _fsPreviewAudio = null; }
+            _fsPreviewAudio = new Audio(btn.dataset.url);
+            _fsPreviewAudio.play().catch(() => {});
+            fsResults.querySelectorAll('.fs-preview-btn').forEach(b => b.textContent = '▶');
+            btn.textContent = '⏹';
+            _fsPreviewAudio.onended = () => { btn.textContent = '▶'; _fsPreviewAudio = null; };
+          });
+        });
+
+        // Use buttons — cache on server then add to select
+        fsResults.querySelectorAll('.fs-use-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (_fsPreviewAudio) { _fsPreviewAudio.pause(); _fsPreviewAudio = null; }
+            btn.textContent = '⏳';
+            btn.disabled = true;
+            try {
+              const cacheRes = await fetch(apiUrl('/api/freesound/cache'), {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id: btn.dataset.id, preview_url: btn.dataset.url,
+                                       name: btn.dataset.name, username: btn.dataset.user })
+              });
+              const cacheData = await cacheRes.json();
+              if (!cacheData.ok) { btn.textContent = '✗'; return; }
+              const newFile = cacheData.filename;
+              const newLabel = cacheData.label || `FS: ${btn.dataset.name}`;
+              const sel2 = $('lp-source');
+              if (sel2) {
+                // Add option if not already present
+                if (!Array.from(sel2.options).some(o => o.value === newFile)) {
+                  const opt = new Option(newLabel, newFile);
+                  sel2.appendChild(opt);
+                }
+                sel2.value = newFile;
+              }
+              pushUndo();
+              currentParams.layers[activeLayerIdx].source = newFile;
+              markDirty();
+              updateGranularScope();
+              // Collapse search panel
+              if (fsPanel) { fsPanel.style.display = 'none'; fsOpenBtn.style.background = 'var(--bg)'; fsOpenBtn.style.color = 'var(--accent)'; }
+              liveReload();
+              btn.textContent = '✓';
+            } catch { btn.textContent = '✗'; btn.disabled = false; }
+          });
+        });
+      } catch (e) { fsStatus.textContent = `Error: ${e.message}`; }
+    }
+
+    if (fsSearchBtn) fsSearchBtn.addEventListener('click', runFreesoundSearch);
+    if (fsQueryEl) fsQueryEl.addEventListener('keydown', e => { if (e.key === 'Enter') runFreesoundSearch(); });
+    // ─────────────────────────────────────────────────────────────────────────
+
     const envSel = $('lp-envelope');
     if (envSel) {
       envSel.addEventListener('change', () => {
@@ -3520,7 +3625,7 @@ const _waveformCache = new Map(); // source filename → Float32Array (downsampl
 async function _loadWaveform(source) {
   if (_waveformCache.has(source)) return _waveformCache.get(source);
   try {
-    const url = apiUrl('/samples/' + encodeURIComponent(source));
+    const url = apiUrl('/samples/' + source.split('/').map(encodeURIComponent).join('/'));
     const resp = await fetch(url);
     if (!resp.ok) return null;
     const buf = await resp.arrayBuffer();

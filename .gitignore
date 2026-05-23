@@ -19,3 +19,10 @@ exports/
 Thumbs.db
 
 presets/generated/
+
+# Freesound runtime cache (ephemeral)
+samples/freesound_cache/*.ogg
+samples/freesound_cache/*.mp3
+samples/freesound_cache/*.wav
+samples/freesound_cache/*.flac
+samples/freesound_cache/manifest.json
