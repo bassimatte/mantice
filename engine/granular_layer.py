@@ -14,6 +14,7 @@ New features:
 
 import os
 
+import librosa
 import numpy as np
 import soundfile as sf
 
@@ -71,10 +72,9 @@ class StreamingGranularLayer:
         if audio.ndim > 1:
             audio = audio.mean(axis=1)
         if sr != self._sr:
-            ratio = self._sr / sr
-            new_len = int(len(audio) * ratio)
-            indices = np.linspace(0, len(audio) - 1, new_len)
-            audio = np.interp(indices, np.arange(len(audio)), audio)
+            # Use librosa's polyphase resampler (applies anti-aliasing filter)
+            # so high-SR samples (48/96kHz from Freesound) don't alias.
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=self._sr)
 
         self.source = audio.astype(np.float64)
         self.source_len = len(self.source)

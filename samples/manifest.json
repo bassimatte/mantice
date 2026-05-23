@@ -91,12 +91,13 @@
   },
   {
     "file": "throat_singing.ogg",
-    "id": null,
-    "name": "throat singing",
+    "id": 432764,
+    "name": "overtone_example_female.wav",
     "label": "throat_singing",
-    "duration": null,
-    "user": "unknown",
-    "preview": ""
+    "duration": 16.03,
+    "user": "xpoki",
+    "license": "http://creativecommons.org/licenses/by/3.0/",
+    "preview": "https://cdn.freesound.org/previews/432/432764_5140792-hq.ogg"
   },
   {
     "file": "rock_scrape.ogg",
