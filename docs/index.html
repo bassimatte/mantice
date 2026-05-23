@@ -1803,6 +1803,18 @@ python batch_render_freesound.py --metadata-only</pre>
       <input type="range" id="saturation-slider" min="0" max="1" step="0.05" value="0.3" style="flex:1">
       <span class="value" id="saturation-val" style="font-size:10px; color:var(--text-lcd); min-width:32px">0.30</span>
     </div>
+    <div class="param-row">
+      <label>Tuning</label>
+      <select id="tuning-system" style="flex:1; font-size:10px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border); border-radius:3px; padding:1px 3px">
+        <option value="12-TET">12-TET (Equal)</option>
+        <option value="Pythagorean">Pythagorean</option>
+        <option value="5-limit JI">5-limit JI</option>
+        <option value="Meantone">Meantone (¼-comma)</option>
+        <option value="19-TET">19-TET</option>
+        <option value="31-TET">31-TET</option>
+      </select>
+      <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; margin-left:3px; background:var(--btn-bg); color:var(--text-main); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap">Apply</button>
+    </div>
 
     <div class="card-subsection-label">EQ</div>
     <div class="param-row">
@@ -2266,6 +2278,7 @@ function applyParamsToUI(p) {
   const sat = p.saturation !== undefined ? p.saturation : 0.3;
   $('saturation-slider').value = sat;
   $('saturation-val').textContent = sat.toFixed(2);
+  if ($('tuning-system')) $('tuning-system').value = p.tuning_system || '12-TET';
 
   const m = p.master || {};
   $('eq-low-cut').value = m.eq_low_cut_hz ?? 20;
@@ -2349,6 +2362,52 @@ function snapToSemitone(hz) {
 }
 function rootLabel(hz) {
   return parseFloat(hz).toFixed(1) + ' ' + hzToNote(hz);
+}
+
+// ── Tuning systems ────────────────────────────────────────────────────────────
+// Cent offsets from 12-TET for chromatic degrees 0 (C) through 11 (B)
+const TUNING_SYSTEMS = {
+  '12-TET':      [  0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0],
+  'Pythagorean': [  0, +13.7, +3.9, -5.9, +7.8, -2.0,+11.7, +2.0, -7.8, +5.9, -3.9, +9.8],
+  '5-limit JI':  [  0, +11.7, +3.9,+15.6,-13.7, -2.0, -9.8, +2.0,+13.7,-15.6,+17.6,-11.7],
+  'Meantone':    [  0, -24.0, -6.8,+10.3,-13.7, +3.4,-20.5, -3.4,+13.7,-10.3, +6.8,-17.1],
+  '19-TET':      [  0, +26.3,-10.5,+15.8,-21.1, +5.3,+31.6, -5.3,+21.1,-15.8,+10.5,-26.3],
+  '31-TET':      [  0, +16.1, -6.5, +9.7,-12.9, +3.2,-19.4, -3.2,+12.9, -9.7, +6.5,-16.1],
+};
+
+function hzCentsFromET(hz) {
+  if (!hz || hz <= 0) return 0;
+  const midi = 12 * Math.log2(hz / 440) + 69;
+  const nearest = Math.round(midi);
+  const hz12tet = 440 * Math.pow(2, (nearest - 69) / 12);
+  return 1200 * Math.log2(hz / hz12tet);
+}
+
+function updateRootCentsDisplay(hz) {
+  const span = $('lp-root-cents');
+  if (!span) return;
+  const cents = hzCentsFromET(hz);
+  if (Math.abs(cents) < 0.05) { span.textContent = ''; return; }
+  span.textContent = (cents >= 0 ? '+' : '') + cents.toFixed(1) + '¢';
+}
+
+function applyTuning() {
+  const tuning = $('tuning-system').value;
+  const offsets = TUNING_SYSTEMS[tuning];
+  if (!offsets || !currentParams) return;
+  pushUndo();
+  currentParams.layers.forEach(layer => {
+    if (!layer.root || layer.root <= 0) return;
+    const midi = Math.round(12 * Math.log2(layer.root / 440) + 69);
+    const hz12tet = 440 * Math.pow(2, (midi - 69) / 12);
+    const degree = ((midi % 12) + 12) % 12;
+    layer.root = parseFloat((hz12tet * Math.pow(2, offsets[degree] / 1200)).toFixed(3));
+  });
+  currentParams.tuning_system = tuning;
+  buildLayerTabs(currentParams.layers);
+  showLayerParams(currentParams.layers[activeLayerIdx]);
+  markDirty();
+  liveReload();
 }
 
 function buildLayerTabs(layers) {
@@ -2499,7 +2558,7 @@ function showLayerParams(layer) {
     <div class="param-row">
       <label>${p.label}${p.id === 'root' ? `<button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button>` : ''}</label>
       <input type="range" id="lp-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" >
-      <span class="value" id="lp-${p.id}-val">${p.id === 'root' ? rootLabel(p.val) : Number(p.val).toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0)}</span>
+      <span class="value" id="lp-${p.id}-val">${p.id === 'root' ? rootLabel(p.val) : Number(p.val).toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0)}</span>${p.id === 'root' ? `<span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>` : ''}
     </div>
   `).join('');
 
@@ -2605,7 +2664,7 @@ function showLayerParams(layer) {
     <div class="param-row">
       <label>Root Hz <button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button></label>
       <input type="range" id="lp-root" min="20" max="2000" step="0.1" value="${layer.root||110}" >
-      <span class="value" id="lp-root-val">${rootLabel(layer.root||110)}</span>
+      <span class="value" id="lp-root-val">${rootLabel(layer.root||110)}</span><span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>
     </div>
     <div class="param-row">
       <label>Voices</label>
@@ -2824,6 +2883,7 @@ function showLayerParams(layer) {
   const fxDiv = `<div class="layer-subtab-content" data-subtab="fx" style="display:${activeLayerSubTab==='fx'?'block':'none'}">${chorusHtml}</div>`;
 
   $('layer-params').innerHTML = toggleHtml + subTabHtml + synthDiv + filterHtml + spaceDiv + fxDiv;
+  updateRootCentsDisplay(layer.root);
 
   $('layer-params').querySelectorAll('.layer-subtab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2880,6 +2940,7 @@ function showLayerParams(layer) {
           slider.value = snapped;
           layer.root = snapped;
           $('lp-root-val').textContent = rootLabel(snapped);
+          updateRootCentsDisplay(snapped);
           markDirty();
         }
       }
@@ -2926,6 +2987,7 @@ function showLayerParams(layer) {
           slider.value = v;
         }
         $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(v) : v.toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0);
+        if (p.id === 'root') updateRootCentsDisplay(v);
         if (p.id === 'loudness') {
           currentParams.layers[activeLayerIdx].amp_max = v;
           currentParams.layers[activeLayerIdx].amp_min = Math.min(0.005, v * 0.15);
@@ -2991,6 +3053,7 @@ function showLayerParams(layer) {
           slider.value = v;
         }
         $(`lp-${id}-val`).textContent = id === 'root' ? rootLabel(v) : v.toFixed(id === 'drift' ? 3 : id === 'sub_mix' || id === 'mix' ? 2 : 0);
+        if (id === 'root') updateRootCentsDisplay(v);
         if (id === 'voices') currentParams.layers[activeLayerIdx][id] = parseInt(v);
         else currentParams.layers[activeLayerIdx][id] = v;
         markDirty();
@@ -3410,6 +3473,7 @@ function collectParams() {
 
   // Saturation
   p.saturation = parseFloat($('saturation-slider').value);
+  p.tuning_system = $('tuning-system').value;
   p.master = {
     eq_low_cut_hz: parseFloat($('eq-low-cut').value),
     eq_bass_db:    parseFloat($('eq-bass').value),
@@ -4922,6 +4986,12 @@ function init() {
   });
   linkSlider('flanger-rate', 'flanger-rate-val', v => parseFloat(v).toFixed(2) + ' Hz');
   linkSlider('reverb-pre-delay', 'reverb-pre-delay-val', v => parseInt(v) + ' ms');
+
+  // Tuning system
+  $('btn-apply-tuning').addEventListener('click', applyTuning);
+  $('tuning-system').addEventListener('change', () => {
+    if (currentParams) currentParams.tuning_system = $('tuning-system').value;
+  });
 
   // EQ sliders — gain sliders show/hide freq & Q sub-rows on change
   linkSlider('eq-low-cut', 'eq-low-cut-val', v => v + ' Hz');
