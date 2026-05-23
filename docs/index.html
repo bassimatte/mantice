@@ -1057,6 +1057,20 @@ main {
   animation: spin 1s linear infinite; margin-bottom: 20px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* ── Live-update indicator ── */
+#live-indicator {
+  width: 10px; height: 10px; flex-shrink: 0;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+#live-indicator.active {
+  opacity: 1;
+  animation: spin 0.7s linear infinite;
+}
 #connection-overlay .retry-btn {
   margin-top: 16px; padding: 8px 20px; background: var(--accent); color: #000;
   border: none; border-radius: var(--radius); cursor: pointer; font-weight: bold; display: none;
@@ -1088,6 +1102,7 @@ main {
     </svg>
   </div>
   <span class="now-playing" id="now-playing"></span>
+  <span id="live-indicator" title="Applying changes…"></span>
   <span class="status" id="status">READY</span>
   <div class="files-menu-wrapper" id="files-menu-wrapper">
     <button class="zoom-btn" id="btn-files" title="Files">◳</button>
@@ -4172,6 +4187,7 @@ async function _flushAndRestart() {
   // 5. Restart server stream with updated params
   ws.send(JSON.stringify({ action: 'start', params: collectParams(), seed: currentSeed }));
   setStatus('Buffering…');
+  setLiveIndicator(true);
 
   // 6. Restart visualizer animation loops (stopSpectrum killed them)
   drawSpectrum();
@@ -4184,7 +4200,11 @@ function liveReload() {
     const xfadeSecs = parseFloat($('live-xfade').value) || 1.0;
     ws.send(JSON.stringify({ action: 'reload', params: collectParams(), crossfade_secs: xfadeSecs }));
     setStatus('⟲ Crossfading…');
-    setTimeout(() => { if (isStreaming) setStatus('Streaming'); }, Math.round(xfadeSecs * 1000) + 300);
+    setLiveIndicator(true);
+    setTimeout(() => {
+      if (isStreaming) setStatus('Streaming');
+      setLiveIndicator(false);
+    }, Math.round(xfadeSecs * 1000) + 300);
   }
 }
 
@@ -4387,6 +4407,7 @@ async function doPreview() {
     ws.send(JSON.stringify({ action: 'start', params, seed: currentSeed }));
     isStreaming = true;
     setStatus('Buffering…');
+    setLiveIndicator(true);
   };
 
   ws.onmessage = (event) => {
@@ -4417,7 +4438,7 @@ async function doPreview() {
     if (useWorklet && workletNode) {
       // Send PCM to worklet ring buffer (transfer ownership for zero-copy)
       workletNode.port.postMessage({ left, right }, [left.buffer, right.buffer]);
-      if (chunksBuffered === PRE_BUFFER_CHUNKS) setStatus('▶ Streaming…');
+      if (chunksBuffered === PRE_BUFFER_CHUNKS) { setStatus('▶ Streaming…'); setLiveIndicator(false); }
     } else {
       // Fallback: BufferSource scheduling
       const buffer = streamingCtx.createBuffer(2, numSamples, serverSR);
@@ -4427,6 +4448,7 @@ async function doPreview() {
       if (chunksBuffered === PRE_BUFFER_CHUNKS) {
         nextPlayTime = streamingCtx.currentTime + 0.05;
         setStatus('▶ Streaming…');
+        setLiveIndicator(false);
         stopCtxKeepAlive(); // real audio flowing, no longer need keepalive
         // Smooth fade-in: 0 → 1 over 80ms to avoid the hard silence→audio click
         if (startupGain) {
@@ -4480,6 +4502,7 @@ function stopAudio() {
   }
   playbackCtx = null;
   setStatus('STOPPED');
+  setLiveIndicator(false);
 }
 
 
@@ -4907,6 +4930,11 @@ function setStatus(msg) {
     const isIdle = !msg || msg === 'READY' || msg === 'STOPPED' || msg === 'Stopped';
     mob.textContent = isIdle ? name : (name ? `${name} — ${msg}` : msg);
   }
+}
+
+function setLiveIndicator(on) {
+  const el = $('live-indicator');
+  if (el) el.classList.toggle('active', on);
 }
 
 function updateNowPlaying() {
