@@ -5001,16 +5001,31 @@ function setProgress(pct) {
 function init() {
   loadPresetList();
 
-  // Fetch running commit SHA and update the version link in settings
-  api('/api/version').then(v => {
-    if (!v || !v.sha) return;
-    const el = $('app-version-link');
-    if (el) {
-      el.textContent = v.sha;
-      el.href = `${v.repo}/commit/${v.sha}`;
-      el.title = `GitHub commit ${v.sha}`;
+  // Fetch running commit SHA and update the version link in settings.
+  // Primary: /api/version from the backend (exact deployed SHA).
+  // Fallback: GitHub public API (works even when backend is sleeping / deploying).
+  (async () => {
+    const REPO = 'bassimatte/mantice';
+    const BASE = 'https://github.com/' + REPO;
+    function _applyVersion(sha) {
+      const el = $('app-version-link');
+      if (!el || el.textContent !== '…') return; // already set
+      el.textContent = sha.slice(0, 7);
+      el.href = `${BASE}/commit/${sha}`;
+      el.title = `GitHub commit ${sha.slice(0, 7)}`;
     }
-  }).catch(() => {});
+    // Try backend first (non-blocking)
+    try {
+      const v = await api('/api/version');
+      if (v && v.sha) { _applyVersion(v.sha); return; }
+    } catch (_) {}
+    // Fallback: GitHub public API (no auth needed, 60 req/hr limit)
+    try {
+      const r = await fetch(`https://api.github.com/repos/${REPO}/commits/main?per_page=1`);
+      const d = await r.json();
+      if (d && d.sha) _applyVersion(d.sha);
+    } catch (_) {}
+  })();
 
   // Transport buttons
   $('btn-preview').addEventListener('click', doPreview);
