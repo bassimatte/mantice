@@ -2468,16 +2468,20 @@ function showLayerParams(layer) {
     <div class="param-row">
       <label>Source</label>
       <div style="grid-column:2/4; display:flex; gap:3px; align-items:center;">
+        <button id="fs-open-btn" title="Search Freesound.org" style="background:var(--bg); border:1px solid var(--border); color:var(--accent); padding:2px 5px; font-size:10px; cursor:pointer; border-radius:3px; flex-shrink:0;">🔍</button>
         <select id="lp-source" style="flex:1; min-width:0; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 4px; font-family:'Space Mono',monospace; font-size:10px;">
           <option value="${layer.source || 'singing_bowl.ogg'}">${layer.source || 'singing_bowl.ogg'}</option>
         </select>
-        <button id="fs-open-btn" title="Search Freesound.org" style="background:var(--bg); border:1px solid var(--border); color:var(--accent); padding:2px 5px; font-size:10px; cursor:pointer; border-radius:3px;">🔍</button>
       </div>
     </div>
     <div id="fs-panel" style="display:none; grid-column:1/4; background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:6px; margin:2px 0;">
       <div style="display:flex; gap:4px; margin-bottom:4px;">
         <input type="text" id="fs-query" placeholder="search freesound.org (CC0)…" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px; border-radius:3px;">
         <button id="fs-search-btn" style="background:var(--accent); border:none; color:#000; padding:3px 8px; font-size:10px; cursor:pointer; border-radius:3px; font-weight:bold;">Go</button>
+      </div>
+      <div style="display:flex; gap:4px; margin-bottom:4px;">
+        <input type="text" id="fs-url-input" placeholder="or paste freesound.org/sounds/ID/ URL…" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px; border-radius:3px;">
+        <button id="fs-url-load-btn" style="background:var(--bg); border:1px solid var(--accent); color:var(--accent); padding:3px 8px; font-size:10px; cursor:pointer; border-radius:3px; font-weight:bold;">Load</button>
       </div>
       <div id="fs-status" style="font-size:9px; color:var(--muted); margin-bottom:2px;"></div>
       <div id="fs-results" style="max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:2px;"></div>
@@ -2977,6 +2981,7 @@ function showLayerParams(layer) {
         fsResults.innerHTML = data.results.map(r => `
           <div data-fs-id="${r.id}" style="display:flex; align-items:center; gap:4px; padding:2px 4px; background:var(--bg); border-radius:3px; font-size:9px; color:var(--text-lcd);">
             <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.name} by ${r.username}">${r.name}</span>
+            <a href="https://freesound.org/sounds/${r.id}/" target="_blank" rel="noopener" style="color:var(--muted); flex-shrink:0; text-decoration:none;" title="Open on Freesound">🔗</a>
             <span style="color:var(--muted); flex-shrink:0;">${r.duration}s</span>
             <button class="fs-preview-btn" data-url="${r.preview_url}" style="background:transparent; border:1px solid var(--border); color:var(--accent); padding:1px 4px; font-size:9px; cursor:pointer; border-radius:2px;" title="Preview">▶</button>
             <button class="fs-use-btn" data-id="${r.id}" data-url="${r.preview_url}" data-name="${r.name.replace(/"/g,'')}" data-user="${r.username}" style="background:var(--accent); border:none; color:#000; padding:1px 5px; font-size:9px; cursor:pointer; border-radius:2px; font-weight:bold;" title="Use in layer">✓</button>
@@ -3036,6 +3041,45 @@ function showLayerParams(layer) {
 
     if (fsSearchBtn) fsSearchBtn.addEventListener('click', runFreesoundSearch);
     if (fsQueryEl) fsQueryEl.addEventListener('keydown', e => { if (e.key === 'Enter') runFreesoundSearch(); });
+
+    // ── Paste Freesound URL / ID ───────────────────────────────────────────────
+    const fsUrlInput = $('fs-url-input');
+    const fsUrlLoadBtn = $('fs-url-load-btn');
+
+    async function loadFreesoundById(rawInput) {
+      const input = rawInput.trim();
+      if (!input) return;
+      // Extract numeric ID from URL or bare number
+      const m = input.match(/(\d{5,})/);
+      if (!m) { fsStatus.textContent = 'Could not find a Freesound ID in that input.'; return; }
+      const soundId = m[1];
+      fsStatus.textContent = `Loading sound #${soundId}…`;
+      if (fsUrlLoadBtn) { fsUrlLoadBtn.textContent = '⏳'; fsUrlLoadBtn.disabled = true; }
+      try {
+        const res = await fetch(apiUrl(`/api/freesound/load_by_id?id=${soundId}`));
+        const data = await res.json();
+        if (!data.ok) { fsStatus.textContent = `Error: ${data.error || 'unknown'}`; return; }
+        const sel3 = $('lp-source');
+        if (sel3) {
+          if (!Array.from(sel3.options).some(o => o.value === data.filename)) {
+            sel3.appendChild(new Option(data.label, data.filename));
+          }
+          sel3.value = data.filename;
+        }
+        pushUndo();
+        currentParams.layers[activeLayerIdx].source = data.filename;
+        markDirty();
+        updateGranularScope();
+        if (fsPanel) { fsPanel.style.display = 'none'; fsOpenBtn.style.background = 'var(--bg)'; fsOpenBtn.style.color = 'var(--accent)'; }
+        liveReload();
+        fsStatus.textContent = `✓ Loaded: ${data.label}`;
+        if (fsUrlInput) fsUrlInput.value = '';
+      } catch (e) { fsStatus.textContent = `Error: ${e.message}`; }
+      finally { if (fsUrlLoadBtn) { fsUrlLoadBtn.textContent = 'Load'; fsUrlLoadBtn.disabled = false; } }
+    }
+
+    if (fsUrlLoadBtn) fsUrlLoadBtn.addEventListener('click', () => loadFreesoundById(fsUrlInput?.value || ''));
+    if (fsUrlInput) fsUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadFreesoundById(fsUrlInput.value); });
     // ─────────────────────────────────────────────────────────────────────────
 
     const envSel = $('lp-envelope');

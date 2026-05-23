@@ -519,8 +519,63 @@ async def freesound_cache_sound(request: Request):
     return JSONResponse({"ok": True, "filename": relative_path, "label": f"FS: {name}"})
 
 
+@app.get("/api/freesound/load_by_id")
+async def freesound_load_by_id(id: str):
+    """Fetch a Freesound sound by its ID, cache the preview, and return filename + label.
+    Used by the paste-URL feature in the granular UI."""
+    if not re.match(r'^\d+$', id):
+        return JSONResponse({"ok": False, "error": "Invalid sound ID"}, status_code=400)
+    try:
+        loop = asyncio.get_event_loop()
+        def _fetch():
+            url = f"{FREESOUND_BASE}/sounds/{id}/?token={FREESOUND_API_KEY}&fields=name,username,previews"
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                return json.loads(resp.read())
+        data = await loop.run_in_executor(None, _fetch)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"Freesound API error: {e}"}, status_code=502)
 
-@app.get("/api/preset/load")
+    preview_url = (data.get("previews") or {}).get("preview-hq-ogg") or \
+                  (data.get("previews") or {}).get("preview-hq-mp3")
+    if not preview_url:
+        return JSONResponse({"ok": False, "error": "No preview URL found"}, status_code=404)
+
+    name = (data.get("name") or id)[:60]
+    username = data.get("username", "")
+
+    # Reuse the cache endpoint logic
+    _FS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    ext = "ogg" if preview_url.endswith(".ogg") else "mp3"
+    filename = f"{id}.{ext}"
+    cache_path = _FS_CACHE_DIR / filename
+    relative_path = f"freesound_cache/{filename}"
+
+    if not cache_path.exists():
+        try:
+            loop2 = asyncio.get_event_loop()
+            def _dl():
+                urllib.request.urlretrieve(preview_url, str(cache_path))
+            await loop2.run_in_executor(None, _dl)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": f"Download failed: {e}"}, status_code=500)
+
+    # Update cache manifest
+    import json as _json
+    cache_manifest_path = _FS_CACHE_DIR / "manifest.json"
+    cache_manifest = []
+    if cache_manifest_path.exists():
+        try:
+            with open(cache_manifest_path) as f:
+                cache_manifest = _json.load(f)
+        except Exception:
+            pass
+    if not any(str(e.get("id")) == id for e in cache_manifest):
+        cache_manifest.append({"id": id, "name": name, "username": username,
+                                "file": filename, "preview_url": preview_url})
+        with open(cache_manifest_path, "w") as f:
+            _json.dump(cache_manifest, f, indent=2)
+
+    return JSONResponse({"ok": True, "filename": relative_path, "label": f"FS: {name}"})
 async def load_preset_endpoint(path: str):
     try:
         preset = load_preset(path)

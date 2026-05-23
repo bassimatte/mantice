@@ -11,8 +11,10 @@ Supports:
   - Hot-reload (swap preset mid-stream with crossfade)
 """
 
+import json
 import os
 import random
+import urllib.request
 from typing import Optional, Callable
 
 import numpy as np
@@ -21,6 +23,63 @@ from scipy.signal import butter, sosfilt, sosfilt_zi
 from . import config
 from .granular_layer import StreamingGranularLayer
 from .master_processing import MasterProcessor
+
+
+def _ensure_freesound_sample(source_file: str, samples_dir: str) -> str:
+    """Ensure a freesound_cache/ file exists, re-downloading from Freesound API if needed.
+    Returns source_file if available (re-downloaded if necessary), or 'singing_bowl.ogg' as fallback."""
+    import re as _re
+
+    filepath = os.path.join(samples_dir, source_file)
+    if os.path.exists(filepath):
+        return source_file
+
+    if not source_file.startswith("freesound_cache/"):
+        return "singing_bowl.ogg"
+
+    m = _re.match(r'^freesound_cache/(\d+)\.(ogg|mp3)$', source_file)
+    if not m:
+        return "singing_bowl.ogg"
+
+    sound_id = m.group(1)
+    cache_dir = os.path.join(samples_dir, "freesound_cache")
+    preview_url = None
+
+    # Check local cache manifest first
+    manifest_path = os.path.join(cache_dir, "manifest.json")
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path) as f:
+                for entry in json.load(f):
+                    if str(entry.get("id")) == sound_id:
+                        preview_url = entry.get("preview_url")
+                        break
+        except Exception:
+            pass
+
+    # Fall back to Freesound API lookup
+    if not preview_url:
+        api_key = os.environ.get("FREESOUND_API_KEY", "zwjXCAeWopixCMievVQ5q1FLmyh1DBvMf4HJuqNE")
+        try:
+            url = f"https://freesound.org/apiv2/sounds/{sound_id}/?token={api_key}&fields=previews"
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                data = json.loads(resp.read())
+            preview_url = (data.get("previews") or {}).get("preview-hq-ogg") or \
+                          (data.get("previews") or {}).get("preview-hq-mp3")
+        except Exception:
+            return "singing_bowl.ogg"
+
+    if not preview_url:
+        return "singing_bowl.ogg"
+
+    os.makedirs(cache_dir, exist_ok=True)
+    ext = "ogg" if preview_url.endswith(".ogg") else "mp3"
+    dest = os.path.join(cache_dir, f"{sound_id}.{ext}")
+    try:
+        urllib.request.urlretrieve(preview_url, dest)
+        return f"freesound_cache/{sound_id}.{ext}"
+    except Exception:
+        return "singing_bowl.ogg"
 
 # Use lower sample rate for real-time streaming (less CPU)
 SR = config.STREAM_SAMPLE_RATE
@@ -660,7 +719,11 @@ class StreamingDroneEngine:
             # Choose layer type: granular, subtractive, or FM
             if layer_cfg.get("type") == "granular":
                 samples_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "samples")
-                layer = StreamingGranularLayer(layer_cfg, samples_dir, sample_rate=SR)
+                resolved_cfg = dict(layer_cfg)
+                resolved_cfg["source"] = _ensure_freesound_sample(
+                    layer_cfg.get("source", "singing_bowl.ogg"), samples_dir
+                )
+                layer = StreamingGranularLayer(resolved_cfg, samples_dir, sample_rate=SR)
             elif layer_cfg.get("type") == "subtractive":
                 layer = StreamingSubtractiveLayer(layer_cfg)
             else:

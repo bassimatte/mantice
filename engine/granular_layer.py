@@ -26,7 +26,11 @@ class StreamingGranularLayer:
         # Load source sample
         source_file = cfg.get("source", "singing_bowl.ogg")
         filepath = os.path.join(samples_dir, source_file)
-        audio, sr = sf.read(filepath, dtype='float32')
+        try:
+            audio, sr = sf.read(filepath, dtype='float32')
+        except Exception:
+            filepath = os.path.join(samples_dir, "singing_bowl.ogg")
+            audio, sr = sf.read(filepath, dtype='float32')
 
         # Convert to mono if stereo
         if audio.ndim > 1:
