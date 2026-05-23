@@ -2980,10 +2980,10 @@ function showLayerParams(layer) {
         fsStatus.textContent = `${data.results.length} results (CC0):`;
         fsResults.innerHTML = data.results.map(r => `
           <div data-fs-id="${r.id}" style="display:flex; align-items:center; gap:4px; padding:2px 4px; background:var(--bg); border-radius:3px; font-size:9px; color:var(--text-lcd);">
+            <button class="fs-preview-btn" data-url="${r.preview_url}" style="background:transparent; border:1px solid var(--border); color:var(--accent); padding:1px 4px; font-size:9px; cursor:pointer; border-radius:2px; flex-shrink:0;" title="Preview">▶</button>
             <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.name} by ${r.username}">${r.name}</span>
             <a href="https://freesound.org/sounds/${r.id}/" target="_blank" rel="noopener" style="color:var(--muted); flex-shrink:0; text-decoration:none;" title="Open on Freesound">🔗</a>
             <span style="color:var(--muted); flex-shrink:0;">${r.duration}s</span>
-            <button class="fs-preview-btn" data-url="${r.preview_url}" style="background:transparent; border:1px solid var(--border); color:var(--accent); padding:1px 4px; font-size:9px; cursor:pointer; border-radius:2px;" title="Preview">▶</button>
             <button class="fs-use-btn" data-id="${r.id}" data-url="${r.preview_url}" data-name="${r.name.replace(/"/g,'')}" data-user="${r.username}" style="background:var(--accent); border:none; color:#000; padding:1px 5px; font-size:9px; cursor:pointer; border-radius:2px; font-weight:bold;" title="Use in layer">✓</button>
           </div>`).join('');
 
