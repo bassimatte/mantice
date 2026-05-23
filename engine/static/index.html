@@ -1845,6 +1845,11 @@ python batch_render_freesound.py --metadata-only</pre>
       <input type="range" id="comp-makeup" min="-6" max="12" step="0.5" value="0" style="flex:1">
       <span class="value" id="comp-makeup-val">0.0 dB</span>
     </div>
+    <div class="param-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px">
+      <label>Output Gain</label>
+      <input type="range" id="output-gain" min="-6" max="12" step="0.5" value="0" style="flex:1">
+      <span class="value" id="output-gain-val">0.0 dB</span>
+    </div>
   </div>
 </main>
 
@@ -2238,6 +2243,8 @@ function applyParamsToUI(p) {
   $('comp-knee-val').textContent = (+(m.comp_knee_db ?? 0)).toFixed(1) + ' dB';
   $('comp-makeup').value = m.comp_makeup_db ?? 0;
   $('comp-makeup-val').textContent = (+(m.comp_makeup_db ?? 0)).toFixed(1) + ' dB';
+  $('output-gain').value = m.output_gain_db ?? 0;
+  $('output-gain-val').textContent = (+(m.output_gain_db ?? 0)).toFixed(1) + ' dB';
 
   // Layers
   buildLayerTabs(p.layers);
@@ -3313,6 +3320,7 @@ function collectParams() {
     comp_release_ms:   parseFloat($('comp-release').value),
     comp_knee_db:      parseFloat($('comp-knee').value),
     comp_makeup_db:    parseFloat($('comp-makeup').value),
+    output_gain_db:    parseFloat($('output-gain').value),
   };
 
   return p;
@@ -4827,6 +4835,7 @@ function init() {
   linkSlider('comp-release',   'comp-release-val',   v => v + ' ms');
   linkSlider('comp-knee',      'comp-knee-val',      v => (+v).toFixed(1) + ' dB');
   linkSlider('comp-makeup',    'comp-makeup-val',    v => (+v).toFixed(1) + ' dB');
+  linkSlider('output-gain',    'output-gain-val',    v => (+v).toFixed(1) + ' dB');
 
   // Keyboard shortcuts
   initKeyboardShortcuts();

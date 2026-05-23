@@ -188,6 +188,14 @@ def apply_master_offline(audio: np.ndarray, sr: float, master_cfg: dict[str, Any
         processed[:, 1] = sosfilt(sos, processed[:, 1])
 
     processed, _ = _compress_stereo(processed, sr, (master_cfg or {}).get("comp", {}), 0.0)
+
+    output_gain = 10 ** (float((master_cfg or {}).get("output_gain_db", 0.0)) / 20.0)
+    if output_gain != 1.0:
+        processed *= output_gain
+        peak = np.max(np.abs(processed))
+        if peak > 0.99:
+            processed *= 0.99 / peak
+
     return processed.astype(out_dtype, copy=False)
 
 
@@ -204,6 +212,7 @@ class MasterProcessor:
             })
         self._comp_cfg = deepcopy((self.master_cfg or {}).get("comp", {}) or {})
         self._comp_env = 0.0
+        self._output_gain = 10 ** (float(self.master_cfg.get("output_gain_db", 0.0)) / 20.0)
 
     def process(self, chunk: np.ndarray) -> np.ndarray:
         processed, out_dtype = _as_stereo(chunk)
@@ -213,6 +222,14 @@ class MasterProcessor:
             processed[:, 1], stage["zi_r"] = sosfilt(stage["sos"], processed[:, 1], zi=stage["zi_r"])
 
         processed, self._comp_env = _compress_stereo(processed, self.sr, self._comp_cfg, self._comp_env)
+
+        # Output gain boost (user-controlled) + hard clip at 0.99 to prevent distortion
+        if self._output_gain != 1.0:
+            processed *= self._output_gain
+            peak = np.max(np.abs(processed))
+            if peak > 0.99:
+                processed *= 0.99 / peak
+
         return processed.astype(out_dtype, copy=False)
 
     def copy_state(self) -> "MasterProcessor":
