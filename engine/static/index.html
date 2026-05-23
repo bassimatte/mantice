@@ -1140,6 +1140,14 @@ main {
       <div class="settings-row">
         <button class="settings-info-btn" id="btn-docs-settings">ⓘ Info &amp; Docs</button>
       </div>
+      <div class="settings-divider"></div>
+      <div class="settings-row" style="justify-content:space-between;">
+        <span class="settings-label" style="font-size:10px;">Code</span>
+        <a id="app-version-link" href="https://github.com/bassimatte/mantice"
+           target="_blank" rel="noopener"
+           style="font-size:10px; color:var(--text-dim); text-decoration:none;
+                  font-family:monospace; letter-spacing:0.05em;">…</a>
+      </div>
     </div>
   </div>
 </header>
@@ -4992,6 +5000,17 @@ function setProgress(pct) {
 // ── Init ────────────────────────────────────────────────────────────────────
 function init() {
   loadPresetList();
+
+  // Fetch running commit SHA and update the version link in settings
+  api('/api/version').then(v => {
+    if (!v || !v.sha) return;
+    const el = $('app-version-link');
+    if (el) {
+      el.textContent = v.sha;
+      el.href = `${v.repo}/commit/${v.sha}`;
+      el.title = `GitHub commit ${v.sha}`;
+    }
+  }).catch(() => {});
 
   // Transport buttons
   $('btn-preview').addEventListener('click', doPreview);

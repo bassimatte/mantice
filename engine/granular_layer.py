@@ -13,10 +13,11 @@ New features:
 """
 
 import os
+from math import gcd as _gcd
 
-import librosa
 import numpy as np
 import soundfile as sf
+from scipy.signal import resample_poly as _resample_poly
 
 from . import config
 
@@ -72,9 +73,9 @@ class StreamingGranularLayer:
         if audio.ndim > 1:
             audio = audio.mean(axis=1)
         if sr != self._sr:
-            # Use librosa's polyphase resampler (applies anti-aliasing filter)
-            # so high-SR samples (48/96kHz from Freesound) don't alias.
-            audio = librosa.resample(audio, orig_sr=sr, target_sr=self._sr)
+            # Anti-aliased polyphase resampling (scipy, no extra deps needed)
+            g = _gcd(int(sr), int(self._sr))
+            audio = _resample_poly(audio, self._sr // g, sr // g).astype(np.float32)
 
         self.source = audio.astype(np.float64)
         self.source_len = len(self.source)
