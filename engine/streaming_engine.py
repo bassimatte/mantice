@@ -20,6 +20,15 @@ from typing import Optional, Callable
 import numpy as np
 from scipy.signal import butter, sosfilt, sosfilt_zi
 
+# Formant frequencies (Hz) and bandwidths (Hz) for the five primary vowels
+VOWEL_FORMANTS: dict = {
+    'a': [(800, 120), (1200, 180), (2500, 280)],
+    'e': [(400,  80), (2000, 200), (2800, 300)],
+    'i': [(270,  60), (2300, 200), (3000, 300)],
+    'o': [(570,  80), ( 850, 120), (2500, 280)],
+    'u': [(380,  70), ( 950, 100), (2200, 250)],
+}
+
 from . import config
 from .granular_layer import StreamingGranularLayer
 from .master_processing import MasterProcessor
@@ -581,22 +590,105 @@ class StreamingChorus:
 
 
 class StreamingLayerFilter:
-    """Per-layer biquad filter with optional LFO modulation on cutoff."""
+    """Per-layer filter: biquad (LP/HP/BP) with LFO, feedforward comb, or vowel formant."""
 
     def __init__(self, filter_type: str, cutoff: float, resonance: float,
-                 lfo_rate: float, lfo_depth: float, lfo_shape: str):
+                 lfo_rate: float, lfo_depth: float, lfo_shape: str, vowel: str = 'a'):
         self.filter_type = filter_type
         self.base_cutoff = float(cutoff)
         self.resonance = float(resonance)
         self.lfo_rate = float(lfo_rate)
         self.lfo_depth = float(lfo_depth)
         self.lfo_shape = lfo_shape
+        self.vowel = vowel
         self.lfo_phase = 0.0
         self._last_random = 0.0
         self._sos = None
         self._zi_L = None
         self._zi_R = None
-        self._build_filter(self.base_cutoff)
+        # Comb filter state
+        self._comb_buf_L: np.ndarray = np.zeros(1, dtype=np.float32)
+        self._comb_buf_R: np.ndarray = np.zeros(1, dtype=np.float32)
+        self._comb_delay: int = 1
+        # Formant filter state
+        self._formant_sos_list: list = []
+        self._formant_zi_list: list = []
+
+        if filter_type == 'comb':
+            self._init_comb(self.base_cutoff)
+        elif filter_type == 'formant':
+            self._init_formant(self.vowel)
+        else:
+            self._build_filter(self.base_cutoff)
+
+    # ── Comb filter ──────────────────────────────────────────────────────────
+
+    def _init_comb(self, cutoff: float) -> None:
+        """Feedforward comb: y[n] = x[n] + g * x[n - D], D = SR / cutoff."""
+        freq = float(np.clip(cutoff, 20.0, SR * 0.49))
+        self._comb_delay = max(1, int(round(SR / freq)))
+        self._comb_buf_L = np.zeros(self._comb_delay, dtype=np.float32)
+        self._comb_buf_R = np.zeros(self._comb_delay, dtype=np.float32)
+
+    def _next_chunk_comb(self, stereo: np.ndarray) -> np.ndarray:
+        n = len(stereo)
+        D = self._comb_delay
+        g = float(np.clip(self.resonance / 8.0 * 0.97, 0.0, 0.97))
+        # Extend input with the tail of the previous chunk to get delayed signal
+        ext_L = np.concatenate([self._comb_buf_L, stereo[:, 0]])
+        ext_R = np.concatenate([self._comb_buf_R, stereo[:, 1]])
+        out_L = (stereo[:, 0] + g * ext_L[:n]).astype(np.float32)
+        out_R = (stereo[:, 1] + g * ext_R[:n]).astype(np.float32)
+        # Retain last D input samples for next chunk
+        self._comb_buf_L = ext_L[-D:].copy()
+        self._comb_buf_R = ext_R[-D:].copy()
+        return np.stack([out_L, out_R], axis=1)
+
+    # ── Formant filter ───────────────────────────────────────────────────────
+
+    def _init_formant(self, vowel: str) -> None:
+        """Three parallel bandpass filters at vowel formant frequencies."""
+        formants = VOWEL_FORMANTS.get(vowel, VOWEL_FORMANTS['a'])
+        nyq = SR * 0.5
+        self._formant_sos_list = []
+        self._formant_zi_list = []
+        for f0, bw in formants:
+            lo = max(f0 - bw / 2.0, 20.0) / nyq
+            hi = min(f0 + bw / 2.0, nyq * 0.99) / nyq
+            lo = min(lo, hi - 0.01)
+            try:
+                sos = butter(2, [lo, hi], btype='band', output='sos')
+                zi = sosfilt_zi(sos) * 0.0
+                self._formant_sos_list.append(sos)
+                self._formant_zi_list.append([zi.copy(), zi.copy()])
+            except Exception:
+                pass
+
+    def _next_chunk_formant(self, stereo: np.ndarray) -> np.ndarray:
+        if not self._formant_sos_list:
+            return stereo
+        n = len(stereo)
+        wet = float(np.clip(self.resonance / 8.0, 0.0, 1.0))
+        if wet < 0.001:
+            return stereo
+        wet_L = np.zeros(n, dtype=np.float32)
+        wet_R = np.zeros(n, dtype=np.float32)
+        for i, sos in enumerate(self._formant_sos_list):
+            zi_L, zi_R = self._formant_zi_list[i]
+            filt_L, new_zi_L = sosfilt(sos, stereo[:, 0], zi=zi_L)
+            filt_R, new_zi_R = sosfilt(sos, stereo[:, 1], zi=zi_R)
+            wet_L += filt_L.astype(np.float32)
+            wet_R += filt_R.astype(np.float32)
+            self._formant_zi_list[i] = [new_zi_L, new_zi_R]
+        k = len(self._formant_sos_list)
+        wet_L /= k
+        wet_R /= k
+        out = stereo.copy()
+        out[:, 0] = stereo[:, 0] * (1.0 - wet) + wet_L * wet
+        out[:, 1] = stereo[:, 1] * (1.0 - wet) + wet_R * wet
+        return out.astype(np.float32)
+
+    # ── Biquad helper ────────────────────────────────────────────────────────
 
     def _build_filter(self, cutoff: float) -> None:
         nyq = SR * 0.5
@@ -641,6 +733,10 @@ class StreamingLayerFilter:
         return float(val)
 
     def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+        if self.filter_type == "comb":
+            return self._next_chunk_comb(stereo)
+        if self.filter_type == "formant":
+            return self._next_chunk_formant(stereo)
         if self.filter_type == "off" or self._sos is None:
             return stereo
         n = len(stereo)
@@ -657,8 +753,85 @@ class StreamingLayerFilter:
         filtered_R, self._zi_R = sosfilt(self._sos, stereo[:, 1], zi=self._zi_R)
         return np.stack([filtered_L, filtered_R], axis=1).astype(np.float32)
 
+
+# ── Flanger ───────────────────────────────────────────────────────────────────
 
-# ── Distortion ────────────────────────────────────────────────────────────────
+class StreamingFlanger:
+    """Global stereo flanger: short LFO-modulated delay line on the full mix."""
+
+    def __init__(self, rate: float = 0.25, depth: float = 0.5,
+                 feedback: float = 0.4, wet: float = 0.0):
+        self.rate = float(rate)         # LFO Hz (0.01–2.0)
+        self.depth = float(depth)       # modulation depth (0–1)
+        self.feedback = float(feedback) # feedback amount (0–0.95)
+        self.wet = float(wet)           # dry/wet mix (0–1)
+        self.lfo_phase = 0.0
+
+        # Delay range: 0.5 ms base, up to 10 ms of LFO modulation
+        self._min_delay = max(1, int(0.0005 * SR))
+        self._max_mod   = int(0.010 * SR)
+        buf_size = self._min_delay + self._max_mod + 4096
+        self._buf_L  = np.zeros(buf_size, dtype=np.float32)
+        self._buf_R  = np.zeros(buf_size, dtype=np.float32)
+        self._write  = 0
+        self._buf_sz = buf_size
+        self._fb_L   = 0.0  # feedback state from last output sample
+        self._fb_R   = 0.0
+
+    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+        if self.wet < 0.001:
+            return stereo
+        n = len(stereo)
+        fb = float(np.clip(self.feedback, 0.0, 0.95))
+
+        # Write dry + single-sample feedback into the delay buffer
+        write_L = stereo[:, 0].copy()
+        write_R = stereo[:, 1].copy()
+        write_L[0] += fb * self._fb_L
+        write_R[0] += fb * self._fb_R
+
+        end_pos = self._write + n
+        if end_pos <= self._buf_sz:
+            self._buf_L[self._write:end_pos] = write_L
+            self._buf_R[self._write:end_pos] = write_R
+        else:
+            first = self._buf_sz - self._write
+            self._buf_L[self._write:] = write_L[:first]
+            self._buf_R[self._write:] = write_R[:first]
+            self._buf_L[:n - first]   = write_L[first:]
+            self._buf_R[:n - first]   = write_R[first:]
+
+        # LFO sweep
+        lfo_inc  = 2.0 * np.pi * self.rate / SR
+        sample_t = np.arange(n, dtype=np.float64)
+        phases   = self.lfo_phase + lfo_inc * sample_t
+        lfo      = np.sin(phases)
+
+        # Modulated delay in samples
+        center  = self._min_delay + self._max_mod * 0.5
+        delay_s = center + lfo * (self._max_mod * 0.5 * self.depth)
+
+        # Linear-interpolated read from circular buffer
+        read_pos = (self._write + sample_t - delay_s) % self._buf_sz
+        idx0 = np.floor(read_pos).astype(np.int64) % self._buf_sz
+        idx1 = (idx0 + 1) % self._buf_sz
+        frac = (read_pos - np.floor(read_pos)).astype(np.float32)
+
+        wet_L = (self._buf_L[idx0] * (1.0 - frac) + self._buf_L[idx1] * frac).astype(np.float32)
+        wet_R = (self._buf_R[idx0] * (1.0 - frac) + self._buf_R[idx1] * frac).astype(np.float32)
+
+        self._fb_L   = float(wet_L[-1])
+        self._fb_R   = float(wet_R[-1])
+        self.lfo_phase = float((phases[-1] + lfo_inc) % (2.0 * np.pi))
+        self._write  = end_pos % self._buf_sz
+
+        out = stereo.copy()
+        out[:, 0] = stereo[:, 0] * (1.0 - self.wet) + wet_L * self.wet
+        out[:, 1] = stereo[:, 1] * (1.0 - self.wet) + wet_R * self.wet
+        return out.astype(np.float32)
+
+
+
 
 class LayerDistortion:
     """Per-layer waveshaper distortion (soft-clip tanh or hard-clip)."""
@@ -752,6 +925,7 @@ class StreamingDroneEngine:
                 lfo_rate=float(layer_cfg.get("filter_lfo_rate", 0.1)),
                 lfo_depth=float(layer_cfg.get("filter_lfo_depth", 0.0)),
                 lfo_shape=layer_cfg.get("filter_lfo_shape", "sine"),
+                vowel=layer_cfg.get("filter_vowel", "a"),
             )
             self.layers.append(layer)
             self.panners.append(panner)
@@ -777,6 +951,15 @@ class StreamingDroneEngine:
         self._dc_sos = butter(4, max(18 / nyquist, 0.001), btype="high", output="sos")
         self._dc_zi_L = sosfilt_zi(self._dc_sos) * 0.0
         self._dc_zi_R = sosfilt_zi(self._dc_sos) * 0.0
+
+        # Global flanger
+        flanger_cfg = preset.get("flanger") or {}
+        self._flanger = StreamingFlanger(
+            rate=float(flanger_cfg.get("rate", 0.25)),
+            depth=float(flanger_cfg.get("depth", 0.5)),
+            feedback=float(flanger_cfg.get("feedback", 0.4)),
+            wet=float(flanger_cfg.get("wet", 0.0)),
+        )
 
     def next_chunk(self, n_samples: Optional[int] = None) -> np.ndarray:
         """Generate the next chunk of stereo audio (n_samples, 2)."""
@@ -832,6 +1015,9 @@ class StreamingDroneEngine:
             self._crossfade_remaining -= fade_len
             if self._crossfade_remaining <= 0:
                 self._old_engine = None
+
+        # Global flanger (applied after crossfade so it acts on the final mix)
+        stereo = self._flanger.next_chunk(stereo)
 
         return stereo
 
