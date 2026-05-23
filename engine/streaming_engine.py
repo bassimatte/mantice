@@ -346,8 +346,17 @@ class StreamingSubtractiveLayer:
             for _ in range(n_voices)
         ], dtype=np.float32)
 
-    def _waveform(self, phases: np.ndarray) -> np.ndarray:
-        """Generate waveform samples from phase array (0..2pi)."""
+    def _waveform(self, phases: np.ndarray, freqs_hz: np.ndarray) -> np.ndarray:
+        """Generate waveform samples from phase array (0..2pi).
+
+        For the saw wave, a 2nd-order PolyBLEP correction is applied to
+        band-limit the discontinuity at the phase reset.  This suppresses
+        the aliasing step that would otherwise be amplified by distortion
+        and appear as audible clicks.
+
+        freqs_hz: (n_voices,) — needed to compute the per-voice phase
+        increment (dt = f/SR) used by the PolyBLEP kernel.
+        """
         p = phases % (2 * np.pi)
         if self.waveform == "square":
             return np.where(p < np.pi, np.float32(1.0), np.float32(-1.0)).astype(np.float32)
@@ -358,7 +367,28 @@ class StreamingSubtractiveLayer:
                 * np.float32(2.0)
                 - np.float32(1.0)
             ).astype(np.float32)
-        return (p / np.pi - np.float32(1.0)).astype(np.float32)
+
+        # ── Band-limited sawtooth with PolyBLEP correction ────────────────
+        # t ∈ [0, 1) is the normalised phase; naive saw = 2t − 1.
+        # PolyBLEP subtracts a small polynomial at each phase-reset boundary
+        # so the waveform smoothly approaches 0 on both sides of the jump,
+        # reducing the discontinuity from amplitude 2 to ~0.
+        t  = p / (2 * np.pi)                              # (n_voices, n_samples)
+        dt = np.clip(freqs_hz / SR, 1e-6, 0.5)[:, None]  # (n_voices, 1)
+        saw = 2.0 * t - 1.0
+
+        # Region just AFTER the reset (t < dt): correction goes −1 → 0
+        low  = t < dt
+        t_lo = t / dt                                      # normalised to [0, 1)
+        blep_lo = t_lo + t_lo - t_lo * t_lo - 1.0         # = 2t−t²−1
+
+        # Region just BEFORE the reset (t > 1−dt): correction goes 0 → +1
+        high = t > (1.0 - dt)
+        t_hi = (t - 1.0) / dt                             # normalised to (−1, 0]
+        blep_hi = t_hi * t_hi + t_hi + t_hi + 1.0        # = t²+2t+1 = (t+1)²
+
+        correction = np.where(low, blep_lo, np.where(high, blep_hi, 0.0))
+        return (saw - correction).astype(np.float32)
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
         dt = np.float32(1.0 / SR)
@@ -371,13 +401,13 @@ class StreamingSubtractiveLayer:
         inst_freq1 = self.osc1_freqs[:, None] * (1.0 + drift)
         phase_inc1 = 2 * np.pi * inst_freq1 * dt
         osc1_phases = self.osc1_phases[:, None] + np.cumsum(phase_inc1, axis=1)
-        sig1 = self._waveform(osc1_phases)
+        sig1 = self._waveform(osc1_phases, self.osc1_freqs)
         self.osc1_phases = osc1_phases[:, -1] % (2 * np.pi)
 
         inst_freq2 = self.osc2_freqs[:, None] * (1.0 + drift)
         phase_inc2 = 2 * np.pi * inst_freq2 * dt
         osc2_phases = self.osc2_phases[:, None] + np.cumsum(phase_inc2, axis=1)
-        sig2 = self._waveform(osc2_phases)
+        sig2 = self._waveform(osc2_phases, self.osc2_freqs)
         self.osc2_phases = osc2_phases[:, -1] % (2 * np.pi)
 
         combined = np.dot(self.amplitudes, (sig1 + sig2) * 0.5)
