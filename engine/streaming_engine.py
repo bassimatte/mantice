@@ -918,11 +918,11 @@ class StreamingFDNReverb:
         self.buf       = np.zeros((self._N_LINES, self.max_d), dtype=np.float64)
         self.write_ptr = 0
 
-        # Pre-delay FIFO: stores the last (pd + CHUNK_SIZE) samples.
-        # fdn_in = oldest n samples; new chunk appended at end.
-        # This is always correct regardless of pd vs chunk size relationship.
-        _chunk = 2048
-        self._pre_fifo = np.zeros(self._pre_delay_samps + _chunk, dtype=np.float64)
+        # Pre-delay FIFO — sized generously so any chunk ≤ _MAX_CHUNK works.
+        # The FIFO stores the last (pd + _MAX_CHUNK) samples; fdn_in is the
+        # oldest n samples (i.e. delayed by pd).
+        _MAX_CHUNK = 8192
+        self._pre_fifo = np.zeros(self._pre_delay_samps + _MAX_CHUNK, dtype=np.float64)
 
         # Per-line LFO state
         rng = np.random.default_rng(seed=42)
@@ -969,18 +969,15 @@ class StreamingFDNReverb:
         lfo_off = (np.sin(self._lfo_phases) * self._lfo_depth_max
                    * self.mod_depth).astype(np.int32)
 
-        # ── Read from all 8 delay lines (history only, no within-chunk fb) ─
+        # ── Read from all 8 delay lines using vectorised fancy indexing ─────
+        # Robust for any n ≤ max_d; no branch needed for wrap-around.
         v = np.empty((self._N_LINES, n), dtype=np.float64)
+        arange_n = np.arange(n)
         for j in range(self._N_LINES):
             d_j = int(self.delays[j]) + int(lfo_off[j])
             d_j = max(n + 1, min(d_j, self.max_d - 1))
             rs  = (self.write_ptr - d_j) % self.max_d
-            if rs + n <= self.max_d:
-                v[j] = self.buf[j, rs:rs+n]
-            else:
-                t2 = self.max_d - rs
-                v[j, :t2]  = self.buf[j, rs:]
-                v[j, t2:]  = self.buf[j, :n-t2]
+            v[j] = self.buf[j].take((rs + arange_n) % self.max_d)
 
         # ── Hadamard mix + input injection ───────────────────────────────
         u = self._H8d @ v                          # (8, n) vectorised

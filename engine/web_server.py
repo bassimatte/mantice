@@ -748,7 +748,7 @@ async def render_endpoint(request: Request):
             engine = StreamingDroneEngine(preset, seed=seed)
             sr = config.STREAM_SAMPLE_RATE
             total_samples = int(preset["duration"] * sr)
-            chunk_size = 8192
+            chunk_size = 2048  # must match engine's FDN reverb buffer size
             chunks = []
             remaining = total_samples
             while remaining > 0:
