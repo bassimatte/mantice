@@ -441,16 +441,17 @@ async def serve_sample(filepath: str):
 
 
 @app.get("/api/freesound/search")
-async def freesound_search(q: str, page_size: int = 8):
+async def freesound_search(q: str, page_size: int = 10):
     """Proxy Freesound search — returns CC0-licensed sounds matching the query."""
     import json as _json
-    filt = urllib.request.quote('license:"Creative Commons 0" duration:[2 TO 30]')
+    # Only filter by CC0 license — no duration limit (previews are always ~30s clips regardless)
+    filt = urllib.request.quote('license:"Creative Commons 0"')
     url = (f"{FREESOUND_BASE}/search/text/"
            f"?query={urllib.request.quote(q)}"
            f"&filter={filt}"
            f"&sort=rating_desc"
            f"&fields=id,name,duration,previews,username,avg_rating"
-           f"&page_size={min(page_size, 12)}"
+           f"&page_size={min(page_size, 15)}"
            f"&token={FREESOUND_API_KEY}")
     try:
         loop = asyncio.get_event_loop()

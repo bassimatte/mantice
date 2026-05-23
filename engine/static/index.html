@@ -2940,9 +2940,11 @@ function showLayerParams(layer) {
       fsStatus.textContent = 'Searching…';
       fsResults.innerHTML = '';
       try {
-        const res = await fetch(apiUrl(`/api/freesound/search?q=${encodeURIComponent(q)}&page_size=8`));
+        const res = await fetch(apiUrl(`/api/freesound/search?q=${encodeURIComponent(q)}&page_size=10`));
+        if (!res.ok) { fsStatus.textContent = `Server error ${res.status}`; return; }
         const data = await res.json();
-        if (!data.ok || !data.results?.length) { fsStatus.textContent = data.error || 'No results.'; return; }
+        if (!data.ok) { fsStatus.textContent = `Error: ${data.error || 'unknown'}`; return; }
+        if (!data.results?.length) { fsStatus.textContent = 'No CC0 results.'; return; }
         fsStatus.textContent = `${data.results.length} results (CC0):`;
         fsResults.innerHTML = data.results.map(r => `
           <div data-fs-id="${r.id}" style="display:flex; align-items:center; gap:4px; padding:2px 4px; background:var(--bg); border-radius:3px; font-size:9px; color:var(--text-lcd);">
