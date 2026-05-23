@@ -1171,14 +1171,14 @@ async def ws_preview(websocket: WebSocket):
 
 async def _stream_audio(websocket: WebSocket, engine: StreamingDroneEngine, stream_id: str):
     """Background task that generates and sends audio chunks."""
-    chunk_size = 8192  # ~372ms at 22050Hz — good vectorization efficiency
+    chunk_size = 2048  # ~93ms at 22050Hz — small chunks for low-latency reload
     loop = asyncio.get_event_loop()
     sample_rate = config.STREAM_SAMPLE_RATE
     chunk_duration = chunk_size / sample_rate  # real-time duration of one chunk
     start_time = asyncio.get_event_loop().time()
     chunks_sent = 0
     # Allow buffering a few chunks ahead (pre-buffer), then pace to real-time
-    max_ahead = 8  # chunks allowed ahead of real-time
+    max_ahead = 4  # chunks allowed ahead of real-time
 
     try:
         while _active_streams.get(stream_id, False):
