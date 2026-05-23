@@ -185,6 +185,10 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "waveform": layer.get("waveform", "saw"),
                 "detune_cents": layer.get("detune_cents", 8.0),
                 "sub_mix": layer.get("sub_mix", 0.3),
+                "distortion_drive": layer.get("distortion_drive", 0.0),
+                "distortion_type": layer.get("distortion_type", "soft"),
+                "position_mode": layer.get("position_mode", "linear"),
+                "position_chaos": layer.get("position_chaos", 0.3),
             })
 
     binaural = preset.get("binaural") or {}
@@ -301,8 +305,11 @@ def _ui_params_to_preset(params: dict) -> dict:
             "waveform": l.get("waveform", "saw"),
             "detune_cents": float(l.get("detune_cents", 8.0)),
             "sub_mix": float(l.get("sub_mix", 0.3)),
+            "distortion_drive": float(l.get("distortion_drive", 0.0)),
+            "distortion_type": l.get("distortion_type", "soft"),
+            "position_mode": l.get("position_mode", "linear"),
+            "position_chaos": float(l.get("position_chaos", 0.3)),
         })
-
     binaural = params.get("binaural", {})
     reverb = params.get("reverb", {})
     earth = params.get("earth", {})
@@ -539,9 +546,15 @@ async def generate_endpoint(request: Request):
     mood = body.get("mood")
     seed = body.get("seed")
     allowed_types = body.get("allowed_types") or ["fm", "subtractive"]
+    harmonic_mode = bool(body.get("harmonic_mode", False))
+    harmonic_key = str(body.get("harmonic_key", "C"))
+    harmonic_scale = str(body.get("harmonic_scale", "major"))
     try:
         import yaml as _yaml, tempfile
-        preset_data = generate_preset(mood=mood, seed=seed, allowed_types=allowed_types)
+        preset_data = generate_preset(mood=mood, seed=seed, allowed_types=allowed_types,
+                                      harmonic_mode=harmonic_mode,
+                                      harmonic_key=harmonic_key,
+                                      harmonic_scale=harmonic_scale)
         with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False, mode='w', encoding='utf-8') as f:
             _yaml.dump(preset_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
             tmp_path = Path(f.name)

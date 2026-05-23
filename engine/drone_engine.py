@@ -158,6 +158,17 @@ class DroneLayer:
             except Exception:
                 pass
 
+        # --- Distortion -----------------------------------------------------------
+        def _apply_distortion(audio: np.ndarray) -> np.ndarray:
+            drive = float(cfg.get("distortion_drive", 0.0))
+            if drive < 0.01:
+                return audio
+            d = 1.0 + drive * 4.0
+            dist_type = cfg.get("distortion_type", "soft")
+            if dist_type == "hard":
+                return np.clip(audio * d, -1.0, 1.0) / d
+            return np.tanh(audio * d) / np.tanh(d)
+
         # --- Spectral band placement -------------------------------------------
         band = cfg.get("band", "mid")
         if binaural_detune:
@@ -171,6 +182,9 @@ class DroneLayer:
                 stereo_layer[:, 0] = Filters.bandpass(stereo_layer[:, 0], 1500, 7000)
                 stereo_layer[:, 1] = Filters.bandpass(stereo_layer[:, 1], 1500, 7000)
             _apply_layer_filter()
+            if binaural_detune:
+                stereo_layer[:, 0] = _apply_distortion(stereo_layer[:, 0])
+                stereo_layer[:, 1] = _apply_distortion(stereo_layer[:, 1])
             return stereo_layer
         else:
             if band == "sub":
@@ -180,7 +194,7 @@ class DroneLayer:
             elif band == "high":
                 layer = Filters.bandpass(layer, 1500, 7000)
             _apply_layer_filter()
-            return layer
+            return _apply_distortion(layer)
 
 
 # ── Engine ────────────────────────────────────────────────────────────────────

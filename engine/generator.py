@@ -164,6 +164,40 @@ def _clamp(val, lo, hi):
     return max(lo, min(hi, val))
 
 
+# ── Scale helpers ──────────────────────────────────────────────────────────────
+
+_CHROMATIC_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+_SCALE_INTERVALS = {
+    'major':            [0, 2, 4, 5, 7, 9, 11],
+    'minor':            [0, 2, 3, 5, 7, 8, 10],
+    'pentatonic_major': [0, 2, 4, 7, 9],
+    'pentatonic_minor': [0, 3, 5, 7, 10],
+    'dorian':           [0, 2, 3, 5, 7, 9, 10],
+    'phrygian':         [0, 1, 3, 5, 7, 8, 10],
+    'lydian':           [0, 2, 4, 6, 7, 9, 11],
+    'mixolydian':       [0, 2, 4, 5, 7, 9, 10],
+    'chromatic':        list(range(12)),
+}
+
+
+def _snap_to_scale(freq: float, key: str = 'C', scale: str = 'major') -> float:
+    """Snap freq to the nearest note in the given key/scale."""
+    key_idx = _CHROMATIC_NOTES.index(key) if key in _CHROMATIC_NOTES else 0
+    intervals = _SCALE_INTERVALS.get(scale, _SCALE_INTERVALS['major'])
+    scale_semitones = set((key_idx + i) % 12 for i in intervals)
+
+    midi = 69.0 + 12.0 * math.log2(max(freq, 1.0) / 440.0)
+    midi_round = round(midi)
+    # Walk up/down from midi_round until we hit a scale note
+    for delta in range(13):
+        for sign in (0, 1, -1):
+            candidate = midi_round + (delta * sign if sign else delta)
+            if candidate % 12 in scale_semitones:
+                return 440.0 * (2.0 ** ((candidate - 69) / 12.0))
+    return freq  # fallback (should never reach here)
+
+
 def _layer_name_for_freq(root_hz: float, index: int) -> str:
     """Generate a descriptive layer name based on frequency range."""
     _DESCRIPTORS = {
@@ -232,7 +266,10 @@ def _cap_preset_cost(preset: dict, max_cost: float = 500) -> None:
 # ── Generator ─────────────────────────────────────────────────────────────────
 
 def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
-                    allowed_types: Optional[List[str]] = None) -> dict:
+                    allowed_types: Optional[List[str]] = None,
+                    harmonic_mode: bool = False,
+                    harmonic_key: str = 'C',
+                    harmonic_scale: str = 'major') -> dict:
     """
     Generate a fully random preset, optionally biased by mood.
     allowed_types: list of layer types to allow, e.g. ["fm", "subtractive", "granular"].
@@ -269,7 +306,10 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
     layers = []
     for i in range(n_layers):
         root = random.uniform(*profile["root_range"])
-        root = 440 * (2 ** (round(12 * math.log2(root / 440)) / 12))
+        if harmonic_mode:
+            root = _snap_to_scale(root, harmonic_key, harmonic_scale)
+        else:
+            root = 440 * (2 ** (round(12 * math.log2(root / 440)) / 12))
 
         layer_type = random.choice(allowed_types)
 

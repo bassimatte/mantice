@@ -49,8 +49,12 @@ class StreamingGranularLayer:
         self.position = float(cfg.get("position", 0.5))
         self.scatter = float(cfg.get("scatter", 0.5))
         self.envelope = cfg.get("envelope", "hann")
+        # Chaotic position mode: "linear" scans normally, "random" drifts
+        self.position_mode = cfg.get("position_mode", "linear")
+        self.position_chaos = float(cfg.get("position_chaos", 0.3))
 
         # State
+        self._position_walk = self.position  # random walk state
         self._sample_counter = 0
         self._next_grain_at = 0
         self._active_grains = []
@@ -70,7 +74,15 @@ class StreamingGranularLayer:
         grain_samples = int(self.grain_size_ms * self._sr / 1000)
         grain_samples = max(64, min(grain_samples, self.source_len - 1))
 
-        center = int(self.position * self.source_len)
+        # Chaotic mode: position drifts via random walk each grain
+        if self.position_mode == "random":
+            step = np.random.normal(0, self.position_chaos * 0.04)
+            self._position_walk = float(np.clip(self._position_walk + step, 0.05, 0.95))
+            effective_position = self._position_walk
+        else:
+            effective_position = self.position
+
+        center = int(effective_position * self.source_len)
         scatter_range = int(self.scatter * self.source_len * 0.5)
         offset = center + int(np.random.uniform(-scatter_range, scatter_range))
         offset = max(0, min(offset, self.source_len - grain_samples))

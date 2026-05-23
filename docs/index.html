@@ -1583,6 +1583,27 @@ python batch_render_freesound.py --metadata-only</pre>
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Subtractive</label>
     </div>
+    <div style="display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;">
+        <input type="checkbox" id="gen-harmonic-mode"> Harmonic
+      </label>
+      <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 4px; font-family:'Space Mono',monospace; font-size:10px; width:46px;">
+        <option>C</option><option>C#</option><option>D</option><option>D#</option>
+        <option>E</option><option>F</option><option>F#</option><option>G</option>
+        <option>G#</option><option>A</option><option>A#</option><option>B</option>
+      </select>
+      <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 4px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="major">Major</option>
+        <option value="minor">Minor</option>
+        <option value="pentatonic_major">Penta Maj</option>
+        <option value="pentatonic_minor">Penta Min</option>
+        <option value="dorian">Dorian</option>
+        <option value="phrygian">Phrygian</option>
+        <option value="lydian">Lydian</option>
+        <option value="mixolydian">Mixolydian</option>
+        <option value="chromatic">Chromatic</option>
+      </select>
+    </div>
     <div class="generator-actions">
       <button class="btn" id="btn-generate">🎲 Generate</button>
       <button class="btn btn-outline" id="btn-mutate">🧬 Mutate</button>
@@ -1851,7 +1872,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || '';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -2437,6 +2458,18 @@ function showLayerParams(layer) {
         <option value="triangle" ${(layer.envelope || 'hann') === 'triangle' ? 'selected' : ''}>Triangle</option>
       </select>
     </div>
+    <div class="param-row">
+      <label>Pos. Mode</label>
+      <select id="lp-position_mode" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="linear" ${(layer.position_mode||'linear')==='linear'?'selected':''}>Linear</option>
+        <option value="random" ${(layer.position_mode||'linear')==='random'?'selected':''}>Chaotic</option>
+      </select>
+    </div>
+    <div class="param-row" id="lp-position_chaos-row" style="${(layer.position_mode||'linear')==='random'?'':'display:none'}">
+      <label>Chaos</label>
+      <input type="range" id="lp-position_chaos" min="0.05" max="1" step="0.05" value="${layer.position_chaos ?? 0.3}" >
+      <span class="value" id="lp-position_chaos-val">${(layer.position_chaos ?? 0.3).toFixed(2)}</span>
+    </div>
   `;
 
   const subtractiveHtml = `
@@ -2534,6 +2567,19 @@ function showLayerParams(layer) {
       <label>Voices</label>
       <input type="range" id="lp-chorus_voices" min="1" max="4" step="1" value="${layer.chorus_voices || 2}" >
       <span class="value" id="lp-chorus_voices-val">${layer.chorus_voices || 2}</span>
+    </div>
+    <div class="card-subsection-label" style="margin-top:10px">Distortion</div>
+    <div class="param-row">
+      <label>Drive</label>
+      <input type="range" id="lp-distortion_drive" min="0" max="5" step="0.1" value="${layer.distortion_drive ?? 0}" >
+      <span class="value" id="lp-distortion_drive-val">${(layer.distortion_drive ?? 0).toFixed(1)}</span>
+    </div>
+    <div class="param-row">
+      <label>Type</label>
+      <select id="lp-distortion_type" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="soft" ${(layer.distortion_type||'soft')==='soft'?'selected':''}>Soft (tanh)</option>
+        <option value="hard" ${(layer.distortion_type||'soft')==='hard'?'selected':''}>Hard clip</option>
+      </select>
     </div>
   `;
 
@@ -2865,6 +2911,27 @@ function showLayerParams(layer) {
         markDirty();
       });
     }
+    // Position mode dropdown
+    const posModeSel = $('lp-position_mode');
+    if (posModeSel) {
+      posModeSel.addEventListener('change', () => {
+        pushUndo();
+        currentParams.layers[activeLayerIdx].position_mode = posModeSel.value;
+        const chaosRow = $('lp-position_chaos-row');
+        if (chaosRow) chaosRow.style.display = posModeSel.value === 'random' ? '' : 'none';
+        markDirty();
+      });
+    }
+    const posChaosSl = $('lp-position_chaos');
+    if (posChaosSl) {
+      posChaosSl.addEventListener('mousedown', () => { pushUndo(); });
+      posChaosSl.addEventListener('input', () => {
+        const v = parseFloat(posChaosSl.value);
+        $('lp-position_chaos-val').textContent = v.toFixed(2);
+        currentParams.layers[activeLayerIdx].position_chaos = v;
+        markDirty();
+      });
+    }
     // Init scope
     initGranularScope(layer.source || 'singing_bowl.ogg', layer.position ?? 0.5, layer.scatter ?? 0.5);
   }
@@ -2972,9 +3039,26 @@ function showLayerParams(layer) {
     currentParams.layers[activeLayerIdx].chorus_voices = v;
     markDirty();
   });
+  // Distortion handlers
+  const distDriveSlider = $('lp-distortion_drive');
+  if (distDriveSlider) {
+    distDriveSlider.addEventListener('mousedown', () => { pushUndo(); });
+    distDriveSlider.addEventListener('input', () => {
+      const v = parseFloat(distDriveSlider.value);
+      $('lp-distortion_drive-val').textContent = v.toFixed(1);
+      currentParams.layers[activeLayerIdx].distortion_drive = v;
+      markDirty();
+    });
+  }
+  const distTypeSel = $('lp-distortion_type');
+  if (distTypeSel) {
+    distTypeSel.addEventListener('change', () => {
+      pushUndo();
+      currentParams.layers[activeLayerIdx].distortion_type = distTypeSel.value;
+      markDirty();
+    });
+  }
 }
-
-// ── Toggle helper ───────────────────────────────────────────────────────────
 function setToggle(id, state) {
   const el = $(id);
   el.classList.toggle('on', state);
@@ -3579,10 +3663,14 @@ function markClean() {
   $('dirty-indicator').style.display = 'none';
 }
 
+let _liveReloadTimer = null;
 function markDirty() {
   if (!currentParams || !savedParamsSnapshot) return;
   const isDirty = JSON.stringify(currentParams) !== savedParamsSnapshot;
   $('dirty-indicator').style.display = isDirty ? 'inline' : 'none';
+  // Debounced live reload — update the running engine after changes settle
+  clearTimeout(_liveReloadTimer);
+  _liveReloadTimer = setTimeout(liveReload, 600);
 }
 
 // Hot-reload streaming engine with current params if a stream is active
@@ -3993,17 +4081,22 @@ async function doGenerate() {
   if (document.getElementById('gen-type-subtractive').checked) allowedTypes.push('subtractive');
   if (allowedTypes.length === 0) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
+  const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
+  const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
+  const harmonicScale = document.getElementById('gen-harmonic-scale')?.value || 'major';
   const data = await api('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes })
+    body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes,
+                           harmonic_mode: harmonicMode, harmonic_key: harmonicKey,
+                           harmonic_scale: harmonicScale })
   });
   if (data.ok) {
     currentParams = data.params;
     currentPresetPath = null; // generated preset has no saved path
     currentSharedId = null;
     applyParamsToUI(currentParams);
-    markDirty();
+    markClean(); // treat generated params as new baseline — prevents spurious liveReload
     updateNowPlaying();
     setStatus('Generated — previewing…');
     stopAudio();
@@ -4030,7 +4123,7 @@ async function doMutate() {
     currentPresetPath = null; // mutated preset has no saved path
     currentSharedId = null;
     applyParamsToUI(currentParams);
-    markDirty();
+    markClean(); // treat mutated params as new baseline — prevents spurious liveReload
     updateNowPlaying();
     setStatus('Mutated — previewing…');
     stopAudio();

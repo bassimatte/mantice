@@ -599,6 +599,25 @@ class StreamingLayerFilter:
         return np.stack([filtered_L, filtered_R], axis=1).astype(np.float32)
 
 
+# ── Distortion ────────────────────────────────────────────────────────────────
+
+class LayerDistortion:
+    """Per-layer waveshaper distortion (soft-clip tanh or hard-clip)."""
+
+    def __init__(self, drive: float = 0.0, dist_type: str = "soft"):
+        self.drive = float(drive)
+        self.dist_type = dist_type
+
+    def process(self, stereo: np.ndarray) -> np.ndarray:
+        if self.drive < 0.01:
+            return stereo
+        d = 1.0 + self.drive * 4.0
+        if self.dist_type == "hard":
+            return np.clip(stereo * d, -1.0, 1.0) / d
+        else:  # soft (tanh)
+            return np.tanh(stereo * d) / np.tanh(d)
+
+
 # ── Streaming Engine ──────────────────────────────────────────────────────────
 
 class StreamingDroneEngine:
@@ -622,6 +641,7 @@ class StreamingDroneEngine:
         np.random.seed(seed)
         self._build_from_preset(preset)
         self._crossfade_remaining = 0
+        self._crossfade_total = 0
         self._old_engine: Optional['StreamingDroneEngine'] = None
 
     def _build_from_preset(self, preset: dict) -> None:
@@ -630,6 +650,7 @@ class StreamingDroneEngine:
         self.panners = []
         self.choruses = []
         self.filters = []
+        self.distortions = []
         self.saturation = float(preset.get("saturation", 0.3))
         self._master = MasterProcessor(preset.get("master", {}), SR)
 
@@ -673,6 +694,10 @@ class StreamingDroneEngine:
             self.panners.append(panner)
             self.choruses.append(chorus)
             self.filters.append(layer_filter)
+            self.distortions.append(LayerDistortion(
+                drive=float(layer_cfg.get("distortion_drive", 0.0)),
+                dist_type=layer_cfg.get("distortion_type", "soft"),
+            ))
 
         # Earth engine (simple streaming sine)
         self.earth_cfg = preset.get("earth")
@@ -696,11 +721,12 @@ class StreamingDroneEngine:
         stereo = np.zeros((n, 2), dtype=np.float32)
 
         # Layers
-        for layer, panner, chorus, layer_filter in zip(self.layers, self.panners, self.choruses, self.filters):
+        for layer, panner, chorus, layer_filter, distortion in zip(self.layers, self.panners, self.choruses, self.filters, self.distortions):
             mono = layer.next_chunk(n)
             panned = panner.process(mono)  # pan + width
             chorused = chorus.next_chunk(panned)
-            stereo += layer_filter.next_chunk(chorused)
+            filtered = layer_filter.next_chunk(chorused)
+            stereo += distortion.process(filtered)
 
         # Earth
         if self.earth_cfg and self.earth_cfg.get("enabled", True):
@@ -731,11 +757,15 @@ class StreamingDroneEngine:
         if self._crossfade_remaining > 0 and self._old_engine is not None:
             old_chunk = self._old_engine.next_chunk(n)
             fade_len = min(n, self._crossfade_remaining)
-            fade_out = np.linspace(1, 0, fade_len)[:, None]
-            fade_in  = np.linspace(0, 1, fade_len)[:, None]
+            # Use GLOBAL position in crossfade so fade continues across chunk boundaries
+            pos_start = self._crossfade_total - self._crossfade_remaining
+            pos_end   = pos_start + fade_len
+            global_t  = np.linspace(pos_start / self._crossfade_total,
+                                     pos_end   / self._crossfade_total,
+                                     fade_len, endpoint=False)[:, None]
+            fade_in   = global_t
+            fade_out  = 1.0 - fade_in
             stereo[:fade_len] = old_chunk[:fade_len] * fade_out + stereo[:fade_len] * fade_in
-            if fade_len < n:
-                pass  # rest is fully new engine
             self._crossfade_remaining -= fade_len
             if self._crossfade_remaining <= 0:
                 self._old_engine = None
@@ -749,7 +779,8 @@ class StreamingDroneEngine:
         """
         # Clone current state as the "old" engine for crossfade
         self._old_engine = _ShallowCopy(self)
-        self._crossfade_remaining = int(crossfade_secs * SR)
+        self._crossfade_total = int(crossfade_secs * SR)
+        self._crossfade_remaining = self._crossfade_total
 
         # Rebuild with new preset
         self._build_from_preset(new_preset)
@@ -814,6 +845,7 @@ class _ShallowCopy:
         self.panners = engine.panners
         self.choruses = engine.choruses
         self.filters = engine.filters
+        self.distortions = engine.distortions
         self.earth_cfg = engine.earth_cfg
         self.air_cfg   = engine.air_cfg
         self.earth_phase = engine.earth_phase
@@ -826,15 +858,17 @@ class _ShallowCopy:
         self.saturation = engine.saturation
         self._master = engine._master.copy_state()
         self._crossfade_remaining = 0
+        self._crossfade_total = 0
         self._old_engine = None
 
     def next_chunk(self, n: int) -> np.ndarray:
         stereo = np.zeros((n, 2), dtype=np.float32)
-        for layer, panner, chorus, layer_filter in zip(self.layers, self.panners, self.choruses, self.filters):
+        for layer, panner, chorus, layer_filter, distortion in zip(self.layers, self.panners, self.choruses, self.filters, self.distortions):
             mono = layer.next_chunk(n)
             panned = panner.next_chunk(mono)
             chorused = chorus.next_chunk(panned)
-            stereo += layer_filter.next_chunk(chorused)
+            filtered = layer_filter.next_chunk(chorused)
+            stereo += distortion.process(filtered)
 
         stereo[:, 0], self._dc_zi_L = sosfilt(self._dc_sos, stereo[:, 0], zi=self._dc_zi_L)
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)
