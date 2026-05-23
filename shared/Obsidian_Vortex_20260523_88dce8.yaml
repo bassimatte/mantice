@@ -1,0 +1,205 @@
+meta:
+  name: Obsidian Vortex
+seed: null
+duration: 30.0
+spatial_depth: 1.4
+spatial_wet: 0.0
+saturation: 0.3
+master:
+  eq:
+    low_cut_hz: 20.0
+    bass_db: 0.0
+    bass_hz: 100.0
+    lo_mid_db: 0.0
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 0.0
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: 0.0
+    air_hz: 10000.0
+  comp:
+    threshold_db: 0.0
+    ratio: 2.0
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 0.0
+    makeup_db: 0.0
+swarm_density: 0.5
+layers:
+- name: Harmonic Bed
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 466.16
+  voices: 12
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  - 2.5
+  - 3
+  fm_index: 0.121
+  amp_min: 0.002
+  amp_max: 0.0495
+  drift: 0.0111
+  mix: 0.53
+  band: mid
+  quadrant: rear_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.45
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.67
+  chorus_depth: 0.0034
+  chorus_mix: 0.2
+  chorus_voices: 2
+  filter_type: hp
+  filter_cutoff: 957.3
+  filter_resonance: 1.09
+  filter_lfo_rate: 0.195
+  filter_lfo_depth: 0.17
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Bass Foundation
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 61.74
+  voices: 12
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  fm_index: 0.205
+  amp_min: 0.018
+  amp_max: 0.0423
+  drift: 0.006
+  mix: 0.5
+  band: sub
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 0.5
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.42
+  chorus_depth: 0.0058
+  chorus_mix: 0.24
+  chorus_voices: 3
+  filter_type: hp
+  filter_cutoff: 2766.5
+  filter_resonance: 1.43
+  filter_lfo_rate: 0.097
+  filter_lfo_depth: 0.08
+  filter_lfo_shape: triangle
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Core Tone
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 233.08
+  voices: 12
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  - 1.5
+  fm_index: 0.142
+  amp_min: 0.0044
+  amp_max: 0.0475
+  drift: 0.0119
+  mix: 0.8
+  band: mid
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.15
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.63
+  chorus_depth: 0.0069
+  chorus_mix: 0.33
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 1977.5
+  filter_resonance: 1.41
+  filter_lfo_rate: 0.095
+  filter_lfo_depth: 0.3
+  filter_lfo_shape: sine
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+earth: null
+air: null
