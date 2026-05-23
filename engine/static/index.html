@@ -1583,25 +1583,25 @@ python batch_render_freesound.py --metadata-only</pre>
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Subtractive</label>
     </div>
-    <div style="display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap:wrap;">
-      <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;">
-        <input type="checkbox" id="gen-harmonic-mode"> Harmonic
+    <div style="display:flex; align-items:center; gap:6px; margin-top:6px; flex-wrap:nowrap;">
+      <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" id="gen-harmonic-mode"> Harm.
       </label>
-      <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 4px; font-family:'Space Mono',monospace; font-size:10px; width:46px;">
+      <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:40px;">
         <option>C</option><option>C#</option><option>D</option><option>D#</option>
         <option>E</option><option>F</option><option>F#</option><option>G</option>
         <option>G#</option><option>A</option><option>A#</option><option>B</option>
       </select>
-      <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 4px; font-family:'Space Mono',monospace; font-size:10px;">
-        <option value="major">Major</option>
-        <option value="minor">Minor</option>
-        <option value="pentatonic_major">Penta Maj</option>
-        <option value="pentatonic_minor">Penta Min</option>
-        <option value="dorian">Dorian</option>
-        <option value="phrygian">Phrygian</option>
-        <option value="lydian">Lydian</option>
-        <option value="mixolydian">Mixolydian</option>
-        <option value="chromatic">Chromatic</option>
+      <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:60px;">
+        <option value="major">Maj</option>
+        <option value="minor">Min</option>
+        <option value="pentatonic_major">P.Maj</option>
+        <option value="pentatonic_minor">P.Min</option>
+        <option value="dorian">Dor</option>
+        <option value="phrygian">Phryg</option>
+        <option value="lydian">Lyd</option>
+        <option value="mixolydian">Mixo</option>
+        <option value="chromatic">Chr</option>
       </select>
     </div>
     <div class="generator-actions">
