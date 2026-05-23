@@ -1079,7 +1079,7 @@ main {
   </div>
   <button class="hamburger" id="btn-hamburger">☰</button>
   <div class="header-transport">
-    <button class="transport-btn btn-preview" id="btn-preview" title="Preview [Space]">▶</button>
+    <button class="transport-btn btn-preview" id="btn-preview" title="Play [A]">▶</button>
     <button class="transport-btn btn-stop" id="btn-stop" title="Stop [S]">⏹</button>
     <svg class="progress-ring" id="progress-ring" viewBox="0 0 64 64" style="display:none">
       <circle class="ring-bg" cx="32" cy="32" r="28"/>
@@ -1527,10 +1527,10 @@ python batch_render_freesound.py --metadata-only</pre>
         <h3>Transport</h3>
         <table class="docs-table">
           <tr><th>Key</th><th>Action</th></tr>
-          <tr><td>Space</td><td>Start/stop preview streaming</td></tr>
+          <tr><td>A</td><td>Start/stop playback</td></tr>
           <tr><td>S</td><td>Stop all audio</td></tr>
           <tr><td>R</td><td>Render full audio (offline)</td></tr>
-          <tr><td>P</td><td>Play rendered audio</td></tr>
+
         </table>
 
         <h3>Layers</h3>
@@ -1845,6 +1845,11 @@ python batch_render_freesound.py --metadata-only</pre>
       <input type="range" id="comp-makeup" min="-6" max="12" step="0.5" value="0" style="flex:1">
       <span class="value" id="comp-makeup-val">0.0 dB</span>
     </div>
+    <div class="param-row" style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px">
+      <label>Output Gain</label>
+      <input type="range" id="output-gain" min="-6" max="12" step="0.5" value="3" style="flex:1">
+      <span class="value" id="output-gain-val">3.0 dB</span>
+    </div>
   </div>
 </main>
 
@@ -1900,7 +1905,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice-dev.onrender.com';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -1977,7 +1982,7 @@ async function loadPresetList() {
   // Load default preset on first load
   if (allPresets.length && !currentParams) {
     const isMobile = window.innerWidth <= 768;
-    const defaultName = isMobile ? 'Cavern of Echoes' : 'First Flight';
+    const defaultName = 'Magnetic Tape';
     const defaultPreset = allPresets.find(p => p.name === defaultName) || allPresets[0];
     loadPreset(defaultPreset.path, document.querySelector(`.preset-item[data-path="${defaultPreset.path}"]`));
   }
@@ -2238,6 +2243,8 @@ function applyParamsToUI(p) {
   $('comp-knee-val').textContent = (+(m.comp_knee_db ?? 0)).toFixed(1) + ' dB';
   $('comp-makeup').value = m.comp_makeup_db ?? 0;
   $('comp-makeup-val').textContent = (+(m.comp_makeup_db ?? 0)).toFixed(1) + ' dB';
+  $('output-gain').value = m.output_gain_db ?? 3;
+  $('output-gain-val').textContent = (+(m.output_gain_db ?? 3)).toFixed(1) + ' dB';
 
   // Layers
   buildLayerTabs(p.layers);
@@ -3313,6 +3320,7 @@ function collectParams() {
     comp_release_ms:   parseFloat($('comp-release').value),
     comp_knee_db:      parseFloat($('comp-knee').value),
     comp_makeup_db:    parseFloat($('comp-makeup').value),
+    output_gain_db:    parseFloat($('output-gain').value),
   };
 
   return p;
@@ -3849,13 +3857,53 @@ function markDirty() {
   $('dirty-indicator').style.display = isDirty ? 'inline' : 'none';
   // Debounced live reload — update the running engine after changes settle
   clearTimeout(_liveReloadTimer);
-  _liveReloadTimer = setTimeout(liveReload, 600);
+  _liveReloadTimer = setTimeout(liveReload, 150);
+}
+
+// Flush AudioContext buffer and restart stream with new params — eliminates 2–5s lag
+async function _flushAndRestart() {
+  if (!ws || ws.readyState !== WebSocket.OPEN || !isStreaming) return;
+
+  // 1. Stop server-side synthesis (WebSocket stays open)
+  try { ws.send(JSON.stringify({ action: 'stop' })); } catch(e) {}
+
+  // 2. Close AudioContext — instantly discards ALL buffered audio
+  stopCtxKeepAlive();
+  stopSpectrum();
+  if (streamingCtx && streamingCtx.state !== 'closed') {
+    await streamingCtx.close().catch(() => {});
+  }
+  streamingCtx = null;
+  chunksBuffered = 0;
+  nextPlayTime = 0;
+
+  // 3. Brief pause so the server stream task has time to stop
+  await new Promise(r => setTimeout(r, 60));
+
+  // Bail if user stopped audio during the gap
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+  // 4. Fresh AudioContext (clean slate — no old buffered audio)
+  streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (streamingCtx.state === 'suspended') await streamingCtx.resume();
+  startCtxKeepAlive();
+
+  const streamAnalyser = startSpectrum(streamingCtx);
+  streamAnalyser.connect(streamingCtx.destination);
+
+  // 5. Restart server stream with updated params
+  ws.send(JSON.stringify({ action: 'start', params: collectParams(), seed: currentSeed }));
+  setStatus('Buffering…');
+
+  // 6. Restart visualizer animation loops (stopSpectrum killed them)
+  drawSpectrum();
+  startAurora();
 }
 
 // Hot-reload streaming engine with current params if a stream is active
 function liveReload() {
   if (ws && ws.readyState === WebSocket.OPEN && isStreaming) {
-    ws.send(JSON.stringify({ action: 'reload', params: collectParams() }));
+    _flushAndRestart();
   }
 }
 
@@ -3866,7 +3914,8 @@ function initKeyboardShortcuts() {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
     switch(e.key) {
-      case ' ':
+      case 'a':
+      case 'A':
         e.preventDefault();
         doPreview();
         break;
@@ -3929,8 +3978,8 @@ let nextPlayTime = 0;
 let isStreaming = false;
 let currentSeed = 42;  // seed used for the current/last stream — sent with render
 let chunksBuffered = 0;
-const CHUNK_SIZE = 8192;
-const PRE_BUFFER_CHUNKS = 6;
+const CHUNK_SIZE = 2048;
+const PRE_BUFFER_CHUNKS = 2;
 let workletNode = null;
 let ctxKeepAlive = null;
 
@@ -4241,7 +4290,7 @@ async function doRender() {
     decodeCtx.close();
     drawStaticAurora(renderedBuffer);
     showRenderedSpectrum(renderedBuffer);
-    doPlay(); // auto-play after render
+    doPreview(); // resume streaming after render download
 
     const sizeMB = (blob.size / (1024*1024)).toFixed(1);
     setStatus(`✓ Downloaded: ${filename} (${sizeMB} MB)`);
@@ -4787,6 +4836,7 @@ function init() {
   linkSlider('comp-release',   'comp-release-val',   v => v + ' ms');
   linkSlider('comp-knee',      'comp-knee-val',      v => (+v).toFixed(1) + ' dB');
   linkSlider('comp-makeup',    'comp-makeup-val',    v => (+v).toFixed(1) + ' dB');
+  linkSlider('output-gain',    'output-gain-val',    v => (+v).toFixed(1) + ' dB');
 
   // Keyboard shortcuts
   initKeyboardShortcuts();
