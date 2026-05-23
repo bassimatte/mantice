@@ -59,14 +59,16 @@ python main.py --preset "presets/essentials/Warm Pad.yaml" --duration 120
 
 - **FM Synthesis** — up to 12 detuned voices per layer with configurable harmonics
 - **Subtractive Synthesis** — dual detuned oscillators (saw/square/triangle) + sub-oscillator, Reese bass style
-- **Per-Layer Filter & LFO** — biquad LP/HP/BP filter with LFO modulation (sine/triangle/square)
-- **Granular Clouds** — sample-based grain synthesis with CC0 sound sources
+- **Per-Layer Filter & LFO** — LP/HP/BP biquad, Comb (metallic resonance), and Formant (vowel shaping A/E/I/O/U) with LFO modulation
+- **Per-Layer Distortion** — soft (tanh) and hard-clip waveshaping, 0–5 drive
+- **Global Flanger** — LFO-modulated delay (0.5–10 ms) with feedback; wet/rate/depth controls
+- **Granular Clouds** — sample-based grain synthesis with 17 CC0 sound sources
 - **Spatial Motion** — per-layer panning trajectories (orbit, drift, bounce) with elevation
 - **Binaural Beats** — theta/delta/alpha entrainment with configurable depth
 - **FDN Reverb** — 8-tap feedback delay network (or custom impulse responses)
 - **Chorus** — multi-voice modulation for width and shimmer
 - **Master EQ & Compressor** — 5-band parametric EQ (low-cut, bass shelf, lo-mid bell, hi-mid bell, air shelf) + feedforward compressor on master bus
-- **44 Presets** — across 6 categories (essentials, cinematic, experimental, sacred, subharmonic, reese)
+- **47 Presets** — across 5 categories (essentials, cinematic, experimental, sacred, subharmonic)
 - **Real-time Web UI** — stream, tweak, save, and export from your browser; layer sub-tabs (Synth/Filter/Space/FX)
 - **Generator** — mood-biased random preset generator with FM/Subtractive type selection
 - **Preset Save/Load** — create, modify, and share YAML preset files
@@ -165,16 +167,30 @@ Set `type: subtractive` at layer level to use this engine instead of FM.
 
 #### Per-Layer Filter & LFO
 
+Five filter types, all applied after chorus in the signal chain:
+
 | Setting | YAML Key | Range | Default | Description |
 |---------|----------|-------|---------|-------------|
-| Filter Type | `filter_type` | off / lp / hp / bp | off | Biquad filter type |
-| Cutoff | `filter_cutoff` | 20–20000 Hz | 2000 | Filter cutoff frequency |
-| Resonance | `filter_resonance` | 0.1–10 | 1.0 | Q factor / resonance peak |
-| LFO Rate | `filter_lfo_rate` | 0.01–5 Hz | 0.1 | Cutoff modulation speed |
-| LFO Depth | `filter_lfo_depth` | 0.0–1.0 | 0.0 | Modulation amount (0 = off) |
-| LFO Shape | `filter_lfo_shape` | sine / triangle / square | sine | LFO waveform |
+| Filter Type | `filter_type` | off / lp / hp / bp / comb / formant | off | Filter type |
+| Cutoff | `filter_cutoff` | 20–20000 Hz | 2000 | Cutoff frequency (LP/HP/BP); comb delay frequency (Comb) |
+| Resonance / Feedback / Strength | `filter_resonance` | 0.1–8 | 1.0 | Q factor (LP/HP/BP); feedback gain 0–0.97 (Comb); wet mix (Formant) |
+| Vowel | `filter_vowel` | a / e / i / o / u | a | Vowel shape — selects F1/F2/F3 formant frequencies (Formant only) |
+| LFO Rate | `filter_lfo_rate` | 0.01–5 Hz | 0.1 | Cutoff modulation speed (LP/HP/BP only) |
+| LFO Depth | `filter_lfo_depth` | 0.0–1.0 | 0.0 | Modulation amount — 0 = off (LP/HP/BP only) |
+| LFO Shape | `filter_lfo_shape` | sine / triangle / square | sine | LFO waveform (LP/HP/BP only) |
 
-Works on all layer types. Filter is applied after chorus.
+**Comb filter** — feedforward FIR comb (`y[n] = x[n] + g·x[n−D]`) where D = SR / cutoff. Resonance maps to feedback gain (0–0.97). Produces metallic ringing and spectral combing.
+
+**Formant filter** — three parallel Butterworth bandpass filters at human vowel formant frequencies. Vowels: A (800/1200/2500 Hz), E (400/2000/2800), I (270/2300/3000), O (570/850/2500), U (380/950/2200). Resonance sets the wet mix (0–1).
+
+#### Per-Layer Distortion
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Drive | `distortion_drive` | 0.0–5.0 | 0.0 | Waveshaping intensity — 0 = bypassed |
+| Type | `distortion_type` | soft / hard | soft | Soft = tanh (warm, analog); Hard = clipping (aggressive) |
+
+Applied after the filter stage. Soft distortion uses normalised tanh waveshaping; hard clips at ±1.
 
 #### Harmonics (V15)
 
@@ -259,6 +275,17 @@ The FDN reverb uses an 8-line Feedback Delay Network with Hadamard mixing, per-l
 | Intensity | `air.intensity` | 0.0–1.0 | 0.12 | Air layer volume |
 | Movement | `air.movement` | 0.0–0.1 | 0.01 | Air drift speed |
 | Turbulence | `air.turbulence` | 0.0–0.2 | 0.04 | High-freq turbulence amount |
+
+### Flanger (Global)
+
+Post-mix LFO-modulated delay applied after all layers are blended.
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Wet | `flanger.wet` | 0.0–1.0 | 0.0 (off) | Dry/wet balance — 0 bypasses the effect |
+| Rate | `flanger.rate` | 0.01–2.0 Hz | 0.25 | LFO speed |
+| Depth | `flanger.depth` | 0.0–1.0 | 0.5 | LFO sweep range (maps to 0.5–10 ms delay) |
+| Feedback | `flanger.feedback` | 0.0–0.95 | 0.4 | Feedback amount — higher = more resonant comb coloration |
 
 ### Spatial
 
