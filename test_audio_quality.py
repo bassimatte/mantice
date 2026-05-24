@@ -18,7 +18,7 @@ Usage:
     py -3 test_audio_quality.py --save-flagged  # write failed renders to test_flagged/
     py -3 test_audio_quality.py --verbose       # print metrics for passing tests too
 
-Sections: fm | sub | gran | fx | transition | presets
+Sections: fm | sub | gran | fx | binaural | master | spatial | unison | layer_fx | transition | stability | presets
 """
 
 import argparse
@@ -136,7 +136,7 @@ def _fm(**kw) -> dict:
         "amp_min": 0.005,
         "amp_max": 0.04,
         "drift": 0.01,
-        "mix": 0.8,
+        "volume_db": 0.0,   # replaces old mix=0.8 — FM engine reads volume_db
         "band": "mid",
         **kw,
     }
@@ -154,7 +154,7 @@ def _sub(**kw) -> dict:
         "amp_min": 0.005,
         "amp_max": 0.04,
         "drift": 0.01,
-        "mix": 0.8,
+        "volume_db": 0.0,   # replaces old mix=0.8 — subtractive reads volume_db
         "band": "mid",
         **kw,
     }
@@ -1358,10 +1358,10 @@ def suite_spatial(quick: bool) -> list[tuple]:
         tests.append((f"swarm_density_{swd}", f"swarm_density={swd}",
                        lambda _p=p: render(_p)))
 
-    # Per-layer mix extremes
-    for mix in ([0.05, 0.3, 0.8, 1.0] if not quick else [0.1, 1.0]):
-        p = _preset([_fm(mix=mix)])
-        tests.append((f"layer_mix_{mix}", f"FM layer mix={mix}",
+    # Per-layer volume_db extremes (mix is now volume_db for FM/subtractive)
+    for db in ([-24.0, -12.0, -6.0, 0.0, +6.0] if not quick else [-12.0, 0.0, +6.0]):
+        p = _preset([_fm(volume_db=db)])
+        tests.append((f"volume_db_{db:+.0f}db", f"FM volume_db={db:+.0f}dB",
                        lambda _p=p: render(_p)))
 
     # Muted single layer — output must be silence
@@ -1473,6 +1473,246 @@ def suite_combo(n: int, seed: int = 0) -> list[tuple]:
     return tests
 
 
+def suite_unison(quick: bool) -> list[tuple]:
+    """Test spread/blend unison stereo, volume_db range, and peak meter API."""
+    tests = []
+
+    # ── Spread extremes ───────────────────────────────────────────────────────
+    for spread in ([0.0, 0.3, 0.7, 1.0, 1.5, 2.0] if not quick else [0.0, 1.0, 2.0]):
+        p = _preset([_fm(spread=spread, voices=8)])
+        tests.append((f"spread_{spread}", f"FM spread={spread}",
+                       lambda _p=p: render(_p)))
+
+    # ── Blend extremes ────────────────────────────────────────────────────────
+    for blend in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.0, 1.0]):
+        p = _preset([_fm(blend=blend, voices=8)])
+        tests.append((f"blend_{blend}", f"FM blend={blend}",
+                       lambda _p=p: render(_p)))
+
+    # ── Spread + blend combos ─────────────────────────────────────────────────
+    combos = ([(0.0, 1.0), (1.0, 0.5), (2.0, 0.3), (1.5, 0.7)] if not quick
+              else [(0.0, 1.0), (2.0, 0.3)])
+    for spread, blend in combos:
+        p = _preset([_fm(spread=spread, blend=blend, voices=12)])
+        tests.append((f"spread{spread}_blend{blend}",
+                       f"FM spread={spread} blend={blend} voices=12",
+                       lambda _p=p: render(_p)))
+
+    # ── Voice count interaction (1 voice = mono regardless of spread) ─────────
+    for v in ([1, 2, 4, 12, 20] if not quick else [1, 8, 20]):
+        p = _preset([_fm(spread=1.5, blend=0.8, voices=v)])
+        tests.append((f"spread_voices_{v}", f"FM spread=1.5 blend=0.8 voices={v}",
+                       lambda _p=p: render(_p)))
+
+    # ── Multi-layer spread gradient ───────────────────────────────────────────
+    if not quick:
+        layers = [
+            _fm(root=110, spread=0.4, blend=1.0,  name="Sub",  voices=20),
+            _fm(root=220, spread=1.2, blend=0.85, name="Mid",  voices=12),
+            _fm(root=440, spread=1.8, blend=0.6,  name="High", voices=6),
+        ]
+        p = _preset(layers)
+        tests.append(("spread_gradient_3layer", "FM 3-layer spread gradient (0.4→1.8)",
+                       lambda _p=p: render(_p)))
+
+    # ── volume_db range ───────────────────────────────────────────────────────
+    for db in ([-60.0, -24.0, -12.0, -6.0, 0.0, +6.0] if not quick else [-24.0, 0.0, +6.0]):
+        p = _preset([_fm(volume_db=db)])
+        jfn = judge_expect_silence if db <= -48 else None
+        tests.append((f"volume_db_{db:+.0f}db", f"FM volume_db={db:+.0f}dB",
+                       lambda _p=p: render(_p), jfn))
+
+    # ── Multi-layer, different volume_db per layer ────────────────────────────
+    if not quick:
+        layers = [
+            _fm(root=110, name="Hot",    volume_db=+6.0, amp_min=0.01, amp_max=0.03),
+            _fm(root=220, name="Unity",  volume_db=0.0,  amp_min=0.01, amp_max=0.03),
+            _fm(root=440, name="Quiet",  volume_db=-12.0, amp_min=0.01, amp_max=0.03),
+        ]
+        p = _preset(layers)
+        tests.append(("volume_db_multilayer_mix", "FM 3-layer mixed volume_db (+6/0/-12)",
+                       lambda _p=p: render(_p)))
+
+    # +6 dB on 3 loud layers — headroom / no-clip stress
+    p = _preset([
+        _fm(root=110, volume_db=+6.0, amp_min=0.02, amp_max=0.06, name="L1"),
+        _fm(root=220, volume_db=+6.0, amp_min=0.02, amp_max=0.06, name="L2"),
+        _fm(root=165, volume_db=+6.0, amp_min=0.02, amp_max=0.06, name="L3"),
+    ])
+    tests.append(("volume_db_hot_3layer", "FM 3 layers each +6dB (headroom/limiter check)",
+                   lambda _p=p: render(_p)))
+
+    # ── Peak meter API functional test ────────────────────────────────────────
+    def _peak_meter_api():
+        """Render 4s with 2 FM layers, call get_peak_meters(), validate."""
+        p = _preset([
+            _fm(root=110, name="L1", volume_db=-6.0,  amp_min=0.01, amp_max=0.04),
+            _fm(root=220, name="L2", volume_db=-12.0, amp_min=0.01, amp_max=0.04),
+        ])
+        engine = StreamingDroneEngine(p, seed=42)
+        total = int(4 * SR)
+        chunks = []
+        remaining = total
+        while remaining > 0:
+            n = min(CHUNK_SIZE, remaining)
+            chunks.append(engine.next_chunk(n))
+            remaining -= n
+        meters = engine.get_peak_meters()
+        if len(meters) != 2:
+            raise AssertionError(f"Expected 2 peak meters, got {len(meters)}")
+        for i, m in enumerate(meters):
+            if not (-80.0 <= m <= 6.0):
+                raise AssertionError(
+                    f"Peak meter[{i}]={m:.1f} dBFS outside expected −80…+6 range"
+                )
+        return np.concatenate(chunks, axis=0)
+
+    tests.append(("peak_meters_api", "Peak meters API: count=2 + dBFS range check",
+                   _peak_meter_api))
+
+    # Muted layer should have no entry in peak meters
+    def _peak_meters_muted():
+        p = _preset([
+            _fm(root=220, name="Active"),
+            _fm(root=440, name="Muted", muted=True),
+        ])
+        engine = StreamingDroneEngine(p, seed=42)
+        for _ in range(20):
+            engine.next_chunk(CHUNK_SIZE)
+        meters = engine.get_peak_meters()
+        # Only 1 non-muted layer → exactly 1 meter entry
+        if len(meters) != 1:
+            raise AssertionError(
+                f"Expected 1 meter for 1 active layer, got {len(meters)}"
+            )
+        audio = np.concatenate([engine.next_chunk(CHUNK_SIZE) for _ in range(20)], axis=0)
+        return audio
+
+    tests.append(("peak_meters_muted_skip", "Peak meters: muted layer excluded",
+                   _peak_meters_muted))
+
+    return tests
+
+
+def suite_layer_fx(quick: bool) -> list[tuple]:
+    """Test per-layer flanger and phaser FX (added in commit 6c03d17)."""
+    tests = []
+
+    # ── Per-layer flanger ─────────────────────────────────────────────────────
+
+    # Wet sweep
+    for wet in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.3, 0.9]):
+        p = _preset([_fm(flanger_wet=wet, flanger_rate=0.3,
+                          flanger_depth=0.5, flanger_feedback=0.4)])
+        tests.append((f"layer_flanger_wet_{wet}", f"Layer flanger wet={wet}",
+                       lambda _p=p: render(_p)))
+
+    # Rate sweep (slow drift → fast sweep → near audio-rate)
+    for rate in ([0.05, 0.3, 1.0, 3.0] if not quick else [0.1, 1.0]):
+        p = _preset([_fm(flanger_wet=0.5, flanger_rate=rate,
+                          flanger_depth=0.5, flanger_feedback=0.3)])
+        tests.append((f"layer_flanger_rate_{rate}", f"Layer flanger rate={rate}Hz",
+                       lambda _p=p: render(_p)))
+
+    # High feedback (near the instability boundary)
+    for fb in ([0.0, 0.5, 0.85, 0.95] if not quick else [0.5, 0.9]):
+        p = _preset([_fm(flanger_wet=0.5, flanger_rate=0.3,
+                          flanger_depth=0.5, flanger_feedback=fb)])
+        tests.append((f"layer_flanger_fb_{fb}", f"Layer flanger feedback={fb}",
+                       lambda _p=p: render(_p)))
+
+    # Layer flanger on subtractive
+    p = _preset([_sub(flanger_wet=0.6, flanger_rate=0.4,
+                       flanger_depth=0.6, flanger_feedback=0.4)])
+    tests.append(("layer_flanger_sub", "Layer flanger on subtractive layer",
+                   lambda _p=p: render(_p)))
+
+    # Layer flanger stacked with global flanger
+    p = _preset(
+        [_fm(flanger_wet=0.4, flanger_rate=0.3,
+              flanger_depth=0.5, flanger_feedback=0.3)],
+        flanger={"rate": 0.2, "depth": 0.4, "feedback": 0.3, "wet": 0.3},
+    )
+    tests.append(("layer_flanger_plus_global", "Layer flanger + global flanger stacked",
+                   lambda _p=p: render(_p)))
+
+    # ── Per-layer phaser ──────────────────────────────────────────────────────
+
+    # Wet sweep
+    for wet in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.3, 0.9]):
+        p = _preset([_fm(phaser_wet=wet, phaser_rate=0.5,
+                          phaser_depth=0.7, phaser_center_hz=800.0)])
+        tests.append((f"layer_phaser_wet_{wet}", f"Layer phaser wet={wet}",
+                       lambda _p=p: render(_p)))
+
+    # Rate sweep
+    for rate in ([0.05, 0.5, 2.0, 5.0] if not quick else [0.2, 2.0]):
+        p = _preset([_fm(phaser_wet=0.6, phaser_rate=rate, phaser_depth=0.7)])
+        tests.append((f"layer_phaser_rate_{rate}", f"Layer phaser rate={rate}Hz",
+                       lambda _p=p: render(_p)))
+
+    # Stages (all-pass chain depth)
+    for stages in ([2, 4, 8, 12] if not quick else [2, 8]):
+        p = _preset([_fm(phaser_wet=0.6, phaser_stages=stages)])
+        tests.append((f"layer_phaser_stages_{stages}", f"Layer phaser stages={stages}",
+                       lambda _p=p: render(_p)))
+
+    # Feedback (can cause ringing / IIR divergence)
+    for fb in ([0.0, 0.3, 0.6, 0.85] if not quick else [0.3, 0.7]):
+        p = _preset([_fm(phaser_wet=0.6, phaser_feedback=fb)])
+        tests.append((f"layer_phaser_fb_{fb}", f"Layer phaser feedback={fb}",
+                       lambda _p=p: render(_p)))
+
+    # Center frequency sweep
+    for hz in ([200, 800, 2000, 5000] if not quick else [400, 2000]):
+        p = _preset([_fm(phaser_wet=0.6, phaser_center_hz=hz)])
+        tests.append((f"layer_phaser_center_{hz}hz", f"Layer phaser center={hz}Hz",
+                       lambda _p=p: render(_p)))
+
+    # Phaser on subtractive
+    p = _preset([_sub(phaser_wet=0.7, phaser_rate=0.4, phaser_stages=4)])
+    tests.append(("layer_phaser_sub", "Layer phaser on subtractive layer",
+                   lambda _p=p: render(_p)))
+
+    # Phaser + flanger on same layer
+    p = _preset([_fm(phaser_wet=0.5, phaser_rate=0.4, phaser_stages=4,
+                      flanger_wet=0.4, flanger_rate=0.3, flanger_feedback=0.3)])
+    tests.append(("layer_phaser_and_flanger", "Layer phaser + flanger combined on one layer",
+                   lambda _p=p: render(_p)))
+
+    # 3 layers with different per-layer FX each
+    if not quick:
+        layers = [
+            _fm(root=110, name="SubDry"),
+            _fm(root=220, name="MidPhaser",
+                phaser_wet=0.7, phaser_stages=8, phaser_feedback=0.5),
+            _fm(root=440, name="HighFlanger",
+                flanger_wet=0.6, flanger_rate=0.5, flanger_feedback=0.4),
+        ]
+        p = _preset(layers)
+        tests.append(("layer_fx_3layer_diverse", "3 layers: dry + phaser + flanger",
+                       lambda _p=p: render(_p)))
+
+    # Long render: late-onset phaser feedback instability check
+    if not quick:
+        p = _preset([_fm(phaser_wet=0.7, phaser_feedback=0.75,
+                          phaser_stages=8, phaser_rate=0.3)])
+        tests.append(("layer_phaser_feedback_long_20s",
+                       "Layer phaser feedback=0.75 long 20s (stability)",
+                       lambda _p=p: render(_p, duration=20)))
+
+    # Phaser all params at extremes simultaneously (stress)
+    if not quick:
+        p = _preset([_fm(
+            phaser_wet=1.0, phaser_rate=4.0, phaser_depth=1.0,
+            phaser_stages=12, phaser_feedback=0.85, phaser_center_hz=100.0,
+        )])
+        tests.append(("layer_phaser_stress", "Layer phaser all params extreme",
+                       lambda _p=p: render(_p)))
+
+    return tests
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Output / reporting
 # ═════════════════════════════════════════════════════════════════════════════
@@ -1493,6 +1733,8 @@ _SECTION_LABELS = {
     "binaural":   "Binaural",
     "master":     "Master EQ / Comp",
     "spatial":    "Spatial / Quadrant",
+    "unison":     "Unison (Spread/Blend/volume_db/Peak Meters)",
+    "layer_fx":   "Per-Layer FX (Flanger/Phaser)",
     "transition": "Transitions / Hot-Reload",
     "stability":  "Long-Render Stability",
     "presets":    "Preset Library",
@@ -1555,6 +1797,8 @@ SUITES = {
     "binaural":   suite_binaural,
     "master":     suite_master,
     "spatial":    suite_spatial,
+    "unison":     suite_unison,
+    "layer_fx":   suite_layer_fx,
     "transition": suite_transition,
     "stability":  suite_stability,
     "presets":    suite_presets,
