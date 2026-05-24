@@ -892,26 +892,32 @@ class StreamingLayerFilter:
         self.lfo_phase += n_samples * dt
         return float(val)
 
-    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+    def next_chunk(self, audio: np.ndarray) -> np.ndarray:
+        """Filter audio. Accepts mono (n,) or stereo (n,2); returns the same shape."""
+        is_mono = (audio.ndim == 1)
+        stereo = np.column_stack([audio, audio]) if is_mono else audio
         if self.filter_type == "comb":
-            return self._next_chunk_comb(stereo)
-        if self.filter_type == "formant":
-            return self._next_chunk_formant(stereo)
-        if self.filter_type == "off" or self._sos is None:
-            return stereo
-        n = len(stereo)
-        if self.lfo_depth > 0.001:
-            lfo_val = self._lfo_value(n)
-            octaves = lfo_val * self.lfo_depth * 2.0
-            modulated_cutoff = self.base_cutoff * (2.0 ** octaves)
-            self._build_filter(modulated_cutoff)
+            result = self._next_chunk_comb(stereo)
+        elif self.filter_type == "formant":
+            result = self._next_chunk_formant(stereo)
+        elif self.filter_type == "off" or self._sos is None:
+            result = stereo
         else:
-            self._lfo_value(n)
-        if self._sos is None:
-            return stereo
-        filtered_L, self._zi_L = sosfilt(self._sos, stereo[:, 0], zi=self._zi_L)
-        filtered_R, self._zi_R = sosfilt(self._sos, stereo[:, 1], zi=self._zi_R)
-        return np.stack([filtered_L, filtered_R], axis=1).astype(np.float32)
+            n = len(stereo)
+            if self.lfo_depth > 0.001:
+                lfo_val = self._lfo_value(n)
+                octaves = lfo_val * self.lfo_depth * 2.0
+                modulated_cutoff = self.base_cutoff * (2.0 ** octaves)
+                self._build_filter(modulated_cutoff)
+            else:
+                self._lfo_value(n)
+            if self._sos is None:
+                result = stereo
+            else:
+                filtered_L, self._zi_L = sosfilt(self._sos, stereo[:, 0], zi=self._zi_L)
+                filtered_R, self._zi_R = sosfilt(self._sos, stereo[:, 1], zi=self._zi_R)
+                result = np.stack([filtered_L, filtered_R], axis=1).astype(np.float32)
+        return result[:, 0] if is_mono else result
 
 
 # ── Flanger ───────────────────────────────────────────────────────────────────
@@ -1293,9 +1299,12 @@ class LayerDistortion:
         else:
             self._aa_sos = None
 
-    def process(self, stereo: np.ndarray) -> np.ndarray:
+    def process(self, audio: np.ndarray) -> np.ndarray:
+        """Distort audio. Accepts mono (n,) or stereo (n,2); returns the same shape."""
+        is_mono = (audio.ndim == 1)
+        stereo = np.column_stack([audio, audio]) if is_mono else audio
         if self.drive < 0.01:
-            return stereo
+            return audio
         d = 1.0 + self.drive * 4.0
         if self.dist_type == "hard":
             out = np.clip(stereo * d, -1.0, 1.0) / d
@@ -1305,7 +1314,7 @@ class LayerDistortion:
         if self._aa_sos is not None:
             out[:, 0], self._aa_zi_l = sosfilt(self._aa_sos, out[:, 0], zi=self._aa_zi_l)
             out[:, 1], self._aa_zi_r = sosfilt(self._aa_sos, out[:, 1], zi=self._aa_zi_r)
-        return out
+        return out[:, 0] if is_mono else out
 
 
 # ── Streaming Engine ──────────────────────────────────────────────────────────
@@ -1458,19 +1467,19 @@ class StreamingDroneEngine:
 
         stereo = np.zeros((n, 2), dtype=np.float32)
 
-        # Layers
+        # Layers — signal chain: Synthesis → Filter → Distortion → Pan → Chorus → Flanger → Phaser
         for i, (layer, panner, chorus, layer_filter, distortion, flanger, phaser) in enumerate(zip(
             self.layers, self.panners, self.choruses, self.filters,
             self.distortions, self.flangers, self.phasers
         )):
-            mono = layer.next_chunk(n)
-            panned = panner.process(mono)  # pan + width
-            chorused = chorus.next_chunk(panned)
-            filtered = layer_filter.next_chunk(chorused)
-            distorted = distortion.process(filtered)
-            flanged = flanger.next_chunk(distorted)
-            phased = phaser.next_chunk(flanged)
-            stereo += phased
+            raw      = layer.next_chunk(n)          # mono (sub/gran) or stereo (fm)
+            filtered = layer_filter.next_chunk(raw) # tone shaping on raw signal
+            distorted = distortion.process(filtered) # drive on shaped signal
+            panned   = panner.process(distorted)    # place in stereo field
+            chorused = chorus.next_chunk(panned)    # widen/animate
+            flanged  = flanger.next_chunk(chorused)
+            phased   = phaser.next_chunk(flanged)
+            stereo  += phased
             # Peak meter: track per-layer peak with ~1.5 dB/chunk decay (~15 dB/sec)
             chunk_peak_db = 20.0 * np.log10(float(np.max(np.abs(phased))) + 1e-9)
             if i < len(self._peak_meters):
@@ -1499,12 +1508,13 @@ class StreamingDroneEngine:
         # FDN reverb
         stereo = self._reverb.next_chunk(stereo)
 
-        # Normalize chunk (soft limiter to prevent clipping)
+        # Master EQ + compression
+        stereo = self._master.process(stereo)
+
+        # Soft limiter — after master so the compressor has full dynamic range
         peak = np.max(np.abs(stereo))
         if peak > 0.92:
             stereo = stereo * (0.92 / peak)
-
-        stereo = self._master.process(stereo)
 
         # Handle crossfade from hot-reload
         if self._crossfade_remaining > 0 and self._old_engine is not None:
