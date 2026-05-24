@@ -1440,6 +1440,10 @@ class StreamingDroneEngine:
         # Global FDN reverb
         self._reverb = StreamingFDNReverb(preset.get("reverb") or {})
 
+        # Streaming binaural — applied post-chain as the very last effect
+        self._binaural_cfg = preset.get("binaural") or {}
+        self._binaural_t   = 0  # sample counter for drift-free phase
+
     def next_chunk(self, n_samples: Optional[int] = None) -> np.ndarray:
         """Generate the next chunk of stereo audio (n_samples, 2)."""
         n = n_samples or self.chunk_size
@@ -1478,15 +1482,7 @@ class StreamingDroneEngine:
             else:
                 self._peak_meters.append(chunk_peak_db)
 
-        # Earth
-        if self.earth_cfg and self.earth_cfg.get("enabled", True):
-            stereo += self._earth_chunk(n)
-
-        # Air
-        if self.air_cfg and self.air_cfg.get("enabled", True):
-            stereo += self._air_chunk(n)
-
-        # DC block
+        # DC block (on drone mix only)
         stereo[:, 0], self._dc_zi_L = sosfilt(self._dc_sos, stereo[:, 0], zi=self._dc_zi_L)
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)
 
@@ -1496,8 +1492,14 @@ class StreamingDroneEngine:
             norm = np.tanh(drive)
             stereo = np.tanh(stereo * drive) / norm
 
-        # FDN reverb
+        # FDN reverb — only processes synthesized drone layers
         stereo = self._reverb.next_chunk(stereo)
+
+        # Earth & Air added post-reverb — environmental constants, kept dry
+        if self.earth_cfg and self.earth_cfg.get("enabled", True):
+            stereo += self._earth_chunk(n)
+        if self.air_cfg and self.air_cfg.get("enabled", True):
+            stereo += self._air_chunk(n)
 
         # Master EQ + compression
         stereo = self._master.process(stereo)
@@ -1524,6 +1526,9 @@ class StreamingDroneEngine:
             if self._crossfade_remaining <= 0:
                 self._old_engine = None
 
+        # Binaural — absolutely last: psychoacoustic L/R difference must reach headphones unprocessed
+        self._apply_binaural(stereo, n)
+
         return stereo
 
     def reload(self, new_preset: dict, crossfade_secs: float = 3.0) -> None:
@@ -1538,6 +1543,37 @@ class StreamingDroneEngine:
     def get_peak_meters(self) -> list:
         """Return per-layer peak levels in dBFS with smooth decay (-100 = silent, 0 = full)."""
         return list(self._peak_meters)
+
+    def _apply_binaural(self, stereo: np.ndarray, n: int) -> None:
+        """
+        Apply binaural entrainment in-place as the final stage of the chain.
+
+        carrier mode: adds independent L/R sine tones (carrier ± beat_hz/2),
+                      producing a true binaural beat on headphones.
+
+        detune mode:  energy-preserving L/R intensity alternation at beat_hz
+                      using quadrature cos²/sin² envelopes — L and R cross-fade
+                      at beat_hz so the total power stays constant.
+        """
+        binaural = self._binaural_cfg
+        if not binaural or not binaural.get("enabled", False):
+            return
+        beat_hz = float(binaural.get("beat_hz", 6.0))
+        method  = binaural.get("method", "detune")
+        t = (self._binaural_t + np.arange(n)) / SR
+        self._binaural_t += n
+
+        if method == "carrier":
+            carrier_hz  = float(binaural.get("carrier_hz", 200.0))
+            carrier_amp = float(binaural.get("carrier_amplitude", 0.15))
+            freq_l = carrier_hz - beat_hz / 2.0
+            freq_r = carrier_hz + beat_hz / 2.0
+            stereo[:, 0] += (np.sin(2 * np.pi * freq_l * t) * carrier_amp).astype(np.float32)
+            stereo[:, 1] += (np.sin(2 * np.pi * freq_r * t) * carrier_amp).astype(np.float32)
+        else:  # detune
+            theta = (2 * np.pi * (beat_hz / 2.0) * t).astype(np.float32)
+            stereo[:, 0] *= np.cos(theta) ** 2  # L intensity: 1→0→1 at beat_hz
+            stereo[:, 1] *= np.sin(theta) ** 2  # R intensity: 90° offset; L²+R²=1
 
     def _earth_chunk(self, n: int) -> np.ndarray:
         cfg = self.earth_cfg
@@ -1614,6 +1650,8 @@ class _ShallowCopy:
         self.saturation = engine.saturation
         self._master = engine._master.copy_state()
         self._reverb  = engine._reverb.copy_state()
+        self._binaural_cfg = engine._binaural_cfg
+        self._binaural_t   = engine._binaural_t
         self._crossfade_remaining = 0
         self._crossfade_total = 0
         self._old_engine = None
@@ -1624,32 +1662,30 @@ class _ShallowCopy:
             self.layers, self.panners, self.choruses, self.filters,
             self.distortions, self.flangers, self.phasers
         ):
-            mono = layer.next_chunk(n)
-            panned = panner.process(mono)  # handles both mono and stereo layer output
-            chorused = chorus.next_chunk(panned)
-            filtered = layer_filter.next_chunk(chorused)
+            raw       = layer.next_chunk(n)
+            filtered  = layer_filter.next_chunk(raw)
             distorted = distortion.process(filtered)
-            flanged = flanger.next_chunk(distorted)
-            phased = phaser.next_chunk(flanged)
-            stereo += phased
+            panned    = panner.process(distorted)
+            chorused  = chorus.next_chunk(panned)
+            flanged   = flanger.next_chunk(chorused)
+            phased    = phaser.next_chunk(flanged)
+            stereo   += phased
 
         stereo[:, 0], self._dc_zi_L = sosfilt(self._dc_sos, stereo[:, 0], zi=self._dc_zi_L)
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)
 
-        # Soft saturation
         if self.saturation > 0.01:
             drive = 1.0 + self.saturation * 3.0
             norm = np.tanh(drive)
             stereo = np.tanh(stereo * drive) / norm
 
-        # FDN reverb
         stereo = self._reverb.next_chunk(stereo)
+
+        stereo = self._master.process(stereo)
 
         peak = np.max(np.abs(stereo))
         if peak > 0.92:
             stereo = stereo * (0.92 / peak)
-
-        stereo = self._master.process(stereo)
 
         return stereo
 
