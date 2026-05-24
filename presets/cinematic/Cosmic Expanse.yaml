@@ -80,6 +80,8 @@ layers:
   chorus_depth: 0.005
   chorus_mix: 0.2
   chorus_voices: 2
+  spread: 1.3
+  blend: 0.9
 - name: Nebula Mid
   enabled: true
   type: fm
@@ -116,6 +118,8 @@ layers:
   chorus_depth: 0.006
   chorus_mix: 0.3
   chorus_voices: 2
+  spread: 1.5
+  blend: 0.75
 - name: Star Shimmer
   enabled: true
   type: fm
@@ -150,6 +154,8 @@ layers:
   chorus_depth: 0.01
   chorus_mix: 0.6
   chorus_voices: 3
+  spread: 1.8
+  blend: 0.55
 - name: Distant Chimes
   enabled: true
   type: granular

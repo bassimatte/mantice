@@ -54,6 +54,8 @@ layers:
     speed: 0.006
     trajectory_x: pendulum
     trajectory_y: spiral
+  spread: 0.8
+  blend: 1.0
 - name: Bass Foundation
   enabled: true
   synthesis:
@@ -79,6 +81,8 @@ layers:
     speed: 0.032
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.0
+  blend: 1.0
 - name: Tonal Weave
   enabled: true
   synthesis:
@@ -107,6 +111,8 @@ layers:
     speed: 0.015
     trajectory_x: orbit
     trajectory_y: none
+  spread: 1.5
+  blend: 0.8
 - name: Deep Hum
   enabled: true
   synthesis:
@@ -133,6 +139,8 @@ layers:
     speed: 0.038
     trajectory_x: orbit
     trajectory_y: none
+  spread: 0.9
+  blend: 1.0
 - name: Dense Texture
   enabled: true
   synthesis:
@@ -157,3 +165,5 @@ layers:
     speed: 0.005
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.4
+  blend: 0.85

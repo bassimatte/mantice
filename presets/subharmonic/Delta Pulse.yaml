@@ -7,9 +7,8 @@ meta:
   - delta
   - sleep
   - meditative
-  description: Engineered for deep delta brainwave entrainment at 1.5 Hz. Subtractive
-    LP-filtered sub bass, HP-separated mid FM, and an ultra-slow flanger sweep. Deepest
-    sleep drone.
+  description: Engineered for deep delta brainwave entrainment at 1.5 Hz. Subtractive LP-filtered sub bass, HP-separated mid
+    FM, and an ultra-slow flanger sweep. Deepest sleep drone.
   author: Matteo Bassi
   engine_version: MANTICE_V22
   tags:
@@ -140,6 +139,8 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  spread: 0.8
+  blend: 0.8
 - name: Harmonic Sustain
   muted: false
   type: fm
@@ -199,6 +200,8 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  spread: 0.9
+  blend: 0.75
 binaural:
   enabled: true
   method: detune

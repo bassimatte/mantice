@@ -52,6 +52,8 @@ layers:
     speed: 0.004
     trajectory_x: orbit
     trajectory_y: depth
+  spread: 0.4
+  blend: 1.0
 reverb:
   enabled: true
   space: cathedral

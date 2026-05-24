@@ -62,6 +62,8 @@ layers:
     speed: 0.003
     trajectory_x: drift
     trajectory_y: depth
+  spread: 0.4
+  blend: 1.0
 - name: Tension Cluster
   enabled: true
   synthesis:
@@ -87,6 +89,8 @@ layers:
     speed: 0.005
     trajectory_x: spiral
     trajectory_y: depth
+  spread: 1.2
+  blend: 0.9
 - name: High Unease
   enabled: true
   synthesis:
@@ -111,6 +115,8 @@ layers:
     speed: 0.007
     trajectory_x: orbit
     trajectory_y: none
+  spread: 1.8
+  blend: 0.45
 notes:
   goal: Pure horror/tension drone for cinematic use.
   listening_tip: Best at moderate volume in darkness.

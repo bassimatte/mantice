@@ -56,6 +56,8 @@ layers:
     speed: 0.018
     trajectory_x: drift
     trajectory_y: none
+  spread: 0.9
+  blend: 0.95
 - name: Bass Foundation
   enabled: true
   synthesis:
@@ -81,6 +83,8 @@ layers:
     speed: 0.037
     trajectory_x: orbit
     trajectory_y: spiral
+  spread: 1.3
+  blend: 0.85
 - name: Core Tone
   enabled: true
   synthesis:
@@ -107,6 +111,8 @@ layers:
     speed: 0.019
     trajectory_x: pendulum
     trajectory_y: none
+  spread: 1.6
+  blend: 0.7
 - name: Amber Field
   enabled: true
   synthesis:
@@ -132,6 +138,8 @@ layers:
     speed: 0.021
     trajectory_x: pendulum
     trajectory_y: none
+  spread: 1.4
+  blend: 0.8
 - name: Dense Texture
   enabled: true
   synthesis:
@@ -159,6 +167,8 @@ layers:
     speed: 0.028
     trajectory_x: pendulum
     trajectory_y: none
+  spread: 1.8
+  blend: 0.65
 reverb:
   enabled: true
   space: hall

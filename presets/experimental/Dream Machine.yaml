@@ -55,6 +55,8 @@ layers:
     speed: 0.015
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.1
+  blend: 0.9
 - name: Mid Resonance
   enabled: true
   synthesis:
@@ -82,6 +84,8 @@ layers:
     speed: 0.038
     trajectory_x: drift
     trajectory_y: spiral
+  spread: 1.5
+  blend: 0.8
 - name: Core Tone
   enabled: true
   synthesis:
@@ -106,6 +110,8 @@ layers:
     speed: 0.034
     trajectory_x: drift
     trajectory_y: depth
+  spread: 1.6
+  blend: 0.75
 - name: Amber Field
   enabled: true
   synthesis:
@@ -132,6 +138,8 @@ layers:
     speed: 0.01
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.4
+  blend: 0.8
 - name: Presence Layer
   enabled: true
   synthesis:
@@ -157,3 +165,5 @@ layers:
     speed: 0.04
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.5
+  blend: 0.8

@@ -56,6 +56,8 @@ layers:
     speed: 0.03
     trajectory_x: drift
     trajectory_y: none
+  spread: 0.9
+  blend: 1.0
 - name: Mid Resonance
   enabled: true
   synthesis:
@@ -80,6 +82,8 @@ layers:
     speed: 0.009
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.4
+  blend: 0.9
 - name: Core Tone
   enabled: true
   synthesis:
@@ -107,6 +111,8 @@ layers:
     speed: 0.038
     trajectory_x: orbit
     trajectory_y: depth
+  spread: 1.5
+  blend: 0.8
 - name: Spectral Body
   enabled: true
   synthesis:
@@ -133,6 +139,8 @@ layers:
     speed: 0.021
     trajectory_x: drift
     trajectory_y: spiral
+  spread: 1.6
+  blend: 0.7
 - name: Dense Texture
   enabled: true
   synthesis:
@@ -159,6 +167,8 @@ layers:
     speed: 0.039
     trajectory_x: pendulum
     trajectory_y: depth
+  spread: 1.3
+  blend: 0.9
 reverb:
   enabled: true
   space: cathedral

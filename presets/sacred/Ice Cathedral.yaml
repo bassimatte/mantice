@@ -7,8 +7,8 @@ meta:
   - cold
   - sacred
   - vast
-  description: Ice granular in stretch mode  pitch shifts without changing grain duration  layered
-    under crystalline FM overtones in infinite reverb. Frozen sacred space.
+  description: Ice granular in stretch mode  pitch shifts without changing grain duration  layered under crystalline FM overtones
+    in infinite reverb. Frozen sacred space.
   author: Matteo Bassi
   engine_version: MANTICE_V22
   tags:
@@ -141,6 +141,8 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  spread: 1.7
+  blend: 0.6
 - name: Frozen Foundation
   muted: false
   type: fm
@@ -199,6 +201,8 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  spread: 1.2
+  blend: 0.9
 binaural:
   enabled: true
   method: detune
