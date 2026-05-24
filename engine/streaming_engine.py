@@ -211,16 +211,32 @@ class StreamingLayer:
         self._noise_state = np.float32(0.0)  # 1-pole filter state for pink noise
         self._brown_state = np.float32(0.0)  # integrator state for brown noise
 
-        # Voice stereo spread angles: spread voices evenly from slightly-left to
-        # slightly-right (π/8=22.5° to 3π/8=67.5° of the 0–π/2 equal-power range).
-        # Each voice contributes to L as cos(θ) and to R as sin(θ), producing genuine
-        # inter-channel decorrelation even before the global panner is applied.
+        # Voice stereo spread: each voice contributes to L as cos(θ) and to R as
+        # sin(θ). θ=π/4 is the centre (equal L/R); voices spread symmetrically
+        # around it. spread=0 → mono (all at π/4), spread=1 → default (π/8–3π/8),
+        # spread=2 → full field (0–π/2).
+        spread = float(cfg.get("spread", 1.0))
+        center = np.float32(np.pi / 4)
+        half_range = np.float32(np.clip(spread * np.pi / 8, 0.0, np.pi / 4))
         if n_voices > 1:
             self._voice_pan_angles = np.linspace(
-                np.pi / 8, 3 * np.pi / 8, n_voices, dtype=np.float32
+                center - half_range, center + half_range, n_voices, dtype=np.float32
             )
         else:
-            self._voice_pan_angles = np.array([np.pi / 4], dtype=np.float32)
+            self._voice_pan_angles = np.array([center], dtype=np.float32)
+
+        # Blend: amplitude taper across voices. blend=1 → all voices equal weight
+        # (current); blend=0 → centre voice loudest, edge voices silent (pyramid
+        # window). Allows layering where inner voices anchor the main pitch.
+        blend = float(cfg.get("blend", 1.0))
+        if n_voices > 1:
+            norm_pos = np.linspace(-1.0, 1.0, n_voices, dtype=np.float32)
+        else:
+            norm_pos = np.zeros(1, dtype=np.float32)
+        self._blend_weights = np.maximum(
+            np.float32(1.0) - np.float32(1.0 - blend) * np.abs(norm_pos),
+            np.float32(0.0),
+        )
 
         # Band filter
         self._setup_filter(cfg.get("band", "mid"))
@@ -297,10 +313,10 @@ class StreamingLayer:
         self.nominal_carrier_phases = nominal_phases[:, -1] % (2 * np.pi)
 
         # Voice-spread stereo: each voice contributes to L/R based on its spread angle.
-        # Voices spread from near-left to near-right → genuine inter-channel decorrelation.
+        # Blend weights taper amplitude from centre voices (weight=1) to edges (weight=blend).
         # Energy is preserved: sum(cos²+sin²)=n_voices, matching the mono dot-product power.
-        L_weights = self.amplitudes * np.cos(self._voice_pan_angles)
-        R_weights = self.amplitudes * np.sin(self._voice_pan_angles)
+        L_weights = self.amplitudes * self._blend_weights * np.cos(self._voice_pan_angles)
+        R_weights = self.amplitudes * self._blend_weights * np.sin(self._voice_pan_angles)
         layer_L = np.dot(L_weights, signal)  # shape (n_samples,)
         layer_R = np.dot(R_weights, signal)  # shape (n_samples,)
 

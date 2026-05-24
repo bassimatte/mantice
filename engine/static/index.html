@@ -2623,6 +2623,24 @@ function showLayerParams(layer) {
     </div>
   `;
 
+  const layerSpread = layer.spread ?? 1.0;
+  const layerBlend  = layer.blend  ?? 1.0;
+  const unisonHtml = `
+    <div class="param-row" style="margin-top:4px;">
+      <label style="color:var(--text-dim);font-size:9px;letter-spacing:.06em;">UNISON</label>
+    </div>
+    <div class="param-row">
+      <label>Spread</label>
+      <input type="range" id="lp-spread" min="0" max="2" step="0.05" value="${layerSpread}" >
+      <span class="value" id="lp-spread-val">${layerSpread.toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Blend</label>
+      <input type="range" id="lp-blend" min="0" max="1" step="0.05" value="${layerBlend}" >
+      <span class="value" id="lp-blend-val">${layerBlend.toFixed(2)}</span>
+    </div>
+  `;
+
   // Granular params
   const granularParams = [
     { id: 'grain_size', label: 'Grain Size (ms)', min: 20, max: 200, step: 1, val: layer.grain_size || 80 },
@@ -2863,7 +2881,7 @@ function showLayerParams(layer) {
   } else if (layerType === 'subtractive') {
     synthHtml = subtractiveHtml;
   } else {
-    synthHtml = fmHtml + harmonicsHtml + textureHtml;
+    synthHtml = fmHtml + harmonicsHtml + textureHtml + unisonHtml;
   }
 
   const synthDiv = `<div class="layer-subtab-content" data-subtab="synth" style="display:${activeLayerSubTab==='synth'?'block':'none'}">${synthHtml}</div>`;
@@ -3086,6 +3104,27 @@ function showLayerParams(layer) {
       noiseColorSel.addEventListener('change', () => {
         pushUndo();
         currentParams.layers[activeLayerIdx].noise_color = noiseColorSel.value;
+        markDirty();
+      });
+    }
+    // Unison: spread & blend
+    const spreadSlider = $('lp-spread');
+    if (spreadSlider) {
+      spreadSlider.addEventListener('mousedown', () => { pushUndo(); });
+      spreadSlider.addEventListener('input', () => {
+        const v = parseFloat(spreadSlider.value);
+        $('lp-spread-val').textContent = v.toFixed(2);
+        currentParams.layers[activeLayerIdx].spread = v;
+        markDirty();
+      });
+    }
+    const blendSlider = $('lp-blend');
+    if (blendSlider) {
+      blendSlider.addEventListener('mousedown', () => { pushUndo(); });
+      blendSlider.addEventListener('input', () => {
+        const v = parseFloat(blendSlider.value);
+        $('lp-blend-val').textContent = v.toFixed(2);
+        currentParams.layers[activeLayerIdx].blend = v;
         markDirty();
       });
     }

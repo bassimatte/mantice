@@ -146,7 +146,7 @@ def _resolve_inheritance(raw: dict, child_path: Path, depth: int = 0) -> dict:
 
 def _normalize_layer_v1(layer: dict) -> dict:
     """V1 flat layer dict → internal format."""
-    root = float(layer["root"])
+    root = float(layer.get("root") or layer.get("root_hz", 110))
     return {
         "name":         layer.get("name", "Layer"),
         "muted":        bool(layer.get("muted", False)) or not bool(layer.get("enabled", True)),
@@ -164,8 +164,13 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "speed":        float(layer.get("speed", 0.01)),
         "trajectory_x": layer.get("trajectory_x", "none"),
         "trajectory_y": layer.get("trajectory_y", "none"),
-        "pan":          float(layer.get("pan", 0.0)),
+        "pan":          {"center": 0.0, "left": -1.0, "right": 1.0}.get(
+                            str(layer.get("pan", 0.0)).lower(),
+                            float(layer.get("pan", 0.0))
+                        ),
         "width":        float(layer.get("width", 1.0)),
+        "spread":       float(layer.get("spread", 1.0)),
+        "blend":        float(layer.get("blend", 1.0)),
     }
 
 
@@ -233,6 +238,9 @@ def _normalize_layer_v2(layer: dict) -> dict:
         # V22 pan & width
         "pan":   float(layer.get("pan", 0.0)),
         "width": float(layer.get("width", 1.0)),
+        # V23 voice spread & blend (FM only)
+        "spread": float(layer.get("spread", 1.0)),
+        "blend":  float(layer.get("blend", 1.0)),
     }
 
 
