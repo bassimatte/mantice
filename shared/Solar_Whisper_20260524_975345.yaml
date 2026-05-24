@@ -1,0 +1,163 @@
+meta:
+  name: Solar Whisper
+seed: null
+duration: 120.0
+spatial_depth: 1.1
+spatial_wet: 0.0
+saturation: 0.3
+master:
+  eq:
+    low_cut_hz: 20.0
+    bass_db: 0.0
+    bass_hz: 100.0
+    lo_mid_db: 0.0
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 0.0
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: 0.0
+    air_hz: 10000.0
+  comp:
+    threshold_db: -18.0
+    ratio: 2.5
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 3.0
+    makeup_db: 4.0
+  output_gain_db: 12.0
+swarm_density: 0.5
+layers:
+- name: Low Drone
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 82.41
+  voices: 6
+  ratios:
+  - 0.5
+  - 1
+  - 2
+  - 3
+  - 4
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0167
+  amp_max: 0.0789
+  drift: 0.0086
+  mix: 0.99
+  band: sub
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.63
+  chorus_depth: 0.0084
+  chorus_mix: 0.37
+  chorus_voices: 3
+  filter_type: bp
+  filter_cutoff: 532.1
+  filter_resonance: 2.29
+  filter_lfo_rate: 0.089
+  filter_lfo_depth: 0.69
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 9.8
+  sub_mix: 0.64
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+- name: Mid Resonance
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 220.0
+  voices: 6
+  ratios:
+  - 1
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0021
+  amp_max: 0.0654
+  drift: 0.009
+  mix: 0.45
+  band: mid
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.3
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.63
+  chorus_depth: 0.0137
+  chorus_mix: 0.33
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 456.7
+  filter_resonance: 1.86
+  filter_lfo_rate: 0.094
+  filter_lfo_depth: 0.39
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 7.0
+  sub_mix: 0.42
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+  pre_delay_ms: 0
+  modulation_depth: 0
+earth:
+  enabled: true
+  tectonic_frequency: 23
+  pressure: 0.15
+  movement: 0.021
+air: null
+flanger:
+  wet: 0.15
+  rate: 0.73
+  depth: 0.29
+  feedback: 0.52
