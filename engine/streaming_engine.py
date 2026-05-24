@@ -919,7 +919,92 @@ class StreamingLayerFilter:
                 result = np.stack([filtered_L, filtered_R], axis=1).astype(np.float32)
         return result[:, 0] if is_mono else result
 
-
+
+# ── Shimmer ───────────────────────────────────────────────────────────────────
+
+class StreamingShimmer:
+    """
+    Global shimmer effect: pitch-shifted feedback layer on the full stereo mix.
+
+    Two staggered read heads scan a circular buffer at speed 2^(semitones/12).
+    Hann-window cross-fading between heads ensures the amplitude sum is always
+    exactly 1.0 (sin²(θ) + cos²(θ) = 1), so there are no volume bumps or gaps.
+    Feedback re-injects the shimmer output into the write buffer, building an
+    ethereal, self-sustaining tail.
+
+    Typical use: wet=0.3, pitch_semitones=12, feedback=0.5 → classic octave shimmer.
+    """
+
+    def __init__(
+        self,
+        wet: float = 0.0,
+        pitch_semitones: float = 12.0,
+        feedback: float = 0.5,
+    ):
+        self.wet      = float(wet)
+        self.feedback = float(np.clip(feedback, 0.0, 0.95))
+        self._speed   = 2.0 ** (float(pitch_semitones) / 12.0)
+
+        # Circular buffer ≈ 200 ms, next power-of-2 for fast modulo
+        N = 1 << int(np.ceil(np.log2(max(SR * 0.20, 1))))
+        self._N   = N
+        self._buf = np.zeros((N, 2), dtype=np.float64)
+
+        # Two read heads staggered by N/2 so their Hann windows always sum to 1
+        self._read  = [0.0, N / 2.0]
+        self._write = 0
+
+    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+        if self.wet < 0.001:
+            return stereo
+
+        n   = len(stereo)
+        N   = self._N
+        buf = self._buf
+
+        # Write input into circular buffer
+        w_idx = (self._write + np.arange(n)) % N
+        buf[w_idx] = stereo.astype(np.float64)
+
+        # Accumulate shimmer from both read heads
+        shimmer = np.zeros((n, 2), dtype=np.float64)
+        for h in range(2):
+            pos = (self._read[h] + np.arange(n) * self._speed) % N
+
+            # Linear interpolation across circular buffer
+            i0  = pos.astype(np.int64) % N
+            i1  = (i0 + 1) % N
+            fr  = (pos - np.floor(pos))[:, None]
+            smp = buf[i0] * (1.0 - fr) + buf[i1] * fr
+
+            # Hann window: sin²(π * phase), peaks at phase=0.5, zeroes at 0 and 1
+            # Head 0 (phase) and head 1 (phase+0.5) sum to exactly 1.0 always
+            phase  = (pos % N) / N
+            window = np.sin(np.pi * phase) ** 2
+
+            shimmer += smp * window[:, None]
+            self._read[h] = (self._read[h] + n * self._speed) % N
+
+        # Feedback: write shimmer back into buffer for next chunk's input
+        buf[w_idx] += shimmer * self.feedback
+
+        self._write = (self._write + n) % N
+
+        result = stereo.astype(np.float64) * (1.0 - self.wet) + shimmer * self.wet
+        return result.astype(np.float32)
+
+    def copy_state(self):
+        s = StreamingShimmer.__new__(StreamingShimmer)
+        s.wet      = self.wet
+        s.feedback = self.feedback
+        s._speed   = self._speed
+        s._N       = self._N
+        s._buf     = self._buf.copy()
+        s._read    = list(self._read)
+        s._write   = self._write
+        return s
+
+
 # ── Flanger ───────────────────────────────────────────────────────────────────
 
 class StreamingFlanger:
@@ -1440,6 +1525,14 @@ class StreamingDroneEngine:
         # Global FDN reverb
         self._reverb = StreamingFDNReverb(preset.get("reverb") or {})
 
+        # Global shimmer
+        shimmer_cfg = preset.get("shimmer") or {}
+        self._shimmer = StreamingShimmer(
+            wet=float(shimmer_cfg.get("wet", 0.0)),
+            pitch_semitones=float(shimmer_cfg.get("pitch_semitones", 12.0)),
+            feedback=float(shimmer_cfg.get("feedback", 0.5)),
+        )
+
         # Streaming binaural — applied post-chain as the very last effect
         self._binaural_cfg = preset.get("binaural") or {}
         self._binaural_t   = 0  # sample counter for drift-free phase
@@ -1494,6 +1587,9 @@ class StreamingDroneEngine:
 
         # FDN reverb — only processes synthesized drone layers
         stereo = self._reverb.next_chunk(stereo)
+
+        # Shimmer — pitch-shifted feedback layer, post-reverb
+        stereo = self._shimmer.next_chunk(stereo)
 
         # Earth & Air added post-reverb — environmental constants, kept dry
         if self.earth_cfg and self.earth_cfg.get("enabled", True):
@@ -1650,6 +1746,7 @@ class _ShallowCopy:
         self.saturation = engine.saturation
         self._master = engine._master.copy_state()
         self._reverb  = engine._reverb.copy_state()
+        self._shimmer = engine._shimmer.copy_state()
         self._binaural_cfg = engine._binaural_cfg
         self._binaural_t   = engine._binaural_t
         self._crossfade_remaining = 0
@@ -1680,6 +1777,7 @@ class _ShallowCopy:
             stereo = np.tanh(stereo * drive) / norm
 
         stereo = self._reverb.next_chunk(stereo)
+        stereo = self._shimmer.next_chunk(stereo)
 
         stereo = self._master.process(stereo)
 

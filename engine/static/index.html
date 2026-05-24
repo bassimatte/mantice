@@ -1747,6 +1747,7 @@ python batch_render_freesound.py --metadata-only</pre>
       <button class="layer-subtab active" data-gfx="space">Binaural</button>
       <button class="layer-subtab" data-gfx="reverb">Reverb</button>
       <button class="layer-subtab" data-gfx="earth">Earth &amp; Air</button>
+      <button class="layer-subtab" data-gfx="shimmer">Shimmer</button>
     </div>
 
     <!-- Space (Binaural) -->
@@ -1807,6 +1808,34 @@ python batch_render_freesound.py --metadata-only</pre>
       <div class="param-row"><label>Pressure</label><input type="range" id="earth-pressure" min="0.0" max="1.0" step="0.05" value="0.4"><span class="value" id="earth-pressure-val">0.40</span></div>
       <div class="toggle-row" style="margin-top:12px"><label>Air</label><div class="toggle" id="air-toggle"></div></div>
       <div class="param-row"><label>Intensity</label><input type="range" id="air-intensity" min="0.0" max="0.5" step="0.01" value="0.12"><span class="value" id="air-intensity-val">0.12</span></div>
+    </div>
+
+    <!-- Shimmer -->
+    <div class="gfx-content" data-gfx="shimmer" style="display:none">
+      <div class="param-row">
+        <label>Wet</label>
+        <input type="range" id="shimmer-wet" min="0" max="1" step="0.01" value="0">
+        <span class="value" id="shimmer-wet-val">0.00</span>
+      </div>
+      <div class="param-row">
+        <label>Pitch</label>
+        <select id="shimmer-pitch" style="flex:1; background:var(--surface2); color:var(--text); border:1px solid var(--border); font-family:'Space Mono',monospace; font-size:10px; padding:3px 6px;">
+          <option value="-12">↓ Octave Down (−12)</option>
+          <option value="5">Perfect 4th (+5)</option>
+          <option value="7">Perfect 5th (+7)</option>
+          <option value="12" selected>Octave Up (+12)</option>
+          <option value="19">Octave + 5th (+19)</option>
+          <option value="24">Two Octaves (+24)</option>
+        </select>
+      </div>
+      <div class="param-row">
+        <label>Feedback</label>
+        <input type="range" id="shimmer-feedback" min="0" max="0.95" step="0.01" value="0.5">
+        <span class="value" id="shimmer-feedback-val">0.50</span>
+      </div>
+      <div style="font-size:10px; color:var(--text-dim); margin-top:6px; line-height:1.4">
+        Pitch-shifted feedback tail — best with Reverb on.<br>Wet 0 = bypassed.
+      </div>
     </div>
 
   </div>
@@ -2271,6 +2300,14 @@ function applyParamsToUI(p) {
   setToggle('air-toggle', p.air.enabled);
   $('air-intensity').value = p.air.intensity;
   $('air-intensity-val').textContent = p.air.intensity.toFixed(2);
+
+  // Shimmer
+  const sh = p.shimmer || {};
+  $('shimmer-wet').value = sh.wet ?? 0;
+  $('shimmer-wet-val').textContent = (sh.wet ?? 0).toFixed(2);
+  $('shimmer-pitch').value = String(Math.round(sh.pitch_semitones ?? 12));
+  $('shimmer-feedback').value = sh.feedback ?? 0.5;
+  $('shimmer-feedback-val').textContent = (sh.feedback ?? 0.5).toFixed(2);
 
   // Saturation
   const sat = p.saturation !== undefined ? p.saturation : 0.3;
@@ -3698,6 +3735,12 @@ function collectParams() {
   p.earth.pressure = parseFloat($('earth-pressure').value);
   p.air.enabled = $('air-toggle').dataset.state === '1';
   p.air.intensity = parseFloat($('air-intensity').value);
+
+  // Shimmer
+  p.shimmer = p.shimmer || {};
+  p.shimmer.wet             = parseFloat($('shimmer-wet').value);
+  p.shimmer.pitch_semitones = parseFloat($('shimmer-pitch').value);
+  p.shimmer.feedback        = parseFloat($('shimmer-feedback').value);
 
   // Saturation
   p.saturation = parseFloat($('saturation-slider').value);
@@ -5266,6 +5309,9 @@ function init() {
     r.addEventListener('change', () => { pushUndo(); updateBinauralUI(); markDirty(); });
   });
 
+  // Shimmer pitch dropdown
+  $('shimmer-pitch').addEventListener('change', () => { pushUndo(); markDirty(); });
+
   // Slider value displays (with undo on change, throttled input)
   function linkSlider(sliderId, valId, formatter) {
     const handler = () => {
@@ -5287,6 +5333,8 @@ function init() {
     ['reverb-mod-depth', 'reverb-mod-depth-val', 2],
     ['earth-pressure', 'earth-pressure-val', 2],
     ['air-intensity', 'air-intensity-val', 2],
+    ['shimmer-wet', 'shimmer-wet-val', 2],
+    ['shimmer-feedback', 'shimmer-feedback-val', 2],
     ['saturation-slider', 'saturation-val', 2],
     ['mutate-amount', 'mutate-amount-val', 2],
   ];

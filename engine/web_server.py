@@ -269,6 +269,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
     reverb = preset.get("reverb") or {}
     earth = preset.get("earth") or {}
     air = preset.get("air") or {}
+    shimmer = preset.get("shimmer") or {}
     flanger = preset.get("flanger") or {}
     master = preset.get("master", {}) or {}
     eq = master.get("eq", {}) or {}
@@ -327,6 +328,11 @@ def _preset_to_ui_params(preset: dict) -> dict:
             "intensity": air.get("intensity", 0.12),
             "movement": air.get("movement", 0.01),
             "turbulence": air.get("turbulence", 0.04),
+        },
+        "shimmer": {
+            "wet":              float(shimmer.get("wet", 0.0)),
+            "pitch_semitones":  float(shimmer.get("pitch_semitones", 12.0)),
+            "feedback":         float(shimmer.get("feedback", 0.5)),
         },
         "flanger": {
             "wet":      float(flanger.get("wet", 0.0)),
@@ -411,6 +417,7 @@ def _ui_params_to_preset(params: dict) -> dict:
     reverb = params.get("reverb", {})
     earth = params.get("earth", {})
     air = params.get("air", {})
+    shimmer_ui = params.get("shimmer", {})
     flanger_ui = params.get("flanger", {})
     master_ui = params.get("master", {})
 
@@ -453,6 +460,11 @@ def _ui_params_to_preset(params: dict) -> dict:
         "reverb": reverb if reverb.get("enabled") else None,
         "earth": earth if earth.get("enabled") else None,
         "air": air if air.get("enabled") else None,
+        "shimmer": {
+            "wet":             float(shimmer_ui.get("wet", 0.0)),
+            "pitch_semitones": float(shimmer_ui.get("pitch_semitones", 12.0)),
+            "feedback":        float(shimmer_ui.get("feedback", 0.5)),
+        } if float(shimmer_ui.get("wet", 0.0)) > 0 else None,
         "flanger": {
             "wet":      float(flanger_ui.get("wet", 0.0)),
             "rate":     float(flanger_ui.get("rate", 0.25)),
