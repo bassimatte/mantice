@@ -1744,14 +1744,14 @@ python batch_render_freesound.py --metadata-only</pre>
   <div class="card" id="global-fx-card">
     <h2>Global FX</h2>
     <div class="layer-subtabs" id="global-fx-tabs">
-      <button class="layer-subtab active" data-gfx="space">Binaural</button>
-      <button class="layer-subtab" data-gfx="reverb">Reverb</button>
-      <button class="layer-subtab" data-gfx="earth">Earth &amp; Air</button>
+      <button class="layer-subtab active" data-gfx="reverb">Reverb</button>
       <button class="layer-subtab" data-gfx="shimmer">Shimmer</button>
+      <button class="layer-subtab" data-gfx="earth">Earth &amp; Air</button>
+      <button class="layer-subtab" data-gfx="space">Binaural</button>
     </div>
 
     <!-- Space (Binaural) -->
-    <div class="gfx-content" data-gfx="space">
+    <div class="gfx-content" data-gfx="space" style="display:none">
       <div class="toggle-row">
         <label>Enabled</label>
         <div class="toggle" id="binaural-toggle"></div>
@@ -1781,7 +1781,7 @@ python batch_render_freesound.py --metadata-only</pre>
     </div>
 
     <!-- Reverb -->
-    <div class="gfx-content" data-gfx="reverb" style="display:none">
+    <div class="gfx-content" data-gfx="reverb">
       <div class="toggle-row">
         <label>Enabled</label>
         <div class="toggle" id="reverb-toggle"></div>
