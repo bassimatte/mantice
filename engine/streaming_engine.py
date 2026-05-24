@@ -922,8 +922,9 @@ class StreamingFDNReverb:
         self.enabled = bool(reverb_cfg.get("enabled", False))
         self.mix     = float(reverb_cfg.get("mix", 0.3))
 
-        # Map decay_trim (0.1–1.0) → feedback gain (0.60–0.96)
-        decay_trim  = float(reverb_cfg.get("decay_trim", 1.0))
+        # Map decay_trim (0.0–1.0) → feedback gain (0.60–0.96). Values >1.0
+        # would make the FDN unstable (feedback > 1), so clamp defensively.
+        decay_trim  = float(np.clip(reverb_cfg.get("decay_trim", 1.0), 0.0, 1.0))
         self.decay  = 0.60 + decay_trim * 0.36
 
         # Pre-delay
@@ -1053,20 +1054,41 @@ class StreamingFDNReverb:
 
 
 class LayerDistortion:
-    """Per-layer waveshaper distortion (soft-clip tanh or hard-clip)."""
+    """Per-layer waveshaper distortion (soft-clip tanh or hard-clip).
+
+    When drive > 0 a 4th-order 5 kHz anti-aliasing LP filter is applied
+    after the waveshaper.  Nonlinear distortion folds the PolyBLEP residual
+    discontinuities of saw/square oscillators into wideband energy; the LP
+    removes that high-frequency artefact without audibly affecting the drone's
+    harmonic content (fundamentals and low-order harmonics stay below 5 kHz).
+    """
 
     def __init__(self, drive: float = 0.0, dist_type: str = "soft"):
         self.drive = float(drive)
         self.dist_type = dist_type
+        # Anti-aliasing state (only allocated when distortion is active)
+        if self.drive > 0.0:
+            nyquist = SR * 0.5
+            self._aa_sos = butter(4, min(5000.0 / nyquist, 0.999),
+                                  btype="low", output="sos")
+            self._aa_zi_l = sosfilt_zi(self._aa_sos) * 0.0
+            self._aa_zi_r = sosfilt_zi(self._aa_sos) * 0.0
+        else:
+            self._aa_sos = None
 
     def process(self, stereo: np.ndarray) -> np.ndarray:
         if self.drive < 0.01:
             return stereo
         d = 1.0 + self.drive * 4.0
         if self.dist_type == "hard":
-            return np.clip(stereo * d, -1.0, 1.0) / d
+            out = np.clip(stereo * d, -1.0, 1.0) / d
         else:  # soft (tanh)
-            return np.tanh(stereo * d) / np.tanh(d)
+            out = np.tanh(stereo * d) / np.tanh(d)
+        # Anti-aliasing: attenuate wideband artefacts from PolyBLEP residuals
+        if self._aa_sos is not None:
+            out[:, 0], self._aa_zi_l = sosfilt(self._aa_sos, out[:, 0], zi=self._aa_zi_l)
+            out[:, 1], self._aa_zi_r = sosfilt(self._aa_sos, out[:, 1], zi=self._aa_zi_r)
+        return out
 
 
 # ── Streaming Engine ──────────────────────────────────────────────────────────
