@@ -1437,15 +1437,6 @@ class StreamingDroneEngine:
         self._dc_zi_L = sosfilt_zi(self._dc_sos) * 0.0
         self._dc_zi_R = sosfilt_zi(self._dc_sos) * 0.0
 
-        # Global flanger
-        flanger_cfg = preset.get("flanger") or {}
-        self._flanger = StreamingFlanger(
-            rate=float(flanger_cfg.get("rate", 0.25)),
-            depth=float(flanger_cfg.get("depth", 0.5)),
-            feedback=float(flanger_cfg.get("feedback", 0.4)),
-            wet=float(flanger_cfg.get("wet", 0.0)),
-        )
-
         # Global FDN reverb
         self._reverb = StreamingFDNReverb(preset.get("reverb") or {})
 
@@ -1532,9 +1523,6 @@ class StreamingDroneEngine:
             self._crossfade_remaining -= fade_len
             if self._crossfade_remaining <= 0:
                 self._old_engine = None
-
-        # Global flanger (applied after crossfade so it acts on the final mix)
-        stereo = self._flanger.next_chunk(stereo)
 
         return stereo
 

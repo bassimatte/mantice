@@ -1,0 +1,90 @@
+meta:
+  name: "combo \u2013 c0000_gran_bowl_bp_rcave"
+  slug: combo__c0000_gran_bowl_bp_rcave
+  category: test
+  author: test_suite
+  engine_version: MANTICE_V22
+seed: 42
+duration: 60
+spatial_depth: 1.0
+spatial_wet: 0.3
+swarm_density: 0.5
+saturation: 0.8
+binaural:
+  enabled: true
+  method: detune
+  beat_hz: 6.0
+  carrier_hz: 200.0
+  carrier_amplitude: 0.15
+reverb:
+  enabled: true
+  space: cave
+  mix: 0.5
+  decay_trim: 0.9
+  pre_delay_ms: 30.0
+earth: null
+air: null
+flanger:
+  rate: 0.3
+  depth: 0.5
+  feedback: 0.4
+  wet: 0.3
+master: {}
+layers:
+- name: Test
+  muted: false
+  quadrant: center
+  trajectory_x: none
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: bp
+  filter_cutoff: 1200
+  filter_resonance: 3.0
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.6
+  filter_lfo_shape: sine
+  filter_vowel: a
+  distortion_drive: 0.0
+  distortion_type: soft
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  type: granular
+  root: 220.0
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 12.0
+  pitch_spread: 0.3
+  pitch_semitones: 0.0
+  sample_root_hz: null
+  pitch_mode: resample
+  position: 0.5
+  scatter: 0.4
+  envelope: hann
+  position_mode: linear
+  position_chaos: 0.3
+  mix: 0.8
+  voices: 1
+  ratios:
+  - 1.0
+  fm_ratios:
+  - 1.0
+  fm_index: 0.0
+  amp_min: 0.005
+  amp_max: 0.04
+  drift: 0.01
+  band: mid

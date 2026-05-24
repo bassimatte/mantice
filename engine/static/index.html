@@ -1261,9 +1261,8 @@ main {
           <h4>Layer Sub-tabs & Global FX</h4>
           <p>Layer parameters are organised into four sub-tabs: <strong>Synth</strong> (oscillator type and tuning),
           <strong>Filter</strong> (filter type + LFO), <strong>Space</strong> (quadrant, trajectory, elevation),
-          and <strong>FX</strong> (chorus + distortion). Global processing — Binaural, Reverb, Earth &amp; Air,
-          and <strong>Flanger</strong> — lives in the <strong>Global FX</strong> card below the layers.
-          The Flanger applies a global LFO-modulated delay post-mix for psychedelic shimmer and jet-engine sweeps.</p>
+          and <strong>FX</strong> (chorus + distortion + per-layer flanger + phaser). Global processing — Binaural, Reverb, Earth &amp; Air —
+          lives in the <strong>Global FX</strong> card below the layers.</p>
         </div>
 
         <h3>Global Processing</h3>
@@ -1575,16 +1574,6 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>Makeup Gain</td><td>-6–12 dB</td><td>0</td><td>Output gain after compression</td></tr>
         </table>
         <p class="docs-note">Feed-forward peak compressor on the master bus. Use a soft knee (4–8 dB) for transparent limiting; fast attack/slow release for pumping effects.</p>
-
-        <h3>Global FX — Flanger</h3>
-        <table class="docs-table">
-          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Wet</td><td>0.0–1.0</td><td>0.0 (off)</td><td>Dry/wet mix — 0 bypasses the effect entirely</td></tr>
-          <tr><td>Rate</td><td>0.01–2.0 Hz</td><td>0.25</td><td>LFO speed — slow for gentle sweeps, faster for jet-engine effect</td></tr>
-          <tr><td>Depth</td><td>0.0–1.0</td><td>0.5</td><td>LFO range — maps to 0.5–10 ms delay sweep</td></tr>
-          <tr><td>Feedback</td><td>0.0–0.95</td><td>0.4</td><td>Signal fed back into delay — higher = more resonant metallic coloring</td></tr>
-        </table>
-        <p class="docs-note">Global effect applied post-mix after all layers are blended. Uses a circular buffer with LFO-modulated read position. Active only when Wet &gt; 0.</p>
       </div>
 
       <!-- ═══ TAB 3: Shortcuts ═══ -->
@@ -1758,7 +1747,6 @@ python batch_render_freesound.py --metadata-only</pre>
       <button class="layer-subtab active" data-gfx="space">Binaural</button>
       <button class="layer-subtab" data-gfx="reverb">Reverb</button>
       <button class="layer-subtab" data-gfx="earth">Earth &amp; Air</button>
-      <button class="layer-subtab" data-gfx="flanger">Flanger</button>
     </div>
 
     <!-- Space (Binaural) -->
@@ -1821,29 +1809,6 @@ python batch_render_freesound.py --metadata-only</pre>
       <div class="param-row"><label>Intensity</label><input type="range" id="air-intensity" min="0.0" max="0.5" step="0.01" value="0.12"><span class="value" id="air-intensity-val">0.12</span></div>
     </div>
 
-    <!-- Flanger -->
-    <div class="gfx-content" data-gfx="flanger" style="display:none">
-      <div class="param-row">
-        <label>Wet</label>
-        <input type="range" id="flanger-wet" min="0" max="1" step="0.01" value="0">
-        <span class="value" id="flanger-wet-val">0.00</span>
-      </div>
-      <div class="param-row">
-        <label>Rate</label>
-        <input type="range" id="flanger-rate" min="0.01" max="2" step="0.01" value="0.25">
-        <span class="value" id="flanger-rate-val">0.25 Hz</span>
-      </div>
-      <div class="param-row">
-        <label>Depth</label>
-        <input type="range" id="flanger-depth" min="0" max="1" step="0.01" value="0.5">
-        <span class="value" id="flanger-depth-val">0.50</span>
-      </div>
-      <div class="param-row">
-        <label>Feedback</label>
-        <input type="range" id="flanger-feedback" min="0" max="0.95" step="0.01" value="0.4">
-        <span class="value" id="flanger-feedback-val">0.40</span>
-      </div>
-    </div>
   </div>
 
   <!-- Master -->
@@ -2306,17 +2271,6 @@ function applyParamsToUI(p) {
   setToggle('air-toggle', p.air.enabled);
   $('air-intensity').value = p.air.intensity;
   $('air-intensity-val').textContent = p.air.intensity.toFixed(2);
-
-  // Flanger
-  const fl = p.flanger || {};
-  $('flanger-wet').value = fl.wet ?? 0;
-  $('flanger-wet-val').textContent = (fl.wet ?? 0).toFixed(2);
-  $('flanger-rate').value = fl.rate ?? 0.25;
-  $('flanger-rate-val').textContent = (fl.rate ?? 0.25).toFixed(2) + ' Hz';
-  $('flanger-depth').value = fl.depth ?? 0.5;
-  $('flanger-depth-val').textContent = (fl.depth ?? 0.5).toFixed(2);
-  $('flanger-feedback').value = fl.feedback ?? 0.4;
-  $('flanger-feedback-val').textContent = (fl.feedback ?? 0.4).toFixed(2);
 
   // Saturation
   const sat = p.saturation !== undefined ? p.saturation : 0.3;
@@ -3744,13 +3698,6 @@ function collectParams() {
   p.earth.pressure = parseFloat($('earth-pressure').value);
   p.air.enabled = $('air-toggle').dataset.state === '1';
   p.air.intensity = parseFloat($('air-intensity').value);
-
-  // Flanger
-  p.flanger = p.flanger || {};
-  p.flanger.wet      = parseFloat($('flanger-wet').value);
-  p.flanger.rate     = parseFloat($('flanger-rate').value);
-  p.flanger.depth    = parseFloat($('flanger-depth').value);
-  p.flanger.feedback = parseFloat($('flanger-feedback').value);
 
   // Saturation
   p.saturation = parseFloat($('saturation-slider').value);
@@ -5342,14 +5289,10 @@ function init() {
     ['air-intensity', 'air-intensity-val', 2],
     ['saturation-slider', 'saturation-val', 2],
     ['mutate-amount', 'mutate-amount-val', 2],
-    ['flanger-wet', 'flanger-wet-val', 2],
-    ['flanger-depth', 'flanger-depth-val', 2],
-    ['flanger-feedback', 'flanger-feedback-val', 2],
   ];
   sliderPairs.forEach(([sliderId, valId, decimals]) => {
     linkSlider(sliderId, valId, v => parseFloat(v).toFixed(decimals));
   });
-  linkSlider('flanger-rate', 'flanger-rate-val', v => parseFloat(v).toFixed(2) + ' Hz');
   linkSlider('reverb-pre-delay', 'reverb-pre-delay-val', v => parseInt(v) + ' ms');
 
   // Tuning system

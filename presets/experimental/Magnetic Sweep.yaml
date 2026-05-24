@@ -80,6 +80,10 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  flanger_wet: 0.4
+  flanger_rate: 0.1
+  flanger_depth: 0.62
+  flanger_feedback: 0.5
 - name: Comb Resonator
   muted: false
   type: fm
@@ -139,6 +143,10 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  flanger_wet: 0.4
+  flanger_rate: 0.1
+  flanger_depth: 0.62
+  flanger_feedback: 0.5
 - name: Space Shimmer
   muted: false
   type: fm
@@ -197,6 +205,10 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  flanger_wet: 0.4
+  flanger_rate: 0.1
+  flanger_depth: 0.62
+  flanger_feedback: 0.5
 reverb:
   enabled: true
   space: cave
@@ -209,8 +221,3 @@ earth:
   tectonic_frequency: 20
   pressure: 0.32
   movement: 0.018
-flanger:
-  wet: 0.4
-  rate: 0.1
-  depth: 0.62
-  feedback: 0.5

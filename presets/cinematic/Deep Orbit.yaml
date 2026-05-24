@@ -81,6 +81,10 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  flanger_wet: 0.28
+  flanger_rate: 0.04
+  flanger_depth: 0.65
+  flanger_feedback: 0.48
 - name: Orbital Ring
   muted: false
   type: fm
@@ -141,6 +145,10 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  flanger_wet: 0.28
+  flanger_rate: 0.04
+  flanger_depth: 0.65
+  flanger_feedback: 0.48
 - name: Solar Wind Layer
   muted: false
   type: fm
@@ -199,6 +207,10 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  flanger_wet: 0.28
+  flanger_rate: 0.04
+  flanger_depth: 0.65
+  flanger_feedback: 0.48
 binaural:
   enabled: true
   method: detune
@@ -217,8 +229,3 @@ earth:
   tectonic_frequency: 18
   pressure: 0.22
   movement: 0.012
-flanger:
-  wet: 0.28
-  rate: 0.04
-  depth: 0.65
-  feedback: 0.48
