@@ -370,6 +370,16 @@ def _ui_params_to_preset(params: dict) -> dict:
             "width": float(l.get("width", 1.0)),
             "spread": float(l.get("spread", 1.0)),
             "blend": float(l.get("blend", 1.0)),
+            "flanger_wet":      float(l.get("flanger_wet", 0.0)),
+            "flanger_rate":     float(l.get("flanger_rate", 0.25)),
+            "flanger_depth":    float(l.get("flanger_depth", 0.5)),
+            "flanger_feedback": float(l.get("flanger_feedback", 0.4)),
+            "phaser_wet":       float(l.get("phaser_wet", 0.0)),
+            "phaser_rate":      float(l.get("phaser_rate", 0.5)),
+            "phaser_depth":     float(l.get("phaser_depth", 0.7)),
+            "phaser_center_hz": float(l.get("phaser_center_hz", 800.0)),
+            "phaser_feedback":  float(l.get("phaser_feedback", 0.0)),
+            "phaser_stages":    int(l.get("phaser_stages", 4)),
             "harmonics": int(l.get("harmonics", 4)),
             "harmonic_decay": float(l.get("harmonic_decay", 0.7)),
             "noise_amount": float(l.get("noise_amount", 0.0)),
@@ -963,6 +973,16 @@ async def mutate_endpoint(request: Request):
                     "width": float(l.get("width", 1.0)),
                     "spread": float(l.get("spread", 1.0)),
                     "blend": float(l.get("blend", 1.0)),
+                    "flanger_wet":      float(l.get("flanger_wet", 0.0)),
+                    "flanger_rate":     float(l.get("flanger_rate", 0.25)),
+                    "flanger_depth":    float(l.get("flanger_depth", 0.5)),
+                    "flanger_feedback": float(l.get("flanger_feedback", 0.4)),
+                    "phaser_wet":       float(l.get("phaser_wet", 0.0)),
+                    "phaser_rate":      float(l.get("phaser_rate", 0.5)),
+                    "phaser_depth":     float(l.get("phaser_depth", 0.7)),
+                    "phaser_center_hz": float(l.get("phaser_center_hz", 800.0)),
+                    "phaser_feedback":  float(l.get("phaser_feedback", 0.0)),
+                    "phaser_stages":    int(l.get("phaser_stages", 4)),
                     "harmonics": l.get("harmonics", 4),
                     "harmonic_decay": l.get("harmonic_decay", 0.7),
                     "noise_amount": l.get("noise_amount", 0.0),
@@ -1195,6 +1215,16 @@ async def save_preset_endpoint(request: Request):
                 l_out["noise_color"] = layer.get("noise_color", "pink")
                 l_out["spread"] = float(layer.get("spread", 1.0))
                 l_out["blend"] = float(layer.get("blend", 1.0))
+                l_out["flanger_wet"]      = float(layer.get("flanger_wet", 0.0))
+                l_out["flanger_rate"]     = float(layer.get("flanger_rate", 0.25))
+                l_out["flanger_depth"]    = float(layer.get("flanger_depth", 0.5))
+                l_out["flanger_feedback"] = float(layer.get("flanger_feedback", 0.4))
+                l_out["phaser_wet"]       = float(layer.get("phaser_wet", 0.0))
+                l_out["phaser_rate"]      = float(layer.get("phaser_rate", 0.5))
+                l_out["phaser_depth"]     = float(layer.get("phaser_depth", 0.7))
+                l_out["phaser_center_hz"] = float(layer.get("phaser_center_hz", 800.0))
+                l_out["phaser_feedback"]  = float(layer.get("phaser_feedback", 0.0))
+                l_out["phaser_stages"]    = int(layer.get("phaser_stages", 4))
             l_out["dynamics"] = {
                 "mix": layer.get("mix", 1.0),
                 "amp_min": layer.get("amp_min", 0.001),

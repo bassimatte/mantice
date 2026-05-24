@@ -985,9 +985,104 @@ class StreamingFlanger:
         return out.astype(np.float32)
 
 
+class StreamingPhaser:
+    """Per-layer all-pass chain phaser with LFO-swept center frequency.
 
+    Uses N first-order all-pass stages in series. The LFO modulates
+    the all-pass coefficient (= cutoff frequency), sweeping comb-like
+    notches through the spectrum. L and R LFO phases are offset by 90°
+    for natural stereo width without a separate width parameter.
 
+    All-pass difference equation: y[n] = a*x[n] + x[n-1] - a*y[n-1]
+    coefficient: a = (tan(π*f/SR) - 1) / (tan(π*f/SR) + 1)
+    """
 
+    def __init__(self, rate: float = 0.5, depth: float = 0.7,
+                 center_hz: float = 800.0, feedback: float = 0.0,
+                 wet: float = 0.0, stages: int = 4):
+        self.rate      = float(rate)
+        self.depth     = float(depth)
+        self.center_hz = float(center_hz)
+        self.feedback  = float(np.clip(feedback, -0.95, 0.95))
+        self.wet       = float(wet)
+        self.stages    = int(np.clip(stages, 2, 12))
+        self.lfo_phase = 0.0
+        # Per-stage all-pass states: previous input and output for each stage
+        self._xp_L = np.zeros(self.stages, dtype=np.float64)
+        self._yp_L = np.zeros(self.stages, dtype=np.float64)
+        self._xp_R = np.zeros(self.stages, dtype=np.float64)
+        self._yp_R = np.zeros(self.stages, dtype=np.float64)
+        self._fb_L = 0.0
+        self._fb_R = 0.0
+
+    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+        if self.wet < 0.001:
+            return stereo
+        n = len(stereo)
+        S = self.stages
+
+        # LFO: L and R offset by 90° for stereo width
+        lfo_inc = 2.0 * np.pi * self.rate / SR
+        ph = self.lfo_phase + lfo_inc * np.arange(n, dtype=np.float64)
+        ph_R = ph + np.pi * 0.5
+
+        # Instantaneous center frequency, clamped to safe range
+        f_L = np.clip(self.center_hz * (1.0 + np.sin(ph) * self.depth), 20.0, SR * 0.45)
+        f_R = np.clip(self.center_hz * (1.0 + np.sin(ph_R) * self.depth), 20.0, SR * 0.45)
+
+        # All-pass coefficient a per sample
+        t_L = np.tan(np.pi * f_L / SR)
+        t_R = np.tan(np.pi * f_R / SR)
+        a_L = (t_L - 1.0) / (t_L + 1.0)
+        a_R = (t_R - 1.0) / (t_R + 1.0)
+
+        fb    = float(np.clip(self.feedback, -0.95, 0.95))
+        xp_L  = self._xp_L.copy()
+        yp_L  = self._yp_L.copy()
+        xp_R  = self._xp_R.copy()
+        yp_R  = self._yp_R.copy()
+        fb_L  = self._fb_L
+        fb_R  = self._fb_R
+
+        out_L = np.empty(n, dtype=np.float32)
+        out_R = np.empty(n, dtype=np.float32)
+
+        for i in range(n):
+            aL = a_L[i]
+            aR = a_R[i]
+
+            # Input with feedback
+            xL = float(stereo[i, 0]) + fb * fb_L
+            xR = float(stereo[i, 1]) + fb * fb_R
+
+            # All-pass chain L: y[n] = a*x[n] + x[n-1] - a*y[n-1]
+            for s in range(S):
+                y = aL * xL + xp_L[s] - aL * yp_L[s]
+                xp_L[s] = xL
+                yp_L[s] = y
+                xL = y
+
+            # All-pass chain R
+            for s in range(S):
+                y = aR * xR + xp_R[s] - aR * yp_R[s]
+                xp_R[s] = xR
+                yp_R[s] = y
+                xR = y
+
+            out_L[i] = xL
+            out_R[i] = xR
+            fb_L = xL
+            fb_R = xR
+
+        self._xp_L = xp_L;  self._yp_L = yp_L
+        self._xp_R = xp_R;  self._yp_R = yp_R
+        self._fb_L = fb_L;  self._fb_R = fb_R
+        self.lfo_phase = float((ph[-1] + lfo_inc) % (2.0 * np.pi))
+
+        out = stereo.copy()
+        out[:, 0] = stereo[:, 0] * (1.0 - self.wet) + out_L * self.wet
+        out[:, 1] = stereo[:, 1] * (1.0 - self.wet) + out_R * self.wet
+        return out.astype(np.float32)
 
 # ── FDN Reverb ────────────────────────────────────────────────────────────────
 
@@ -1242,6 +1337,8 @@ class StreamingDroneEngine:
         self.choruses = []
         self.filters = []
         self.distortions = []
+        self.flangers = []
+        self.phasers = []
         self.saturation = float(preset.get("saturation", 0.3))
         self._master = MasterProcessor(preset.get("master", {}), SR)
 
@@ -1294,6 +1391,20 @@ class StreamingDroneEngine:
                 drive=float(layer_cfg.get("distortion_drive", 0.0)),
                 dist_type=layer_cfg.get("distortion_type", "soft"),
             ))
+            self.flangers.append(StreamingFlanger(
+                rate=float(layer_cfg.get("flanger_rate", 0.25)),
+                depth=float(layer_cfg.get("flanger_depth", 0.5)),
+                feedback=float(layer_cfg.get("flanger_feedback", 0.4)),
+                wet=float(layer_cfg.get("flanger_wet", 0.0)),
+            ))
+            self.phasers.append(StreamingPhaser(
+                rate=float(layer_cfg.get("phaser_rate", 0.5)),
+                depth=float(layer_cfg.get("phaser_depth", 0.7)),
+                center_hz=float(layer_cfg.get("phaser_center_hz", 800.0)),
+                feedback=float(layer_cfg.get("phaser_feedback", 0.0)),
+                wet=float(layer_cfg.get("phaser_wet", 0.0)),
+                stages=int(layer_cfg.get("phaser_stages", 4)),
+            ))
 
         # Earth engine (simple streaming sine)
         self.earth_cfg = preset.get("earth")
@@ -1342,12 +1453,18 @@ class StreamingDroneEngine:
         stereo = np.zeros((n, 2), dtype=np.float32)
 
         # Layers
-        for layer, panner, chorus, layer_filter, distortion in zip(self.layers, self.panners, self.choruses, self.filters, self.distortions):
+        for layer, panner, chorus, layer_filter, distortion, flanger, phaser in zip(
+            self.layers, self.panners, self.choruses, self.filters,
+            self.distortions, self.flangers, self.phasers
+        ):
             mono = layer.next_chunk(n)
             panned = panner.process(mono)  # pan + width
             chorused = chorus.next_chunk(panned)
             filtered = layer_filter.next_chunk(chorused)
-            stereo += distortion.process(filtered)
+            distorted = distortion.process(filtered)
+            flanged = flanger.next_chunk(distorted)
+            phased = phaser.next_chunk(flanged)
+            stereo += phased
 
         # Earth
         if self.earth_cfg and self.earth_cfg.get("enabled", True):
@@ -1469,6 +1586,8 @@ class _ShallowCopy:
         self.choruses = engine.choruses
         self.filters = engine.filters
         self.distortions = engine.distortions
+        self.flangers = engine.flangers
+        self.phasers  = engine.phasers
         self.earth_cfg = engine.earth_cfg
         self.air_cfg   = engine.air_cfg
         self.earth_phase = engine.earth_phase
@@ -1487,12 +1606,18 @@ class _ShallowCopy:
 
     def next_chunk(self, n: int) -> np.ndarray:
         stereo = np.zeros((n, 2), dtype=np.float32)
-        for layer, panner, chorus, layer_filter, distortion in zip(self.layers, self.panners, self.choruses, self.filters, self.distortions):
+        for layer, panner, chorus, layer_filter, distortion, flanger, phaser in zip(
+            self.layers, self.panners, self.choruses, self.filters,
+            self.distortions, self.flangers, self.phasers
+        ):
             mono = layer.next_chunk(n)
             panned = panner.process(mono)  # handles both mono and stereo layer output
             chorused = chorus.next_chunk(panned)
             filtered = layer_filter.next_chunk(chorused)
-            stereo += distortion.process(filtered)
+            distorted = distortion.process(filtered)
+            flanged = flanger.next_chunk(distorted)
+            phased = phaser.next_chunk(flanged)
+            stereo += phased
 
         stereo[:, 0], self._dc_zi_L = sosfilt(self._dc_sos, stereo[:, 0], zi=self._dc_zi_L)
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)

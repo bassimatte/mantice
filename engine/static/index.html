@@ -2509,6 +2509,10 @@ function doAddLayer() {
     amp_min: 0.005,
     amp_max: 0.04,
     chorus_mix: 0,
+    spread: 1.0,
+    blend: 1.0,
+    flanger_wet: 0, flanger_rate: 0.25, flanger_depth: 0.5, flanger_feedback: 0.4,
+    phaser_wet: 0, phaser_rate: 0.5, phaser_depth: 0.7, phaser_center_hz: 800, phaser_feedback: 0, phaser_stages: 4,
     spatial_motion: { quadrant: 'front', speed: 0.005, trajectory_x: 'sine', trajectory_y: 'cosine' }
   };
   currentParams.layers.push(newLayer);
@@ -2830,6 +2834,58 @@ function showLayerParams(layer) {
         <option value="soft" ${(layer.distortion_type||'soft')==='soft'?'selected':''}>Soft (tanh)</option>
         <option value="hard" ${(layer.distortion_type||'soft')==='hard'?'selected':''}>Hard clip</option>
       </select>
+    </div>
+    <div class="card-subsection-label" style="margin-top:10px">Flanger</div>
+    <div class="param-row">
+      <label>Wet</label>
+      <input type="range" id="lp-flanger_wet" min="0" max="1" step="0.01" value="${layer.flanger_wet ?? 0}" >
+      <span class="value" id="lp-flanger_wet-val">${(layer.flanger_wet ?? 0).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Rate</label>
+      <input type="range" id="lp-flanger_rate" min="0.01" max="2" step="0.01" value="${layer.flanger_rate ?? 0.25}" >
+      <span class="value" id="lp-flanger_rate-val">${(layer.flanger_rate ?? 0.25).toFixed(2)} Hz</span>
+    </div>
+    <div class="param-row">
+      <label>Depth</label>
+      <input type="range" id="lp-flanger_depth" min="0" max="1" step="0.01" value="${layer.flanger_depth ?? 0.5}" >
+      <span class="value" id="lp-flanger_depth-val">${(layer.flanger_depth ?? 0.5).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Feedback</label>
+      <input type="range" id="lp-flanger_feedback" min="0" max="0.95" step="0.01" value="${layer.flanger_feedback ?? 0.4}" >
+      <span class="value" id="lp-flanger_feedback-val">${(layer.flanger_feedback ?? 0.4).toFixed(2)}</span>
+    </div>
+    <div class="card-subsection-label" style="margin-top:10px">Phaser</div>
+    <div class="param-row">
+      <label>Wet</label>
+      <input type="range" id="lp-phaser_wet" min="0" max="1" step="0.01" value="${layer.phaser_wet ?? 0}" >
+      <span class="value" id="lp-phaser_wet-val">${(layer.phaser_wet ?? 0).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Rate</label>
+      <input type="range" id="lp-phaser_rate" min="0.01" max="4" step="0.01" value="${layer.phaser_rate ?? 0.5}" >
+      <span class="value" id="lp-phaser_rate-val">${(layer.phaser_rate ?? 0.5).toFixed(2)} Hz</span>
+    </div>
+    <div class="param-row">
+      <label>Depth</label>
+      <input type="range" id="lp-phaser_depth" min="0" max="1" step="0.01" value="${layer.phaser_depth ?? 0.7}" >
+      <span class="value" id="lp-phaser_depth-val">${(layer.phaser_depth ?? 0.7).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Center</label>
+      <input type="range" id="lp-phaser_center_hz" min="100" max="4000" step="10" value="${layer.phaser_center_hz ?? 800}" >
+      <span class="value" id="lp-phaser_center_hz-val">${(layer.phaser_center_hz ?? 800).toFixed(0)} Hz</span>
+    </div>
+    <div class="param-row">
+      <label>Feedback</label>
+      <input type="range" id="lp-phaser_feedback" min="-0.95" max="0.95" step="0.01" value="${layer.phaser_feedback ?? 0}" >
+      <span class="value" id="lp-phaser_feedback-val">${(layer.phaser_feedback ?? 0).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Stages</label>
+      <input type="range" id="lp-phaser_stages" min="2" max="12" step="2" value="${layer.phaser_stages ?? 4}" >
+      <span class="value" id="lp-phaser_stages-val">${layer.phaser_stages ?? 4}</span>
     </div>
   `;
 
@@ -3564,6 +3620,29 @@ function showLayerParams(layer) {
       markDirty();
     });
   }
+  // Per-layer Flanger & Phaser handlers
+  [
+    { id: 'flanger_wet',      fmt: v => v.toFixed(2),            key: 'flanger_wet' },
+    { id: 'flanger_rate',     fmt: v => v.toFixed(2) + ' Hz',    key: 'flanger_rate' },
+    { id: 'flanger_depth',    fmt: v => v.toFixed(2),            key: 'flanger_depth' },
+    { id: 'flanger_feedback', fmt: v => v.toFixed(2),            key: 'flanger_feedback' },
+    { id: 'phaser_wet',       fmt: v => v.toFixed(2),            key: 'phaser_wet' },
+    { id: 'phaser_rate',      fmt: v => v.toFixed(2) + ' Hz',    key: 'phaser_rate' },
+    { id: 'phaser_depth',     fmt: v => v.toFixed(2),            key: 'phaser_depth' },
+    { id: 'phaser_center_hz', fmt: v => v.toFixed(0) + ' Hz',    key: 'phaser_center_hz' },
+    { id: 'phaser_feedback',  fmt: v => v.toFixed(2),            key: 'phaser_feedback' },
+    { id: 'phaser_stages',    fmt: v => String(parseInt(v)),      key: 'phaser_stages', int: true },
+  ].forEach(({ id, fmt, key, int: isInt }) => {
+    const el = $(`lp-${id}`);
+    if (!el) return;
+    el.addEventListener('mousedown', () => { pushUndo(); });
+    el.addEventListener('input', () => {
+      const v = isInt ? parseInt(el.value) : parseFloat(el.value);
+      $(`lp-${id}-val`).textContent = fmt(v);
+      currentParams.layers[activeLayerIdx][key] = v;
+      markDirty();
+    });
+  });
 }
 function setToggle(id, state) {
   const el = $(id);

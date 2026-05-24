@@ -171,6 +171,17 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "width":        float(layer.get("width", 1.0)),
         "spread":       float(layer.get("spread", 1.0)),
         "blend":        float(layer.get("blend", 1.0)),
+        # V24 per-layer flanger & phaser
+        "flanger_wet":       float(layer.get("flanger_wet", 0.0)),
+        "flanger_rate":      float(layer.get("flanger_rate", 0.25)),
+        "flanger_depth":     float(layer.get("flanger_depth", 0.5)),
+        "flanger_feedback":  float(layer.get("flanger_feedback", 0.4)),
+        "phaser_wet":        float(layer.get("phaser_wet", 0.0)),
+        "phaser_rate":       float(layer.get("phaser_rate", 0.5)),
+        "phaser_depth":      float(layer.get("phaser_depth", 0.7)),
+        "phaser_center_hz":  float(layer.get("phaser_center_hz", 800.0)),
+        "phaser_feedback":   float(layer.get("phaser_feedback", 0.0)),
+        "phaser_stages":     int(layer.get("phaser_stages", 4)),
     }
 
 
@@ -241,6 +252,17 @@ def _normalize_layer_v2(layer: dict) -> dict:
         # V23 voice spread & blend (FM only)
         "spread": float(layer.get("spread", 1.0)),
         "blend":  float(layer.get("blend", 1.0)),
+        # V24 per-layer flanger & phaser
+        "flanger_wet":       float(layer.get("flanger_wet", 0.0)),
+        "flanger_rate":      float(layer.get("flanger_rate", 0.25)),
+        "flanger_depth":     float(layer.get("flanger_depth", 0.5)),
+        "flanger_feedback":  float(layer.get("flanger_feedback", 0.4)),
+        "phaser_wet":        float(layer.get("phaser_wet", 0.0)),
+        "phaser_rate":       float(layer.get("phaser_rate", 0.5)),
+        "phaser_depth":      float(layer.get("phaser_depth", 0.7)),
+        "phaser_center_hz":  float(layer.get("phaser_center_hz", 800.0)),
+        "phaser_feedback":   float(layer.get("phaser_feedback", 0.0)),
+        "phaser_stages":     int(layer.get("phaser_stages", 4)),
     }
 
 
