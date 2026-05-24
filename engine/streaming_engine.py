@@ -841,50 +841,49 @@ class StreamingFlanger:
         n = len(stereo)
         fb = float(np.clip(self.feedback, 0.0, 0.95))
 
-        # Write dry + single-sample feedback into the delay buffer
-        write_L = stereo[:, 0].copy()
-        write_R = stereo[:, 1].copy()
-        write_L[0] += fb * self._fb_L
-        write_R[0] += fb * self._fb_R
-
-        end_pos = self._write + n
-        if end_pos <= self._buf_sz:
-            self._buf_L[self._write:end_pos] = write_L
-            self._buf_R[self._write:end_pos] = write_R
-        else:
-            first = self._buf_sz - self._write
-            self._buf_L[self._write:] = write_L[:first]
-            self._buf_R[self._write:] = write_R[:first]
-            self._buf_L[:n - first]   = write_L[first:]
-            self._buf_R[:n - first]   = write_R[first:]
-
-        # LFO sweep
+        # LFO: precompute delay in samples for every sample in the chunk
         lfo_inc  = 2.0 * np.pi * self.rate / SR
-        sample_t = np.arange(n, dtype=np.float64)
-        phases   = self.lfo_phase + lfo_inc * sample_t
-        lfo      = np.sin(phases)
+        phases   = self.lfo_phase + lfo_inc * np.arange(n, dtype=np.float64)
+        center   = self._min_delay + self._max_mod * 0.5
+        delay_s  = center + np.sin(phases) * (self._max_mod * 0.5 * self.depth)
 
-        # Modulated delay in samples
-        center  = self._min_delay + self._max_mod * 0.5
-        delay_s = center + lfo * (self._max_mod * 0.5 * self.depth)
+        # Process sample-by-sample so feedback is continuous (not once-per-chunk).
+        # A per-chunk approach caused a periodic kick at the chunk rate (~10.8 Hz)
+        # that, filtered by the comb, produced an audible buzz in the 1-2 kHz band.
+        out_L = np.empty(n, dtype=np.float32)
+        out_R = np.empty(n, dtype=np.float32)
+        fb_L = self._fb_L
+        fb_R = self._fb_R
+        buf_sz = self._buf_sz
+        buf_L  = self._buf_L
+        buf_R  = self._buf_R
+        wr     = self._write
 
-        # Linear-interpolated read from circular buffer
-        read_pos = (self._write + sample_t - delay_s) % self._buf_sz
-        idx0 = np.floor(read_pos).astype(np.int64) % self._buf_sz
-        idx1 = (idx0 + 1) % self._buf_sz
-        frac = (read_pos - np.floor(read_pos)).astype(np.float32)
+        for i in range(n):
+            buf_L[wr] = stereo[i, 0] + fb * fb_L
+            buf_R[wr] = stereo[i, 1] + fb * fb_R
 
-        wet_L = (self._buf_L[idx0] * (1.0 - frac) + self._buf_L[idx1] * frac).astype(np.float32)
-        wet_R = (self._buf_R[idx0] * (1.0 - frac) + self._buf_R[idx1] * frac).astype(np.float32)
+            rp  = (wr - delay_s[i]) % buf_sz
+            r0  = int(rp) % buf_sz
+            r1  = (r0 + 1) % buf_sz
+            f   = float(rp - int(rp))
+            wl  = buf_L[r0] * (1.0 - f) + buf_L[r1] * f
+            wr_ = buf_R[r0] * (1.0 - f) + buf_R[r1] * f
 
-        self._fb_L   = float(wet_L[-1])
-        self._fb_R   = float(wet_R[-1])
+            out_L[i] = wl
+            out_R[i] = wr_
+            fb_L = wl
+            fb_R = wr_
+            wr = (wr + 1) % buf_sz
+
+        self._fb_L    = fb_L
+        self._fb_R    = fb_R
+        self._write   = wr
         self.lfo_phase = float((phases[-1] + lfo_inc) % (2.0 * np.pi))
-        self._write  = end_pos % self._buf_sz
 
         out = stereo.copy()
-        out[:, 0] = stereo[:, 0] * (1.0 - self.wet) + wet_L * self.wet
-        out[:, 1] = stereo[:, 1] * (1.0 - self.wet) + wet_R * self.wet
+        out[:, 0] = stereo[:, 0] * (1.0 - self.wet) + out_L * self.wet
+        out[:, 1] = stereo[:, 1] * (1.0 - self.wet) + out_R * self.wet
         return out.astype(np.float32)
 
 
