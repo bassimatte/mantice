@@ -333,7 +333,18 @@ def analyze(audio: np.ndarray) -> dict:
 
 
 def _rms_spike_ratio(mono: np.ndarray, window_ms: float = 500.0) -> float:
-    """Max/median ratio across overlapping RMS windows. 1.0 = perfectly flat."""
+    """Max/p75 ratio across overlapping RMS windows. 1.0 = perfectly flat.
+
+    Uses the 75th-percentile window as baseline rather than the median so that
+    a *sustained* level change between two granular sources (which raises the
+    median but not the max-relative-to-loud-section ratio) is not falsely
+    flagged as a burst.  Genuine bursts (short loud spike against a consistent
+    quiet baseline) still show up because p75 stays close to the quiet level
+    when only 25 % or fewer windows are loud.
+
+    Also gates on absolute amplitude: an inaudible signal (peak_rms < 0.01)
+    cannot have a perceptible quality issue regardless of the ratio.
+    """
     window = int(window_ms * SR / 1000)
     if len(mono) < window * 3:
         return 1.0
@@ -345,7 +356,11 @@ def _rms_spike_ratio(mono: np.ndarray, window_ms: float = 500.0) -> float:
     active = rms_vals[rms_vals > 1e-4]
     if len(active) < 3:
         return 1.0
-    return float(active.max() / (np.median(active) + 1e-8))
+    peak_rms = float(active.max())
+    if peak_rms < 0.01:          # signal too quiet to matter audibly
+        return 1.0
+    p75 = float(np.percentile(active, 75))
+    return float(peak_rms / (p75 + 1e-8))
 
 
 def analyze_seam(audio: np.ndarray, reload_at: int, crossfade_secs: float,
