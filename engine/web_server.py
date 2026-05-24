@@ -462,6 +462,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "Content-Length", "X-Export-Path"],
 )
 
 # Load pitch detection cache at startup, then scan new files in background
@@ -806,7 +807,7 @@ async def render_endpoint(request: Request):
                 encoder = lameenc.Encoder()
                 encoder.set_bit_rate(192)
                 encoder.set_in_sample_rate(sr)
-                encoder.set_channels(1)
+                encoder.set_channels(2)
                 encoder.set_quality(2)
                 data = encoder.encode(pcm.tobytes()) + encoder.flush()
                 return data, "audio/mpeg"
@@ -832,7 +833,7 @@ async def render_endpoint(request: Request):
             buf,
             media_type=media_type,
             headers={
-                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Disposition": f'attachment; filename="{filename}"',
                 "Content-Length": str(file_size),
                 "X-Export-Path": str(export_path),
             }

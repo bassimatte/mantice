@@ -4563,8 +4563,8 @@ async function doRender() {
 
     const exportPath = res.headers.get('X-Export-Path') || '';
     const disposition = res.headers.get('Content-Disposition') || '';
-    const filenameMatch = disposition.match(/filename=(.+)/);
-    const filename = filenameMatch ? filenameMatch[1] : `MANTICE_render.${fmt}`;
+    const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    const filename = filenameMatch ? filenameMatch[1].replace(/['"]/g, '').trim() : `MANTICE_render.${fmt}`;
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
