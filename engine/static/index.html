@@ -893,6 +893,18 @@ main {
 .layer-tab.muted.active { background: var(--layer-color, var(--accent)); opacity: 0.65; }
 .layer-tab.muted::after { content: ' M'; font-size: 8px; opacity: 0.8; }
 
+/* Layer peak meter bar — shown at bottom of each layer tab */
+.layer-meter {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 3px;
+  background: #22cc44;
+  width: 0%;
+  transition: width 0.08s linear, background 0.08s;
+  border-radius: 0 0 2px 2px;
+}
+.layer-tab { position: relative; overflow: hidden; }
+
 /* Layer sub-tabs */
 .layer-subtabs {
   display: flex;
@@ -1456,9 +1468,15 @@ python batch_render_freesound.py --metadata-only</pre>
         <h3>Layer — Dynamics</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Mix</td><td>0.0–1.0</td><td>1.0</td><td>Layer volume in final mix</td></tr>
-          <tr><td>Amp Min / Max</td><td>0.0–1.0</td><td>0.001 / 0.05</td><td>Amplitude envelope range</td></tr>
-          <tr><td>Drift</td><td>0.0–0.1</td><td>0.01</td><td>Pitch drift for organic beating</td></tr>
+          <tr><td>Volume</td><td>-60 to +6 dB</td><td>0 dB</td><td>Layer gain in the master mix (replaces old Mix + Loudness controls)</td></tr>
+          <tr><td>Drift</td><td>0.0–0.1</td><td>0.01</td><td>Pitch drift for organic beating between voices</td></tr>
+        </table>
+
+        <h3>Layer — Unison (FM only)</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Spread</td><td>0–2</td><td>1.0</td><td>Stereo field width: 0=mono, 1=default π/8–3π/8 arc, 2=full L/R</td></tr>
+          <tr><td>Blend</td><td>0–1</td><td>1.0</td><td>Voice amplitude taper: 1=all voices equal, 0=centre dominant, edges silent</td></tr>
         </table>
 
         <h3>Layer — Spatial Motion</h3>
@@ -2445,7 +2463,7 @@ function buildLayerTabs(layers) {
   const tabs = $('layer-tabs');
   tabs.innerHTML = layers.map((l, i) => {
     const color = getLayerColor(l.root);
-    return `<button class="layer-tab ${i === activeLayerIdx ? 'active' : ''} ${l.muted ? 'muted' : ''}" data-idx="${i}" style="--layer-color:${color}">${l.name || 'Layer ' + i}</button>`;
+    return `<button class="layer-tab ${i === activeLayerIdx ? 'active' : ''} ${l.muted ? 'muted' : ''}" data-idx="${i}" style="--layer-color:${color}">${l.name || 'Layer ' + i}<span class="layer-meter" id="layer-meter-${i}"></span></button>`;
   }).join('');
   // Set CSS custom properties for layer colors
   layers.forEach((l, i) => {
@@ -2505,7 +2523,7 @@ function doAddLayer() {
     voices: 4,
     fm_index: 1.0,
     drift: 0.01,
-    mix: 0.8,
+    volume_db: 0,
     amp_min: 0.005,
     amp_max: 0.04,
     chorus_mix: 0,
@@ -2586,15 +2604,14 @@ function showLayerParams(layer) {
     { id: 'voices', label: 'Voices', min: 1, max: 64, step: 1, val: layer.voices },
     { id: 'fm_index', label: 'FM Index', min: 0, max: 5, step: 0.1, val: layer.fm_index },
     { id: 'drift', label: 'Drift', min: 0, max: 0.05, step: 0.001, val: layer.drift },
-    { id: 'mix', label: 'Mix', min: 0, max: 2, step: 0.05, val: layer.mix },
-    { id: 'loudness', label: 'Loudness', min: 0, max: 0.15, step: 0.001, val: layer.amp_max || 0.03 },
+    { id: 'volume_db', label: 'Volume (dB)', min: -60, max: 6, step: 0.5, val: layer.volume_db ?? 0 },
   ];
 
   const fmHtml = fmParams.map(p => `
     <div class="param-row">
       <label>${p.label}${p.id === 'root' ? `<button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button>` : ''}</label>
       <input type="range" id="lp-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" >
-      <span class="value" id="lp-${p.id}-val">${p.id === 'root' ? rootLabel(p.val) : Number(p.val).toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0)}</span>${p.id === 'root' ? `<span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>` : ''}
+      <span class="value" id="lp-${p.id}-val">${p.id === 'root' ? rootLabel(p.val) : p.id === 'volume_db' ? ((p.val >= 0 ? '+' : '') + Number(p.val).toFixed(1) + ' dB') : Number(p.val).toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0)}</span>${p.id === 'root' ? `<span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>` : ''}
     </div>
   `).join('');
 
@@ -2761,14 +2778,9 @@ function showLayerParams(layer) {
       <span class="value" id="lp-drift-val">${(layer.drift||0.01).toFixed(3)}</span>
     </div>
     <div class="param-row">
-      <label>Mix</label>
-      <input type="range" id="lp-mix" min="0" max="2" step="0.05" value="${layer.mix||0.8}" >
-      <span class="value" id="lp-mix-val">${(layer.mix||0.8).toFixed(2)}</span>
-    </div>
-    <div class="param-row">
-      <label>Loudness</label>
-      <input type="range" id="lp-loudness" min="0" max="0.15" step="0.001" value="${layer.amp_max||0.04}" >
-      <span class="value" id="lp-loudness-val">${(layer.amp_max||0.04).toFixed(3)}</span>
+      <label>Volume (dB)</label>
+      <input type="range" id="lp-volume_db" min="-60" max="6" step="0.5" value="${layer.volume_db ?? 0}" >
+      <span class="value" id="lp-volume_db-val">${((layer.volume_db ?? 0) >= 0 ? '+' : '') + (layer.volume_db ?? 0).toFixed(1) + ' dB'}</span>
     </div>
   `;
 
@@ -3112,14 +3124,11 @@ function showLayerParams(layer) {
           v = snapToSemitone(v);
           slider.value = v;
         }
-        $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(v) : v.toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0);
+        $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(v) :
+          p.id === 'volume_db' ? ((v >= 0 ? '+' : '') + v.toFixed(1) + ' dB') :
+          v.toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0);
         if (p.id === 'root') updateRootCentsDisplay(v);
-        if (p.id === 'loudness') {
-          currentParams.layers[activeLayerIdx].amp_max = v;
-          currentParams.layers[activeLayerIdx].amp_min = Math.min(0.005, v * 0.15);
-        } else {
-          currentParams.layers[activeLayerIdx][p.id] = v;
-        }
+        currentParams.layers[activeLayerIdx][p.id] = v;
         markDirty();
       });
     });
@@ -3188,7 +3197,7 @@ function showLayerParams(layer) {
 
   // Bind subtractive controls
   if (layerType === 'subtractive') {
-    const subtractiveParams = ['root', 'voices', 'detune_cents', 'sub_mix', 'drift', 'mix'];
+    const subtractiveParams = ['root', 'voices', 'detune_cents', 'sub_mix', 'drift', 'volume_db'];
     subtractiveParams.forEach(id => {
       const slider = $(`lp-${id}`);
       if (!slider) return;
@@ -3199,24 +3208,15 @@ function showLayerParams(layer) {
           v = snapToSemitone(v);
           slider.value = v;
         }
-        $(`lp-${id}-val`).textContent = id === 'root' ? rootLabel(v) : v.toFixed(id === 'drift' ? 3 : id === 'sub_mix' || id === 'mix' ? 2 : 0);
+        $(`lp-${id}-val`).textContent = id === 'root' ? rootLabel(v) :
+          id === 'volume_db' ? ((v >= 0 ? '+' : '') + v.toFixed(1) + ' dB') :
+          v.toFixed(id === 'drift' ? 3 : id === 'sub_mix' ? 2 : 0);
         if (id === 'root') updateRootCentsDisplay(v);
         if (id === 'voices') currentParams.layers[activeLayerIdx][id] = parseInt(v);
         else currentParams.layers[activeLayerIdx][id] = v;
         markDirty();
       });
     });
-    const loudnessSlider = $('lp-loudness');
-    if (loudnessSlider) {
-      loudnessSlider.addEventListener('mousedown', () => pushUndo());
-      loudnessSlider.addEventListener('input', () => {
-        const v = parseFloat(loudnessSlider.value);
-        $('lp-loudness-val').textContent = v.toFixed(3);
-        currentParams.layers[activeLayerIdx].amp_max = v;
-        currentParams.layers[activeLayerIdx].amp_min = Math.min(0.005, v * 0.15);
-        markDirty();
-      });
-    }
     const waveformSel = $('lp-waveform');
     if (waveformSel) {
       waveformSel.addEventListener('change', () => {
@@ -4296,6 +4296,7 @@ async function _flushAndRestart() {
   streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
   startCtxKeepAlive();
+  startMeterPolling();
 
   const streamAnalyser = startSpectrum(streamingCtx);
   startupGain = streamingCtx.createGain();
@@ -4404,6 +4405,31 @@ let workletNode = null;
 let ctxKeepAlive = null;
 let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
 
+// ── Peak meter polling ─────────────────────────────────────────────────────────
+let _meterInterval = null;
+function startMeterPolling() {
+  if (_meterInterval) return;
+  _meterInterval = setInterval(async () => {
+    try {
+      const data = await fetch('/api/meters').then(r => r.json());
+      const layers = data.layers || [];
+      layers.forEach((db, i) => {
+        const el = document.getElementById(`layer-meter-${i}`);
+        if (!el) return;
+        // Map dBFS to width: -60 dB = 0%, 0 dB = 100% (clamp -60 to 0)
+        const clamped = Math.max(-60, Math.min(0, db));
+        const pct = ((clamped + 60) / 60) * 100;
+        el.style.width = pct.toFixed(1) + '%';
+        // Color: green < -12, amber < -3, red >= -3
+        el.style.background = db >= -3 ? '#ff3333' : db >= -12 ? '#ffaa00' : '#22cc44';
+      });
+    } catch (_) { /* server not ready */ }
+  }, 150);
+}
+function stopMeterPolling() {
+  if (_meterInterval) { clearInterval(_meterInterval); _meterInterval = null; }
+}
+
 function startCtxKeepAlive() {
   stopCtxKeepAlive();
   // Ping context every second — iOS suspends AudioContext during silence
@@ -4501,6 +4527,7 @@ async function doPreview() {
 
   // Keep AudioContext alive while waiting for WS/Render cold start (iOS suspends after inactivity)
   startCtxKeepAlive();
+  startMeterPolling();
 
   nextPlayTime = 0;
   chunksBuffered = 0;
@@ -4598,6 +4625,7 @@ async function doPreview() {
 function stopAudio() {
   isStreaming = false;
   stopCtxKeepAlive();
+  stopMeterPolling();
   stopAurora();
   stopSpectrum();
   if (ws && ws.readyState === WebSocket.OPEN) {

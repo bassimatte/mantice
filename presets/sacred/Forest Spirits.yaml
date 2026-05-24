@@ -6,8 +6,7 @@ meta:
   - organic
   - mystical
   - nature
-  description: Wind, water, and breath grains weave through a deep drone foundation
-    — the forest speaks.
+  description: Wind, water, and breath grains weave through a deep drone foundation — the forest speaks.
   author: Matteo Bassi
   engine_version: MANTICE_V17
   tags:
@@ -44,14 +43,14 @@ layers:
   grain_size: 120
   density: 20
   pitch_spread: 0.2
-  position: 0.4
-  scatter: 0.8
+  position: 0.65
+  scatter: 0.05
   envelope: hann
   dynamics:
-    mix: 0.8
     amp_min: 0.0022
     amp_max: 0.0224
     drift: 0.003
+    volume_db: -1.9
   spatial_motion:
     quadrant: rear_left
     speed: 0.04
@@ -67,18 +66,18 @@ layers:
 - name: Water Flow
   enabled: true
   type: granular
-  source: water.ogg
+  source: water_waves.ogg
   grain_size: 60
   density: 25
   pitch_spread: 0.4
   position: 0.5
   scatter: 0.6
-  envelope: triangle
+  envelope: hann
   dynamics:
-    mix: 0.6
     amp_min: 0.0013
     amp_max: 0.0179
     drift: 0.004
+    volume_db: -4.4
   spatial_motion:
     quadrant: front_right
     speed: 0.025
@@ -102,10 +101,10 @@ layers:
   scatter: 0.9
   envelope: hann
   dynamics:
-    mix: 0.4
     amp_min: 0.0009
     amp_max: 0.0134
     drift: 0.005
+    volume_db: -8.0
   spatial_motion:
     quadrant: rear_right
     speed: 0.05
@@ -134,10 +133,10 @@ layers:
     - 2.0
     index: 0.15
   dynamics:
-    mix: 1.0
     amp_min: 0.0045
     amp_max: 0.0447
     drift: 0.002
+    volume_db: 0.0
   harmonics: 4
   harmonic_decay: 0.7
   noise_amount: 0.01

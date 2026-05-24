@@ -233,7 +233,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "amp_min": layer.get("amp_min", 0.1),
                 "amp_max": layer.get("amp_max", 0.4),
                 "drift": layer.get("drift", 0.002),
-                "mix": layer.get("mix", 1.0),
+                "volume_db": float(layer.get("volume_db", 0.0)),
                 "band": layer.get("band", "mid"),
                 "quadrant": layer.get("quadrant", "center"),
                 "muted": bool(layer.get("muted", False)) or not bool(layer.get("enabled", True)),
@@ -360,7 +360,7 @@ def _ui_params_to_preset(params: dict) -> dict:
             "amp_min": float(l.get("amp_min", 0.1)),
             "amp_max": float(l.get("amp_max", 0.4)),
             "drift": float(l.get("drift", 0.002)),
-            "mix": float(l.get("mix", 1.0)),
+            "volume_db": float(l.get("volume_db", 0.0)),
             "band": l.get("band", "mid"),
             "quadrant": l.get("quadrant", "center"),
             "trajectory_x": l.get("trajectory_x", "drift"),
@@ -515,6 +515,15 @@ async def get_version():
         "sha": sha,
         "repo": "https://github.com/bassimatte/mantice",
     })
+
+
+@app.get("/api/meters")
+async def get_meters():
+    """Return per-layer peak meter levels in dBFS (decaying envelope, ~-100 = silent)."""
+    global engine
+    if engine is None:
+        return JSONResponse({"layers": []})
+    return JSONResponse({"layers": engine.get_peak_meters()})
 
 
 @app.get("/api/samples")
@@ -958,7 +967,7 @@ async def mutate_endpoint(request: Request):
                         "index": l.get("fm_index", 0.5),
                     },
                     "dynamics": {
-                        "mix": l.get("mix", 1.0),
+                        "volume_db": l.get("volume_db", 0.0),
                         "amp_min": l.get("amp_min", 0.005),
                         "amp_max": l.get("amp_max", 0.04),
                         "drift": l.get("drift", 0.002),
@@ -1226,7 +1235,7 @@ async def save_preset_endpoint(request: Request):
                 l_out["phaser_feedback"]  = float(layer.get("phaser_feedback", 0.0))
                 l_out["phaser_stages"]    = int(layer.get("phaser_stages", 4))
             l_out["dynamics"] = {
-                "mix": layer.get("mix", 1.0),
+                "volume_db": layer.get("volume_db", 0.0),
                 "amp_min": layer.get("amp_min", 0.001),
                 "amp_max": layer.get("amp_max", 0.05),
                 "drift": layer.get("drift", 0.01),

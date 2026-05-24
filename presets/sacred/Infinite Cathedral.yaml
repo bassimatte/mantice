@@ -47,10 +47,10 @@ layers:
     - 2.0
     index: 0.6
   dynamics:
-    mix: 0.96
     amp_min: 0.0035
     amp_max: 0.0288
     drift: 0.021
+    volume_db: -0.4
   spatial_motion:
     quadrant: front_left
     speed: 0.03
@@ -71,10 +71,10 @@ layers:
     - 3.0
     index: 0.54
   dynamics:
-    mix: 1.32
     amp_min: 0.0014
     amp_max: 0.0185
     drift: 0.014
+    volume_db: 2.4
   spatial_motion:
     quadrant: front_right
     speed: 0.009
@@ -98,10 +98,10 @@ layers:
     - 1.0
     index: 0.25
   dynamics:
-    mix: 0.41
     amp_min: 0.0015
     amp_max: 0.032
     drift: 0.036
+    volume_db: -7.7
   spatial_motion:
     quadrant: rear_left
     speed: 0.038
@@ -124,10 +124,10 @@ layers:
     - 2.71
     index: 1.01
   dynamics:
-    mix: 0.41
     amp_min: 0.0041
     amp_max: 0.0174
     drift: 0.001
+    volume_db: -7.7
   spatial_motion:
     quadrant: rear_right
     speed: 0.021
@@ -150,10 +150,10 @@ layers:
     - 1.0
     index: 0.64
   dynamics:
-    mix: 0.51
     amp_min: 0.003
     amp_max: 0.0127
     drift: 0.025
+    volume_db: -5.8
   spatial_motion:
     quadrant: front_left
     speed: 0.039

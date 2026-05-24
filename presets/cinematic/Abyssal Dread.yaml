@@ -7,8 +7,8 @@ meta:
   - ominous
   - unsettling
   - tense
-  description: 'Dissonant, pitch-black drone. Detuned clusters and aggressive FM create
-    a sense of creeping dread. No warmth, no comfort.
+  description: 'Dissonant, pitch-black drone. Detuned clusters and aggressive FM create a sense of creeping dread. No warmth,
+    no comfort.
 
     '
   author: Matteo Bassi
@@ -53,10 +53,10 @@ layers:
     - 2.73
     index: 0.8
   dynamics:
-    mix: 1.0
     amp_min: 0.0117
     amp_max: 0.0583
     drift: 0.035
+    volume_db: 0.0
   spatial_motion:
     quadrant: rear_left
     speed: 0.003
@@ -78,10 +78,10 @@ layers:
     - 3.1
     index: 1.1
   dynamics:
-    mix: 0.6
     amp_min: 0.0058
     amp_max: 0.0291
     drift: 0.04
+    volume_db: -4.4
   spatial_motion:
     quadrant: front_right
     speed: 0.005
@@ -102,10 +102,10 @@ layers:
     - 5.0
     index: 0.6
   dynamics:
-    mix: 0.25
     amp_min: 0.0023
     amp_max: 0.0117
     drift: 0.02
+    volume_db: -12.0
   spatial_motion:
     quadrant: front_left
     speed: 0.007

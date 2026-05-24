@@ -238,6 +238,11 @@ class StreamingLayer:
             np.float32(0.0),
         )
 
+        # Volume: single dB gain replacing the old separate mix + loudness controls.
+        # Backward-compatible: old presets now carry volume_db converted from mix.
+        volume_db = float(cfg.get("volume_db", 0.0))
+        self._gain = np.float32(10.0 ** (volume_db / 20.0))
+
         # Band filter
         self._setup_filter(cfg.get("band", "mid"))
 
@@ -331,8 +336,7 @@ class StreamingLayer:
         # Apply band filter (stereo)
         filtered_L, self.zi_L = sosfilt(self.sos, layer_L, zi=self.zi_L)
         filtered_R, self.zi_R = sosfilt(self.sos, layer_R, zi=self.zi_R)
-        mix = np.float32(self.cfg["mix"])
-        return np.column_stack([filtered_L * mix, filtered_R * mix])
+        return np.column_stack([filtered_L * self._gain, filtered_R * self._gain])
 
     def _generate_noise(self, n_samples: int) -> np.ndarray:
         """Generate colored noise (white, pink, or brown)."""
@@ -499,7 +503,8 @@ class StreamingSubtractiveLayer:
         self.sub_phase = sub_phases[-1] % (2 * np.pi)
 
         layer = combined * (1.0 - self.sub_mix) + sub * self.sub_mix
-        return layer * self.cfg.get("mix", 1.0)
+        _vol_db = float(self.cfg.get("volume_db", 0.0))
+        return layer * np.float32(10.0 ** (_vol_db / 20.0))
 
 
 # ── Stateful spatial panner ───────────────────────────────────────────────────
@@ -1339,6 +1344,7 @@ class StreamingDroneEngine:
         self.distortions = []
         self.flangers = []
         self.phasers = []
+        self._peak_meters = []   # per-layer peak in dBFS, smoothly decaying
         self.saturation = float(preset.get("saturation", 0.3))
         self._master = MasterProcessor(preset.get("master", {}), SR)
 
@@ -1453,10 +1459,10 @@ class StreamingDroneEngine:
         stereo = np.zeros((n, 2), dtype=np.float32)
 
         # Layers
-        for layer, panner, chorus, layer_filter, distortion, flanger, phaser in zip(
+        for i, (layer, panner, chorus, layer_filter, distortion, flanger, phaser) in enumerate(zip(
             self.layers, self.panners, self.choruses, self.filters,
             self.distortions, self.flangers, self.phasers
-        ):
+        )):
             mono = layer.next_chunk(n)
             panned = panner.process(mono)  # pan + width
             chorused = chorus.next_chunk(panned)
@@ -1465,6 +1471,12 @@ class StreamingDroneEngine:
             flanged = flanger.next_chunk(distorted)
             phased = phaser.next_chunk(flanged)
             stereo += phased
+            # Peak meter: track per-layer peak with ~1.5 dB/chunk decay (~15 dB/sec)
+            chunk_peak_db = 20.0 * np.log10(float(np.max(np.abs(phased))) + 1e-9)
+            if i < len(self._peak_meters):
+                self._peak_meters[i] = max(chunk_peak_db, self._peak_meters[i] - 1.5)
+            else:
+                self._peak_meters.append(chunk_peak_db)
 
         # Earth
         if self.earth_cfg and self.earth_cfg.get("enabled", True):
@@ -1524,6 +1536,10 @@ class StreamingDroneEngine:
         If called multiple times before the next chunk fires, only the latest wins.
         """
         self._pending_reload = (new_preset, crossfade_secs)
+
+    def get_peak_meters(self) -> list:
+        """Return per-layer peak levels in dBFS with smooth decay (-100 = silent, 0 = full)."""
+        return list(self._peak_meters)
 
     def _earth_chunk(self, n: int) -> np.ndarray:
         cfg = self.earth_cfg

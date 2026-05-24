@@ -209,7 +209,7 @@ reverb:
   enabled: true
   space: infinite
   mix: 0.6
-  decay_trim: 1.4
+  decay_trim: 1.0
   pre_delay_ms: 50.0
   modulation_depth: 0.3
 air:

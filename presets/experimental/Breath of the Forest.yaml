@@ -6,8 +6,7 @@ meta:
   - organic
   - alive
   - calming
-  description: An organic soundscape of wind through trees, earth tones, and rustling
-    canopy. Living, breathing forest acoustics.
+  description: An organic soundscape of wind through trees, earth tones, and rustling canopy. Living, breathing forest acoustics.
   author: Matteo Bassi
   engine_version: MANTICE_V15
   tags:
@@ -53,10 +52,10 @@ layers:
     - 2.0
     index: 0.15
   dynamics:
-    mix: 1.0
     amp_min: 0.0029
     amp_max: 0.0368
     drift: 0.003
+    volume_db: 0.0
   harmonics: 3
   harmonic_decay: 0.7
   noise_amount: 0.15
@@ -84,10 +83,10 @@ layers:
     - 2.0
     index: 0.1
   dynamics:
-    mix: 0.9
     amp_min: 0.0018
     amp_max: 0.0294
     drift: 0.005
+    volume_db: -0.9
   harmonics: 2
   harmonic_decay: 0.7
   noise_amount: 0.25
@@ -114,10 +113,10 @@ layers:
     - 2.0
     index: 0.05
   dynamics:
-    mix: 0.7
     amp_min: 0.0018
     amp_max: 0.0221
     drift: 0.006
+    volume_db: -3.1
   harmonics: 2
   harmonic_decay: 0.7
   noise_amount: 0.2
@@ -131,7 +130,5 @@ layers:
     speed: 0.06
     trajectory_x: drift
 notes:
-  goal: Recreate the living breath of a forest through layered organic textures and
-    elevation-mapped sound sources.
-  listening_tip: Close your eyes and imagine standing in an ancient forest at dawn,
-    feeling wind move through the canopy above.
+  goal: Recreate the living breath of a forest through layered organic textures and elevation-mapped sound sources.
+  listening_tip: Close your eyes and imagine standing in an ancient forest at dawn, feeling wind move through the canopy above.

@@ -18,6 +18,7 @@ Raises ValueError with a clear message if the preset is invalid.
 
 import copy
 import json
+import math
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -25,6 +26,16 @@ from typing import Optional
 import yaml
 
 from . import config
+
+# ── volume helpers ────────────────────────────────────────────────────────────
+
+def _mix_to_db(volume_db_raw, mix_fallback=1.0) -> float:
+    """Convert old linear mix (0–1) → volume_db, or pass through existing volume_db."""
+    if volume_db_raw is not None:
+        return round(float(volume_db_raw), 1)
+    mix = float(mix_fallback) if mix_fallback is not None else 1.0
+    return round(20.0 * math.log10(max(mix, 1e-6)), 1)
+
 
 # ── band inference ────────────────────────────────────────────────────────────
 
@@ -156,7 +167,7 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "fm_ratios":    [float(r) for r in layer.get("fm_ratios", [1.0])],
         "fm_index":     float(layer.get("fm_index", 0.1)),
         "band":         layer.get("band", _infer_band(root)),
-        "mix":          float(layer.get("mix", 1.0)),
+        "volume_db":    _mix_to_db(layer.get("volume_db"), layer.get("mix", 1.0)),
         "amp_min":      float(layer.get("amp_min", 0.001)),
         "amp_max":      float(layer.get("amp_max", 0.05)),
         "drift":        float(layer.get("drift", 0.01)),
@@ -204,7 +215,7 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "fm_ratios":    [float(r) for r in fm.get("ratios", [1.0])],
         "fm_index":     float(fm.get("index", 0.1)),
         "band":         layer.get("band", _infer_band(root)),
-        "mix":          float(dyn.get("mix", 1.0)),
+        "volume_db":    _mix_to_db(layer.get("volume_db"), dyn.get("mix", 1.0)),
         "amp_min":      float(dyn.get("amp_min", 0.001)),
         "amp_max":      float(dyn.get("amp_max", 0.05)),
         "drift":        float(dyn.get("drift", 0.01)),

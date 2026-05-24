@@ -210,10 +210,27 @@ Applied after the filter stage. Soft distortion uses normalised tanh waveshaping
 
 | Setting | YAML Key | Range | Default | Description |
 |---------|----------|-------|---------|-------------|
-| Mix | `dynamics.mix` | 0.0–1.0 | 1.0 | Layer volume in final mix |
-| Amp Min | `dynamics.amp_min` | 0.0–1.0 | 0.001 | Minimum amplitude envelope |
-| Amp Max | `dynamics.amp_max` | 0.0–1.0 | 0.05 | Maximum amplitude envelope |
+| Volume | `dynamics.volume_db` | -60 to +6 dB | 0 dB | Layer gain in master mix (replaces old Mix + Loudness) |
+| Amp Min | `dynamics.amp_min` | 0.0–1.0 | 0.001 | Per-voice minimum amplitude (internal tuning, not shown in UI) |
+| Amp Max | `dynamics.amp_max` | 0.0–1.0 | 0.05 | Per-voice maximum amplitude (internal tuning, not shown in UI) |
 | Drift | `dynamics.drift` | 0.0–0.1 | 0.01 | Pitch drift amount (organic beating) |
+
+#### Unison (FM only)
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Spread | `spread` | 0–2 | 1.0 | Voice stereo field width: 0=mono, 1=default (π/8–3π/8), 2=full 0–π/2 |
+| Blend | `blend` | 0–1 | 1.0 | Voice amplitude taper: 1=all equal, 0=centre-dominant pyramid window |
+
+What makes sense for each layer type:
+
+| Layer Style | Spread | Blend | Notes |
+|-------------|--------|-------|-------|
+| Mono sub / foundation | 0–0.3 | 0.8–1.0 | Wide spread kills low-end mono punch |
+| Mid pad / harmonic cloud | 0.8–1.4 | 0.7–1.0 | Some spread adds air without losing body |
+| High shimmer / overtone halo | 1.2–2.0 | 0.4–0.8 | Full spread + blend taper sounds lush |
+| Solo lead tone | 0.3–0.7 | 0.9–1.0 | Slight spread for warmth; keep blend high for focus |
+| Cluster / cluster noise | 1.0–2.0 | 0.5–0.7 | High spread + moderate blend creates diffuse clouds |
 
 #### Spatial Motion
 
@@ -349,7 +366,7 @@ layers:
       ratios: [1.0, 2.0]
       index: 0.3
     dynamics:
-      mix: 1.0
+      volume_db: 0.0
       amp_min: 0.005
       amp_max: 0.08
       drift: 0.003

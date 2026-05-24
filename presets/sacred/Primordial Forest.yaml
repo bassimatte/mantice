@@ -7,8 +7,8 @@ meta:
   - natural
   - earthy
   - alive
-  description: 'An organic, nature-inspired drone. Heavy air pressure and gentle drift
-    evoke a living forest canopy. Warm, breathing, grounded.
+  description: 'An organic, nature-inspired drone. Heavy air pressure and gentle drift evoke a living forest canopy. Warm,
+    breathing, grounded.
 
     '
   author: Matteo Bassi
@@ -55,10 +55,10 @@ layers:
     - 1.5
     index: 0.06
   dynamics:
-    mix: 0.9
     amp_min: 0.0161
     amp_max: 0.0704
     drift: 0.018
+    volume_db: -0.9
   spatial_motion:
     quadrant: center
     speed: 0.003
@@ -78,10 +78,10 @@ layers:
     - 1.0
     index: 0.04
   dynamics:
-    mix: 0.45
     amp_min: 0.006
     amp_max: 0.0302
     drift: 0.02
+    volume_db: -6.9
   spatial_motion:
     quadrant: front_left
     speed: 0.005
@@ -102,10 +102,10 @@ layers:
     - 5.0
     index: 0.2
   dynamics:
-    mix: 0.15
     amp_min: 0.002
     amp_max: 0.0121
     drift: 0.025
+    volume_db: -16.5
   spatial_motion:
     quadrant: rear_right
     speed: 0.01
@@ -113,5 +113,4 @@ layers:
     trajectory_y: none
 notes:
   goal: Nature/organic drone — wind, trees, insects rendered as synthesis.
-  listening_tip: The air pressure layer is dominant here. Speakers in a quiet room
-    work best.
+  listening_tip: The air pressure layer is dominant here. Speakers in a quiet room work best.

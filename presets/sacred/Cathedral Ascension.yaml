@@ -6,8 +6,8 @@ meta:
   - ascending
   - sacred
   - immersive
-  description: Sound rising from earth to heaven through four spectral layers, each
-    at increasing elevation. A vertical journey through sacred acoustic space.
+  description: Sound rising from earth to heaven through four spectral layers, each at increasing elevation. A vertical journey
+    through sacred acoustic space.
   author: Matteo Bassi
   engine_version: MANTICE_V15
   tags:
@@ -51,10 +51,10 @@ layers:
     - 2.0
     index: 0.2
   dynamics:
-    mix: 1.0
     amp_min: 0.0025
     amp_max: 0.0301
     drift: 0.004
+    volume_db: 0.0
   harmonics: 3
   harmonic_decay: 0.7
   noise_amount: 0.02
@@ -83,10 +83,10 @@ layers:
     - 2.0
     index: 0.4
   dynamics:
-    mix: 1.0
     amp_min: 0.0013
     amp_max: 0.0251
     drift: 0.003
+    volume_db: 0.0
   harmonics: 7
   harmonic_decay: 0.6
   noise_amount: 0.03
@@ -114,10 +114,10 @@ layers:
     - 2.0
     index: 0.2
   dynamics:
-    mix: 0.8
     amp_min: 0.0013
     amp_max: 0.0201
     drift: 0.004
+    volume_db: -1.9
   harmonics: 8
   harmonic_decay: 0.5
   noise_amount: 0.04
@@ -145,10 +145,10 @@ layers:
     - 2.0
     index: 0.15
   dynamics:
-    mix: 0.6
     amp_min: 0.0013
     amp_max: 0.0125
     drift: 0.005
+    volume_db: -4.4
   harmonics: 6
   harmonic_decay: 0.7
   noise_amount: 0.05
@@ -162,7 +162,5 @@ layers:
     speed: 0.05
     trajectory_x: drift
 notes:
-  goal: A vertical ascension through sacred acoustic space, from subterranean rumble
-    to celestial shimmer.
-  listening_tip: Use headphones and visualize sound rising through a cathedral from
-    crypt to spire.
+  goal: A vertical ascension through sacred acoustic space, from subterranean rumble to celestial shimmer.
+  listening_tip: Use headphones and visualize sound rising through a cathedral from crypt to spire.

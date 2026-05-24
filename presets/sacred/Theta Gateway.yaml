@@ -19,7 +19,7 @@ binaural:
 layers:
   - name: "Om Foundation"
     enabled: true
-    root_hz: 136.1     # Om / Earth year frequency
+    root: 136.1        # Om / Earth year frequency
     voices: 3
     ratios: [1.0]
     fm_ratios: [1.0]
@@ -27,11 +27,11 @@ layers:
     amp_min: 0.5
     amp_max: 0.7
     drift: 0.001       # very stable — let binaural do the movement
-    pan: center
+    pan: 0.0
 
   - name: "Fifth Harmonic"
     enabled: true
-    root_hz: 204.15    # perfect fifth above Om (136.1 × 1.5)
+    root: 204.15       # perfect fifth above Om (136.1 × 1.5)
     voices: 2
     ratios: [1.0]
     fm_ratios: [2.0]
@@ -39,11 +39,11 @@ layers:
     amp_min: 0.2
     amp_max: 0.35
     drift: 0.001
-    pan: center
+    pan: 0.0
 
   - name: "Sub Pulse"
     enabled: true
-    root_hz: 68.05     # octave below Om
+    root: 68.05        # octave below Om
     voices: 2
     ratios: [1.0]
     fm_ratios: [1.0]
@@ -52,7 +52,7 @@ layers:
     amp_max: 0.4
     drift: 0.0005
     band: sub
-    pan: center
+    pan: 0.0
 
 earth:
   enabled: true

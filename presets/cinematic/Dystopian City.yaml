@@ -63,10 +63,10 @@ layers:
   noise_amount: 0.1
   noise_color: brown
   dynamics:
-    mix: 1.0
     amp_min: 0.0124
     amp_max: 0.0372
     drift: 0.02
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.01
@@ -99,10 +99,10 @@ layers:
   noise_amount: 0.4
   noise_color: white
   dynamics:
-    mix: 0.7
     amp_min: 0.0062
     amp_max: 0.0248
     drift: 0.025
+    volume_db: -3.1
   spatial_motion:
     quadrant: rear_left
     speed: 0.02
@@ -135,10 +135,10 @@ layers:
   noise_amount: 0.1
   noise_color: pink
   dynamics:
-    mix: 0.6
     amp_min: 0.0062
     amp_max: 0.0248
     drift: 0.018
+    volume_db: -4.4
   spatial_motion:
     quadrant: front_right
     speed: 0.03
@@ -163,10 +163,10 @@ layers:
   scatter: 0.9
   envelope: hann
   dynamics:
-    mix: 0.5
     amp_min: 0.0031
     amp_max: 0.0186
     drift: 0.025
+    volume_db: -6.0
   spatial_motion:
     quadrant: rear_right
     speed: 0.04

@@ -7,8 +7,8 @@ meta:
   - pure
   - meditative
   - sacred
-  description: 'A single sustained tone at 136.1 Hz (the ''Om'' frequency). Almost
-    no FM, minimal voices. Pure, unwavering presence.
+  description: 'A single sustained tone at 136.1 Hz (the ''Om'' frequency). Almost no FM, minimal voices. Pure, unwavering
+    presence.
 
     '
   author: Matteo Bassi
@@ -47,10 +47,10 @@ layers:
   noise_amount: 0.0
   noise_color: pink
   dynamics:
-    mix: 1.0
     amp_min: 0.0197
     amp_max: 0.0787
     drift: 0.002
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.01

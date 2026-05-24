@@ -61,10 +61,10 @@ layers:
   noise_amount: 0.0
   noise_color: pink
   dynamics:
-    mix: 1.0
     amp_min: 0.0167
     amp_max: 0.0447
     drift: 0.002
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.005
@@ -95,10 +95,10 @@ layers:
   noise_amount: 0.0
   noise_color: pink
   dynamics:
-    mix: 0.6
     amp_min: 0.0112
     amp_max: 0.0335
     drift: 0.002
+    volume_db: -4.4
   spatial_motion:
     quadrant: front_right
     speed: 0.005
@@ -123,10 +123,10 @@ layers:
   scatter: 0.2
   envelope: hann
   dynamics:
-    mix: 0.5
     amp_min: 0.0056
     amp_max: 0.0279
     drift: 0.003
+    volume_db: -6.0
   spatial_motion:
     quadrant: center
     speed: 0.005

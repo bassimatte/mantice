@@ -43,10 +43,10 @@ layers:
     - 1.0
     index: 0.08
   dynamics:
-    mix: 1.2
     amp_min: 0.0164
     amp_max: 0.0656
     drift: 0.005
+    volume_db: 1.6
   spatial_motion:
     quadrant: front_right
     speed: 0.003
