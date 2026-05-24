@@ -170,6 +170,11 @@ class StreamingLayer:
 
         # Phase accumulators (shape: n_voices,)
         self.carrier_phases = np.array([random.uniform(0, 2 * np.pi) for _ in range(n_voices)], dtype=np.float32)
+        # Nominal carrier phases (no drift) — tracked separately so that the
+        # accumulated drift is continuous across chunks and can be applied once
+        # to all harmonics without the h-fold amplification that would arise
+        # from naively multiplying carrier_phases (which includes drift) by h.
+        self.nominal_carrier_phases = self.carrier_phases.copy()
         self.mod_phases = np.zeros(n_voices, dtype=np.float32)
         self.drift_phases = np.array([random.uniform(0, 2 * np.pi) for _ in range(n_voices)], dtype=np.float32)
 
@@ -229,6 +234,19 @@ class StreamingLayer:
         phase_inc = self._two_pi_dt * inst_freq
         carrier_phases = self.carrier_phases[:, None] + np.cumsum(phase_inc, axis=1)
 
+        # Nominal phases advance at pure carrier frequency (no drift).
+        # drift_total = carrier_phases - nominal_phases accumulates continuously
+        # across chunks (both state vars are updated at end of each chunk).
+        # Using  h * nominal_phases + drift_total  for the h-th harmonic keeps
+        # the absolute pitch deviation identical for every partial — the drift
+        # is not amplified h-fold, preventing fast inter-voice beating in the
+        # upper harmonics (e.g. 10 Hz tremolo at h=4 with drift=0.008).
+        sample_indices = np.arange(1, n_samples + 1, dtype=np.float32)
+        nominal_phases = self.nominal_carrier_phases[:, None] + (
+            self._two_pi_dt * self.carrier_freqs[:, None] * sample_indices[None, :]
+        )
+        drift_total = carrier_phases - nominal_phases
+
         # Fundamental signal
         signal = np.sin(carrier_phases + modulator * self.fm_indices[:, None], dtype=np.float32)
 
@@ -236,7 +254,8 @@ class StreamingLayer:
         if self.harmonics > 1:
             for h in range(2, self.harmonics + 1):
                 harmonic_signal = np.sin(
-                    carrier_phases * h + modulator * self.fm_indices[:, None] * (1.0 / h),
+                    nominal_phases * h + drift_total
+                    + modulator * self.fm_indices[:, None] * (1.0 / h),
                     dtype=np.float32
                 )
                 signal += harmonic_signal * (self.harmonic_decay ** (h - 1))
@@ -245,6 +264,7 @@ class StreamingLayer:
             signal /= norm
 
         self.carrier_phases = carrier_phases[:, -1] % (2 * np.pi)
+        self.nominal_carrier_phases = nominal_phases[:, -1] % (2 * np.pi)
 
         # Weighted sum via dot product
         layer = np.dot(self.amplitudes, signal)
