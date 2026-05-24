@@ -169,7 +169,25 @@ class StreamingLayer:
         self.drift_rates = np.array([random.uniform(0.001, 0.006) for _ in range(n_voices)], dtype=np.float32)
 
         # Phase accumulators (shape: n_voices,)
-        self.carrier_phases = np.array([random.uniform(0, 2 * np.pi) for _ in range(n_voices)], dtype=np.float32)
+        # Phases for voices that share the same frequency ratio are distributed
+        # within a 90° arc (one quadrant of the unit circle). This guarantees:
+        #   (1) No two same-ratio voices are 180° apart → no mono cancellation.
+        #   (2) Phases differ → genuine L≠R stereo from the voice spread angles.
+        # A random group-start offset makes each session sound different.
+        _ratio_count: dict = {}
+        for r in ratios:
+            _ratio_count[r] = _ratio_count.get(r, 0) + 1
+        _ratio_phase_start: dict = {r: random.uniform(0, 2 * np.pi) for r in _ratio_count}
+        _ratio_index: dict = {r: 0 for r in _ratio_count}
+        carrier_phases_arr = np.zeros(n_voices, dtype=np.float32)
+        for i, r in enumerate(ratios):
+            n_grp = _ratio_count[r]
+            idx   = _ratio_index[r]
+            # Spread phases within [0, π/2] — no pair ever reaches the 180° danger zone
+            phase_offset = idx * (np.pi / 2.0) / max(n_grp - 1, 1) if n_grp > 1 else 0.0
+            carrier_phases_arr[i] = _ratio_phase_start[r] + phase_offset
+            _ratio_index[r] += 1
+        self.carrier_phases = carrier_phases_arr % np.float32(2 * np.pi)
         # Nominal carrier phases (no drift) — tracked separately so that the
         # accumulated drift is continuous across chunks and can be applied once
         # to all harmonics without the h-fold amplification that would arise
