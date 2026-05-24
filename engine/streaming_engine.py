@@ -193,6 +193,17 @@ class StreamingLayer:
         self._noise_state = np.float32(0.0)  # 1-pole filter state for pink noise
         self._brown_state = np.float32(0.0)  # integrator state for brown noise
 
+        # Voice stereo spread angles: spread voices evenly from slightly-left to
+        # slightly-right (π/8=22.5° to 3π/8=67.5° of the 0–π/2 equal-power range).
+        # Each voice contributes to L as cos(θ) and to R as sin(θ), producing genuine
+        # inter-channel decorrelation even before the global panner is applied.
+        if n_voices > 1:
+            self._voice_pan_angles = np.linspace(
+                np.pi / 8, 3 * np.pi / 8, n_voices, dtype=np.float32
+            )
+        else:
+            self._voice_pan_angles = np.array([np.pi / 4], dtype=np.float32)
+
         # Band filter
         self._setup_filter(cfg.get("band", "mid"))
 
@@ -210,7 +221,8 @@ class StreamingLayer:
             high = min(1500 / nyquist, 0.999)
             self.sos = butter(order, [low, high], btype="band", output="sos")
 
-        self.zi = sosfilt_zi(self.sos) * 0.0
+        self.zi_L = sosfilt_zi(self.sos) * 0.0
+        self.zi_R = sosfilt_zi(self.sos) * 0.0
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
         dt = np.float32(1.0 / SR)
@@ -266,18 +278,27 @@ class StreamingLayer:
         self.carrier_phases = carrier_phases[:, -1] % (2 * np.pi)
         self.nominal_carrier_phases = nominal_phases[:, -1] % (2 * np.pi)
 
-        # Weighted sum via dot product
-        layer = np.dot(self.amplitudes, signal)
+        # Voice-spread stereo: each voice contributes to L/R based on its spread angle.
+        # Voices spread from near-left to near-right → genuine inter-channel decorrelation.
+        # Energy is preserved: sum(cos²+sin²)=n_voices, matching the mono dot-product power.
+        L_weights = self.amplitudes * np.cos(self._voice_pan_angles)
+        R_weights = self.amplitudes * np.sin(self._voice_pan_angles)
+        layer_L = np.dot(L_weights, signal)  # shape (n_samples,)
+        layer_R = np.dot(R_weights, signal)  # shape (n_samples,)
 
         # Filtered noise (breath texture) — applied before band filter
         if self.noise_amount > 0.0:
             noise = self._generate_noise(n_samples)
             amp_scale = np.mean(self.amplitudes)
-            layer = layer * (1.0 - self.noise_amount) + noise * self.noise_amount * amp_scale
+            noise_scaled = noise * (self.noise_amount * amp_scale)
+            layer_L = layer_L * (1.0 - self.noise_amount) + noise_scaled
+            layer_R = layer_R * (1.0 - self.noise_amount) + noise_scaled
 
-        # Apply band filter
-        filtered, self.zi = sosfilt(self.sos, layer, zi=self.zi)
-        return filtered * self.cfg["mix"]
+        # Apply band filter (stereo)
+        filtered_L, self.zi_L = sosfilt(self.sos, layer_L, zi=self.zi_L)
+        filtered_R, self.zi_R = sosfilt(self.sos, layer_R, zi=self.zi_R)
+        mix = np.float32(self.cfg["mix"])
+        return np.column_stack([filtered_L * mix, filtered_R * mix])
 
     def _generate_noise(self, n_samples: int) -> np.ndarray:
         """Generate colored noise (white, pink, or brown)."""
@@ -509,13 +530,12 @@ class StreamingPanner:
         else:  # static
             return self.elevation
 
-    def next_chunk(self, mono: np.ndarray) -> np.ndarray:
-        n = len(mono)
+    def _compute_pan(self, n: int) -> np.ndarray:
+        """Compute per-sample pan positions [0, 1] and advance self.phase."""
         dt = 1.0 / SR
         t = self.phase + np.arange(n) * dt
-        self.phase = t[-1] + dt
+        self.phase = float(t[-1]) + dt
 
-        # Pan automation
         if self.trajectory_x == "orbit":
             pan = self.base_pan + np.sin(2 * np.pi * self.speed * t) * 0.32
         elif self.trajectory_x == "pendulum":
@@ -530,7 +550,12 @@ class StreamingPanner:
         else:
             pan = np.full(n, self.base_pan)
 
-        pan = np.clip(pan, 0.0, 1.0)
+        return np.clip(pan, 0.0, 1.0).astype(np.float32)
+
+    def next_chunk(self, mono: np.ndarray) -> np.ndarray:
+        """Equal-power pan for mono input (granular/subtractive layers)."""
+        n = len(mono)
+        pan = self._compute_pan(n)
 
         # Equal-power panning
         angle = pan * (np.pi / 2)
@@ -539,39 +564,78 @@ class StreamingPanner:
 
         # Elevation processing (HRTF-like spectral filtering)
         current_elev = self._get_elevation_angle()
-        self.elevation_phase += n * dt
+        self.elevation_phase += n / SR
 
-        # Only apply if elevation is non-zero
         if abs(current_elev) > 0.5:
             elev_norm = np.clip(current_elev / 90.0, -1.0, 1.0)
-            high_gain = 1.0 + elev_norm * 0.5   # above: boost highs
-            low_gain = 1.0 - elev_norm * 0.25   # above: reduce lows
+            high_gain = 1.0 + elev_norm * 0.5
+            low_gain  = 1.0 - elev_norm * 0.25
 
-            # Split into low/high bands using crossover
             low_L, self._lp_zi_L = sosfilt(self._lp_sos, left, zi=self._lp_zi_L)
             low_R, self._lp_zi_R = sosfilt(self._lp_sos, right, zi=self._lp_zi_R)
             high_L, self._hp_zi_L = sosfilt(self._hp_sos, left, zi=self._hp_zi_L)
             high_R, self._hp_zi_R = sosfilt(self._hp_sos, right, zi=self._hp_zi_R)
 
-            # Apply elevation-dependent gains and recombine
-            left = low_L * low_gain + high_L * high_gain
+            left  = low_L * low_gain + high_L * high_gain
             right = low_R * low_gain + high_R * high_gain
 
-        return np.stack([left, right], axis=1)
+        return np.column_stack([left, right])
+
+    def _apply_balance(self, stereo: np.ndarray) -> np.ndarray:
+        """Pan-shift for stereo input (FM layers with voice spread).
+
+        Applies a linear balance fade: at pan=0 the right channel is silenced,
+        at pan=1 the left channel is silenced, at pan=0.5 both are unchanged.
+        This shifts the perceived stereo image without collapsing to mono.
+        """
+        n = len(stereo)
+        pan = self._compute_pan(n)
+
+        L_gain = np.minimum(np.float32(1.0), np.float32(2.0) * (1.0 - pan))
+        R_gain = np.minimum(np.float32(1.0), np.float32(2.0) * pan)
+
+        left  = stereo[:, 0] * L_gain
+        right = stereo[:, 1] * R_gain
+
+        # Elevation processing
+        current_elev = self._get_elevation_angle()
+        self.elevation_phase += n / SR
+
+        if abs(current_elev) > 0.5:
+            elev_norm = np.clip(current_elev / 90.0, -1.0, 1.0)
+            high_gain = 1.0 + elev_norm * 0.5
+            low_gain  = 1.0 - elev_norm * 0.25
+
+            low_L, self._lp_zi_L = sosfilt(self._lp_sos, left, zi=self._lp_zi_L)
+            low_R, self._lp_zi_R = sosfilt(self._lp_sos, right, zi=self._lp_zi_R)
+            high_L, self._hp_zi_L = sosfilt(self._hp_sos, left, zi=self._hp_zi_L)
+            high_R, self._hp_zi_R = sosfilt(self._hp_sos, right, zi=self._hp_zi_R)
+
+            left  = low_L * low_gain + high_L * high_gain
+            right = low_R * low_gain + high_R * high_gain
+
+        return np.column_stack([left, right])
 
     def _apply_width(self, stereo: np.ndarray) -> np.ndarray:
-        """Mid/side width processing. width=0 mono, width=1 normal, width=2 extra-wide."""
-        if abs(self.width - 1.0) < 0.01:
-            return stereo
-        mid  = (stereo[:, 0] + stereo[:, 1]) * 0.5
-        side = (stereo[:, 0] - stereo[:, 1]) * 0.5
+        """Energy-preserving M/S width. width=0 → mono center, width=1 → original,
+        width=2 → extra-wide.  Normalization keeps power constant for uncorrelated L/R."""
         w = self.width
-        out = np.stack([mid + side * w, mid - side * w], axis=1)
-        return out
+        if abs(w - 1.0) < 0.01:
+            return stereo
+        mid  = (stereo[:, 0] + stereo[:, 1]) * np.float32(0.5)
+        side = (stereo[:, 0] - stereo[:, 1]) * np.float32(0.5)
+        # sqrt((1+w²)/2) preserves energy when L and R are uncorrelated
+        norm = np.float32(np.sqrt((1.0 + w * w) * 0.5))
+        L_out = (mid + side * w) / norm
+        R_out = (mid - side * w) / norm
+        return np.column_stack([L_out, R_out])
 
-    def process(self, mono: np.ndarray) -> np.ndarray:
-        """Pan + width in one call."""
-        return self._apply_width(self.next_chunk(mono))
+    def process(self, layer_out: np.ndarray) -> np.ndarray:
+        """Pan + width. Accepts mono (granular/subtractive) or stereo (FM voice spread)."""
+        if layer_out.ndim == 1:
+            return self._apply_width(self.next_chunk(layer_out))
+        else:
+            return self._apply_width(self._apply_balance(layer_out))
 
 
 # ── Streaming Chorus ──────────────────────────────────────────────────────────
@@ -1391,7 +1455,7 @@ class _ShallowCopy:
         stereo = np.zeros((n, 2), dtype=np.float32)
         for layer, panner, chorus, layer_filter, distortion in zip(self.layers, self.panners, self.choruses, self.filters, self.distortions):
             mono = layer.next_chunk(n)
-            panned = panner.next_chunk(mono)
+            panned = panner.process(mono)  # handles both mono and stereo layer output
             chorused = chorus.next_chunk(panned)
             filtered = layer_filter.next_chunk(chorused)
             stereo += distortion.process(filtered)
