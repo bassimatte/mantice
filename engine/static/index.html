@@ -2044,13 +2044,12 @@ let localPresets = [];   // [ { localId, name, params } ] — user-uploaded YAML
 let activeTagFilter = null;
 let sharedPresetEntry = null; // { name, params } — ephemeral entry loaded via #shared= URL
 let currentSharedId = null;   // ID of the currently loaded community preset (null if official/generated)
+let backendOffline = false;   // true when backend is unreachable (GitHub Pages / no local server)
 
 async function loadPresetList() {
   const result = await api('/api/presets');
   allPresets = Array.isArray(result) ? result : [];
-  if (!Array.isArray(result)) {
-    setStatus('⚠ Backend not reachable — run: python main.py --gui');
-  }
+  backendOffline = !Array.isArray(result);
   buildTagFilter();
   renderPresetList();
 
@@ -2187,6 +2186,13 @@ function renderPresetList() {
   }
 
   container.innerHTML = renderOfficialSection(official) + renderCommunitySection(community);
+
+  if (backendOffline) {
+    container.innerHTML = `<div style="padding:12px 10px; color:var(--text-dim); font-size:11px; line-height:1.5; border-bottom:1px solid var(--border); margin-bottom:8px;">
+      ⚡ Demo mode — no backend.<br>
+      Run <code style="color:var(--accent)">python main.py --gui</code> locally to use presets, Generate &amp; Render.
+    </div>` + container.innerHTML;
+  }
 
   if (sharedPresetEntry) {
     const el = $('shared-entry-item');
