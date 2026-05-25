@@ -5697,11 +5697,15 @@ const GLOBAL_AUTO_PARAMS = [
   { key: 'master_output_db',  label: 'Output Gain',  min: -6,  max: 12,  step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
 ];
 const LAYER_AUTO_PARAMS = [
-  { key: 'filter_cutoff',    label: 'Filter Cutoff', min: 40,  max: 8000, step: 10,   fmt: v => Math.round(v) + ' Hz' },
-  { key: 'fm_index',         label: 'FM Index',      min: 0,   max: 5,    step: 0.1,  fmt: v => v.toFixed(1) },
-  { key: 'distortion_drive', label: 'Drive',         min: 0,   max: 1,    step: 0.01, fmt: v => v.toFixed(2) },
-  { key: 'volume_db',        label: 'Volume',        min: -60, max: 6,    step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
-  { key: 'width',            label: 'Width',         min: 0,   max: 2,    step: 0.05, fmt: v => v.toFixed(2) },
+  { key: 'filter_cutoff',     label: 'Filter Cutoff',   min: 40,   max: 8000, step: 10,   fmt: v => Math.round(v) + ' Hz' },
+  { key: 'fm_index',          label: 'FM Index',         min: 0,    max: 5,    step: 0.1,  fmt: v => v.toFixed(1) },
+  { key: 'distortion_drive',  label: 'Drive',            min: 0,    max: 1,    step: 0.01, fmt: v => v.toFixed(2) },
+  { key: 'volume_db',         label: 'Volume',           min: -60,  max: 6,    step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
+  { key: 'width',             label: 'Width',            min: 0,    max: 2,    step: 0.05, fmt: v => v.toFixed(2) },
+  { key: 'chorus_rate',       label: 'Chorus Rate',      min: 0.01, max: 5,    step: 0.01, fmt: v => v.toFixed(2) + ' Hz' },
+  { key: 'lfo_rate',          label: 'Filter LFO Rate',  min: 0.01, max: 5,    step: 0.01, fmt: v => v.toFixed(2) + ' Hz' },
+  { key: 'detune_cents',      label: 'Detune',           min: 0,    max: 50,   step: 0.5,  fmt: v => v.toFixed(1) + ' ¢' },
+  { key: 'granular_position', label: 'Grain Position',   min: 0,    max: 1,    step: 0.01, fmt: v => Math.round(v * 100) + '%' },
 ];
 
 function getGlobalAutoPresetVal(key) {
@@ -5720,7 +5724,14 @@ function getGlobalAutoPresetVal(key) {
 
 function getLayerAutoPresetVal(key, layerIdx) {
   if (!currentParams || !currentParams.layers[layerIdx]) return 0;
-  return currentParams.layers[layerIdx][key] ?? 0;
+  const layer = currentParams.layers[layerIdx];
+  switch (key) {
+    case 'chorus_rate':       return layer.chorus_rate       ?? 0.5;
+    case 'lfo_rate':          return layer.filter_lfo_rate   ?? 0.1;
+    case 'detune_cents':      return layer.detune_cents      ?? 8;
+    case 'granular_position': return layer.position          ?? 0.5;
+    default: return layer[key] ?? 0;
+  }
 }
 
 function autoActiveCount() {

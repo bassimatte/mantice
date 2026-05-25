@@ -427,6 +427,15 @@ class StreamingSubtractiveLayer:
             for _ in range(n_voices)
         ], dtype=np.float32)
 
+    def set_detune_cents(self, new_cents: float) -> None:
+        """Smoothly update detune width. Scales existing osc freqs by the delta ratio."""
+        if new_cents == self.detune_cents:
+            return
+        ratio = 2.0 ** ((new_cents - self.detune_cents) / 1200.0)
+        self.osc1_freqs = (self.osc1_freqs * ratio).astype(np.float32)
+        self.osc2_freqs = (self.osc2_freqs / ratio).astype(np.float32)
+        self.detune_cents = new_cents
+
     def _waveform(self, phases: np.ndarray, freqs_hz: np.ndarray) -> np.ndarray:
         """Generate waveform samples from phase array (0..2pi).
 
@@ -1712,6 +1721,23 @@ class StreamingDroneEngine:
 
             if "width" in auto:
                 self.panners[i].width = auto["width"].value_at(t_norm)
+
+            if "chorus_rate" in auto:
+                self.choruses[i].rate = float(auto["chorus_rate"].value_at(t_norm))
+
+            if "lfo_rate" in auto:
+                self.filters[i].lfo_rate = float(auto["lfo_rate"].value_at(t_norm))
+
+            if "detune_cents" in auto:
+                layer = self.layers[i]
+                if hasattr(layer, "set_detune_cents"):
+                    layer.set_detune_cents(float(auto["detune_cents"].value_at(t_norm)))
+
+            if "granular_position" in auto:
+                from .granular_layer import StreamingGranularLayer
+                layer = self.layers[i]
+                if isinstance(layer, StreamingGranularLayer):
+                    layer.position = float(auto["granular_position"].value_at(t_norm))
 
         # Global automations
         g = self._global_automations

@@ -150,11 +150,15 @@ class AutomationCurve:
 
 # Automatable per-layer parameters with (min, max) clamp ranges
 LAYER_AUTO_PARAMS: dict[str, tuple[float, float]] = {
-    "filter_cutoff":   (20.0,   20000.0),
-    "fm_index":        (0.0,    5.0),
-    "distortion_drive":(0.0,    5.0),
-    "volume_db":       (-60.0,  6.0),
-    "width":           (0.0,    2.0),
+    "filter_cutoff":    (20.0,   20000.0),
+    "fm_index":         (0.0,    5.0),
+    "distortion_drive": (0.0,    5.0),
+    "volume_db":        (-60.0,  6.0),
+    "width":            (0.0,    2.0),
+    "chorus_rate":      (0.01,   5.0),
+    "lfo_rate":         (0.01,   5.0),
+    "detune_cents":     (0.0,    50.0),
+    "granular_position":(0.0,    1.0),
 }
 
 # Automatable global parameters with (min, max) clamp ranges

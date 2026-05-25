@@ -60,6 +60,12 @@ layers:
   chorus_rate: 0.4
   chorus_depth: 0.008
   chorus_voices: 2
+  automation:
+    granular_position:
+      enabled: true
+      breakpoints:
+        - {t: 0.0, value: 0.15, shape: linear}
+        - {t: 1.0, value: 0.85, shape: scurve}
 - name: Glass Shimmer
   enabled: true
   type: granular
@@ -87,6 +93,12 @@ layers:
   chorus_rate: 0.6
   chorus_depth: 0.01
   chorus_voices: 3
+  automation:
+    granular_position:
+      enabled: true
+      breakpoints:
+        - {t: 0.0, value: 0.8, shape: linear}
+        - {t: 1.0, value: 0.2, shape: exp}
 - name: FM Foundation
   enabled: true
   type: fm
