@@ -1,5 +1,5 @@
 """
-main.py — MANTICE V20.0
+main.py — MANTICE V25.0
 ---------------------
 Usage:
     python main.py                              # process all presets
@@ -33,10 +33,11 @@ if "--hires" in sys.argv:
 
 import numpy as np
 
-from engine.preset_loader import load_preset
-from engine.drone_engine  import DroneEngine
-from engine.exporter      import export_audio, SUPPORTED_FORMATS
-from engine.generator     import generate_preset, mutate_preset, save_generated_preset, get_available_moods
+from engine.preset_loader    import load_preset
+from engine.streaming_engine import StreamingDroneEngine
+from engine.exporter         import export_audio, SUPPORTED_FORMATS
+from engine.generator        import generate_preset, mutate_preset, save_generated_preset, get_available_moods
+from engine                  import config as _engine_config
 
 PRESET_DIR = Path("presets")
 EXPORT_DIR = Path("exports")
@@ -198,18 +199,23 @@ def run(
             else:
                 print(f"\n[{idx}/{total}] Generating: {name}")
 
-            # Build with progress callback
-            engine = DroneEngine(preset)
+            # Build using StreamingDroneEngine (identical signal chain to web preview)
+            seed = int(cli_seed) if cli_seed is not None else (preset.get("seed") or 42)
+            engine = StreamingDroneEngine(preset, seed=seed)
 
-            n_layers = len([l for l in preset["layers"] if l.get("enabled", True)])
-            has_earth = bool(preset.get("earth") and preset["earth"].get("enabled", True))
-            has_air = bool(preset.get("air") and preset["air"].get("enabled", True))
-            has_reverb = bool(preset.get("reverb") and preset["reverb"].get("enabled", True))
-            total_steps = n_layers + int(has_earth) + int(has_air) + int(has_reverb) + 2
-
-            progress = ProgressBar(total_steps, description="Building")
-            audio = engine.build(progress_callback=progress.update)
+            sr           = _engine_config.SAMPLE_RATE
+            total_samp   = int(preset["duration"] * sr)
+            chunk_size   = 2048
+            n_chunks     = (total_samp + chunk_size - 1) // chunk_size
+            progress     = ProgressBar(n_chunks, description="Rendering")
+            chunks, rem  = [], total_samp
+            while rem > 0:
+                n = min(chunk_size, rem)
+                chunks.append(engine.next_chunk(n))
+                rem -= n
+                progress.update(1)
             progress.finish()
+            audio = np.concatenate(chunks, axis=0)
 
             # Export audio — append layer name if solo
             if solo_layer_name:
