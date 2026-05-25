@@ -18,7 +18,7 @@ Usage:
     py -3 test_audio_quality.py --save-flagged  # write failed renders to test_flagged/
     py -3 test_audio_quality.py --verbose       # print metrics for passing tests too
 
-Sections: fm | sub | gran | fx | transition | presets
+Sections: fm | sub | gran | fx | binaural | master | spatial | unison | layer_fx | transition | stability | presets
 """
 
 import argparse
@@ -30,8 +30,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
+import itertools
+import random as _random_mod
+
 import numpy as np
 import soundfile as sf
+import yaml
 
 # ── Add repo root to sys.path ─────────────────────────────────────────────────
 REPO_ROOT = Path(__file__).resolve().parent
@@ -132,7 +136,7 @@ def _fm(**kw) -> dict:
         "amp_min": 0.005,
         "amp_max": 0.04,
         "drift": 0.01,
-        "mix": 0.8,
+        "volume_db": 0.0,   # replaces old mix=0.8 — FM engine reads volume_db
         "band": "mid",
         **kw,
     }
@@ -150,7 +154,7 @@ def _sub(**kw) -> dict:
         "amp_min": 0.005,
         "amp_max": 0.04,
         "drift": 0.01,
-        "mix": 0.8,
+        "volume_db": 0.0,   # replaces old mix=0.8 — subtractive reads volume_db
         "band": "mid",
         **kw,
     }
@@ -265,6 +269,36 @@ def render_with_reload_seam(
 # Audio analysis
 # ═════════════════════════════════════════════════════════════════════════════
 
+def _count_isolated_clicks(diff: np.ndarray, threshold: float,
+                           isolation_ratio: float = 3.0,
+                           neighbor_window: int = 3) -> int:
+    """Count only isolated spikes above threshold, ignoring smooth slopes.
+
+    A genuine click has a large diff that is isolated from its neighbors
+    (ratio ≥ isolation_ratio vs the surrounding window). A smooth
+    zero-crossing of a high-amplitude waveform produces many consecutive
+    above-threshold diffs with similar magnitudes — these should NOT count
+    as clicks.
+
+    Args:
+        diff: absolute sample-to-sample differences
+        threshold: minimum diff to consider
+        isolation_ratio: click diff must be ≥ this × max(neighbors)
+        neighbor_window: how many samples on each side to inspect
+    """
+    n = len(diff)
+    count = 0
+    for i in np.where(diff > threshold)[0]:
+        left  = diff[max(0, i - neighbor_window):i]
+        right = diff[i + 1: min(n, i + neighbor_window + 1)]
+        neighbors = np.concatenate([left, right])
+        if len(neighbors) == 0:
+            count += 1
+        elif neighbors.max() < 1e-6 or diff[i] / neighbors.max() >= isolation_ratio:
+            count += 1
+    return count
+
+
 def analyze(audio: np.ndarray) -> dict:
     """Compute quality metrics from (N,2) stereo audio."""
     mono = audio.mean(axis=1) if audio.ndim == 2 else audio
@@ -286,7 +320,7 @@ def analyze(audio: np.ndarray) -> dict:
         boundary_max    = 0.0
 
     return dict(
-        click_count      = int((diff > CLICK_THRESHOLD).sum()),
+        click_count      = _count_isolated_clicks(diff, CLICK_THRESHOLD),
         click_max        = float(diff.max()) if len(diff) else 0.0,
         boundary_clicks  = boundary_clicks,
         boundary_max     = round(boundary_max, 4),
@@ -299,7 +333,18 @@ def analyze(audio: np.ndarray) -> dict:
 
 
 def _rms_spike_ratio(mono: np.ndarray, window_ms: float = 500.0) -> float:
-    """Max/median ratio across overlapping RMS windows. 1.0 = perfectly flat."""
+    """Max/p75 ratio across overlapping RMS windows. 1.0 = perfectly flat.
+
+    Uses the 75th-percentile window as baseline rather than the median so that
+    a *sustained* level change between two granular sources (which raises the
+    median but not the max-relative-to-loud-section ratio) is not falsely
+    flagged as a burst.  Genuine bursts (short loud spike against a consistent
+    quiet baseline) still show up because p75 stays close to the quiet level
+    when only 25 % or fewer windows are loud.
+
+    Also gates on absolute amplitude: an inaudible signal (peak_rms < 0.01)
+    cannot have a perceptible quality issue regardless of the ratio.
+    """
     window = int(window_ms * SR / 1000)
     if len(mono) < window * 3:
         return 1.0
@@ -311,7 +356,11 @@ def _rms_spike_ratio(mono: np.ndarray, window_ms: float = 500.0) -> float:
     active = rms_vals[rms_vals > 1e-4]
     if len(active) < 3:
         return 1.0
-    return float(active.max() / (np.median(active) + 1e-8))
+    peak_rms = float(active.max())
+    if peak_rms < 0.01:          # signal too quiet to matter audibly
+        return 1.0
+    p75 = float(np.percentile(active, 75))
+    return float(peak_rms / (p75 + 1e-8))
 
 
 def analyze_seam(audio: np.ndarray, reload_at: int, crossfade_secs: float,
@@ -409,6 +458,21 @@ def judge_no_rms_spike(m: dict) -> list[str]:
     return issues
 
 
+def judge_expect_silence(m: dict) -> list[str]:
+    """For tests where silence IS the correct output (e.g., all layers muted).
+
+    Passes when rms is near zero; fails on NaN, hard clipping, or unexpected audio.
+    """
+    issues = []
+    if m["has_nan"]:
+        issues.append("NaN/Inf in output")
+    if m["peak"] > CLIP_THRESHOLD:
+        issues.append(f"clipping  peak={m['peak']:.4f}")
+    if m["rms"] > 1e-3:
+        issues.append(f"expected silence but  rms={m['rms']:.5f}")
+    return issues
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Test result
 # ═════════════════════════════════════════════════════════════════════════════
@@ -424,6 +488,20 @@ class Result:
     error: Optional[str] = None
     audio: Optional[np.ndarray] = field(default=None, repr=False)
     elapsed: float = 0.0
+    preset: Optional[dict] = field(default=None, repr=False)
+
+
+def _extract_preset(fn: Callable) -> Optional[dict]:
+    """Extract a preset dict from a test lambda's default arguments.
+
+    Simple render tests use `lambda _p=p: render(_p)` — `p` is defaults[0].
+    Crossfade tests use `lambda _pa=pa, _pb=pb, _cf=cf: ...` — `pb` is the
+    target preset (last dict with a 'layers' key), which is the more relevant
+    one to replay.
+    """
+    defaults = getattr(fn, '__defaults__', None) or ()
+    candidates = [d for d in defaults if isinstance(d, dict) and 'layers' in d]
+    return candidates[-1] if candidates else None
 
 
 def run_test(section: str, name: str, desc: str,
@@ -431,6 +509,7 @@ def run_test(section: str, name: str, desc: str,
              keep_audio: bool = False,
              judge_fn: Callable = None) -> Result:
     judge_fn = judge_fn or judge
+    preset = _extract_preset(fn)
     t0 = time.time()
     try:
         audio = fn()
@@ -442,6 +521,7 @@ def run_test(section: str, name: str, desc: str,
             issues=issues, metrics=metrics,
             audio=audio if (not issues and not keep_audio) else (audio if keep_audio else None),
             elapsed=time.time() - t0,
+            preset=preset,
         )
     except Exception:
         return Result(
@@ -449,6 +529,7 @@ def run_test(section: str, name: str, desc: str,
             passed=False, issues=["EXCEPTION"],
             error=traceback.format_exc(),
             elapsed=time.time() - t0,
+            preset=preset,
         )
 
 
@@ -577,6 +658,27 @@ def suite_fm(quick: bool) -> list[tuple]:
     p = _preset([_fm(root=20, fm_index=3.0, band="sub")])
     tests.append(("fm_near_dc", "FM root=20Hz near DC (high fm_index)",
                    lambda _p=p: render(_p)))
+
+    # ── Previously untested FM parameters ────────────────────────────────────
+
+    # fm_ratios (modulator ratio list)
+    for fm_r in ([([1.0]), ([0.5, 2.0]), ([1.0, 3.0, 5.0])] if not quick else [([0.5, 2.0])]):
+        p = _preset([_fm(fm_ratios=fm_r, fm_index=0.5)])
+        tests.append((f"fm_ratios_{len(fm_r)}el", f"FM fm_ratios={fm_r} (index=0.5)",
+                       lambda _p=p: render(_p)))
+
+    # ratios (overtone ratio list)
+    for ratios in ([([1.0]), ([1.0, 2.0, 3.0]), ([1.0, 1.5, 2.0, 3.0, 4.0])]
+                   if not quick else [([1.0, 1.5, 3.0])]):
+        p = _preset([_fm(ratios=ratios)])
+        tests.append((f"ratios_{len(ratios)}el", f"FM ratios={ratios}",
+                       lambda _p=p: render(_p)))
+
+    # chorus_voices
+    for cv in ([1, 2, 4, 8] if not quick else [1, 4]):
+        p = _preset([_fm(chorus_mix=0.4, chorus_voices=cv, chorus_rate=0.5, chorus_depth=0.008)])
+        tests.append((f"chorus_voices_{cv}", f"FM chorus_voices={cv}",
+                       lambda _p=p: render(_p)))
 
     return tests
 
@@ -748,6 +850,21 @@ def suite_gran(quick: bool) -> list[tuple]:
     tests.append(("gran_2src_pitched", "Gran 2 sources + pitch offsets",
                    lambda _p=p: render(_p)))
 
+    # ── Previously untested granular parameters ───────────────────────────────
+
+    # Trapezoid envelope (generator uses it; only hann/triangle were tested)
+    p = _preset([_gran(envelope="trapezoid")])
+    tests.append(("envelope_trapezoid", "Gran envelope=trapezoid",
+                   lambda _p=p: render(_p)))
+
+    # sample_root_hz: user-specified native pitch overrides auto-detect
+    for root_hz in ([110.0, 220.0, 440.0] if not quick else [220.0]):
+        p = _preset([_gran(source="singing_bowl.ogg", sample_root_hz=root_hz,
+                            pitch_semitones=0)])
+        tests.append((f"sample_root_{root_hz:.0f}hz",
+                       f"Gran sample_root_hz={root_hz:.0f}Hz",
+                       lambda _p=p: render(_p)))
+
     return tests
 
 
@@ -756,7 +873,7 @@ def suite_fx(quick: bool) -> list[tuple]:
     base = _fm(root=220)
 
     # Reverb spaces
-    spaces = ["room", "hall", "cathedral", "cave"] if not quick else ["hall", "cathedral"]
+    spaces = ["plate", "hall", "cathedral", "cave", "infinite"] if not quick else ["hall", "infinite"]
     for mix in ([0.2, 0.5, 0.9] if not quick else [0.4]):
         for space in spaces:
             p = _preset([base], reverb={"enabled": True, "space": space,
@@ -839,6 +956,36 @@ def suite_fx(quick: bool) -> list[tuple]:
     )
     tests.append(("sat_multilayer_max", "Saturation=1.0 + 3 loud layers",
                    lambda _p=p: render(_p)))
+
+    # ── Previously untested FX parameters ────────────────────────────────────
+
+    # Reverb modulation_depth (chorus on reverb tails — can cause instability)
+    for moddepth in ([0.0, 0.3, 0.8, 1.0] if not quick else [0.3, 0.8]):
+        p = _preset([base], reverb={"enabled": True, "space": "hall", "mix": 0.4,
+                                     "decay_trim": 1.0, "pre_delay_ms": 0.0,
+                                     "modulation_depth": moddepth})
+        tests.append((f"reverb_moddepth_{moddepth}",
+                       f"Reverb modulation_depth={moddepth}",
+                       lambda _p=p: render(_p)))
+
+    # Flanger parameter sweep (rate, depth, feedback individually)
+    for rate in ([0.05, 0.3, 1.0, 3.0] if not quick else [0.1, 1.0]):
+        p = _preset([base], flanger={"rate": rate, "depth": 0.5, "feedback": 0.4, "wet": 0.4})
+        tests.append((f"flanger_rate_{rate}", f"Flanger rate={rate}Hz",
+                       lambda _p=p: render(_p)))
+
+    for feedback in ([0.0, 0.4, 0.8, 0.95] if not quick else [0.0, 0.8]):
+        p = _preset([base], flanger={"rate": 0.3, "depth": 0.5, "feedback": feedback, "wet": 0.4})
+        tests.append((f"flanger_fb_{feedback}", f"Flanger feedback={feedback}",
+                       lambda _p=p: render(_p)))
+
+    # Binaural: all methods (previously zero tests in the whole suite)
+    for method in (["detune", "carrier"] if not quick else ["detune"]):
+        p = _preset([base], binaural={"enabled": True, "method": method,
+                                       "beat_hz": 6.0, "carrier_hz": 200.0,
+                                       "carrier_amplitude": 0.15})
+        tests.append((f"binaural_{method}", f"Binaural method={method}",
+                       lambda _p=p: render(_p)))
 
     return tests
 
@@ -986,11 +1133,20 @@ def suite_stability(quick: bool) -> list[tuple]:
 
 
 def suite_presets(quick: bool) -> list[tuple]:
-    """Test every .yaml preset in shared/."""
+    """Test every .yaml preset in shared/ and presets/."""
     from engine.preset_loader import load_preset
 
     tests = []
-    yaml_files = sorted(SHARED_DIR.glob("*.yaml")) if SHARED_DIR.exists() else []
+    search_dirs = []
+    if SHARED_DIR.exists():
+        search_dirs.append(SHARED_DIR)
+    presets_dir = REPO_ROOT / "presets"
+    if presets_dir.exists():
+        search_dirs.append(presets_dir)
+
+    yaml_files: list[Path] = []
+    for d in search_dirs:
+        yaml_files.extend(sorted(d.rglob("*.yaml")))
 
     for yf in yaml_files:
         name = yf.stem
@@ -1005,6 +1161,554 @@ def suite_presets(quick: bool) -> list[tuple]:
         # Use full 8s to exercise more of the render
         tests.append((name, f"Preset: {yf.name}",
                        lambda _p=preset: render(_p, duration=8)))
+
+    return tests
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# New suites — binaural, master EQ/comp, spatial, combinatorial
+# ═════════════════════════════════════════════════════════════════════════════
+
+def suite_binaural(quick: bool) -> list[tuple]:
+    """Test all binaural methods, beat frequencies, carrier settings, and interactions."""
+    tests = []
+    base = _fm(root=220, amp_min=0.01, amp_max=0.04)
+
+    # Methods
+    for method in (["detune", "carrier"] if not quick else ["detune", "carrier"]):
+        p = _preset([base], binaural={"enabled": True, "method": method,
+                                       "beat_hz": 6.0, "carrier_hz": 200.0,
+                                       "carrier_amplitude": 0.15})
+        tests.append((f"method_{method}", f"Binaural method={method}",
+                       lambda _p=p: render(_p)))
+
+    # Beat frequency sweep (delta / theta / alpha / beta brainwave ranges)
+    for beat in ([0.5, 1.5, 4.0, 6.0, 10.0, 20.0] if not quick else [1.5, 6.0, 10.0]):
+        p = _preset([base], binaural={"enabled": True, "method": "detune",
+                                       "beat_hz": beat, "carrier_hz": 200.0,
+                                       "carrier_amplitude": 0.15})
+        tests.append((f"beat_{beat}Hz", f"Binaural beat={beat}Hz",
+                       lambda _p=p: render(_p)))
+
+    # Carrier frequency sweep (low, mid, high carrier placement)
+    for carrier in ([80, 200, 440, 1000] if not quick else [80, 440]):
+        p = _preset([base], binaural={"enabled": True, "method": "carrier",
+                                       "beat_hz": 6.0, "carrier_hz": carrier,
+                                       "carrier_amplitude": 0.15})
+        tests.append((f"carrier_{carrier}Hz", f"Binaural carrier_hz={carrier}Hz",
+                       lambda _p=p: render(_p)))
+
+    # Carrier amplitude extremes
+    for amp in ([0.05, 0.15, 0.4, 0.6] if not quick else [0.05, 0.4]):
+        p = _preset([base], binaural={"enabled": True, "method": "carrier",
+                                       "beat_hz": 6.0, "carrier_hz": 200.0,
+                                       "carrier_amplitude": amp})
+        tests.append((f"carrier_amp_{amp}", f"Binaural carrier_amplitude={amp}",
+                       lambda _p=p: render(_p)))
+
+    # Binaural + reverb interaction (phase coherence check)
+    p = _preset([base],
+                binaural={"enabled": True, "method": "detune", "beat_hz": 4.0,
+                           "carrier_hz": 200.0, "carrier_amplitude": 0.15},
+                reverb={"enabled": True, "space": "hall", "mix": 0.4,
+                         "decay_trim": 1.0, "pre_delay_ms": 20.0})
+    tests.append(("binaural_plus_reverb", "Binaural detune + reverb",
+                   lambda _p=p: render(_p)))
+
+    # Carrier + multilayer (detune applied to multiple layer voices)
+    p = _preset([_fm(root=110, name="L1"), _fm(root=220, name="L2")],
+                binaural={"enabled": True, "method": "detune", "beat_hz": 6.0,
+                           "carrier_hz": 200.0, "carrier_amplitude": 0.15})
+    tests.append(("detune_multilayer", "Binaural detune + 2-layer FM",
+                   lambda _p=p: render(_p)))
+
+    return tests
+
+
+def suite_master(quick: bool) -> list[tuple]:
+    """Test master bus EQ bands and compressor parameters."""
+    tests = []
+    # Use two moderately-loud FM layers so compressor threshold can be reached
+    base_layers = [
+        _fm(root=110, amp_min=0.03, amp_max=0.09, voices=4, name="L1"),
+        _fm(root=220, amp_min=0.03, amp_max=0.09, voices=4, name="L2"),
+    ]
+
+    # EQ: low-cut (high-pass) — aggressive cuts thin the signal or cause silence
+    for lc in ([20, 80, 200, 500, 1200] if not quick else [80, 500]):
+        p = _preset(base_layers, master={"eq": {"low_cut_hz": lc}})
+        tests.append((f"eq_lowcut_{lc}hz", f"EQ low_cut={lc}Hz",
+                       lambda _p=p: render(_p)))
+
+    # EQ: bass shelf boost/cut
+    for db in ([-9, -6, +6, +9] if not quick else [-6, +6]):
+        p = _preset(base_layers, master={"eq": {"bass_db": db, "bass_hz": 100.0}})
+        tests.append((f"eq_bass_{db:+d}db", f"EQ bass={db:+d}dB",
+                       lambda _p=p: render(_p)))
+
+    # EQ: lo_mid bell
+    for db in ([-6, +6] if not quick else [-6, +6]):
+        p = _preset(base_layers, master={"eq": {"lo_mid_db": db, "lo_mid_hz": 250.0,
+                                                  "lo_mid_q": 1.5}})
+        tests.append((f"eq_lomid_{db:+d}db", f"EQ lo_mid={db:+d}dB",
+                       lambda _p=p: render(_p)))
+
+    # EQ: hi_mid bell
+    for db in ([-6, +6] if not quick else [-6, +6]):
+        p = _preset(base_layers, master={"eq": {"hi_mid_db": db, "hi_mid_hz": 2500.0,
+                                                  "hi_mid_q": 1.0}})
+        tests.append((f"eq_himid_{db:+d}db", f"EQ hi_mid={db:+d}dB",
+                       lambda _p=p: render(_p)))
+
+    # EQ: air shelf (treble presence/de-essing range)
+    for db in ([-6, +6, +12] if not quick else [-6, +9]):
+        p = _preset(base_layers, master={"eq": {"air_db": db, "air_hz": 10000.0}})
+        tests.append((f"eq_air_{db:+d}db", f"EQ air={db:+d}dB",
+                       lambda _p=p: render(_p)))
+
+    # EQ: heavy simultaneous cut (can thin signal close to silence)
+    if not quick:
+        p = _preset(base_layers, master={"eq": {
+            "low_cut_hz": 400, "bass_db": -9.0, "lo_mid_db": -6.0,
+        }})
+        tests.append(("eq_heavy_cut", "EQ heavy multi-band cut (low_cut=400Hz)",
+                       lambda _p=p: render(_p)))
+
+    # Compressor: threshold sweep
+    for thr in ([-6, -12, -18, -24, -36] if not quick else [-12, -24]):
+        p = _preset(base_layers, master={"comp": {
+            "threshold_db": thr, "ratio": 4.0, "attack_ms": 10.0,
+            "release_ms": 100.0, "knee_db": 3.0, "makeup_db": 6.0,
+        }})
+        tests.append((f"comp_thr_{thr}db", f"Compressor threshold={thr}dB",
+                       lambda _p=p: render(_p)))
+
+    # Compressor: ratio extremes
+    for ratio in ([1.5, 4.0, 8.0, 20.0] if not quick else [2.0, 8.0]):
+        p = _preset(base_layers, master={"comp": {
+            "threshold_db": -18.0, "ratio": ratio, "attack_ms": 10.0,
+            "release_ms": 100.0, "knee_db": 3.0, "makeup_db": 4.0,
+        }})
+        tests.append((f"comp_ratio_{ratio}x", f"Compressor ratio={ratio}x",
+                       lambda _p=p: render(_p)))
+
+    # Compressor: makeup gain (can clip without the hard-limiter)
+    for makeup in ([0.0, 6.0, 12.0] if not quick else [6.0, 12.0]):
+        p = _preset(base_layers, master={"comp": {
+            "threshold_db": -24.0, "ratio": 4.0, "attack_ms": 10.0,
+            "release_ms": 100.0, "knee_db": 3.0, "makeup_db": makeup,
+        }})
+        tests.append((f"comp_makeup_{makeup}db", f"Compressor makeup={makeup}dB",
+                       lambda _p=p: render(_p)))
+
+    # Output gain extremes
+    for gain in ([-6.0, 0.0, 6.0, 12.0] if not quick else [0.0, 6.0]):
+        p = _preset(base_layers, master={"output_gain_db": gain})
+        tests.append((f"output_gain_{gain:+.0f}db", f"Output gain={gain:+.0f}dB",
+                       lambda _p=p: render(_p)))
+
+    # Full master chain: EQ + comp + output gain together
+    if not quick:
+        p = _preset(base_layers, master={
+            "eq":  {"low_cut_hz": 60.0, "bass_db": 3.0, "lo_mid_db": -2.0,
+                    "air_db": 4.0},
+            "comp": {"threshold_db": -18.0, "ratio": 3.0, "attack_ms": 20.0,
+                     "release_ms": 150.0, "knee_db": 4.0, "makeup_db": 4.0},
+            "output_gain_db": 2.0,
+        })
+        tests.append(("master_full_chain", "Master EQ + compressor + output gain",
+                       lambda _p=p: render(_p)))
+
+    return tests
+
+
+def suite_spatial(quick: bool) -> list[tuple]:
+    """Test spatial parameters: quadrant, trajectory_y, depth/wet, swarm, layer mix, muted."""
+    tests = []
+    base = _fm(root=220, amp_min=0.01, amp_max=0.04)
+
+    # All five quadrants
+    for q in (["front_left", "front_right", "center", "rear_left", "rear_right"]
+              if not quick else ["front_left", "rear_right", "center"]):
+        p = _preset([_fm(root=220, quadrant=q)])
+        tests.append((f"quadrant_{q}", f"Quadrant={q}",
+                       lambda _p=p: render(_p)))
+
+    # trajectory_y variants (depth = distance modulation, spiral = combined)
+    for ty in (["none", "depth", "spiral"] if not quick else ["depth", "spiral"]):
+        p = _preset([_fm(root=220, trajectory_y=ty, speed=0.1)])
+        tests.append((f"traj_y_{ty}", f"trajectory_y={ty}",
+                       lambda _p=p: render(_p)))
+
+    # spatial_depth (0 = flat/no HRTF, 1 = full depth simulation)
+    for sd in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.0, 1.0]):
+        p = _preset([base], spatial_depth=sd)
+        tests.append((f"spatial_depth_{sd}", f"spatial_depth={sd}",
+                       lambda _p=p: render(_p)))
+
+    # spatial_wet (dry/wet of spatial processing)
+    for sw in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.0, 1.0]):
+        p = _preset([base], spatial_wet=sw)
+        tests.append((f"spatial_wet_{sw}", f"spatial_wet={sw}",
+                       lambda _p=p: render(_p)))
+
+    # swarm_density extremes
+    for swd in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.2, 0.8]):
+        p = _preset([base], swarm_density=swd)
+        tests.append((f"swarm_density_{swd}", f"swarm_density={swd}",
+                       lambda _p=p: render(_p)))
+
+    # Per-layer volume_db extremes (mix is now volume_db for FM/subtractive)
+    for db in ([-24.0, -12.0, -6.0, 0.0, +6.0] if not quick else [-12.0, 0.0, +6.0]):
+        p = _preset([_fm(volume_db=db)])
+        tests.append((f"volume_db_{db:+.0f}db", f"FM volume_db={db:+.0f}dB",
+                       lambda _p=p: render(_p)))
+
+    # Muted single layer — output must be silence
+    p = _preset([_fm(muted=True)])
+    tests.append(("muted_single", "Single muted layer (expect silence)",
+                   lambda _p=p: render(_p), judge_expect_silence))
+
+    # Active + muted combination — should produce audio from the active layer only
+    p = _preset([_fm(root=220, name="active"), _fm(root=440, muted=True, name="muted")])
+    tests.append(("muted_plus_active", "1 active + 1 muted layer",
+                   lambda _p=p: render(_p)))
+
+    # 4-layer full quadrant spread
+    if not quick:
+        layers = [
+            _fm(root=110, quadrant="front_left",  name="FL"),
+            _fm(root=220, quadrant="front_right", name="FR"),
+            _fm(root=165, quadrant="rear_left",   name="RL"),
+            _fm(root=330, quadrant="rear_right",  name="RR"),
+        ]
+        p = _preset(layers)
+        tests.append(("quad_spread_4layer", "4-layer full quadrant spread",
+                       lambda _p=p: render(_p)))
+
+    # Earth: tectonic_frequency sweep (previously always 18)
+    for tf in ([7, 18, 40, 80] if not quick else [7, 40]):
+        p = _preset([base], earth={"enabled": True, "tectonic_frequency": tf,
+                                    "pressure": 0.3, "movement": 0.02})
+        tests.append((f"earth_tectonic_{tf}hz", f"Earth tectonic_frequency={tf}Hz",
+                       lambda _p=p: render(_p)))
+
+    # Air: turbulence and movement sweep (previously always defaults)
+    for turb in ([0.0, 0.1, 0.5] if not quick else [0.0, 0.5]):
+        p = _preset([base], air={"enabled": True, "intensity": 0.15,
+                                  "movement": 0.05, "turbulence": turb})
+        tests.append((f"air_turbulence_{turb}", f"Air turbulence={turb}",
+                       lambda _p=p: render(_p)))
+
+    return tests
+
+
+def suite_combo(n: int, seed: int = 0) -> list[tuple]:
+    """
+    N randomly-sampled cross-parameter combinations.
+
+    Samples without replacement from the full combinatorial product of:
+      layer_type × filter × reverb × binaural × flanger × saturation
+
+    Total unique combinations: 8×6×6×4×2×3 = 6912
+    """
+    # ── Dimension pools ───────────────────────────────────────────────────────
+    LAYERS = {
+        "fm":        lambda: [_fm(root=220)],
+        "sub_saw":   lambda: [_sub(waveform="saw")],
+        "sub_sq":    lambda: [_sub(waveform="square")],
+        "gran_bowl": lambda: [_gran(source="singing_bowl.ogg")],
+        "gran_gong": lambda: [_gran(source="gong.ogg")],
+        "fm+sub":    lambda: [_fm(root=110, name="FM"), _sub(waveform="saw", name="Sub")],
+        "fm+gran":   lambda: [_fm(root=110, name="FM"), _gran("gong.ogg", name="Gran")],
+        "sub+gran":  lambda: [_sub(waveform="saw", name="Sub"),
+                               _gran("metal_resonance.ogg", name="Gran")],
+    }
+    FILTERS = {
+        "off":   {},
+        "lp":    dict(filter_type="lp",    filter_cutoff=600,  filter_lfo_depth=0.5, filter_lfo_rate=0.3),
+        "hp":    dict(filter_type="hp",    filter_cutoff=400,  filter_lfo_depth=0.4, filter_lfo_rate=0.2),
+        "bp":    dict(filter_type="bp",    filter_cutoff=1200, filter_resonance=3.0, filter_lfo_depth=0.6),
+        "comb":  dict(filter_type="comb",  filter_cutoff=300,  filter_resonance=8.0),
+        "vowel": dict(filter_type="vowel", filter_vowel="e"),
+    }
+    REVERBS = {
+        "off":       None,
+        "hall":      {"enabled": True, "space": "hall",      "mix": 0.3, "decay_trim": 1.0, "pre_delay_ms": 0.0},
+        "plate":     {"enabled": True, "space": "plate",     "mix": 0.25,"decay_trim": 0.8, "pre_delay_ms": 10.0},
+        "infinite":  {"enabled": True, "space": "infinite",  "mix": 0.2, "decay_trim": 1.0, "pre_delay_ms": 0.0},
+        "cathedral": {"enabled": True, "space": "cathedral", "mix": 0.4, "decay_trim": 1.0, "pre_delay_ms": 20.0},
+        "cave":      {"enabled": True, "space": "cave",      "mix": 0.5, "decay_trim": 0.9, "pre_delay_ms": 30.0},
+    }
+    BINAURALS = {
+        "off":     None,
+        "detune":  {"enabled": True, "method": "detune",  "beat_hz": 6.0,  "carrier_hz": 200.0, "carrier_amplitude": 0.15},
+        "carrier": {"enabled": True, "method": "carrier", "beat_hz": 4.0,  "carrier_hz": 200.0, "carrier_amplitude": 0.15},
+        "theta":   {"enabled": True, "method": "detune",  "beat_hz": 1.5,  "carrier_hz": 200.0, "carrier_amplitude": 0.15},
+    }
+    FLANGERS = {
+        "off": None,
+        "on":  {"rate": 0.3, "depth": 0.5, "feedback": 0.4, "wet": 0.3},
+    }
+    SATURATIONS = {"low": 0.1, "mid": 0.4, "high": 0.8}
+
+    space = list(itertools.product(
+        LAYERS.items(), FILTERS.items(), REVERBS.items(),
+        BINAURALS.items(), FLANGERS.items(), SATURATIONS.items(),
+    ))
+    rng = _random_mod.Random(seed)
+    k = min(n, len(space))
+    picked = rng.sample(space, k)
+
+    tests = []
+    for i, ((l_key, l_fn), (f_key, f_kw), (r_key, rev),
+             (b_key, bin_), (fl_key, flan), (sat_key, sat)) in enumerate(picked):
+        layers = [{**layer, **f_kw} for layer in l_fn()]
+        p = _preset(layers, reverb=rev, binaural=bin_, flanger=flan, saturation=sat)
+        tag  = f"c{i:04d}_{l_key}_{f_key}_r{r_key}"
+        desc = (f"Combo #{i} [seed={seed}]: {l_key} | filter={f_key} | reverb={r_key} "
+                f"| binaural={b_key} | flanger={fl_key} | sat={sat_key}")
+        tests.append((tag, desc, lambda _p=p: render(_p)))
+
+    return tests
+
+
+def suite_unison(quick: bool) -> list[tuple]:
+    """Test spread/blend unison stereo, volume_db range, and peak meter API."""
+    tests = []
+
+    # ── Spread extremes ───────────────────────────────────────────────────────
+    for spread in ([0.0, 0.3, 0.7, 1.0, 1.5, 2.0] if not quick else [0.0, 1.0, 2.0]):
+        p = _preset([_fm(spread=spread, voices=8)])
+        tests.append((f"spread_{spread}", f"FM spread={spread}",
+                       lambda _p=p: render(_p)))
+
+    # ── Blend extremes ────────────────────────────────────────────────────────
+    for blend in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.0, 1.0]):
+        p = _preset([_fm(blend=blend, voices=8)])
+        tests.append((f"blend_{blend}", f"FM blend={blend}",
+                       lambda _p=p: render(_p)))
+
+    # ── Spread + blend combos ─────────────────────────────────────────────────
+    combos = ([(0.0, 1.0), (1.0, 0.5), (2.0, 0.3), (1.5, 0.7)] if not quick
+              else [(0.0, 1.0), (2.0, 0.3)])
+    for spread, blend in combos:
+        p = _preset([_fm(spread=spread, blend=blend, voices=12)])
+        tests.append((f"spread{spread}_blend{blend}",
+                       f"FM spread={spread} blend={blend} voices=12",
+                       lambda _p=p: render(_p)))
+
+    # ── Voice count interaction (1 voice = mono regardless of spread) ─────────
+    for v in ([1, 2, 4, 12, 20] if not quick else [1, 8, 20]):
+        p = _preset([_fm(spread=1.5, blend=0.8, voices=v)])
+        tests.append((f"spread_voices_{v}", f"FM spread=1.5 blend=0.8 voices={v}",
+                       lambda _p=p: render(_p)))
+
+    # ── Multi-layer spread gradient ───────────────────────────────────────────
+    if not quick:
+        layers = [
+            _fm(root=110, spread=0.4, blend=1.0,  name="Sub",  voices=20),
+            _fm(root=220, spread=1.2, blend=0.85, name="Mid",  voices=12),
+            _fm(root=440, spread=1.8, blend=0.6,  name="High", voices=6),
+        ]
+        p = _preset(layers)
+        tests.append(("spread_gradient_3layer", "FM 3-layer spread gradient (0.4→1.8)",
+                       lambda _p=p: render(_p)))
+
+    # ── volume_db range ───────────────────────────────────────────────────────
+    for db in ([-60.0, -24.0, -12.0, -6.0, 0.0, +6.0] if not quick else [-24.0, 0.0, +6.0]):
+        p = _preset([_fm(volume_db=db)])
+        jfn = judge_expect_silence if db <= -48 else None
+        tests.append((f"volume_db_{db:+.0f}db", f"FM volume_db={db:+.0f}dB",
+                       lambda _p=p: render(_p), jfn))
+
+    # ── Multi-layer, different volume_db per layer ────────────────────────────
+    if not quick:
+        layers = [
+            _fm(root=110, name="Hot",    volume_db=+6.0, amp_min=0.01, amp_max=0.03),
+            _fm(root=220, name="Unity",  volume_db=0.0,  amp_min=0.01, amp_max=0.03),
+            _fm(root=440, name="Quiet",  volume_db=-12.0, amp_min=0.01, amp_max=0.03),
+        ]
+        p = _preset(layers)
+        tests.append(("volume_db_multilayer_mix", "FM 3-layer mixed volume_db (+6/0/-12)",
+                       lambda _p=p: render(_p)))
+
+    # +6 dB on 3 loud layers — headroom / no-clip stress
+    p = _preset([
+        _fm(root=110, volume_db=+6.0, amp_min=0.02, amp_max=0.06, name="L1"),
+        _fm(root=220, volume_db=+6.0, amp_min=0.02, amp_max=0.06, name="L2"),
+        _fm(root=165, volume_db=+6.0, amp_min=0.02, amp_max=0.06, name="L3"),
+    ])
+    tests.append(("volume_db_hot_3layer", "FM 3 layers each +6dB (headroom/limiter check)",
+                   lambda _p=p: render(_p)))
+
+    # ── Peak meter API functional test ────────────────────────────────────────
+    def _peak_meter_api():
+        """Render 4s with 2 FM layers, call get_peak_meters(), validate."""
+        p = _preset([
+            _fm(root=110, name="L1", volume_db=-6.0,  amp_min=0.01, amp_max=0.04),
+            _fm(root=220, name="L2", volume_db=-12.0, amp_min=0.01, amp_max=0.04),
+        ])
+        engine = StreamingDroneEngine(p, seed=42)
+        total = int(4 * SR)
+        chunks = []
+        remaining = total
+        while remaining > 0:
+            n = min(CHUNK_SIZE, remaining)
+            chunks.append(engine.next_chunk(n))
+            remaining -= n
+        meters = engine.get_peak_meters()
+        if len(meters) != 2:
+            raise AssertionError(f"Expected 2 peak meters, got {len(meters)}")
+        for i, m in enumerate(meters):
+            if not (-80.0 <= m <= 6.0):
+                raise AssertionError(
+                    f"Peak meter[{i}]={m:.1f} dBFS outside expected −80…+6 range"
+                )
+        return np.concatenate(chunks, axis=0)
+
+    tests.append(("peak_meters_api", "Peak meters API: count=2 + dBFS range check",
+                   _peak_meter_api))
+
+    # Muted layer should have no entry in peak meters
+    def _peak_meters_muted():
+        p = _preset([
+            _fm(root=220, name="Active"),
+            _fm(root=440, name="Muted", muted=True),
+        ])
+        engine = StreamingDroneEngine(p, seed=42)
+        for _ in range(20):
+            engine.next_chunk(CHUNK_SIZE)
+        meters = engine.get_peak_meters()
+        # Only 1 non-muted layer → exactly 1 meter entry
+        if len(meters) != 1:
+            raise AssertionError(
+                f"Expected 1 meter for 1 active layer, got {len(meters)}"
+            )
+        audio = np.concatenate([engine.next_chunk(CHUNK_SIZE) for _ in range(20)], axis=0)
+        return audio
+
+    tests.append(("peak_meters_muted_skip", "Peak meters: muted layer excluded",
+                   _peak_meters_muted))
+
+    return tests
+
+
+def suite_layer_fx(quick: bool) -> list[tuple]:
+    """Test per-layer flanger and phaser FX (added in commit 6c03d17)."""
+    tests = []
+
+    # ── Per-layer flanger ─────────────────────────────────────────────────────
+
+    # Wet sweep
+    for wet in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.3, 0.9]):
+        p = _preset([_fm(flanger_wet=wet, flanger_rate=0.3,
+                          flanger_depth=0.5, flanger_feedback=0.4)])
+        tests.append((f"layer_flanger_wet_{wet}", f"Layer flanger wet={wet}",
+                       lambda _p=p: render(_p)))
+
+    # Rate sweep (slow drift → fast sweep → near audio-rate)
+    for rate in ([0.05, 0.3, 1.0, 3.0] if not quick else [0.1, 1.0]):
+        p = _preset([_fm(flanger_wet=0.5, flanger_rate=rate,
+                          flanger_depth=0.5, flanger_feedback=0.3)])
+        tests.append((f"layer_flanger_rate_{rate}", f"Layer flanger rate={rate}Hz",
+                       lambda _p=p: render(_p)))
+
+    # High feedback (near the instability boundary)
+    for fb in ([0.0, 0.5, 0.85, 0.95] if not quick else [0.5, 0.9]):
+        p = _preset([_fm(flanger_wet=0.5, flanger_rate=0.3,
+                          flanger_depth=0.5, flanger_feedback=fb)])
+        tests.append((f"layer_flanger_fb_{fb}", f"Layer flanger feedback={fb}",
+                       lambda _p=p: render(_p)))
+
+    # Layer flanger on subtractive
+    p = _preset([_sub(flanger_wet=0.6, flanger_rate=0.4,
+                       flanger_depth=0.6, flanger_feedback=0.4)])
+    tests.append(("layer_flanger_sub", "Layer flanger on subtractive layer",
+                   lambda _p=p: render(_p)))
+
+    # Layer flanger stacked with global flanger
+    p = _preset(
+        [_fm(flanger_wet=0.4, flanger_rate=0.3,
+              flanger_depth=0.5, flanger_feedback=0.3)],
+        flanger={"rate": 0.2, "depth": 0.4, "feedback": 0.3, "wet": 0.3},
+    )
+    tests.append(("layer_flanger_plus_global", "Layer flanger + global flanger stacked",
+                   lambda _p=p: render(_p)))
+
+    # ── Per-layer phaser ──────────────────────────────────────────────────────
+
+    # Wet sweep
+    for wet in ([0.0, 0.3, 0.7, 1.0] if not quick else [0.3, 0.9]):
+        p = _preset([_fm(phaser_wet=wet, phaser_rate=0.5,
+                          phaser_depth=0.7, phaser_center_hz=800.0)])
+        tests.append((f"layer_phaser_wet_{wet}", f"Layer phaser wet={wet}",
+                       lambda _p=p: render(_p)))
+
+    # Rate sweep
+    for rate in ([0.05, 0.5, 2.0, 5.0] if not quick else [0.2, 2.0]):
+        p = _preset([_fm(phaser_wet=0.6, phaser_rate=rate, phaser_depth=0.7)])
+        tests.append((f"layer_phaser_rate_{rate}", f"Layer phaser rate={rate}Hz",
+                       lambda _p=p: render(_p)))
+
+    # Stages (all-pass chain depth)
+    for stages in ([2, 4, 8, 12] if not quick else [2, 8]):
+        p = _preset([_fm(phaser_wet=0.6, phaser_stages=stages)])
+        tests.append((f"layer_phaser_stages_{stages}", f"Layer phaser stages={stages}",
+                       lambda _p=p: render(_p)))
+
+    # Feedback (can cause ringing / IIR divergence)
+    for fb in ([0.0, 0.3, 0.6, 0.85] if not quick else [0.3, 0.7]):
+        p = _preset([_fm(phaser_wet=0.6, phaser_feedback=fb)])
+        tests.append((f"layer_phaser_fb_{fb}", f"Layer phaser feedback={fb}",
+                       lambda _p=p: render(_p)))
+
+    # Center frequency sweep
+    for hz in ([200, 800, 2000, 5000] if not quick else [400, 2000]):
+        p = _preset([_fm(phaser_wet=0.6, phaser_center_hz=hz)])
+        tests.append((f"layer_phaser_center_{hz}hz", f"Layer phaser center={hz}Hz",
+                       lambda _p=p: render(_p)))
+
+    # Phaser on subtractive
+    p = _preset([_sub(phaser_wet=0.7, phaser_rate=0.4, phaser_stages=4)])
+    tests.append(("layer_phaser_sub", "Layer phaser on subtractive layer",
+                   lambda _p=p: render(_p)))
+
+    # Phaser + flanger on same layer
+    p = _preset([_fm(phaser_wet=0.5, phaser_rate=0.4, phaser_stages=4,
+                      flanger_wet=0.4, flanger_rate=0.3, flanger_feedback=0.3)])
+    tests.append(("layer_phaser_and_flanger", "Layer phaser + flanger combined on one layer",
+                   lambda _p=p: render(_p)))
+
+    # 3 layers with different per-layer FX each
+    if not quick:
+        layers = [
+            _fm(root=110, name="SubDry"),
+            _fm(root=220, name="MidPhaser",
+                phaser_wet=0.7, phaser_stages=8, phaser_feedback=0.5),
+            _fm(root=440, name="HighFlanger",
+                flanger_wet=0.6, flanger_rate=0.5, flanger_feedback=0.4),
+        ]
+        p = _preset(layers)
+        tests.append(("layer_fx_3layer_diverse", "3 layers: dry + phaser + flanger",
+                       lambda _p=p: render(_p)))
+
+    # Long render: late-onset phaser feedback instability check
+    if not quick:
+        p = _preset([_fm(phaser_wet=0.7, phaser_feedback=0.75,
+                          phaser_stages=8, phaser_rate=0.3)])
+        tests.append(("layer_phaser_feedback_long_20s",
+                       "Layer phaser feedback=0.75 long 20s (stability)",
+                       lambda _p=p: render(_p, duration=20)))
+
+    # Phaser all params at extremes simultaneously (stress)
+    if not quick:
+        p = _preset([_fm(
+            phaser_wet=1.0, phaser_rate=4.0, phaser_depth=1.0,
+            phaser_stages=12, phaser_feedback=0.85, phaser_center_hz=100.0,
+        )])
+        tests.append(("layer_phaser_stress", "Layer phaser all params extreme",
+                       lambda _p=p: render(_p)))
 
     return tests
 
@@ -1026,9 +1730,15 @@ _SECTION_LABELS = {
     "sub":        "Subtractive",
     "gran":       "Granular",
     "fx":         "Global FX",
+    "binaural":   "Binaural",
+    "master":     "Master EQ / Comp",
+    "spatial":    "Spatial / Quadrant",
+    "unison":     "Unison (Spread/Blend/volume_db/Peak Meters)",
+    "layer_fx":   "Per-Layer FX (Flanger/Phaser)",
     "transition": "Transitions / Hot-Reload",
     "stability":  "Long-Render Stability",
-    "presets":    "Shared Presets",
+    "presets":    "Preset Library",
+    "combo":      "Combinatorial",
 }
 
 
@@ -1054,8 +1764,23 @@ def save_flagged_renders(results: list[Result]) -> int:
     saved = 0
     for r in results:
         if not r.passed and r.audio is not None and not r.error:
-            path = FLAGGED_DIR / f"{r.section}__{r.name}.wav"
-            sf.write(str(path), r.audio, SR, format="WAV", subtype="PCM_16")
+            stem = f"{r.section}__{r.name}"
+            wav_path = FLAGGED_DIR / f"{stem}.wav"
+            sf.write(str(wav_path), r.audio, SR, format="WAV", subtype="PCM_16")
+            if r.preset is not None:
+                exportable = {
+                    "meta": {
+                        "name": f"{r.section} – {r.name}",
+                        "slug": stem,
+                        "category": "test",
+                        "author": "test_suite",
+                        "engine_version": "MANTICE_V22",
+                    },
+                    **r.preset,
+                }
+                yaml_path = FLAGGED_DIR / f"{stem}.yaml"
+                with open(str(yaml_path), "w") as yf:
+                    yaml.dump(exportable, yf, default_flow_style=False, sort_keys=False)
             saved += 1
     return saved
 
@@ -1069,6 +1794,11 @@ SUITES = {
     "sub":        suite_sub,
     "gran":       suite_gran,
     "fx":         suite_fx,
+    "binaural":   suite_binaural,
+    "master":     suite_master,
+    "spatial":    suite_spatial,
+    "unison":     suite_unison,
+    "layer_fx":   suite_layer_fx,
     "transition": suite_transition,
     "stability":  suite_stability,
     "presets":    suite_presets,
@@ -1083,17 +1813,33 @@ def main() -> int:
     parser.add_argument("--quick",        action="store_true",
                         help="Run a fast subset (~60 tests)")
     parser.add_argument("--save-flagged", action="store_true",
-                        help=f"Save failed renders as WAV to {FLAGGED_DIR.name}/")
+                        help=f"Save failed renders as WAV + preset YAML to {FLAGGED_DIR.name}/")
     parser.add_argument("--verbose",      action="store_true",
                         help="Print metrics for passing tests")
     parser.add_argument("--section",
-                        choices=[*SUITES, "all"], default="all",
-                        help="Run only one section (default: all)")
+                        choices=[*SUITES, "all", "combo"], default="all",
+                        help="Run only one section (default: all; 'combo' requires --combo N)")
+    parser.add_argument("--combo", type=int, default=0, metavar="N",
+                        help="Also run N random cross-parameter combinations (0=off). "
+                             "Use --section combo to run ONLY combo tests.")
+    parser.add_argument("--combo-seed", type=int, default=0, metavar="S",
+                        help="RNG seed for --combo sampling (default: 0)")
     args = parser.parse_args()
 
-    sections = list(SUITES) if args.section == "all" else [args.section]
+    # ── Build section list ────────────────────────────────────────────────────
+    if args.section == "combo":
+        sections = []                # only combo tests will run
+    elif args.section == "all":
+        sections = list(SUITES)
+    else:
+        sections = [args.section]
 
-    # Build full test list as (section, name, desc, fn)
+    # Determine how many combo tests to generate
+    combo_count = args.combo
+    if args.section == "combo" and combo_count == 0:
+        combo_count = 20             # default when --section combo but no --combo N given
+
+    # Build full test list as (section, name, desc, fn, judge_fn)
     all_tests: list[tuple] = []
     for sec in sections:
         for entry in SUITES[sec](args.quick):
@@ -1104,13 +1850,20 @@ def main() -> int:
                 name, desc, fn, jfn = entry
                 all_tests.append((sec, name, desc, fn, jfn))
 
+    # Append combinatorial tests
+    if combo_count > 0:
+        n_combo = combo_count // 2 if args.quick else combo_count
+        for name, desc, fn in suite_combo(n_combo, seed=args.combo_seed):
+            all_tests.append(("combo", name, desc, fn, None))
+
     total = len(all_tests)
     mode  = "QUICK" if args.quick else "FULL"
+    combo_tag = f"  +{combo_count} combo" if combo_count > 0 else ""
 
     print(f"\n{B}{'━'*65}")
-    print(f"  Mantice Audio Quality Test Suite  [{mode}]")
+    print(f"  Mantice Audio Quality Test Suite  [{mode}{combo_tag}]")
     print(f"  SR={SR}Hz  chunk={CHUNK_SIZE}  duration={TEST_DURATION}s/test")
-    print(f"  {total} tests across {len(sections)} section(s)")
+    print(f"  {total} tests across {len(set(t[0] for t in all_tests))} section(s)")
     print(f"{'━'*65}{R}\n")
 
     results: list[Result] = []

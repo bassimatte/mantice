@@ -7,9 +7,8 @@ meta:
   - ancient
   - sparse
   - immersive
-  description: 'A sparse, minimal drone designed to showcase the FDN reverb. Few voices
-    with wide intervals leave space for the reverb tail to bloom into a vast underground
-    cavern.
+  description: 'A sparse, minimal drone designed to showcase the FDN reverb. Few voices with wide intervals leave space for
+    the reverb tail to bloom into a vast underground cavern.
 
     '
   author: Matteo Bassi
@@ -53,10 +52,10 @@ layers:
     - 2.5
     index: 0.15
   dynamics:
-    mix: 1.0
     amp_min: 0.02
     amp_max: 0.06
     drift: 0.015
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.004
@@ -78,10 +77,10 @@ layers:
     - 5.0
     index: 0.4
   dynamics:
-    mix: 0.35
     amp_min: 0.005
     amp_max: 0.015
     drift: 0.005
+    volume_db: -9.1
   spatial_motion:
     quadrant: front_right
     speed: 0.008
@@ -101,21 +100,21 @@ layers:
     - 1.0
     index: 0.05
   dynamics:
-    mix: 0.6
     amp_min: 0.003
     amp_max: 0.02
     drift: 0.012
+    volume_db: -4.4
   spatial_motion:
     quadrant: rear_left
     speed: 0.002
     trajectory_x: drift
     trajectory_y: depth
 notes:
-  goal: 'Demonstrate the FDN reverb. The sparse voicing leaves gaps that the reverb
-    tail fills with diffuse, evolving space. Best on headphones.
+  goal: 'Demonstrate the FDN reverb. The sparse voicing leaves gaps that the reverb tail fills with diffuse, evolving space.
+    Best on headphones.
 
     '
-  listening_tip: 'Listen for the decay tail after each drift cycle — the reverb should
-    bloom outward and darken naturally over several seconds.
+  listening_tip: 'Listen for the decay tail after each drift cycle — the reverb should bloom outward and darken naturally
+    over several seconds.
 
     '

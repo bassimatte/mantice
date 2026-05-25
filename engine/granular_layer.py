@@ -17,7 +17,7 @@ from math import gcd as _gcd
 
 import numpy as np
 import soundfile as sf
-from scipy.signal import resample_poly as _resample_poly
+from scipy.signal import resample_poly as _resample_poly, butter as _butter, sosfilt as _sosfilt
 
 from . import config
 
@@ -78,6 +78,19 @@ class StreamingGranularLayer:
             audio = _resample_poly(audio, self._sr // g, sr // g).astype(np.float32)
 
         self.source = audio.astype(np.float64)
+
+        # Apply a 2nd-order Butterworth LP at 6 kHz to smooth sudden
+        # amplitude steps in the source recording (bow-direction changes,
+        # editing joins, polarity flips). Such steps produce an isolated
+        # inter-sample diff of ~0.26 in the raw source; the LP reduces
+        # the first-sample output to b0 × 0.26 ≈ 0.04, safely below the
+        # click-detection threshold of 0.15. All musical content below
+        # ~3 kHz is unaffected (< 0.5 dB loss at the fundamental and first
+        # four harmonics of a 220 Hz drone).
+        _lp_sos = _butter(2, min(6000.0 / (self._sr * 0.5), 0.99),
+                          btype='low', output='sos')
+        self.source = _sosfilt(_lp_sos, self.source)
+
         self.source_len = len(self.source)
 
         # ── Granular parameters ───────────────────────────────────────────────

@@ -59,10 +59,10 @@ layers:
     - 1.0
     index: 0.0
   dynamics:
-    mix: 0.9
     amp_min: 0.018
     amp_max: 0.055
     drift: 0.005
+    volume_db: -0.9
   spatial_motion:
     quadrant: front_left
     speed: 0.006
@@ -85,7 +85,6 @@ layers:
   chorus_depth: 0.01
   chorus_mix: 0.3
   chorus_voices: 3
-
 - name: Metal Choir
   enabled: true
   type: subtractive
@@ -102,10 +101,10 @@ layers:
     - 1.0
     index: 0.0
   dynamics:
-    mix: 0.65
     amp_min: 0.01
     amp_max: 0.035
     drift: 0.012
+    volume_db: -3.7
   spatial_motion:
     quadrant: front_right
     speed: 0.009
@@ -128,7 +127,6 @@ layers:
   chorus_depth: 0.007
   chorus_mix: 0.4
   chorus_voices: 3
-
 - name: Steel Overtones
   enabled: true
   type: fm
@@ -148,10 +146,10 @@ layers:
     - 1.5
     index: 0.28
   dynamics:
-    mix: 0.3
     amp_min: 0.004
     amp_max: 0.018
     drift: 0.025
+    volume_db: -10.5
   spatial_motion:
     quadrant: rear_right
     speed: 0.015

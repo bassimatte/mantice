@@ -139,6 +139,10 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  flanger_wet: 0.45
+  flanger_rate: 0.28
+  flanger_depth: 0.42
+  flanger_feedback: 0.36
 - name: Iron Sub
   muted: false
   type: subtractive
@@ -195,6 +199,10 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  flanger_wet: 0.45
+  flanger_rate: 0.28
+  flanger_depth: 0.42
+  flanger_feedback: 0.36
 reverb:
   enabled: true
   space: plate
@@ -207,8 +215,3 @@ earth:
   tectonic_frequency: 22
   pressure: 0.42
   movement: 0.022
-flanger:
-  wet: 0.45
-  rate: 0.28
-  depth: 0.42
-  feedback: 0.36

@@ -1,0 +1,191 @@
+meta:
+  name: Molten Membrane
+seed: null
+duration: 150.0
+spatial_depth: 1.5
+spatial_wet: 0.0
+saturation: 0.3
+master:
+  eq:
+    low_cut_hz: 20.0
+    bass_db: 3.5
+    bass_hz: 100.0
+    lo_mid_db: -2.5
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 0.0
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: 2.5
+    air_hz: 10000.0
+  comp:
+    threshold_db: 0.0
+    ratio: 2.0
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 0.0
+    makeup_db: 0.0
+swarm_density: 0.5
+layers:
+- name: Warm Body
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 233.08
+  voices: 6
+  ratios:
+  - 1
+  - 1.41
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.003
+  amp_max: 0.0592
+  drift: 0.0276
+  mix: 1.0
+  band: mid
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 0.35
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.27
+  chorus_depth: 0.0138
+  chorus_mix: 0.2
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 1747.3
+  filter_resonance: 2.17
+  filter_lfo_rate: 0.12
+  filter_lfo_depth: 0.64
+  filter_lfo_shape: triangle
+  waveform: square
+  detune_cents: 18.1
+  sub_mix: 0.98
+- name: Mid Resonance
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 207.65
+  voices: 6
+  ratios:
+  - 0.5
+  - 1
+  - 1.33
+  - 2.67
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0077
+  amp_max: 0.0433
+  drift: 0.0433
+  mix: 0.94
+  band: mid
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.7
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.33
+  chorus_depth: 0.0069
+  chorus_mix: 0.47
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 315.8
+  filter_resonance: 3.55
+  filter_lfo_rate: 0.269
+  filter_lfo_depth: 0.34
+  filter_lfo_shape: sine
+  waveform: square
+  detune_cents: 27.9
+  sub_mix: 0.73
+- name: Core Tone
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 277.18
+  voices: 6
+  ratios:
+  - 1
+  - 1.7
+  - 2.3
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.012
+  amp_max: 0.0766
+  drift: 0.0263
+  mix: 0.93
+  band: mid
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.6
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.61
+  chorus_depth: 0.0134
+  chorus_mix: 0.3
+  chorus_voices: 3
+  filter_type: hp
+  filter_cutoff: 1240.5
+  filter_resonance: 2.68
+  filter_lfo_rate: 0.281
+  filter_lfo_depth: 0.59
+  filter_lfo_shape: square
+  waveform: saw
+  detune_cents: 20.3
+  sub_mix: 0.94
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+earth: null
+air: null

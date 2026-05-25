@@ -7,8 +7,8 @@ meta:
   - metallic
   - harsh
   - mechanical
-  description: 'Aggressive, machine-like drone. High FM indices create metallic timbres;
-    fast drift rates produce mechanical instability.
+  description: 'Aggressive, machine-like drone. High FM indices create metallic timbres; fast drift rates produce mechanical
+    instability.
 
     '
   author: Matteo Bassi
@@ -55,10 +55,10 @@ layers:
     - 2.83
     index: 1.4
   dynamics:
-    mix: 1.0
     amp_min: 0.0142
     amp_max: 0.0569
     drift: 0.045
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.006
@@ -80,10 +80,10 @@ layers:
     - 4.67
     index: 1.8
   dynamics:
-    mix: 0.55
     amp_min: 0.0071
     amp_max: 0.0355
     drift: 0.05
+    volume_db: -5.2
   spatial_motion:
     quadrant: front_right
     speed: 0.008
@@ -104,10 +104,10 @@ layers:
     - 7.0
     index: 0.9
   dynamics:
-    mix: 0.2
     amp_min: 0.0028
     amp_max: 0.0114
     drift: 0.06
+    volume_db: -14.0
   spatial_motion:
     quadrant: rear_left
     speed: 0.012

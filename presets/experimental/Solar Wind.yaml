@@ -7,9 +7,8 @@ meta:
   - dense
   - unpredictable
   - textural
-  description: 'Maximum density chaos drone. 100+ voices with extreme drift and high
-    turbulence air create a wall of unpredictable texture — like standing in a solar
-    storm.
+  description: 'Maximum density chaos drone. 100+ voices with extreme drift and high turbulence air create a wall of unpredictable
+    texture — like standing in a solar storm.
 
     '
   author: Matteo Bassi
@@ -58,10 +57,10 @@ layers:
     - 3.14
     index: 0.7
   dynamics:
-    mix: 1.0
     amp_min: 0.009
     amp_max: 0.0451
     drift: 0.06
+    volume_db: 0.0
   spatial_motion:
     quadrant: rear_left
     speed: 0.005
@@ -83,10 +82,10 @@ layers:
     - 3.7
     index: 0.9
   dynamics:
-    mix: 0.7
     amp_min: 0.006
     amp_max: 0.036
     drift: 0.07
+    volume_db: -3.1
   spatial_motion:
     quadrant: front_right
     speed: 0.008
@@ -108,10 +107,10 @@ layers:
     - 6.5
     index: 1.2
   dynamics:
-    mix: 0.35
     amp_min: 0.003
     amp_max: 0.024
     drift: 0.08
+    volume_db: -9.1
   spatial_motion:
     quadrant: front_left
     speed: 0.012

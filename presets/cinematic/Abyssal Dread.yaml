@@ -7,8 +7,8 @@ meta:
   - ominous
   - unsettling
   - tense
-  description: 'Dissonant, pitch-black drone. Detuned clusters and aggressive FM create
-    a sense of creeping dread. No warmth, no comfort.
+  description: 'Dissonant, pitch-black drone. Detuned clusters and aggressive FM create a sense of creeping dread. No warmth,
+    no comfort.
 
     '
   author: Matteo Bassi
@@ -53,15 +53,17 @@ layers:
     - 2.73
     index: 0.8
   dynamics:
-    mix: 1.0
     amp_min: 0.0117
     amp_max: 0.0583
     drift: 0.035
+    volume_db: 0.0
   spatial_motion:
     quadrant: rear_left
     speed: 0.003
     trajectory_x: drift
     trajectory_y: depth
+  spread: 0.4
+  blend: 1.0
 - name: Tension Cluster
   enabled: true
   synthesis:
@@ -78,15 +80,17 @@ layers:
     - 3.1
     index: 1.1
   dynamics:
-    mix: 0.6
     amp_min: 0.0058
     amp_max: 0.0291
     drift: 0.04
+    volume_db: -4.4
   spatial_motion:
     quadrant: front_right
     speed: 0.005
     trajectory_x: spiral
     trajectory_y: depth
+  spread: 1.2
+  blend: 0.9
 - name: High Unease
   enabled: true
   synthesis:
@@ -102,15 +106,17 @@ layers:
     - 5.0
     index: 0.6
   dynamics:
-    mix: 0.25
     amp_min: 0.0023
     amp_max: 0.0117
     drift: 0.02
+    volume_db: -12.0
   spatial_motion:
     quadrant: front_left
     speed: 0.007
     trajectory_x: orbit
     trajectory_y: none
+  spread: 1.8
+  blend: 0.45
 notes:
   goal: Pure horror/tension drone for cinematic use.
   listening_tip: Best at moderate volume in darkness.

@@ -46,15 +46,17 @@ layers:
     - 2.0
     index: 0.57
   dynamics:
-    mix: 0.38
     amp_min: 0.0018
     amp_max: 0.023
     drift: 0.04
+    volume_db: -8.4
   spatial_motion:
     quadrant: front_left
     speed: 0.015
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.1
+  blend: 0.9
 - name: Mid Resonance
   enabled: true
   synthesis:
@@ -73,15 +75,17 @@ layers:
     - 1.0
     index: 0.54
   dynamics:
-    mix: 0.68
     amp_min: 0.0033
     amp_max: 0.0094
     drift: 0.029
+    volume_db: -3.3
   spatial_motion:
     quadrant: front_right
     speed: 0.038
     trajectory_x: drift
     trajectory_y: spiral
+  spread: 1.5
+  blend: 0.8
 - name: Core Tone
   enabled: true
   synthesis:
@@ -97,15 +101,17 @@ layers:
     - 1.0
     index: 1.02
   dynamics:
-    mix: 1.26
     amp_min: 0.0049
     amp_max: 0.0161
     drift: 0.038
+    volume_db: 2.0
   spatial_motion:
     quadrant: rear_left
     speed: 0.034
     trajectory_x: drift
     trajectory_y: depth
+  spread: 1.6
+  blend: 0.75
 - name: Amber Field
   enabled: true
   synthesis:
@@ -123,15 +129,17 @@ layers:
     - 1.5
     index: 0.94
   dynamics:
-    mix: 0.71
     amp_min: 0.0035
     amp_max: 0.0228
     drift: 0.028
+    volume_db: -3.0
   spatial_motion:
     quadrant: rear_right
     speed: 0.01
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.4
+  blend: 0.8
 - name: Presence Layer
   enabled: true
   synthesis:
@@ -148,12 +156,14 @@ layers:
     - 2.0
     index: 0.53
   dynamics:
-    mix: 1.08
     amp_min: 0.0048
     amp_max: 0.025
     drift: 0.019
+    volume_db: 0.7
   spatial_motion:
     quadrant: front_left
     speed: 0.04
     trajectory_x: drift
     trajectory_y: none
+  spread: 1.5
+  blend: 0.8

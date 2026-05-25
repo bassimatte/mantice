@@ -18,6 +18,7 @@ Raises ValueError with a clear message if the preset is invalid.
 
 import copy
 import json
+import math
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -25,6 +26,16 @@ from typing import Optional
 import yaml
 
 from . import config
+
+# ── volume helpers ────────────────────────────────────────────────────────────
+
+def _mix_to_db(volume_db_raw, mix_fallback=1.0) -> float:
+    """Convert old linear mix (0–1) → volume_db, or pass through existing volume_db."""
+    if volume_db_raw is not None:
+        return round(float(volume_db_raw), 1)
+    mix = float(mix_fallback) if mix_fallback is not None else 1.0
+    return round(20.0 * math.log10(max(mix, 1e-6)), 1)
+
 
 # ── band inference ────────────────────────────────────────────────────────────
 
@@ -146,7 +157,7 @@ def _resolve_inheritance(raw: dict, child_path: Path, depth: int = 0) -> dict:
 
 def _normalize_layer_v1(layer: dict) -> dict:
     """V1 flat layer dict → internal format."""
-    root = float(layer["root"])
+    root = float(layer.get("root") or layer.get("root_hz", 110))
     return {
         "name":         layer.get("name", "Layer"),
         "muted":        bool(layer.get("muted", False)) or not bool(layer.get("enabled", True)),
@@ -156,7 +167,7 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "fm_ratios":    [float(r) for r in layer.get("fm_ratios", [1.0])],
         "fm_index":     float(layer.get("fm_index", 0.1)),
         "band":         layer.get("band", _infer_band(root)),
-        "mix":          float(layer.get("mix", 1.0)),
+        "volume_db":    _mix_to_db(layer.get("volume_db"), layer.get("mix", 1.0)),
         "amp_min":      float(layer.get("amp_min", 0.001)),
         "amp_max":      float(layer.get("amp_max", 0.05)),
         "drift":        float(layer.get("drift", 0.01)),
@@ -164,8 +175,24 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "speed":        float(layer.get("speed", 0.01)),
         "trajectory_x": layer.get("trajectory_x", "none"),
         "trajectory_y": layer.get("trajectory_y", "none"),
-        "pan":          float(layer.get("pan", 0.0)),
+        "pan":          {"center": 0.0, "left": -1.0, "right": 1.0}.get(
+                            str(layer.get("pan", 0.0)).lower(),
+                            float(layer.get("pan", 0.0))
+                        ),
         "width":        float(layer.get("width", 1.0)),
+        "spread":       float(layer.get("spread", 1.0)),
+        "blend":        float(layer.get("blend", 1.0)),
+        # V24 per-layer flanger & phaser
+        "flanger_wet":       float(layer.get("flanger_wet", 0.0)),
+        "flanger_rate":      float(layer.get("flanger_rate", 0.25)),
+        "flanger_depth":     float(layer.get("flanger_depth", 0.5)),
+        "flanger_feedback":  float(layer.get("flanger_feedback", 0.4)),
+        "phaser_wet":        float(layer.get("phaser_wet", 0.0)),
+        "phaser_rate":       float(layer.get("phaser_rate", 0.5)),
+        "phaser_depth":      float(layer.get("phaser_depth", 0.7)),
+        "phaser_center_hz":  float(layer.get("phaser_center_hz", 800.0)),
+        "phaser_feedback":   float(layer.get("phaser_feedback", 0.0)),
+        "phaser_stages":     int(layer.get("phaser_stages", 4)),
     }
 
 
@@ -188,7 +215,7 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "fm_ratios":    [float(r) for r in fm.get("ratios", [1.0])],
         "fm_index":     float(fm.get("index", 0.1)),
         "band":         layer.get("band", _infer_band(root)),
-        "mix":          float(dyn.get("mix", 1.0)),
+        "volume_db":    _mix_to_db(layer.get("volume_db"), dyn.get("mix", 1.0)),
         "amp_min":      float(dyn.get("amp_min", 0.001)),
         "amp_max":      float(dyn.get("amp_max", 0.05)),
         "drift":        float(dyn.get("drift", 0.01)),
@@ -233,6 +260,20 @@ def _normalize_layer_v2(layer: dict) -> dict:
         # V22 pan & width
         "pan":   float(layer.get("pan", 0.0)),
         "width": float(layer.get("width", 1.0)),
+        # V23 voice spread & blend (FM only)
+        "spread": float(layer.get("spread", 1.0)),
+        "blend":  float(layer.get("blend", 1.0)),
+        # V24 per-layer flanger & phaser
+        "flanger_wet":       float(layer.get("flanger_wet", 0.0)),
+        "flanger_rate":      float(layer.get("flanger_rate", 0.25)),
+        "flanger_depth":     float(layer.get("flanger_depth", 0.5)),
+        "flanger_feedback":  float(layer.get("flanger_feedback", 0.4)),
+        "phaser_wet":        float(layer.get("phaser_wet", 0.0)),
+        "phaser_rate":       float(layer.get("phaser_rate", 0.5)),
+        "phaser_depth":      float(layer.get("phaser_depth", 0.7)),
+        "phaser_center_hz":  float(layer.get("phaser_center_hz", 800.0)),
+        "phaser_feedback":   float(layer.get("phaser_feedback", 0.0)),
+        "phaser_stages":     int(layer.get("phaser_stages", 4)),
     }
 
 

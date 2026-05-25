@@ -7,8 +7,8 @@ meta:
   - shimmering
   - ethereal
   - crystalline
-  description: 'Pure high-frequency shimmer. Crystalline overtones ring like struck
-    glass, suspended in a vast reverberant space.
+  description: 'Pure high-frequency shimmer. Crystalline overtones ring like struck glass, suspended in a vast reverberant
+    space.
 
     '
   author: Matteo Bassi
@@ -56,10 +56,10 @@ layers:
     - 7.0
     index: 0.35
   dynamics:
-    mix: 0.8
     amp_min: 0.0147
     amp_max: 0.0587
     drift: 0.004
+    volume_db: -1.9
   spatial_motion:
     quadrant: front_right
     speed: 0.006
@@ -81,10 +81,10 @@ layers:
     - 6.0
     index: 0.5
   dynamics:
-    mix: 0.4
     amp_min: 0.0088
     amp_max: 0.0352
     drift: 0.003
+    volume_db: -8.0
   spatial_motion:
     quadrant: front_left
     speed: 0.009
@@ -103,10 +103,10 @@ layers:
     - 1.0
     index: 0.03
   dynamics:
-    mix: 0.3
     amp_min: 0.0147
     amp_max: 0.0587
     drift: 0.006
+    volume_db: -10.5
   spatial_motion:
     quadrant: center
     speed: 0.003

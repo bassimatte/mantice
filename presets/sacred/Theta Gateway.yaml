@@ -1,71 +1,74 @@
-# Theta Gateway — Binaural beats meditation drone
-# 6 Hz theta beat for deep meditation / creativity states.
-# Best experienced with headphones.
-
-name: "Theta Gateway"
-
+name: Theta Gateway
 meta:
-  author: "MANTICE"
-  description: "Deep theta-state meditation drone with 6 Hz binaural beating. Use headphones."
-  tags: [binaural, meditation, theta, headphones]
-
-duration: 300  # 5 minutes — ideal for a focused session
-
+  author: MANTICE
+  description: Deep theta-state meditation drone with 6 Hz binaural beating. Use headphones.
+  tags:
+  - binaural
+  - meditation
+  - theta
+  - headphones
+duration: 300
 binaural:
   enabled: true
-  method: detune       # voices themselves carry the beat
-  beat_hz: 6.0         # theta band (4-8 Hz) — creativity & meditation
-
+  method: detune
+  beat_hz: 6.0
 layers:
-  - name: "Om Foundation"
-    enabled: true
-    root_hz: 136.1     # Om / Earth year frequency
-    voices: 3
-    ratios: [1.0]
-    fm_ratios: [1.0]
-    fm_index: 0.3
-    amp_min: 0.5
-    amp_max: 0.7
-    drift: 0.001       # very stable — let binaural do the movement
-    pan: center
-
-  - name: "Fifth Harmonic"
-    enabled: true
-    root_hz: 204.15    # perfect fifth above Om (136.1 × 1.5)
-    voices: 2
-    ratios: [1.0]
-    fm_ratios: [2.0]
-    fm_index: 0.2
-    amp_min: 0.2
-    amp_max: 0.35
-    drift: 0.001
-    pan: center
-
-  - name: "Sub Pulse"
-    enabled: true
-    root_hz: 68.05     # octave below Om
-    voices: 2
-    ratios: [1.0]
-    fm_ratios: [1.0]
-    fm_index: 0.1
-    amp_min: 0.3
-    amp_max: 0.4
-    drift: 0.0005
-    band: sub
-    pan: center
-
+- name: Om Foundation
+  enabled: true
+  root: 136.1
+  voices: 3
+  ratios:
+  - 1.0
+  fm_ratios:
+  - 1.0
+  fm_index: 0.3
+  amp_min: 0.5
+  amp_max: 0.7
+  drift: 0.001
+  pan: 0.0
+  spread: 0.5
+  blend: 1.0
+- name: Fifth Harmonic
+  enabled: true
+  root: 204.15
+  voices: 2
+  ratios:
+  - 1.0
+  fm_ratios:
+  - 2.0
+  fm_index: 0.2
+  amp_min: 0.2
+  amp_max: 0.35
+  drift: 0.001
+  pan: 0.0
+  spread: 0.7
+  blend: 0.9
+- name: Sub Pulse
+  enabled: true
+  root: 68.05
+  voices: 2
+  ratios:
+  - 1.0
+  fm_ratios:
+  - 1.0
+  fm_index: 0.1
+  amp_min: 0.3
+  amp_max: 0.4
+  drift: 0.0005
+  band: sub
+  pan: 0.0
+  spread: 0.3
+  blend: 1.0
 earth:
   enabled: true
   tectonic_frequency: 14
   pressure: 0.2
   movement: 0.01
-
 air:
   enabled: true
   intensity: 0.06
   movement: 0.005
   turbulence: 0.02
-
 reverb:
   enabled: true
   room_size: 0.7

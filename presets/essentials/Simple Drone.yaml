@@ -60,10 +60,10 @@ layers:
   noise_amount: 0.0
   noise_color: pink
   dynamics:
-    mix: 1.0
     amp_min: 0.0231
     amp_max: 0.0579
     drift: 0.015
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.01
@@ -94,10 +94,10 @@ layers:
   noise_amount: 0.0
   noise_color: pink
   dynamics:
-    mix: 0.6
     amp_min: 0.0116
     amp_max: 0.0347
     drift: 0.015
+    volume_db: -4.4
   spatial_motion:
     quadrant: center
     speed: 0.02

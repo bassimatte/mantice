@@ -6,7 +6,8 @@ meta:
   - psychedelic
   - dreamy
   - hypnotic
-  description: Heavy flanger sweeps melt the drone into liquid metal shimmer — pure jet-engine meditation
+  description: Heavy flanger sweeps melt the drone into liquid metal shimmer — pure
+    jet-engine meditation
   author: Matteo Bassi
   engine_version: MANTICE_V21
   tags:
@@ -42,11 +43,6 @@ binaural:
   beat_hz: 6.0
   carrier_hz: 200
   carrier_amp: 0.15
-flanger:
-  wet: 0.75
-  rate: 0.18
-  depth: 0.85
-  feedback: 0.55
 layers:
 - name: Saw Foundation
   enabled: true
@@ -67,10 +63,10 @@ layers:
   noise_amount: 0.0
   noise_color: pink
   dynamics:
-    mix: 1.0
     amp_min: 0.025
     amp_max: 0.065
     drift: 0.005
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.0
@@ -94,7 +90,10 @@ layers:
   chorus_depth: 0.007
   chorus_mix: 0.3
   chorus_voices: 3
-
+  flanger_wet: 0.75
+  flanger_rate: 0.18
+  flanger_depth: 0.85
+  flanger_feedback: 0.55
 - name: Mid Shimmer
   enabled: true
   type: fm
@@ -115,10 +114,10 @@ layers:
   noise_amount: 0.02
   noise_color: pink
   dynamics:
-    mix: 0.65
     amp_min: 0.012
     amp_max: 0.04
     drift: 0.01
+    volume_db: -3.7
   spatial_motion:
     quadrant: front_left
     speed: 0.008
@@ -139,7 +138,10 @@ layers:
   chorus_depth: 0.005
   chorus_mix: 0.2
   chorus_voices: 2
-
+  flanger_wet: 0.75
+  flanger_rate: 0.18
+  flanger_depth: 0.85
+  flanger_feedback: 0.55
 - name: High Haze
   enabled: true
   type: fm
@@ -160,10 +162,10 @@ layers:
   noise_amount: 0.04
   noise_color: pink
   dynamics:
-    mix: 0.35
     amp_min: 0.006
     amp_max: 0.02
     drift: 0.015
+    volume_db: -9.1
   spatial_motion:
     quadrant: rear_right
     speed: 0.01
@@ -184,3 +186,7 @@ layers:
   chorus_depth: 0.004
   chorus_mix: 0.15
   chorus_voices: 2
+  flanger_wet: 0.75
+  flanger_rate: 0.18
+  flanger_depth: 0.85
+  flanger_feedback: 0.55

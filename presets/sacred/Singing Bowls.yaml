@@ -6,8 +6,8 @@ meta:
   - ceremonial
   - metallic
   - shimmering
-  description: Metallic, shimmering Tibetan singing bowls at multiple sizes. Rich
-    inharmonic partials create the characteristic bowl timbre.
+  description: Metallic, shimmering Tibetan singing bowls at multiple sizes. Rich inharmonic partials create the characteristic
+    bowl timbre.
   author: Matteo Bassi
   engine_version: MANTICE_V15
   tags:
@@ -50,10 +50,10 @@ layers:
     - 2.0
     index: 0.6
   dynamics:
-    mix: 1.0
     amp_min: 0.0021
     amp_max: 0.0316
     drift: 0.003
+    volume_db: 0.0
   harmonics: 8
   harmonic_decay: 0.5
   noise_amount: 0.01
@@ -82,10 +82,10 @@ layers:
     - 2.0
     index: 0.5
   dynamics:
-    mix: 0.9
     amp_min: 0.0016
     amp_max: 0.0263
     drift: 0.003
+    volume_db: -0.9
   harmonics: 8
   harmonic_decay: 0.55
   noise_amount: 0.01
@@ -113,10 +113,10 @@ layers:
     - 2.0
     index: 0.4
   dynamics:
-    mix: 0.8
     amp_min: 0.0013
     amp_max: 0.0211
     drift: 0.004
+    volume_db: -1.9
   harmonics: 7
   harmonic_decay: 0.6
   noise_amount: 0.02
@@ -143,10 +143,10 @@ layers:
     - 2.0
     index: 0.3
   dynamics:
-    mix: 0.5
     amp_min: 0.0013
     amp_max: 0.0132
     drift: 0.005
+    volume_db: -6.0
   harmonics: 6
   harmonic_decay: 0.7
   noise_amount: 0.0
@@ -160,7 +160,5 @@ layers:
     speed: 0.05
     trajectory_x: orbit
 notes:
-  goal: Emulate the rich inharmonic partials and shimmering sustain of Tibetan singing
-    bowls at various sizes.
-  listening_tip: Let the overlapping harmonics wash over you. Focus on the beating
-    patterns between bowls.
+  goal: Emulate the rich inharmonic partials and shimmering sustain of Tibetan singing bowls at various sizes.
+  listening_tip: Let the overlapping harmonics wash over you. Focus on the beating patterns between bowls.

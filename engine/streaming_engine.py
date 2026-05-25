@@ -169,7 +169,30 @@ class StreamingLayer:
         self.drift_rates = np.array([random.uniform(0.001, 0.006) for _ in range(n_voices)], dtype=np.float32)
 
         # Phase accumulators (shape: n_voices,)
-        self.carrier_phases = np.array([random.uniform(0, 2 * np.pi) for _ in range(n_voices)], dtype=np.float32)
+        # Phases for voices that share the same frequency ratio are distributed
+        # within a 90° arc (one quadrant of the unit circle). This guarantees:
+        #   (1) No two same-ratio voices are 180° apart → no mono cancellation.
+        #   (2) Phases differ → genuine L≠R stereo from the voice spread angles.
+        # A random group-start offset makes each session sound different.
+        _ratio_count: dict = {}
+        for r in ratios:
+            _ratio_count[r] = _ratio_count.get(r, 0) + 1
+        _ratio_phase_start: dict = {r: random.uniform(0, 2 * np.pi) for r in _ratio_count}
+        _ratio_index: dict = {r: 0 for r in _ratio_count}
+        carrier_phases_arr = np.zeros(n_voices, dtype=np.float32)
+        for i, r in enumerate(ratios):
+            n_grp = _ratio_count[r]
+            idx   = _ratio_index[r]
+            # Spread phases within [0, π/2] — no pair ever reaches the 180° danger zone
+            phase_offset = idx * (np.pi / 2.0) / max(n_grp - 1, 1) if n_grp > 1 else 0.0
+            carrier_phases_arr[i] = _ratio_phase_start[r] + phase_offset
+            _ratio_index[r] += 1
+        self.carrier_phases = carrier_phases_arr % np.float32(2 * np.pi)
+        # Nominal carrier phases (no drift) — tracked separately so that the
+        # accumulated drift is continuous across chunks and can be applied once
+        # to all harmonics without the h-fold amplification that would arise
+        # from naively multiplying carrier_phases (which includes drift) by h.
+        self.nominal_carrier_phases = self.carrier_phases.copy()
         self.mod_phases = np.zeros(n_voices, dtype=np.float32)
         self.drift_phases = np.array([random.uniform(0, 2 * np.pi) for _ in range(n_voices)], dtype=np.float32)
 
@@ -188,6 +211,38 @@ class StreamingLayer:
         self._noise_state = np.float32(0.0)  # 1-pole filter state for pink noise
         self._brown_state = np.float32(0.0)  # integrator state for brown noise
 
+        # Voice stereo spread: each voice contributes to L as cos(θ) and to R as
+        # sin(θ). θ=π/4 is the centre (equal L/R); voices spread symmetrically
+        # around it. spread=0 → mono (all at π/4), spread=1 → default (π/8–3π/8),
+        # spread=2 → full field (0–π/2).
+        spread = float(cfg.get("spread", 1.0))
+        center = np.float32(np.pi / 4)
+        half_range = np.float32(np.clip(spread * np.pi / 8, 0.0, np.pi / 4))
+        if n_voices > 1:
+            self._voice_pan_angles = np.linspace(
+                center - half_range, center + half_range, n_voices, dtype=np.float32
+            )
+        else:
+            self._voice_pan_angles = np.array([center], dtype=np.float32)
+
+        # Blend: amplitude taper across voices. blend=1 → all voices equal weight
+        # (current); blend=0 → centre voice loudest, edge voices silent (pyramid
+        # window). Allows layering where inner voices anchor the main pitch.
+        blend = float(cfg.get("blend", 1.0))
+        if n_voices > 1:
+            norm_pos = np.linspace(-1.0, 1.0, n_voices, dtype=np.float32)
+        else:
+            norm_pos = np.zeros(1, dtype=np.float32)
+        self._blend_weights = np.maximum(
+            np.float32(1.0) - np.float32(1.0 - blend) * np.abs(norm_pos),
+            np.float32(0.0),
+        )
+
+        # Volume: single dB gain replacing the old separate mix + loudness controls.
+        # Backward-compatible: old presets now carry volume_db converted from mix.
+        volume_db = float(cfg.get("volume_db", 0.0))
+        self._gain = np.float32(10.0 ** (volume_db / 20.0))
+
         # Band filter
         self._setup_filter(cfg.get("band", "mid"))
 
@@ -205,7 +260,8 @@ class StreamingLayer:
             high = min(1500 / nyquist, 0.999)
             self.sos = butter(order, [low, high], btype="band", output="sos")
 
-        self.zi = sosfilt_zi(self.sos) * 0.0
+        self.zi_L = sosfilt_zi(self.sos) * 0.0
+        self.zi_R = sosfilt_zi(self.sos) * 0.0
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
         dt = np.float32(1.0 / SR)
@@ -229,6 +285,19 @@ class StreamingLayer:
         phase_inc = self._two_pi_dt * inst_freq
         carrier_phases = self.carrier_phases[:, None] + np.cumsum(phase_inc, axis=1)
 
+        # Nominal phases advance at pure carrier frequency (no drift).
+        # drift_total = carrier_phases - nominal_phases accumulates continuously
+        # across chunks (both state vars are updated at end of each chunk).
+        # Using  h * nominal_phases + drift_total  for the h-th harmonic keeps
+        # the absolute pitch deviation identical for every partial — the drift
+        # is not amplified h-fold, preventing fast inter-voice beating in the
+        # upper harmonics (e.g. 10 Hz tremolo at h=4 with drift=0.008).
+        sample_indices = np.arange(1, n_samples + 1, dtype=np.float32)
+        nominal_phases = self.nominal_carrier_phases[:, None] + (
+            self._two_pi_dt * self.carrier_freqs[:, None] * sample_indices[None, :]
+        )
+        drift_total = carrier_phases - nominal_phases
+
         # Fundamental signal
         signal = np.sin(carrier_phases + modulator * self.fm_indices[:, None], dtype=np.float32)
 
@@ -236,7 +305,8 @@ class StreamingLayer:
         if self.harmonics > 1:
             for h in range(2, self.harmonics + 1):
                 harmonic_signal = np.sin(
-                    carrier_phases * h + modulator * self.fm_indices[:, None] * (1.0 / h),
+                    nominal_phases * h + drift_total
+                    + modulator * self.fm_indices[:, None] * (1.0 / h),
                     dtype=np.float32
                 )
                 signal += harmonic_signal * (self.harmonic_decay ** (h - 1))
@@ -245,19 +315,28 @@ class StreamingLayer:
             signal /= norm
 
         self.carrier_phases = carrier_phases[:, -1] % (2 * np.pi)
+        self.nominal_carrier_phases = nominal_phases[:, -1] % (2 * np.pi)
 
-        # Weighted sum via dot product
-        layer = np.dot(self.amplitudes, signal)
+        # Voice-spread stereo: each voice contributes to L/R based on its spread angle.
+        # Blend weights taper amplitude from centre voices (weight=1) to edges (weight=blend).
+        # Energy is preserved: sum(cos²+sin²)=n_voices, matching the mono dot-product power.
+        L_weights = self.amplitudes * self._blend_weights * np.cos(self._voice_pan_angles)
+        R_weights = self.amplitudes * self._blend_weights * np.sin(self._voice_pan_angles)
+        layer_L = np.dot(L_weights, signal)  # shape (n_samples,)
+        layer_R = np.dot(R_weights, signal)  # shape (n_samples,)
 
         # Filtered noise (breath texture) — applied before band filter
         if self.noise_amount > 0.0:
             noise = self._generate_noise(n_samples)
             amp_scale = np.mean(self.amplitudes)
-            layer = layer * (1.0 - self.noise_amount) + noise * self.noise_amount * amp_scale
+            noise_scaled = noise * (self.noise_amount * amp_scale)
+            layer_L = layer_L * (1.0 - self.noise_amount) + noise_scaled
+            layer_R = layer_R * (1.0 - self.noise_amount) + noise_scaled
 
-        # Apply band filter
-        filtered, self.zi = sosfilt(self.sos, layer, zi=self.zi)
-        return filtered * self.cfg["mix"]
+        # Apply band filter (stereo)
+        filtered_L, self.zi_L = sosfilt(self.sos, layer_L, zi=self.zi_L)
+        filtered_R, self.zi_R = sosfilt(self.sos, layer_R, zi=self.zi_R)
+        return np.column_stack([filtered_L * self._gain, filtered_R * self._gain])
 
     def _generate_noise(self, n_samples: int) -> np.ndarray:
         """Generate colored noise (white, pink, or brown)."""
@@ -424,7 +503,8 @@ class StreamingSubtractiveLayer:
         self.sub_phase = sub_phases[-1] % (2 * np.pi)
 
         layer = combined * (1.0 - self.sub_mix) + sub * self.sub_mix
-        return layer * self.cfg.get("mix", 1.0)
+        _vol_db = float(self.cfg.get("volume_db", 0.0))
+        return layer * np.float32(10.0 ** (_vol_db / 20.0))
 
 
 # ── Stateful spatial panner ───────────────────────────────────────────────────
@@ -489,13 +569,12 @@ class StreamingPanner:
         else:  # static
             return self.elevation
 
-    def next_chunk(self, mono: np.ndarray) -> np.ndarray:
-        n = len(mono)
+    def _compute_pan(self, n: int) -> np.ndarray:
+        """Compute per-sample pan positions [0, 1] and advance self.phase."""
         dt = 1.0 / SR
         t = self.phase + np.arange(n) * dt
-        self.phase = t[-1] + dt
+        self.phase = float(t[-1]) + dt
 
-        # Pan automation
         if self.trajectory_x == "orbit":
             pan = self.base_pan + np.sin(2 * np.pi * self.speed * t) * 0.32
         elif self.trajectory_x == "pendulum":
@@ -510,7 +589,12 @@ class StreamingPanner:
         else:
             pan = np.full(n, self.base_pan)
 
-        pan = np.clip(pan, 0.0, 1.0)
+        return np.clip(pan, 0.0, 1.0).astype(np.float32)
+
+    def next_chunk(self, mono: np.ndarray) -> np.ndarray:
+        """Equal-power pan for mono input (granular/subtractive layers)."""
+        n = len(mono)
+        pan = self._compute_pan(n)
 
         # Equal-power panning
         angle = pan * (np.pi / 2)
@@ -519,39 +603,78 @@ class StreamingPanner:
 
         # Elevation processing (HRTF-like spectral filtering)
         current_elev = self._get_elevation_angle()
-        self.elevation_phase += n * dt
+        self.elevation_phase += n / SR
 
-        # Only apply if elevation is non-zero
         if abs(current_elev) > 0.5:
             elev_norm = np.clip(current_elev / 90.0, -1.0, 1.0)
-            high_gain = 1.0 + elev_norm * 0.5   # above: boost highs
-            low_gain = 1.0 - elev_norm * 0.25   # above: reduce lows
+            high_gain = 1.0 + elev_norm * 0.5
+            low_gain  = 1.0 - elev_norm * 0.25
 
-            # Split into low/high bands using crossover
             low_L, self._lp_zi_L = sosfilt(self._lp_sos, left, zi=self._lp_zi_L)
             low_R, self._lp_zi_R = sosfilt(self._lp_sos, right, zi=self._lp_zi_R)
             high_L, self._hp_zi_L = sosfilt(self._hp_sos, left, zi=self._hp_zi_L)
             high_R, self._hp_zi_R = sosfilt(self._hp_sos, right, zi=self._hp_zi_R)
 
-            # Apply elevation-dependent gains and recombine
-            left = low_L * low_gain + high_L * high_gain
+            left  = low_L * low_gain + high_L * high_gain
             right = low_R * low_gain + high_R * high_gain
 
-        return np.stack([left, right], axis=1)
+        return np.column_stack([left, right])
+
+    def _apply_balance(self, stereo: np.ndarray) -> np.ndarray:
+        """Pan-shift for stereo input (FM layers with voice spread).
+
+        Applies a linear balance fade: at pan=0 the right channel is silenced,
+        at pan=1 the left channel is silenced, at pan=0.5 both are unchanged.
+        This shifts the perceived stereo image without collapsing to mono.
+        """
+        n = len(stereo)
+        pan = self._compute_pan(n)
+
+        L_gain = np.minimum(np.float32(1.0), np.float32(2.0) * (1.0 - pan))
+        R_gain = np.minimum(np.float32(1.0), np.float32(2.0) * pan)
+
+        left  = stereo[:, 0] * L_gain
+        right = stereo[:, 1] * R_gain
+
+        # Elevation processing
+        current_elev = self._get_elevation_angle()
+        self.elevation_phase += n / SR
+
+        if abs(current_elev) > 0.5:
+            elev_norm = np.clip(current_elev / 90.0, -1.0, 1.0)
+            high_gain = 1.0 + elev_norm * 0.5
+            low_gain  = 1.0 - elev_norm * 0.25
+
+            low_L, self._lp_zi_L = sosfilt(self._lp_sos, left, zi=self._lp_zi_L)
+            low_R, self._lp_zi_R = sosfilt(self._lp_sos, right, zi=self._lp_zi_R)
+            high_L, self._hp_zi_L = sosfilt(self._hp_sos, left, zi=self._hp_zi_L)
+            high_R, self._hp_zi_R = sosfilt(self._hp_sos, right, zi=self._hp_zi_R)
+
+            left  = low_L * low_gain + high_L * high_gain
+            right = low_R * low_gain + high_R * high_gain
+
+        return np.column_stack([left, right])
 
     def _apply_width(self, stereo: np.ndarray) -> np.ndarray:
-        """Mid/side width processing. width=0 mono, width=1 normal, width=2 extra-wide."""
-        if abs(self.width - 1.0) < 0.01:
-            return stereo
-        mid  = (stereo[:, 0] + stereo[:, 1]) * 0.5
-        side = (stereo[:, 0] - stereo[:, 1]) * 0.5
+        """Energy-preserving M/S width. width=0 → mono center, width=1 → original,
+        width=2 → extra-wide.  Normalization keeps power constant for uncorrelated L/R."""
         w = self.width
-        out = np.stack([mid + side * w, mid - side * w], axis=1)
-        return out
+        if abs(w - 1.0) < 0.01:
+            return stereo
+        mid  = (stereo[:, 0] + stereo[:, 1]) * np.float32(0.5)
+        side = (stereo[:, 0] - stereo[:, 1]) * np.float32(0.5)
+        # sqrt((1+w²)/2) preserves energy when L and R are uncorrelated
+        norm = np.float32(np.sqrt((1.0 + w * w) * 0.5))
+        L_out = (mid + side * w) / norm
+        R_out = (mid - side * w) / norm
+        return np.column_stack([L_out, R_out])
 
-    def process(self, mono: np.ndarray) -> np.ndarray:
-        """Pan + width in one call."""
-        return self._apply_width(self.next_chunk(mono))
+    def process(self, layer_out: np.ndarray) -> np.ndarray:
+        """Pan + width. Accepts mono (granular/subtractive) or stereo (FM voice spread)."""
+        if layer_out.ndim == 1:
+            return self._apply_width(self.next_chunk(layer_out))
+        else:
+            return self._apply_width(self._apply_balance(layer_out))
 
 
 # ── Streaming Chorus ──────────────────────────────────────────────────────────
@@ -769,28 +892,119 @@ class StreamingLayerFilter:
         self.lfo_phase += n_samples * dt
         return float(val)
 
-    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+    def next_chunk(self, audio: np.ndarray) -> np.ndarray:
+        """Filter audio. Accepts mono (n,) or stereo (n,2); returns the same shape."""
+        is_mono = (audio.ndim == 1)
+        stereo = np.column_stack([audio, audio]) if is_mono else audio
         if self.filter_type == "comb":
-            return self._next_chunk_comb(stereo)
-        if self.filter_type == "formant":
-            return self._next_chunk_formant(stereo)
-        if self.filter_type == "off" or self._sos is None:
-            return stereo
-        n = len(stereo)
-        if self.lfo_depth > 0.001:
-            lfo_val = self._lfo_value(n)
-            octaves = lfo_val * self.lfo_depth * 2.0
-            modulated_cutoff = self.base_cutoff * (2.0 ** octaves)
-            self._build_filter(modulated_cutoff)
+            result = self._next_chunk_comb(stereo)
+        elif self.filter_type == "formant":
+            result = self._next_chunk_formant(stereo)
+        elif self.filter_type == "off" or self._sos is None:
+            result = stereo
         else:
-            self._lfo_value(n)
-        if self._sos is None:
-            return stereo
-        filtered_L, self._zi_L = sosfilt(self._sos, stereo[:, 0], zi=self._zi_L)
-        filtered_R, self._zi_R = sosfilt(self._sos, stereo[:, 1], zi=self._zi_R)
-        return np.stack([filtered_L, filtered_R], axis=1).astype(np.float32)
+            n = len(stereo)
+            if self.lfo_depth > 0.001:
+                lfo_val = self._lfo_value(n)
+                octaves = lfo_val * self.lfo_depth * 2.0
+                modulated_cutoff = self.base_cutoff * (2.0 ** octaves)
+                self._build_filter(modulated_cutoff)
+            else:
+                self._lfo_value(n)
+            if self._sos is None:
+                result = stereo
+            else:
+                filtered_L, self._zi_L = sosfilt(self._sos, stereo[:, 0], zi=self._zi_L)
+                filtered_R, self._zi_R = sosfilt(self._sos, stereo[:, 1], zi=self._zi_R)
+                result = np.stack([filtered_L, filtered_R], axis=1).astype(np.float32)
+        return result[:, 0] if is_mono else result
 
-
+
+# ── Shimmer ───────────────────────────────────────────────────────────────────
+
+class StreamingShimmer:
+    """
+    Global shimmer effect: pitch-shifted feedback layer on the full stereo mix.
+
+    Two staggered read heads scan a circular buffer at speed 2^(semitones/12).
+    Hann-window cross-fading between heads ensures the amplitude sum is always
+    exactly 1.0 (sin²(θ) + cos²(θ) = 1), so there are no volume bumps or gaps.
+    Feedback re-injects the shimmer output into the write buffer, building an
+    ethereal, self-sustaining tail.
+
+    Typical use: wet=0.3, pitch_semitones=12, feedback=0.5 → classic octave shimmer.
+    """
+
+    def __init__(
+        self,
+        wet: float = 0.0,
+        pitch_semitones: float = 12.0,
+        feedback: float = 0.5,
+    ):
+        self.wet      = float(wet)
+        self.feedback = float(np.clip(feedback, 0.0, 0.95))
+        self._speed   = 2.0 ** (float(pitch_semitones) / 12.0)
+
+        # Circular buffer ≈ 200 ms, next power-of-2 for fast modulo
+        N = 1 << int(np.ceil(np.log2(max(SR * 0.20, 1))))
+        self._N   = N
+        self._buf = np.zeros((N, 2), dtype=np.float64)
+
+        # Two read heads staggered by N/2 so their Hann windows always sum to 1
+        self._read  = [0.0, N / 2.0]
+        self._write = 0
+
+    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+        if self.wet < 0.001:
+            return stereo
+
+        n   = len(stereo)
+        N   = self._N
+        buf = self._buf
+
+        # Write input into circular buffer
+        w_idx = (self._write + np.arange(n)) % N
+        buf[w_idx] = stereo.astype(np.float64)
+
+        # Accumulate shimmer from both read heads
+        shimmer = np.zeros((n, 2), dtype=np.float64)
+        for h in range(2):
+            pos = (self._read[h] + np.arange(n) * self._speed) % N
+
+            # Linear interpolation across circular buffer
+            i0  = pos.astype(np.int64) % N
+            i1  = (i0 + 1) % N
+            fr  = (pos - np.floor(pos))[:, None]
+            smp = buf[i0] * (1.0 - fr) + buf[i1] * fr
+
+            # Hann window: sin²(π * phase), peaks at phase=0.5, zeroes at 0 and 1
+            # Head 0 (phase) and head 1 (phase+0.5) sum to exactly 1.0 always
+            phase  = (pos % N) / N
+            window = np.sin(np.pi * phase) ** 2
+
+            shimmer += smp * window[:, None]
+            self._read[h] = (self._read[h] + n * self._speed) % N
+
+        # Feedback: write shimmer back into buffer for next chunk's input
+        buf[w_idx] += shimmer * self.feedback
+
+        self._write = (self._write + n) % N
+
+        result = stereo.astype(np.float64) * (1.0 - self.wet) + shimmer * self.wet
+        return result.astype(np.float32)
+
+    def copy_state(self):
+        s = StreamingShimmer.__new__(StreamingShimmer)
+        s.wet      = self.wet
+        s.feedback = self.feedback
+        s._speed   = self._speed
+        s._N       = self._N
+        s._buf     = self._buf.copy()
+        s._read    = list(self._read)
+        s._write   = self._write
+        return s
+
+
 # ── Flanger ───────────────────────────────────────────────────────────────────
 
 class StreamingFlanger:
@@ -821,56 +1035,150 @@ class StreamingFlanger:
         n = len(stereo)
         fb = float(np.clip(self.feedback, 0.0, 0.95))
 
-        # Write dry + single-sample feedback into the delay buffer
-        write_L = stereo[:, 0].copy()
-        write_R = stereo[:, 1].copy()
-        write_L[0] += fb * self._fb_L
-        write_R[0] += fb * self._fb_R
-
-        end_pos = self._write + n
-        if end_pos <= self._buf_sz:
-            self._buf_L[self._write:end_pos] = write_L
-            self._buf_R[self._write:end_pos] = write_R
-        else:
-            first = self._buf_sz - self._write
-            self._buf_L[self._write:] = write_L[:first]
-            self._buf_R[self._write:] = write_R[:first]
-            self._buf_L[:n - first]   = write_L[first:]
-            self._buf_R[:n - first]   = write_R[first:]
-
-        # LFO sweep
+        # LFO: precompute delay in samples for every sample in the chunk
         lfo_inc  = 2.0 * np.pi * self.rate / SR
-        sample_t = np.arange(n, dtype=np.float64)
-        phases   = self.lfo_phase + lfo_inc * sample_t
-        lfo      = np.sin(phases)
+        phases   = self.lfo_phase + lfo_inc * np.arange(n, dtype=np.float64)
+        center   = self._min_delay + self._max_mod * 0.5
+        delay_s  = center + np.sin(phases) * (self._max_mod * 0.5 * self.depth)
 
-        # Modulated delay in samples
-        center  = self._min_delay + self._max_mod * 0.5
-        delay_s = center + lfo * (self._max_mod * 0.5 * self.depth)
+        # Process sample-by-sample so feedback is continuous (not once-per-chunk).
+        # A per-chunk approach caused a periodic kick at the chunk rate (~10.8 Hz)
+        # that, filtered by the comb, produced an audible buzz in the 1-2 kHz band.
+        out_L = np.empty(n, dtype=np.float32)
+        out_R = np.empty(n, dtype=np.float32)
+        fb_L = self._fb_L
+        fb_R = self._fb_R
+        buf_sz = self._buf_sz
+        buf_L  = self._buf_L
+        buf_R  = self._buf_R
+        wr     = self._write
 
-        # Linear-interpolated read from circular buffer
-        read_pos = (self._write + sample_t - delay_s) % self._buf_sz
-        idx0 = np.floor(read_pos).astype(np.int64) % self._buf_sz
-        idx1 = (idx0 + 1) % self._buf_sz
-        frac = (read_pos - np.floor(read_pos)).astype(np.float32)
+        for i in range(n):
+            buf_L[wr] = stereo[i, 0] + fb * fb_L
+            buf_R[wr] = stereo[i, 1] + fb * fb_R
 
-        wet_L = (self._buf_L[idx0] * (1.0 - frac) + self._buf_L[idx1] * frac).astype(np.float32)
-        wet_R = (self._buf_R[idx0] * (1.0 - frac) + self._buf_R[idx1] * frac).astype(np.float32)
+            rp  = (wr - delay_s[i]) % buf_sz
+            r0  = int(rp) % buf_sz
+            r1  = (r0 + 1) % buf_sz
+            f   = float(rp - int(rp))
+            wl  = buf_L[r0] * (1.0 - f) + buf_L[r1] * f
+            wr_ = buf_R[r0] * (1.0 - f) + buf_R[r1] * f
 
-        self._fb_L   = float(wet_L[-1])
-        self._fb_R   = float(wet_R[-1])
+            out_L[i] = wl
+            out_R[i] = wr_
+            fb_L = wl
+            fb_R = wr_
+            wr = (wr + 1) % buf_sz
+
+        self._fb_L    = fb_L
+        self._fb_R    = fb_R
+        self._write   = wr
         self.lfo_phase = float((phases[-1] + lfo_inc) % (2.0 * np.pi))
-        self._write  = end_pos % self._buf_sz
 
         out = stereo.copy()
-        out[:, 0] = stereo[:, 0] * (1.0 - self.wet) + wet_L * self.wet
-        out[:, 1] = stereo[:, 1] * (1.0 - self.wet) + wet_R * self.wet
+        out[:, 0] = stereo[:, 0] * (1.0 - self.wet) + out_L * self.wet
+        out[:, 1] = stereo[:, 1] * (1.0 - self.wet) + out_R * self.wet
         return out.astype(np.float32)
 
 
+class StreamingPhaser:
+    """Per-layer all-pass chain phaser with LFO-swept center frequency.
 
+    Uses N first-order all-pass stages in series. The LFO modulates
+    the all-pass coefficient (= cutoff frequency), sweeping comb-like
+    notches through the spectrum. L and R LFO phases are offset by 90°
+    for natural stereo width without a separate width parameter.
 
+    All-pass difference equation: y[n] = a*x[n] + x[n-1] - a*y[n-1]
+    coefficient: a = (tan(π*f/SR) - 1) / (tan(π*f/SR) + 1)
+    """
 
+    def __init__(self, rate: float = 0.5, depth: float = 0.7,
+                 center_hz: float = 800.0, feedback: float = 0.0,
+                 wet: float = 0.0, stages: int = 4):
+        self.rate      = float(rate)
+        self.depth     = float(depth)
+        self.center_hz = float(center_hz)
+        self.feedback  = float(np.clip(feedback, -0.95, 0.95))
+        self.wet       = float(wet)
+        self.stages    = int(np.clip(stages, 2, 12))
+        self.lfo_phase = 0.0
+        # Per-stage all-pass states: previous input and output for each stage
+        self._xp_L = np.zeros(self.stages, dtype=np.float64)
+        self._yp_L = np.zeros(self.stages, dtype=np.float64)
+        self._xp_R = np.zeros(self.stages, dtype=np.float64)
+        self._yp_R = np.zeros(self.stages, dtype=np.float64)
+        self._fb_L = 0.0
+        self._fb_R = 0.0
+
+    def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
+        if self.wet < 0.001:
+            return stereo
+        n = len(stereo)
+        S = self.stages
+
+        # LFO: L and R offset by 90° for stereo width
+        lfo_inc = 2.0 * np.pi * self.rate / SR
+        ph = self.lfo_phase + lfo_inc * np.arange(n, dtype=np.float64)
+        ph_R = ph + np.pi * 0.5
+
+        # Instantaneous center frequency, clamped to safe range
+        f_L = np.clip(self.center_hz * (1.0 + np.sin(ph) * self.depth), 20.0, SR * 0.45)
+        f_R = np.clip(self.center_hz * (1.0 + np.sin(ph_R) * self.depth), 20.0, SR * 0.45)
+
+        # All-pass coefficient a per sample
+        t_L = np.tan(np.pi * f_L / SR)
+        t_R = np.tan(np.pi * f_R / SR)
+        a_L = (t_L - 1.0) / (t_L + 1.0)
+        a_R = (t_R - 1.0) / (t_R + 1.0)
+
+        fb    = float(np.clip(self.feedback, -0.95, 0.95))
+        xp_L  = self._xp_L.copy()
+        yp_L  = self._yp_L.copy()
+        xp_R  = self._xp_R.copy()
+        yp_R  = self._yp_R.copy()
+        fb_L  = self._fb_L
+        fb_R  = self._fb_R
+
+        out_L = np.empty(n, dtype=np.float32)
+        out_R = np.empty(n, dtype=np.float32)
+
+        for i in range(n):
+            aL = a_L[i]
+            aR = a_R[i]
+
+            # Input with feedback
+            xL = float(stereo[i, 0]) + fb * fb_L
+            xR = float(stereo[i, 1]) + fb * fb_R
+
+            # All-pass chain L: y[n] = a*x[n] + x[n-1] - a*y[n-1]
+            for s in range(S):
+                y = aL * xL + xp_L[s] - aL * yp_L[s]
+                xp_L[s] = xL
+                yp_L[s] = y
+                xL = y
+
+            # All-pass chain R
+            for s in range(S):
+                y = aR * xR + xp_R[s] - aR * yp_R[s]
+                xp_R[s] = xR
+                yp_R[s] = y
+                xR = y
+
+            out_L[i] = xL
+            out_R[i] = xR
+            fb_L = xL
+            fb_R = xR
+
+        self._xp_L = xp_L;  self._yp_L = yp_L
+        self._xp_R = xp_R;  self._yp_R = yp_R
+        self._fb_L = fb_L;  self._fb_R = fb_R
+        self.lfo_phase = float((ph[-1] + lfo_inc) % (2.0 * np.pi))
+
+        out = stereo.copy()
+        out[:, 0] = stereo[:, 0] * (1.0 - self.wet) + out_L * self.wet
+        out[:, 1] = stereo[:, 1] * (1.0 - self.wet) + out_R * self.wet
+        return out.astype(np.float32)
 
 # ── FDN Reverb ────────────────────────────────────────────────────────────────
 
@@ -922,8 +1230,9 @@ class StreamingFDNReverb:
         self.enabled = bool(reverb_cfg.get("enabled", False))
         self.mix     = float(reverb_cfg.get("mix", 0.3))
 
-        # Map decay_trim (0.1–1.0) → feedback gain (0.60–0.96)
-        decay_trim  = float(reverb_cfg.get("decay_trim", 1.0))
+        # Map decay_trim (0.0–1.0) → feedback gain (0.60–0.96). Values >1.0
+        # would make the FDN unstable (feedback > 1), so clamp defensively.
+        decay_trim  = float(np.clip(reverb_cfg.get("decay_trim", 1.0), 0.0, 1.0))
         self.decay  = 0.60 + decay_trim * 0.36
 
         # Pre-delay
@@ -1053,20 +1362,44 @@ class StreamingFDNReverb:
 
 
 class LayerDistortion:
-    """Per-layer waveshaper distortion (soft-clip tanh or hard-clip)."""
+    """Per-layer waveshaper distortion (soft-clip tanh or hard-clip).
+
+    When drive > 0 a 4th-order 5 kHz anti-aliasing LP filter is applied
+    after the waveshaper.  Nonlinear distortion folds the PolyBLEP residual
+    discontinuities of saw/square oscillators into wideband energy; the LP
+    removes that high-frequency artefact without audibly affecting the drone's
+    harmonic content (fundamentals and low-order harmonics stay below 5 kHz).
+    """
 
     def __init__(self, drive: float = 0.0, dist_type: str = "soft"):
         self.drive = float(drive)
         self.dist_type = dist_type
+        # Anti-aliasing state (only allocated when distortion is active)
+        if self.drive > 0.0:
+            nyquist = SR * 0.5
+            self._aa_sos = butter(4, min(5000.0 / nyquist, 0.999),
+                                  btype="low", output="sos")
+            self._aa_zi_l = sosfilt_zi(self._aa_sos) * 0.0
+            self._aa_zi_r = sosfilt_zi(self._aa_sos) * 0.0
+        else:
+            self._aa_sos = None
 
-    def process(self, stereo: np.ndarray) -> np.ndarray:
+    def process(self, audio: np.ndarray) -> np.ndarray:
+        """Distort audio. Accepts mono (n,) or stereo (n,2); returns the same shape."""
+        is_mono = (audio.ndim == 1)
+        stereo = np.column_stack([audio, audio]) if is_mono else audio
         if self.drive < 0.01:
-            return stereo
+            return audio
         d = 1.0 + self.drive * 4.0
         if self.dist_type == "hard":
-            return np.clip(stereo * d, -1.0, 1.0) / d
+            out = np.clip(stereo * d, -1.0, 1.0) / d
         else:  # soft (tanh)
-            return np.tanh(stereo * d) / np.tanh(d)
+            out = np.tanh(stereo * d) / np.tanh(d)
+        # Anti-aliasing: attenuate wideband artefacts from PolyBLEP residuals
+        if self._aa_sos is not None:
+            out[:, 0], self._aa_zi_l = sosfilt(self._aa_sos, out[:, 0], zi=self._aa_zi_l)
+            out[:, 1], self._aa_zi_r = sosfilt(self._aa_sos, out[:, 1], zi=self._aa_zi_r)
+        return out[:, 0] if is_mono else out
 
 
 # ── Streaming Engine ──────────────────────────────────────────────────────────
@@ -1103,6 +1436,9 @@ class StreamingDroneEngine:
         self.choruses = []
         self.filters = []
         self.distortions = []
+        self.flangers = []
+        self.phasers = []
+        self._peak_meters = []   # per-layer peak in dBFS, smoothly decaying
         self.saturation = float(preset.get("saturation", 0.3))
         self._master = MasterProcessor(preset.get("master", {}), SR)
 
@@ -1155,6 +1491,20 @@ class StreamingDroneEngine:
                 drive=float(layer_cfg.get("distortion_drive", 0.0)),
                 dist_type=layer_cfg.get("distortion_type", "soft"),
             ))
+            self.flangers.append(StreamingFlanger(
+                rate=float(layer_cfg.get("flanger_rate", 0.25)),
+                depth=float(layer_cfg.get("flanger_depth", 0.5)),
+                feedback=float(layer_cfg.get("flanger_feedback", 0.4)),
+                wet=float(layer_cfg.get("flanger_wet", 0.0)),
+            ))
+            self.phasers.append(StreamingPhaser(
+                rate=float(layer_cfg.get("phaser_rate", 0.5)),
+                depth=float(layer_cfg.get("phaser_depth", 0.7)),
+                center_hz=float(layer_cfg.get("phaser_center_hz", 800.0)),
+                feedback=float(layer_cfg.get("phaser_feedback", 0.0)),
+                wet=float(layer_cfg.get("phaser_wet", 0.0)),
+                stages=int(layer_cfg.get("phaser_stages", 4)),
+            ))
 
         # Earth engine (simple streaming sine)
         self.earth_cfg = preset.get("earth")
@@ -1172,17 +1522,20 @@ class StreamingDroneEngine:
         self._dc_zi_L = sosfilt_zi(self._dc_sos) * 0.0
         self._dc_zi_R = sosfilt_zi(self._dc_sos) * 0.0
 
-        # Global flanger
-        flanger_cfg = preset.get("flanger") or {}
-        self._flanger = StreamingFlanger(
-            rate=float(flanger_cfg.get("rate", 0.25)),
-            depth=float(flanger_cfg.get("depth", 0.5)),
-            feedback=float(flanger_cfg.get("feedback", 0.4)),
-            wet=float(flanger_cfg.get("wet", 0.0)),
-        )
-
         # Global FDN reverb
         self._reverb = StreamingFDNReverb(preset.get("reverb") or {})
+
+        # Global shimmer
+        shimmer_cfg = preset.get("shimmer") or {}
+        self._shimmer = StreamingShimmer(
+            wet=float(shimmer_cfg.get("wet", 0.0)),
+            pitch_semitones=float(shimmer_cfg.get("pitch_semitones", 12.0)),
+            feedback=float(shimmer_cfg.get("feedback", 0.5)),
+        )
+
+        # Streaming binaural — applied post-chain as the very last effect
+        self._binaural_cfg = preset.get("binaural") or {}
+        self._binaural_t   = 0  # sample counter for drift-free phase
 
     def next_chunk(self, n_samples: Optional[int] = None) -> np.ndarray:
         """Generate the next chunk of stereo audio (n_samples, 2)."""
@@ -1202,23 +1555,27 @@ class StreamingDroneEngine:
 
         stereo = np.zeros((n, 2), dtype=np.float32)
 
-        # Layers
-        for layer, panner, chorus, layer_filter, distortion in zip(self.layers, self.panners, self.choruses, self.filters, self.distortions):
-            mono = layer.next_chunk(n)
-            panned = panner.process(mono)  # pan + width
-            chorused = chorus.next_chunk(panned)
-            filtered = layer_filter.next_chunk(chorused)
-            stereo += distortion.process(filtered)
+        # Layers — signal chain: Synthesis → Filter → Distortion → Pan → Chorus → Flanger → Phaser
+        for i, (layer, panner, chorus, layer_filter, distortion, flanger, phaser) in enumerate(zip(
+            self.layers, self.panners, self.choruses, self.filters,
+            self.distortions, self.flangers, self.phasers
+        )):
+            raw      = layer.next_chunk(n)          # mono (sub/gran) or stereo (fm)
+            filtered = layer_filter.next_chunk(raw) # tone shaping on raw signal
+            distorted = distortion.process(filtered) # drive on shaped signal
+            panned   = panner.process(distorted)    # place in stereo field
+            chorused = chorus.next_chunk(panned)    # widen/animate
+            flanged  = flanger.next_chunk(chorused)
+            phased   = phaser.next_chunk(flanged)
+            stereo  += phased
+            # Peak meter: track per-layer peak with ~1.5 dB/chunk decay (~15 dB/sec)
+            chunk_peak_db = 20.0 * np.log10(float(np.max(np.abs(phased))) + 1e-9)
+            if i < len(self._peak_meters):
+                self._peak_meters[i] = max(chunk_peak_db, self._peak_meters[i] - 1.5)
+            else:
+                self._peak_meters.append(chunk_peak_db)
 
-        # Earth
-        if self.earth_cfg and self.earth_cfg.get("enabled", True):
-            stereo += self._earth_chunk(n)
-
-        # Air
-        if self.air_cfg and self.air_cfg.get("enabled", True):
-            stereo += self._air_chunk(n)
-
-        # DC block
+        # DC block (on drone mix only)
         stereo[:, 0], self._dc_zi_L = sosfilt(self._dc_sos, stereo[:, 0], zi=self._dc_zi_L)
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)
 
@@ -1228,15 +1585,25 @@ class StreamingDroneEngine:
             norm = np.tanh(drive)
             stereo = np.tanh(stereo * drive) / norm
 
-        # FDN reverb
+        # FDN reverb — only processes synthesized drone layers
         stereo = self._reverb.next_chunk(stereo)
 
-        # Normalize chunk (soft limiter to prevent clipping)
+        # Shimmer — pitch-shifted feedback layer, post-reverb
+        stereo = self._shimmer.next_chunk(stereo)
+
+        # Earth & Air added post-reverb — environmental constants, kept dry
+        if self.earth_cfg and self.earth_cfg.get("enabled", True):
+            stereo += self._earth_chunk(n)
+        if self.air_cfg and self.air_cfg.get("enabled", True):
+            stereo += self._air_chunk(n)
+
+        # Master EQ + compression
+        stereo = self._master.process(stereo)
+
+        # Soft limiter — after master so the compressor has full dynamic range
         peak = np.max(np.abs(stereo))
         if peak > 0.92:
             stereo = stereo * (0.92 / peak)
-
-        stereo = self._master.process(stereo)
 
         # Handle crossfade from hot-reload
         if self._crossfade_remaining > 0 and self._old_engine is not None:
@@ -1255,8 +1622,8 @@ class StreamingDroneEngine:
             if self._crossfade_remaining <= 0:
                 self._old_engine = None
 
-        # Global flanger (applied after crossfade so it acts on the final mix)
-        stereo = self._flanger.next_chunk(stereo)
+        # Binaural — absolutely last: psychoacoustic L/R difference must reach headphones unprocessed
+        self._apply_binaural(stereo, n)
 
         return stereo
 
@@ -1268,6 +1635,41 @@ class StreamingDroneEngine:
         If called multiple times before the next chunk fires, only the latest wins.
         """
         self._pending_reload = (new_preset, crossfade_secs)
+
+    def get_peak_meters(self) -> list:
+        """Return per-layer peak levels in dBFS with smooth decay (-100 = silent, 0 = full)."""
+        return list(self._peak_meters)
+
+    def _apply_binaural(self, stereo: np.ndarray, n: int) -> None:
+        """
+        Apply binaural entrainment in-place as the final stage of the chain.
+
+        carrier mode: adds independent L/R sine tones (carrier ± beat_hz/2),
+                      producing a true binaural beat on headphones.
+
+        detune mode:  energy-preserving L/R intensity alternation at beat_hz
+                      using quadrature cos²/sin² envelopes — L and R cross-fade
+                      at beat_hz so the total power stays constant.
+        """
+        binaural = self._binaural_cfg
+        if not binaural or not binaural.get("enabled", False):
+            return
+        beat_hz = float(binaural.get("beat_hz", 6.0))
+        method  = binaural.get("method", "detune")
+        t = (self._binaural_t + np.arange(n)) / SR
+        self._binaural_t += n
+
+        if method == "carrier":
+            carrier_hz  = float(binaural.get("carrier_hz", 200.0))
+            carrier_amp = float(binaural.get("carrier_amplitude", 0.15))
+            freq_l = carrier_hz - beat_hz / 2.0
+            freq_r = carrier_hz + beat_hz / 2.0
+            stereo[:, 0] += (np.sin(2 * np.pi * freq_l * t) * carrier_amp).astype(np.float32)
+            stereo[:, 1] += (np.sin(2 * np.pi * freq_r * t) * carrier_amp).astype(np.float32)
+        else:  # detune
+            theta = (2 * np.pi * (beat_hz / 2.0) * t).astype(np.float32)
+            stereo[:, 0] *= np.cos(theta) ** 2  # L intensity: 1→0→1 at beat_hz
+            stereo[:, 1] *= np.sin(theta) ** 2  # R intensity: 90° offset; L²+R²=1
 
     def _earth_chunk(self, n: int) -> np.ndarray:
         cfg = self.earth_cfg
@@ -1330,6 +1732,8 @@ class _ShallowCopy:
         self.choruses = engine.choruses
         self.filters = engine.filters
         self.distortions = engine.distortions
+        self.flangers = engine.flangers
+        self.phasers  = engine.phasers
         self.earth_cfg = engine.earth_cfg
         self.air_cfg   = engine.air_cfg
         self.earth_phase = engine.earth_phase
@@ -1342,36 +1746,44 @@ class _ShallowCopy:
         self.saturation = engine.saturation
         self._master = engine._master.copy_state()
         self._reverb  = engine._reverb.copy_state()
+        self._shimmer = engine._shimmer.copy_state()
+        self._binaural_cfg = engine._binaural_cfg
+        self._binaural_t   = engine._binaural_t
         self._crossfade_remaining = 0
         self._crossfade_total = 0
         self._old_engine = None
 
     def next_chunk(self, n: int) -> np.ndarray:
         stereo = np.zeros((n, 2), dtype=np.float32)
-        for layer, panner, chorus, layer_filter, distortion in zip(self.layers, self.panners, self.choruses, self.filters, self.distortions):
-            mono = layer.next_chunk(n)
-            panned = panner.next_chunk(mono)
-            chorused = chorus.next_chunk(panned)
-            filtered = layer_filter.next_chunk(chorused)
-            stereo += distortion.process(filtered)
+        for layer, panner, chorus, layer_filter, distortion, flanger, phaser in zip(
+            self.layers, self.panners, self.choruses, self.filters,
+            self.distortions, self.flangers, self.phasers
+        ):
+            raw       = layer.next_chunk(n)
+            filtered  = layer_filter.next_chunk(raw)
+            distorted = distortion.process(filtered)
+            panned    = panner.process(distorted)
+            chorused  = chorus.next_chunk(panned)
+            flanged   = flanger.next_chunk(chorused)
+            phased    = phaser.next_chunk(flanged)
+            stereo   += phased
 
         stereo[:, 0], self._dc_zi_L = sosfilt(self._dc_sos, stereo[:, 0], zi=self._dc_zi_L)
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)
 
-        # Soft saturation
         if self.saturation > 0.01:
             drive = 1.0 + self.saturation * 3.0
             norm = np.tanh(drive)
             stereo = np.tanh(stereo * drive) / norm
 
-        # FDN reverb
         stereo = self._reverb.next_chunk(stereo)
+        stereo = self._shimmer.next_chunk(stereo)
+
+        stereo = self._master.process(stereo)
 
         peak = np.max(np.abs(stereo))
         if peak > 0.92:
             stereo = stereo * (0.92 / peak)
-
-        stereo = self._master.process(stereo)
 
         return stereo
 

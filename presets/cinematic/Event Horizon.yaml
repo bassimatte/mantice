@@ -7,9 +7,8 @@ meta:
   - epic
   - massive
   - building
-  description: 'A dense, multi-layered cinematic drone that evokes the edge of a black
-    hole. Many voices, wide stereo, spiralling trajectories, and a massive reverb
-    tail.
+  description: 'A dense, multi-layered cinematic drone that evokes the edge of a black hole. Many voices, wide stereo, spiralling
+    trajectories, and a massive reverb tail.
 
     '
   author: Matteo Bassi
@@ -58,10 +57,10 @@ layers:
     - 2.0
     index: 0.15
   dynamics:
-    mix: 1.1
     amp_min: 0.0095
     amp_max: 0.0417
     drift: 0.012
+    volume_db: 0.8
   spatial_motion:
     quadrant: rear_left
     speed: 0.002
@@ -83,10 +82,10 @@ layers:
     - 3.0
     index: 0.2
   dynamics:
-    mix: 0.8
     amp_min: 0.006
     amp_max: 0.0298
     drift: 0.015
+    volume_db: -1.9
   spatial_motion:
     quadrant: front_right
     speed: 0.004
@@ -107,10 +106,10 @@ layers:
     - 4.0
     index: 0.3
   dynamics:
-    mix: 0.4
     amp_min: 0.0036
     amp_max: 0.0179
     drift: 0.01
+    volume_db: -8.0
   spatial_motion:
     quadrant: front_left
     speed: 0.006
@@ -130,10 +129,10 @@ layers:
     - 5.0
     index: 0.25
   dynamics:
-    mix: 0.2
     amp_min: 0.0024
     amp_max: 0.0095
     drift: 0.008
+    volume_db: -14.0
   spatial_motion:
     quadrant: rear_right
     speed: 0.008
@@ -141,5 +140,4 @@ layers:
     trajectory_y: depth
 notes:
   goal: Epic cinematic drone — massive scale, building tension, dense.
-  listening_tip: Best on a full-range system. The sub layers need a subwoofer or good
-    headphones.
+  listening_tip: Best on a full-range system. The sub layers need a subwoofer or good headphones.

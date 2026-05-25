@@ -140,6 +140,12 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  spread: 0.8
+  blend: 0.8
+  flanger_wet: 0.2
+  flanger_rate: 0.03
+  flanger_depth: 0.8
+  flanger_feedback: 0.52
 - name: Harmonic Sustain
   muted: false
   type: fm
@@ -199,6 +205,12 @@ layers:
   distortion_type: soft
   position_mode: linear
   position_chaos: 0.3
+  spread: 0.9
+  blend: 0.75
+  flanger_wet: 0.2
+  flanger_rate: 0.03
+  flanger_depth: 0.8
+  flanger_feedback: 0.52
 binaural:
   enabled: true
   method: detune
@@ -217,8 +229,3 @@ earth:
   tectonic_frequency: 16
   pressure: 0.28
   movement: 0.01
-flanger:
-  wet: 0.2
-  rate: 0.03
-  depth: 0.8
-  feedback: 0.52

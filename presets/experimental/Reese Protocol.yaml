@@ -58,10 +58,10 @@ layers:
     - 1.0
     index: 0.0
   dynamics:
-    mix: 1.0
     amp_min: 0.02
     amp_max: 0.06
     drift: 0.006
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.004
@@ -84,7 +84,6 @@ layers:
   chorus_depth: 0.008
   chorus_mix: 0.35
   chorus_voices: 3
-
 - name: Sub Floor
   enabled: true
   type: subtractive
@@ -99,10 +98,10 @@ layers:
     - 1.0
     index: 0.0
   dynamics:
-    mix: 0.55
     amp_min: 0.015
     amp_max: 0.04
     drift: 0.003
+    volume_db: -5.2
   spatial_motion:
     quadrant: center
     speed: 0.0
@@ -125,7 +124,6 @@ layers:
   chorus_depth: 0.003
   chorus_mix: 0.0
   chorus_voices: 2
-
 - name: Dark Atmosphere
   enabled: true
   type: fm
@@ -144,10 +142,10 @@ layers:
     - 1.0
     index: 0.45
   dynamics:
-    mix: 0.35
     amp_min: 0.005
     amp_max: 0.022
     drift: 0.018
+    volume_db: -9.1
   spatial_motion:
     quadrant: rear_left
     speed: 0.012

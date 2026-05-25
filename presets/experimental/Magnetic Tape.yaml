@@ -7,9 +7,8 @@ meta:
   - analog
   - lo-fi
   - rounded
-  description: 'Warm, rounded drone simulating the character of analog tape. Heavy
-    lowpass filtering, high reverb damping, and gentle sub focus create a lo-fi, vintage
-    atmosphere.
+  description: 'Warm, rounded drone simulating the character of analog tape. Heavy lowpass filtering, high reverb damping,
+    and gentle sub focus create a lo-fi, vintage atmosphere.
 
     '
   author: Matteo Bassi
@@ -55,10 +54,10 @@ layers:
     - 1.0
     index: 0.03
   dynamics:
-    mix: 1.0
     amp_min: 0.0156
     amp_max: 0.0521
     drift: 0.008
+    volume_db: 0.0
   spatial_motion:
     quadrant: center
     speed: 0.002
@@ -80,10 +79,10 @@ layers:
     - 1.5
     index: 0.08
   dynamics:
-    mix: 0.7
     amp_min: 0.0083
     amp_max: 0.0313
     drift: 0.012
+    volume_db: -3.1
   spatial_motion:
     quadrant: front_left
     speed: 0.003
@@ -103,10 +102,10 @@ layers:
     - 1.0
     index: 0.02
   dynamics:
-    mix: 0.3
     amp_min: 0.0052
     amp_max: 0.0156
     drift: 0.025
+    volume_db: -10.5
   spatial_motion:
     quadrant: front_right
     speed: 0.004
