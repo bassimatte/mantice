@@ -1112,7 +1112,27 @@ async def share_preset_endpoint(request: Request):
         import yaml as _yaml
         preset_data = _ui_params_to_preset(params)
         from .generator import _random_name
-        preset_name = _random_name()
+        # Fetch existing names from GitHub to avoid duplicates (best-effort)
+        existing_names: set = set()
+        try:
+            list_req = urllib.request.Request(
+                f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared",
+                headers={"User-Agent": "Mantice/1.0", "Accept": "application/vnd.github.v3+json",
+                         "Authorization": f"token {GITHUB_TOKEN}"}
+            )
+            with urllib.request.urlopen(list_req, timeout=6) as resp:
+                for f in json.loads(resp.read().decode()):
+                    stem = f.get("name", "")[:-5]  # strip .yaml
+                    base = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                    if base:
+                        existing_names.add(base.lower())
+        except Exception:
+            pass  # if we can't check, proceed anyway
+        # Pick a name not already in use (up to 20 attempts)
+        for _ in range(20):
+            preset_name = _random_name()
+            if preset_name.lower() not in existing_names:
+                break
         preset_data["meta"]["name"] = preset_name
         safe_name = "".join(c for c in preset_name if c.isalnum() or c in " -_").strip().replace(" ", "_")
         short_id = uuid.uuid4().hex[:6]
