@@ -1784,16 +1784,14 @@ python batch_render_freesound.py --metadata-only</pre>
   </div>
 
   <!-- Layer Parameters -->
-  <div class="card">
-    <div style="margin-bottom:6px;">
-      <h2 style="margin:0">Layers</h2>
-    </div>
+  <div class="card card-collapsible">
+    <h2>Layers</h2>
     <div class="layer-tabs" id="layer-tabs"></div>
     <div id="layer-params"></div>
   </div>
 
   <!-- Global FX -->
-  <div class="card" id="global-fx-card">
+  <div class="card card-collapsible" id="global-fx-card">
     <h2>Global FX</h2>
     <div class="layer-subtabs" id="global-fx-tabs">
       <button class="layer-subtab active" data-gfx="reverb">Reverb</button>
@@ -2063,7 +2061,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || '';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -5552,3 +5550,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
+

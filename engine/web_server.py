@@ -179,7 +179,10 @@ def _find_all_presets() -> list[dict]:
             if not fname.endswith(".yaml") or fname in (".gitkeep.yaml", ".gitkeep"):
                 continue
             stem = fname[:-5]
-            display_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+            m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
+            short_id = m.group(1)[-6:] if m else None
+            base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+            display_name = f"{base_name} #{short_id}" if short_id else base_name
             presets.append({
                 "name": display_name or stem,
                 "category": "community",
@@ -195,7 +198,10 @@ def _find_all_presets() -> list[dict]:
             for yaml_file in sorted(_SHARED_DIR.glob("*.yaml")):
                 stem = yaml_file.stem
                 name, tags = _parse(yaml_file)
-                display_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
+                short_id = m.group(1)[-6:] if m else None
+                base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                display_name = f"{base_name} #{short_id}" if short_id else base_name
                 presets.append({
                     "name": display_name or name,
                     "category": "community",
