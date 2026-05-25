@@ -447,6 +447,8 @@ layers:
 - **Generator panel** — mood selector + generate/mutate buttons
 - **Format selector** — WAV, FLAC, OGG export
 - **Hi-Res toggle** — 48kHz/24-bit mode
+- **Parameter Automation** — breakpoint timeline per parameter with lin/exp/S curves and 5 global templates
+- **Just Intonation mode** — exact-fraction layer roots from a single tonic; zero-beating pure intervals
 - **Settings reference** — ⓘ button opens in-app docs modal
 
 ### Keyboard Shortcuts
@@ -461,6 +463,33 @@ layers:
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z | Redo |
 | Ctrl+ / Ctrl- | Zoom in/out |
+
+---
+
+## What's New in V26.0
+
+### Parameter Automation
+
+Every parameter can now evolve over the duration of a render or stream. Open the **Automation** card and enable any global or per-layer parameter. Each row shows a compact inline breakpoint editor — up to three nodes with configurable timing (t%), value, and curve shape (linear / exponential / S-curve). Click the shape label to cycle through shapes; `+ mid` adds a midpoint at the largest gap; `− mid` removes it.
+
+Five **global templates** (Journey, Arc, Breathe, Meditate, Sunrise) appear as quick-set pills at the top of the card — one click wires up a coherent automation across multiple parameters so you don't have to start from scratch.
+
+The YAML format is backward-compatible: existing `{start, end, shape}` V1/V2 automation blocks are auto-promoted to V3 breakpoints on load.
+
+### Just Intonation (JI) Tuning Mode
+
+Enable **JI** in the Synth tab (or globally). Instead of snapping each layer root to 12-TET, all layer roots are derived from a single tonic via exact rational fractions (e.g. 3/2 for a perfect fifth, 5/4 for a major third). Intervals between layers are therefore pure — no beating on sustained drones. A `●` dot in the layer header confirms JI is active. Existing decimal-ratio presets still load without change.
+
+### Audio Quality Improvements
+
+- **4× oversampled master saturation** — the tanh waveshaper now runs at 4× internal sample rate to eliminate aliasing artefacts on harmonically rich material
+- **True look-ahead limiter on render path** — replaces the per-chunk peak scaler; no more gain steps at chunk boundaries in exported files
+- **Streaming click fixes** — five independent artefact sources eliminated: chunk-boundary gain jumps, AudioContext / engine sample-rate mismatch, air-state discontinuity across chunks, per-chunk noise rescaling, and chorus delay-line underflow
+
+### UI Polish
+
+- Spread & Blend controls moved under **Voice** (Synth tab), where they belong alongside the oscillator stack
+- Generator panel compacted — FM/Sub controls on line 1, Harm/Chord/Maj on line 2; clean 2×3 mood grid
 
 ---
 

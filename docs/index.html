@@ -1338,14 +1338,16 @@ main {
         <h3>Global Processing</h3>
         <div class="philosophy-section">
           <h4>Saturation</h4>
-          <p>A master <strong>soft saturation</strong> stage using normalized tanh waveshaping.
-          Adds analog tape-like warmth and gently compresses peaks. At low values it's transparent;
-          higher values add harmonic richness and density.</p>
+          <p>A master <strong>soft saturation</strong> stage using 4× oversampled tanh waveshaping.
+          Running internally at 4× the output sample rate eliminates aliasing artefacts on harmonically
+          rich material. Adds analog tape-like warmth and gently compresses peaks. At low values it's
+          transparent; higher values add harmonic richness and density.</p>
 
-          <h4>Reverb (FDN)</h4>
+          <h4>Reverb (FDN + IR)</h4>
           <p>An 8-line <strong>Feedback Delay Network</strong> with Hadamard mixing matrix,
-          per-line damping, and stereo decorrelation. Choose from spaces (cathedral, cave, hall,
-          chamber, plate) or use custom impulse responses. The reverb glues layers together
+          per-line damping, and stereo decorrelation. Choose from algorithmic spaces (cathedral, cave, hall,
+          chamber, plate) or switch to <strong>IR mode</strong> — real impulse responses convolved
+          with the signal for authentic acoustic spaces. The reverb glues layers together
           into a unified acoustic space.</p>
 
           <h4>Shimmer FX</h4>
@@ -1365,6 +1367,35 @@ main {
           <strong>Air</strong> adds high-frequency breath and wind turbulence. Together they
           extend the frequency range beyond what the layers provide, grounding the drone
           in physical space.</p>
+        </div>
+
+        <h3>Parameter Automation</h3>
+        <div class="philosophy-section">
+          <p>Any global or per-layer parameter can evolve over the duration of a render or stream.
+          Open the <strong>Automation</strong> card and enable any parameter with the toggle.
+          Each row shows a compact inline <strong>breakpoint editor</strong> — up to three nodes,
+          each with a timing position (t%), a value, and a curve shape.</p>
+          <p>Click the shape label between nodes to cycle through <em>lin</em> (linear),
+          <em>exp</em> (exponential), and <em>S</em> (S-curve). <strong>+ mid</strong> inserts
+          a midpoint at the largest gap; <strong>− mid</strong> removes it. Values before the
+          first node and after the last node are held constant.</p>
+          <p>Five <strong>global templates</strong> — Journey, Arc, Breathe, Meditate, Sunrise —
+          appear as quick-set pills at the top of the card. One click wires up a coherent
+          multi-parameter automation so you don't have to start from scratch. Use
+          <strong>✕ clear all</strong> to reset.</p>
+          <p class="docs-note">Automation only runs when a duration is set (Render or timed Stream).
+          It has no effect in open-ended infinite playback.</p>
+        </div>
+
+        <h3>Just Intonation (JI)</h3>
+        <div class="philosophy-section">
+          <p>Enable <strong>JI mode</strong> in the Synth tab to switch from 12-TET layer roots
+          to <strong>exact rational-fraction tuning</strong>. All layer frequencies are derived
+          from a single tonic via pure intervals (e.g. 3/2 for a perfect fifth, 5/4 for a major
+          third), so intervals between layers beat at zero — the defining quality of sustained
+          sacred drone music.</p>
+          <p>A small <strong>●</strong> dot in the layer header confirms JI is active on that layer.
+          Existing presets with decimal ratios load without change.</p>
         </div>
 
         <h3>Workflow</h3>
