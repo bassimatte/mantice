@@ -43,7 +43,6 @@ except ImportError:
 
 from . import config
 from .preset_loader import load_preset, load_preset_from_yaml_string
-from .drone_engine import DroneEngine
 from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
 from .generator import generate_preset, mutate_preset, save_generated_preset
@@ -892,7 +891,19 @@ async def preview_audio(request: Request):
 
         # Run CPU-heavy render in thread to avoid blocking the event loop
         loop = asyncio.get_event_loop()
-        audio = await loop.run_in_executor(None, lambda: DroneEngine(preset).build())
+
+        def _render_preview():
+            engine = StreamingDroneEngine(preset)
+            sr = config.STREAM_SAMPLE_RATE
+            total_samples = int(preset["duration"] * sr)
+            chunks, remaining = [], total_samples
+            while remaining > 0:
+                n = min(2048, remaining)
+                chunks.append(engine.next_chunk(n))
+                remaining -= n
+            return np.concatenate(chunks, axis=0)
+
+        audio = await loop.run_in_executor(None, _render_preview)
 
         import soundfile as sf
         buf = io.BytesIO()

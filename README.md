@@ -53,24 +53,49 @@ python main.py --preset "presets/essentials/Warm Pad.yaml" --duration 120
 
 **Local mode:** Both frontend and backend run on your machine (`python main.py --gui`).
 
+### Signal Chain
+
+```
+Per-Layer (each layer independently):
+  Synthesis (FM / Subtractive / Granular)
+  → Filter (LP/HP/BP/Comb/Formant) + LFO
+  → Distortion (tanh soft / hard clip)
+  → Panner (quadrant + trajectory + elevation)
+  → Chorus → Flanger → Phaser
+  → sum into stereo bus
+
+Global (after all layers are mixed):
+  DC Block (18 Hz HP)
+  → Soft Saturation (tanh warmth)
+  → FDN Reverb (8-tap Feedback Delay Network)
+  → Shimmer FX (pitch-shifted feedback tail)
+  → Earth + Air (sub-bass rumble / breath texture — kept dry, post-reverb)
+  → Master EQ + Compressor
+  → Soft Limiter
+  → Crossfade (hot-reload)
+  → Binaural (absolutely last — psychoacoustic L/R preserved to headphones)
+```
+
 ---
 
 ## 🎛 Features
 
-- **FM Synthesis** — up to 12 detuned voices per layer with configurable harmonics
-- **Subtractive Synthesis** — dual detuned oscillators (saw/square/triangle) + sub-oscillator, Reese bass style
+- **FM Synthesis** — up to 12 detuned voices per layer with configurable harmonics and harmonic decay
+- **Subtractive Synthesis** — dual detuned oscillator pairs (saw/square/triangle) + sine sub-oscillator; classic Reese bass style
+- **Granular Clouds** — sample-based grain synthesis with 17 CC0 sound sources (singing bowls, gongs, wind, etc.)
 - **Per-Layer Filter & LFO** — LP/HP/BP biquad, Comb (metallic resonance), and Formant (vowel shaping A/E/I/O/U) with LFO modulation
 - **Per-Layer Distortion** — soft (tanh) and hard-clip waveshaping, 0–5 drive
-- **Global Flanger** — LFO-modulated delay (0.5–10 ms) with feedback; wet/rate/depth controls
-- **Granular Clouds** — sample-based grain synthesis with 17 CC0 sound sources
-- **Spatial Motion** — per-layer panning trajectories (orbit, drift, bounce) with elevation
-- **Binaural Beats** — theta/delta/alpha entrainment with configurable depth
-- **FDN Reverb** — 8-tap feedback delay network (or custom impulse responses)
-- **Chorus** — multi-voice modulation for width and shimmer
-- **Master EQ & Compressor** — 5-band parametric EQ (low-cut, bass shelf, lo-mid bell, hi-mid bell, air shelf) + feedforward compressor on master bus
+- **Per-Layer Chorus** — multi-voice LFO-modulated delay for stereo width and organic animation
+- **Per-Layer Flanger** — LFO comb sweep (0.5–10 ms) with feedback; independent wet/rate/depth/feedback per layer
+- **Per-Layer Phaser** — 4-stage all-pass phase shift with configurable centre frequency, rate, depth, and feedback
+- **Global Shimmer FX** — pitch-shifted feedback tail using a two-head circular buffer; selectable intervals (−12 to +24 semitones) with feedback control
+- **Spatial Motion** — per-layer panning trajectories (orbit, drift, bounce) with elevation panning (HRTF-inspired)
+- **Binaural Beats** — theta/delta/alpha entrainment; carrier mode (true L/R sine pair) and detune mode (energy-preserving cos²/sin² L/R alternation)
+- **FDN Reverb** — 8-tap feedback delay network with Hadamard mixing, per-line damping, and stereo decorrelation
+- **Master EQ & Compressor** — 5-band parametric EQ (low-cut, bass shelf, lo-mid bell, hi-mid bell, air shelf) + feedforward compressor
 - **47 Presets** — across 5 categories (essentials, cinematic, experimental, sacred, subharmonic)
 - **Real-time Web UI** — stream, tweak, save, and export from your browser; layer sub-tabs (Synth/Filter/Space/FX)
-- **Generator** — mood-biased random preset generator with FM/Subtractive type selection
+- **Generator** — mood-biased random preset generator with FM/Subtractive/Granular type selection
 - **Preset Save/Load** — create, modify, and share YAML preset files
 
 ---
@@ -167,7 +192,7 @@ Set `type: subtractive` at layer level to use this engine instead of FM.
 
 #### Per-Layer Filter & LFO
 
-Five filter types, all applied after chorus in the signal chain:
+Five filter types, applied after synthesis and before distortion in the per-layer chain:
 
 | Setting | YAML Key | Range | Default | Description |
 |---------|----------|-------|---------|-------------|
@@ -293,16 +318,42 @@ The FDN reverb uses an 8-line Feedback Delay Network with Hadamard mixing, per-l
 | Movement | `air.movement` | 0.0–0.1 | 0.01 | Air drift speed |
 | Turbulence | `air.turbulence` | 0.0–0.2 | 0.04 | High-freq turbulence amount |
 
-### Flanger (Global)
+### Per-Layer Flanger
 
-Post-mix LFO-modulated delay applied after all layers are blended.
+LFO-modulated comb delay applied independently per layer after chorus in the signal chain.
 
 | Setting | YAML Key | Range | Default | Description |
 |---------|----------|-------|---------|-------------|
-| Wet | `flanger.wet` | 0.0–1.0 | 0.0 (off) | Dry/wet balance — 0 bypasses the effect |
-| Rate | `flanger.rate` | 0.01–2.0 Hz | 0.25 | LFO speed |
-| Depth | `flanger.depth` | 0.0–1.0 | 0.5 | LFO sweep range (maps to 0.5–10 ms delay) |
-| Feedback | `flanger.feedback` | 0.0–0.95 | 0.4 | Feedback amount — higher = more resonant comb coloration |
+| Wet | `flanger_wet` | 0.0–1.0 | 0.0 (off) | Dry/wet balance — 0 bypasses the effect |
+| Rate | `flanger_rate` | 0.01–2.0 Hz | 0.25 | LFO speed |
+| Depth | `flanger_depth` | 0.0–1.0 | 0.5 | LFO sweep range (maps to 0.5–10 ms delay) |
+| Feedback | `flanger_feedback` | 0.0–0.95 | 0.4 | Feedback amount — higher = more resonant comb coloration |
+
+### Per-Layer Phaser
+
+4-stage all-pass phase modulator applied per layer after flanger in the signal chain.
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Wet | `phaser_wet` | 0.0–1.0 | 0.0 (off) | Dry/wet balance — 0 bypasses the effect |
+| Rate | `phaser_rate` | 0.01–2.0 Hz | 0.5 | LFO sweep speed |
+| Depth | `phaser_depth` | 0.0–1.0 | 0.7 | LFO modulation depth |
+| Centre Hz | `phaser_center_hz` | 100–8000 Hz | 800 | Base frequency of the all-pass sweep |
+| Feedback | `phaser_feedback` | 0.0–0.95 | 0.0 | Feedback into the all-pass chain |
+| Stages | `phaser_stages` | 2–8 | 4 | Number of all-pass stages (higher = more notches) |
+
+### Shimmer FX (Global)
+
+Pitch-shifted feedback tail inserted after FDN Reverb in the global signal chain.
+Two read heads traverse a circular buffer at `2^(semitones/12)` speed; Hann-window
+cross-fading (`sin²+cos²=1`) ensures gapless output. Feedback re-injects the shifted
+signal for an ever-evolving, self-sustaining ethereal tail.
+
+| Setting | YAML Key | Range | Default | Description |
+|---------|----------|-------|---------|-------------|
+| Wet | `shimmer.wet` | 0.0–1.0 | 0.0 (off) | Dry/wet mix — 0 bypasses the effect |
+| Pitch | `shimmer.pitch_semitones` | −12 to +24 | 12.0 | Pitch shift in semitones (12 = octave up, 7 = fifth, etc.) |
+| Feedback | `shimmer.feedback` | 0.0–0.95 | 0.5 | How much shimmer re-enters the buffer — higher = longer tail |
 
 ### Spatial
 
@@ -336,15 +387,15 @@ reverb:
   mix: 0.4
   decay_trim: 1.0
 
+shimmer:               # Global shimmer FX (post-reverb, pre-Earth&Air)
+  wet: 0.3
+  pitch_semitones: 12  # -12 / +5 / +7 / +12 / +19 / +24
+  feedback: 0.5
+
 binaural:
   enabled: true
-  method: detune
+  method: detune       # or "carrier"
   beat_hz: 6.0
-
-spatial:
-  depth: 2.0
-  wetness: 0.5
-  swarm_density: 0.5
 
 earth:
   enabled: true
@@ -366,18 +417,17 @@ layers:
       ratios: [1.0, 2.0]
       index: 0.3
     dynamics:
-      volume_db: 0.0
+      volume_db: 0.0   # layer gain in dB (replaces old mix: 0–1)
       amp_min: 0.005
       amp_max: 0.08
       drift: 0.003
-    harmonics: 6                # V15: overtone count
-    harmonic_decay: 0.7         # V15: partial decay
-    noise_amount: 0.02          # V15: filtered noise
-    noise_color: pink           # V15: white/pink/brown
-    elevation: 30               # V15: vertical angle (-90 to +90)
-    elevation_motion: float     # V15: static/rise/fall/float/breathe
-    elevation_speed: 0.08       # V15: motion speed
-    elevation_range: 60         # V15: sweep range
+    spread: 1.0        # voice stereo spread (0=mono, 2=full)
+    blend: 1.0         # voice amplitude taper (0=pyramid, 1=equal)
+    chorus_rate: 0.5
+    chorus_depth: 0.005
+    chorus_mix: 0.3
+    flanger_wet: 0.0   # per-layer flanger (0 = off)
+    phaser_wet: 0.0    # per-layer phaser  (0 = off)
     spatial_motion:
       quadrant: front_left
       speed: 0.03
@@ -411,6 +461,35 @@ layers:
 | Ctrl+Z | Undo |
 | Ctrl+Shift+Z | Redo |
 | Ctrl+ / Ctrl- | Zoom in/out |
+
+---
+
+## What's New in V25.0
+
+### Signal Chain Overhaul
+
+- **Earth & Air moved post-reverb** — sub-bass rumble and breath texture are now added _after_ FDN Reverb so they remain dry and uncoloured by the room
+- **Binaural moved last** — psychoacoustic L/R difference now reaches headphones without any further processing; carrier and detune modes both corrected
+- **Streaming binaural** — binaural was silently absent from the real-time web preview; now fully implemented with energy-preserving `cos²/sin²` detune mode and proper carrier-pair sine generation
+- **Preview = Export parity** — `DroneEngine` now delegates to `StreamingDroneEngine`, so CLI exports (`python main.py`) and the web "Render" button produce identical output
+
+### Shimmer FX (Global)
+
+- New global effect: **Shimmer** — two read heads on a circular buffer advance at `2^(semitones/12)` speed with Hann cross-fading (`sin²+cos²=1`); feedback creates an ever-building ethereal tail
+- Selectable intervals: −12 / +5 / +7 / +12 / +19 / +24 semitones
+- Position in chain: after FDN Reverb, before Earth & Air
+- Tab added to **Global FX** card in UI (order: Reverb → Shimmer → Earth & Air → Binaural)
+
+### Per-Layer Flanger & Phaser
+
+- **Global Flanger removed** — flanger is now a per-layer effect with independent `flanger_wet/rate/depth/feedback`
+- **Per-Layer Phaser added** — 4-stage all-pass phase modulator per layer with `phaser_wet/rate/depth/center_hz/feedback/stages`
+- 9 presets migrated from global flanger to per-layer (Deep Orbit, Gear Meditation, Ice Cathedral, Solar Flare, Delta Pulse, Stellar Vowel, Liquid Chrome, Magnetic Sweep, Resonant Cave)
+
+### Layer UI Reorganisation
+
+- Layer parameters split into four sub-tabs: **Synth** / **Filter** / **Space** / **FX**
+- FX tab contains: Chorus, Flanger, Phaser
 
 ---
 

@@ -293,6 +293,8 @@ def _from_v1(raw: dict) -> dict:
         "reverb":        raw.get("reverb"),
         "binaural":      raw.get("binaural"),
         "flanger":       raw.get("flanger"),
+        "shimmer":       raw.get("shimmer"),
+        "master":        raw.get("master"),
         "layers": [
             _normalize_layer_v1(l)
             for l in raw.get("layers", [])
@@ -318,6 +320,8 @@ def _from_v2(raw: dict) -> dict:
         "reverb":        raw.get("reverb"),
         "binaural":      raw.get("binaural"),
         "flanger":       raw.get("flanger"),
+        "shimmer":       raw.get("shimmer"),
+        "master":        raw.get("master"),
         "saturation":    float(raw.get("saturation", 0.3)),
         "layers": [
             _normalize_layer_v2(l)

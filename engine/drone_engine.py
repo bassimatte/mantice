@@ -1,16 +1,9 @@
 """
-engine/drone_engine.py — MANTICE V10.0
-------------------------------------
-Core audio engine.
-
-Features:
-  - Per-layer stereo panning (quadrant + trajectory)
-  - SubharmonicEarth and AirPressureEngine in the build pipeline
-  - Per-layer raised-cosine envelope
-  - sosfilt-based filters (via filters.py)
-  - Per-voice variable drift rate (via fm_voice.py)
-  - Binaural beats (detune or carrier mode)
-  - Central config.SAMPLE_RATE from config.py
+engine/drone_engine.py
+----------------------
+Legacy offline drone engine — delegates to StreamingDroneEngine for correct
+signal chain (DC → Saturation → FDN Reverb → Shimmer → Earth+Air → Master →
+Limiter → Binaural). DroneLayer is kept for reference only.
 """
 
 import random
@@ -18,15 +11,12 @@ import random
 import numpy as np
 
 from . import config as _cfg
-from .config              import FADE_SECS
 from .filters             import Filters
 from .fm_voice            import GentleFMVoice
-from .spatial             import pan_layer, add_depth
+from .spatial             import pan_layer
 from .binaural            import apply_binaural_detune, generate_binaural_carrier
 from .subharmonic_earth   import SubharmonicEarth
 from .air_pressure_engine import AirPressureEngine
-from .convolution_reverb  import apply_convolution_reverb
-from .master_processing   import apply_master_offline
 
 
 # ── Layer ─────────────────────────────────────────────────────────────────────
@@ -200,6 +190,13 @@ class DroneLayer:
 # ── Engine ────────────────────────────────────────────────────────────────────
 
 class DroneEngine:
+    """
+    Offline drone engine. Delegates to StreamingDroneEngine so that export
+    output is bit-identical to the real-time web preview.
+
+    The DroneLayer class above is kept for reference but is no longer called
+    by build(). Use StreamingDroneEngine directly for new code.
+    """
 
     def __init__(self, preset: dict):
         self.preset = preset
@@ -212,136 +209,28 @@ class DroneEngine:
 
     def build(self, progress_callback=None) -> np.ndarray:
         """
-        Build the full stereo drone audio.
-        progress_callback: optional callable, called with (1) after each stage completes.
+        Build full stereo drone audio by running the StreamingDroneEngine in
+        chunks — identical signal chain to the real-time web preview.
+
+        progress_callback is accepted for compatibility but not called per-step.
         """
-        cfg      = self.preset
-        duration = cfg["duration"]
-        samples  = int(duration * _cfg.SAMPLE_RATE)
+        from .streaming_engine import StreamingDroneEngine
 
-        def _step():
-            if progress_callback:
-                progress_callback(1)
+        seed = self.preset.get("seed") if self.preset.get("seed") is not None else 42
+        engine = StreamingDroneEngine(self.preset, seed=int(seed))
 
-        # ── 1. Build each layer as mono, then pan to stereo ───────────────────
-        stereo_mix = np.zeros((samples, 2))
+        sr            = _cfg.SAMPLE_RATE
+        total_samples = int(self.preset["duration"] * sr)
+        chunk_size    = 2048
+        chunks        = []
+        remaining     = total_samples
 
-        binaural_cfg = cfg.get("binaural")
-        binaural_active = binaural_cfg and binaural_cfg.get("enabled", False)
-        binaural_method = binaural_cfg.get("method", "detune") if binaural_active else None
+        while remaining > 0:
+            n = min(chunk_size, remaining)
+            chunks.append(engine.next_chunk(n))
+            remaining -= n
 
-        for layer_cfg in cfg["layers"]:
-            if layer_cfg.get("muted", False):
-                continue
-
-            layer_result = DroneLayer(
-                layer_cfg, duration,
-                binaural_cfg=binaural_cfg if (binaural_active and binaural_method == "detune") else None
-            ).build()
-
-            if layer_result.ndim == 2:
-                # Already stereo from binaural detune — apply mix level directly
-                stereo_mix += layer_result * layer_cfg["mix"]
-            else:
-                mono = layer_result * layer_cfg["mix"]
-                stereo_layer = pan_layer(
-                    mono         = mono,
-                    quadrant     = layer_cfg["quadrant"],
-                    trajectory_x = layer_cfg["trajectory_x"],
-                    trajectory_y = layer_cfg["trajectory_y"],
-                    speed        = layer_cfg["speed"],
-                    pan          = float(layer_cfg.get("pan", 0.0)),
-                    width        = float(layer_cfg.get("width", 1.0)),
-                )
-                stereo_mix += stereo_layer
-            _step()
-
-        # ── 1b. Binaural carrier (if method == "carrier") ─────────────────────
-        if binaural_active and binaural_method == "carrier":
-            beat_hz = float(binaural_cfg.get("beat_hz", 6.0))
-            carrier_hz = float(binaural_cfg.get("carrier_hz", 200.0))
-            carrier_amp = float(binaural_cfg.get("carrier_amplitude", 0.15))
-            carrier_signal = generate_binaural_carrier(
-                carrier_hz=carrier_hz,
-                beat_hz=beat_hz,
-                amplitude=carrier_amp,
-                duration=duration,
-            )
-            stereo_mix += carrier_signal
-            _step()
-
-        # ── 2. SubharmonicEarth ──────────────────────────────────────────────
-        earth_cfg = cfg.get("earth")
-        if earth_cfg and earth_cfg.get("enabled", True):
-            earth_mono = SubharmonicEarth.generate(
-                duration           = duration,
-                tectonic_frequency = float(earth_cfg.get("tectonic_frequency", 18)),
-                pressure           = float(earth_cfg.get("pressure", 0.4)),
-                movement           = float(earth_cfg.get("movement", 0.02)),
-            )
-            earth_stereo = pan_layer(
-                mono         = earth_mono,
-                quadrant     = "center",
-                trajectory_x = "drift",
-                trajectory_y = "depth",
-                speed        = 0.005,
-            )
-            stereo_mix += earth_stereo
-            _step()
-
-        # ── 3. AirPressureEngine ─────────────────────────────────────────────
-        air_cfg = cfg.get("air")
-        if air_cfg and air_cfg.get("enabled", True):
-            air_mono = AirPressureEngine.generate(
-                duration   = duration,
-                intensity  = float(air_cfg.get("intensity",  0.12)),
-                movement   = float(air_cfg.get("movement",   0.01)),
-                turbulence = float(air_cfg.get("turbulence", 0.04)),
-            )
-            air_stereo = pan_layer(
-                mono         = air_mono,
-                quadrant     = "center",
-                trajectory_x = "drift",
-                trajectory_y = "none",
-                speed        = 0.003,
-            )
-            stereo_mix += air_stereo
-            _step()
-
-        # ── 4. Global DC block ────────────────────────────────────────────────
-        stereo_mix[:, 0] = Filters.highpass(stereo_mix[:, 0], 18)
-        stereo_mix[:, 1] = Filters.highpass(stereo_mix[:, 1], 18)
-        _step()
-
-        # ── 5. Convolution Reverb ────────────────────────────────────────────
-        reverb_cfg = cfg.get("reverb")
-        if reverb_cfg and reverb_cfg.get("enabled", False):
-            stereo_mix = apply_convolution_reverb(
-                stereo_mix,
-                space=reverb_cfg.get("space", "cathedral"),
-                mix=float(reverb_cfg.get("mix", 0.3)),
-                decay_trim=float(reverb_cfg.get("decay_trim", 1.0)),
-            )
-            _step()
-        else:
-            # Fallback: lightweight depth wash
-            stereo_mix = add_depth(
-                stereo_mix,
-                depth=cfg["spatial_depth"],
-                wet=cfg["spatial_wet"],
-            )
-
-        # ── 6. Global safety fade (short — layers have their own envelopes) ───
-        fade_n = min(int(FADE_SECS * _cfg.SAMPLE_RATE), samples // 6)
-        env    = np.ones(samples)
-        env[:fade_n]  = np.linspace(0, 1, fade_n)
-        env[-fade_n:] = np.linspace(1, 0, fade_n)
-        stereo_mix   *= env[:, None]
-
-        # ── 7. Normalise ──────────────────────────────────────────────────────
-        result = self.normalize(stereo_mix)
-        master_cfg = self.preset.get("master", {})
-        result = apply_master_offline(result, _cfg.SAMPLE_RATE, master_cfg)
-        _step()
-
-        return result
+        audio = np.concatenate(chunks, axis=0)
+        if progress_callback:
+            progress_callback(1)
+        return audio
