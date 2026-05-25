@@ -523,17 +523,24 @@ main {
 .card-collapsible.collapsed > *:not(h2) { display: none; }
 /* Automation card */
 .auto-section-label { font-size:10px; font-weight:600; letter-spacing:.08em; color:var(--text-dim); text-transform:uppercase; margin:8px 0 4px; padding-bottom:2px; border-bottom:1px solid rgba(255,255,255,0.06); }
-.auto-row { display:flex; align-items:center; gap:4px; padding:3px 0; font-size:11px; }
-.auto-row.disabled { opacity:0.45; }
-.auto-toggle-btn { cursor:pointer; font-size:14px; line-height:1; color:var(--text-dim); background:none; border:none; padding:0 2px; flex-shrink:0; }
+.auto-row { display:flex; align-items:center; gap:3px; padding:2px 0; font-size:10px; flex-wrap:nowrap; }
+.auto-row.disabled { opacity:0.42; }
+.auto-toggle-btn { cursor:pointer; font-size:13px; line-height:1; color:var(--text-dim); background:none; border:none; padding:0 2px; flex-shrink:0; }
 .auto-toggle-btn.on { color:var(--accent); }
-.auto-label { min-width:90px; color:var(--text-lcd); font-size:10px; flex-shrink:0; }
-.auto-preset-val { font-size:9px; color:var(--text-dim); min-width:58px; flex-shrink:0; }
-.auto-input { width:52px; padding:2px 4px; font-size:10px; background:var(--bg-card); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:3px; text-align:right; flex-shrink:0; }
-.auto-arrow { color:var(--text-dim); font-size:10px; flex-shrink:0; }
-.auto-shape { padding:2px 4px; font-size:10px; background:var(--bg-card); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:3px; }
-.auto-snap { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.15); border-radius:2px; color:var(--text-dim); padding:1px 4px; flex-shrink:0; }
-.auto-snap:hover { border-color:var(--accent); color:var(--accent); }
+.auto-label { min-width:82px; color:var(--text-lcd); font-size:10px; flex-shrink:0; }
+.auto-t { width:26px; padding:1px 3px; font-size:9px; text-align:right; background:var(--surface); color:var(--text-dim); border:1px solid rgba(255,255,255,0.10); border-radius:2px; flex-shrink:0; }
+.auto-pct { font-size:9px; color:var(--text-dim); flex-shrink:0; }
+.auto-val { width:48px; padding:1px 4px; font-size:10px; text-align:right; background:var(--surface); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:2px; flex-shrink:0; }
+.auto-shape-btn { background:none; border:none; color:var(--accent); font-size:9px; cursor:pointer; padding:0 2px; flex-shrink:0; white-space:nowrap; letter-spacing:-.02em; }
+.auto-shape-btn:hover { color:var(--text); }
+.auto-mid-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.12); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-left:3px; flex-shrink:0; }
+.auto-mid-btn:hover { border-color:var(--accent); color:var(--accent); }
+.auto-quickset { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:8px; padding-bottom:7px; border-bottom:1px solid rgba(255,255,255,0.07); }
+.auto-quickset-label { font-size:9px; color:var(--text-dim); flex-shrink:0; margin-right:2px; }
+.auto-quickset-btn { cursor:pointer; font-size:9px; background:var(--surface2); border:1px solid rgba(255,255,255,0.14); border-radius:10px; color:var(--text); padding:2px 9px; flex-shrink:0; transition:border-color .15s, color .15s; }
+.auto-quickset-btn:hover { border-color:var(--accent); color:var(--accent); }
+.auto-clear-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.09); border-radius:10px; color:var(--text-dim); padding:2px 8px; margin-left:auto; flex-shrink:0; }
+.auto-clear-btn:hover { border-color:var(--danger); color:var(--danger); }
 
 /* ── JI Tuning Panel ───────────────────────────── */
 #tuning-panel {
@@ -2149,7 +2156,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || '';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -5702,77 +5709,251 @@ function updateAutoBadge() {
   el.textContent = n > 0 ? n + ' active' : '';
 }
 
-function makeAutoRow(paramDef, autoData, onSave) {
-  const cfg = autoData || { enabled: false, start: paramDef.presetVal, end: paramDef.presetVal, shape: 'linear' };
-  const row = document.createElement('div');
-  row.className = 'auto-row' + (cfg.enabled ? '' : ' disabled');
+// ── Automation helpers ────────────────────────────────────────────────────────
 
-  const toggleBtn = document.createElement('button');
-  toggleBtn.className = 'auto-toggle-btn' + (cfg.enabled ? ' on' : '');
-  toggleBtn.textContent = cfg.enabled ? '●' : '○';
-  toggleBtn.title = 'Enable/disable automation';
+/** Cycle through curve shapes on click. */
+function autoNextShape(shape) {
+  return { linear: 'exp', exp: 'scurve', scurve: 'linear' }[shape] || 'linear';
+}
 
-  const labelEl = document.createElement('span');
-  labelEl.className = 'auto-label';
-  labelEl.textContent = paramDef.label;
+/** Short text label shown between breakpoints. */
+function autoShapeLabel(shape) {
+  if (shape === 'exp')    return '—exp→';
+  if (shape === 'scurve') return '—S→';
+  return '—lin→';
+}
 
-  const presetEl = document.createElement('span');
-  presetEl.className = 'auto-preset-val';
-  presetEl.textContent = 'preset: ' + paramDef.fmt(paramDef.presetVal);
-
-  const startInput = document.createElement('input');
-  startInput.type = 'number';
-  startInput.className = 'auto-input';
-  startInput.min = paramDef.min; startInput.max = paramDef.max; startInput.step = paramDef.step;
-  startInput.value = cfg.start !== undefined ? cfg.start : paramDef.presetVal;
-  startInput.title = 'Start value';
-
-  const snapStart = document.createElement('button');
-  snapStart.className = 'auto-snap'; snapStart.textContent = '↓'; snapStart.title = 'Snap start to preset';
-
-  const arrow = document.createElement('span');
-  arrow.className = 'auto-arrow'; arrow.textContent = '→';
-
-  const endInput = document.createElement('input');
-  endInput.type = 'number';
-  endInput.className = 'auto-input';
-  endInput.min = paramDef.min; endInput.max = paramDef.max; endInput.step = paramDef.step;
-  endInput.value = cfg.end !== undefined ? cfg.end : paramDef.presetVal;
-  endInput.title = 'End value';
-
-  const snapEnd = document.createElement('button');
-  snapEnd.className = 'auto-snap'; snapEnd.textContent = '↓'; snapEnd.title = 'Snap end to preset';
-
-  const shapeSelect = document.createElement('select');
-  shapeSelect.className = 'auto-shape';
-  for (const [val, lbl] of [['linear','Linear'],['scurve','S-Curve'],['exp','Exp']]) {
-    const opt = document.createElement('option');
-    opt.value = val; opt.textContent = lbl;
-    if ((cfg.shape || 'linear') === val) opt.selected = true;
-    shapeSelect.appendChild(opt);
+/** Apply a named curve shape to t ∈ [0,1]. */
+function autoApplyShape(t, shape) {
+  if (shape === 'scurve') return t * t * (3 - 2 * t);
+  if (shape === 'exp') {
+    if (t === 0) return 0;
+    const k = 4;
+    return (Math.exp(k * t) - 1) / (Math.exp(k) - 1);
   }
+  return t;
+}
 
-  function save() {
-    onSave({ enabled: toggleBtn.classList.contains('on'), start: parseFloat(startInput.value), end: parseFloat(endInput.value), shape: shapeSelect.value });
+/** Evaluate a breakpoints array at normalised time t ∈ [0,1]. */
+function evalBreakpoints(bps, t) {
+  if (!bps || !bps.length) return 0;
+  const sorted = [...bps].sort((a, b) => a.t - b.t);
+  if (t <= sorted[0].t) return sorted[0].value;
+  if (t >= sorted[sorted.length - 1].t) return sorted[sorted.length - 1].value;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const { t: t0, value: v0 } = sorted[i];
+    const { t: t1, value: v1, shape } = sorted[i + 1];
+    if (t >= t0 && t <= t1) {
+      const span = t1 - t0;
+      if (!span) return v1;
+      return v0 + (v1 - v0) * autoApplyShape((t - t0) / span, shape || 'linear');
+    }
+  }
+  return sorted[sorted.length - 1].value;
+}
+
+/**
+ * Normalise any stored auto data to V3 breakpoint format (max 3 breakpoints).
+ * Accepts: null, V1/V2 {enabled,start,end,shape}, V3 {enabled,breakpoints:[...]}.
+ */
+function autoNormalize(autoData, presetVal) {
+  if (!autoData) {
+    return { enabled: false, breakpoints: [{ t: 0, value: presetVal, shape: 'linear' }, { t: 1, value: presetVal, shape: 'linear' }] };
+  }
+  if (Array.isArray(autoData.breakpoints)) {
+    // Keep at most 3 breakpoints
+    const bps = autoData.breakpoints.slice(0, 3);
+    return { enabled: !!autoData.enabled, breakpoints: bps };
+  }
+  // V1/V2 → two breakpoints
+  return {
+    enabled: !!autoData.enabled,
+    breakpoints: [
+      { t: 0, value: autoData.start ?? presetVal, shape: 'linear' },
+      { t: 1, value: autoData.end ?? presetVal,   shape: autoData.shape ?? 'linear' },
+    ],
+  };
+}
+
+/**
+ * Build one compact automation row:
+ *   ● Label   [t%] [val] —shape→ [t%] [val]   [+ mid]
+ *   ● Label   [t%] [val] —shape→ [t%] [val] —shape→ [t%] [val]   [- mid]
+ *
+ * Shape buttons cycle lin→exp→S on click.
+ * t% inputs control when the sweep starts/ends; values outside the sweep hold.
+ */
+function makeAutoRow(paramDef, autoData, onSave) {
+  const raw = autoNormalize(autoData, paramDef.presetVal);
+  let bps     = raw.breakpoints.map(b => ({ ...b }));
+  let enabled = raw.enabled;
+
+  const row = document.createElement('div');
+
+  function commit() {
+    bps.sort((a, b) => a.t - b.t);
+    onSave({ enabled, breakpoints: bps.map(b => ({ ...b })) });
     updateAutoBadge();
     markDirty();
   }
 
-  snapStart.onclick = () => { startInput.value = paramDef.presetVal; save(); };
-  snapEnd.onclick   = () => { endInput.value   = paramDef.presetVal; save(); };
+  function render() {
+    row.innerHTML = '';
+    row.className = 'auto-row' + (enabled ? '' : ' disabled');
 
-  toggleBtn.onclick = () => {
-    const isOn = !toggleBtn.classList.contains('on');
-    toggleBtn.classList.toggle('on', isOn);
-    toggleBtn.textContent = isOn ? '●' : '○';
-    row.classList.toggle('disabled', !isOn);
-    if (isOn && !autoData) startInput.value = paramDef.presetVal;
-    save();
-  };
-  startInput.onchange = save; endInput.onchange = save; shapeSelect.onchange = save;
+    // ── Toggle ──
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'auto-toggle-btn' + (enabled ? ' on' : '');
+    toggleBtn.textContent = enabled ? '●' : '○';
+    toggleBtn.title = 'Enable/disable automation';
+    toggleBtn.onclick = () => { enabled = !enabled; commit(); render(); };
+    row.appendChild(toggleBtn);
 
-  row.append(toggleBtn, labelEl, presetEl, startInput, snapStart, arrow, endInput, snapEnd, shapeSelect);
+    // ── Label ──
+    const lbl = document.createElement('span');
+    lbl.className = 'auto-label';
+    lbl.textContent = paramDef.label;
+    row.appendChild(lbl);
+
+    // ── Breakpoints interleaved with shape buttons ──
+    bps.sort((a, b) => a.t - b.t);
+    bps.forEach((bp, i) => {
+      // t% input
+      const tIn = document.createElement('input');
+      tIn.type = 'number'; tIn.className = 'auto-t';
+      tIn.min = 0; tIn.max = 100; tIn.step = 1;
+      tIn.value = Math.round(bp.t * 100);
+      tIn.title = 't position (% of duration)';
+      tIn.onchange = () => { bps[i].t = Math.max(0, Math.min(1, parseFloat(tIn.value || 0) / 100)); commit(); };
+      row.appendChild(tIn);
+
+      const pct = document.createElement('span');
+      pct.className = 'auto-pct'; pct.textContent = '%';
+      row.appendChild(pct);
+
+      // Value input
+      const vIn = document.createElement('input');
+      vIn.type = 'number'; vIn.className = 'auto-val';
+      vIn.min = paramDef.min; vIn.max = paramDef.max; vIn.step = paramDef.step;
+      vIn.value = bp.value;
+      vIn.title = 'Value at this point';
+      vIn.onchange = () => { bps[i].value = parseFloat(vIn.value); commit(); };
+      row.appendChild(vIn);
+
+      // Shape button between breakpoints (shape stored on destination bps[i+1])
+      if (i < bps.length - 1) {
+        const shapeBtn = document.createElement('button');
+        shapeBtn.className = 'auto-shape-btn';
+        shapeBtn.textContent = autoShapeLabel(bps[i + 1].shape || 'linear');
+        shapeBtn.title = 'Curve shape — click to cycle: linear → exp → S-curve';
+        shapeBtn.onclick = () => { bps[i + 1].shape = autoNextShape(bps[i + 1].shape); commit(); render(); };
+        row.appendChild(shapeBtn);
+      }
+    });
+
+    // ── + mid / − mid button ──
+    const hasMid = bps.length === 3;
+    const midBtn = document.createElement('button');
+    midBtn.className = 'auto-mid-btn';
+    midBtn.textContent = hasMid ? '− mid' : '+ mid';
+    midBtn.title = hasMid ? 'Remove midpoint' : 'Add midpoint (arc / bell shapes)';
+    midBtn.onclick = () => {
+      if (hasMid) {
+        bps = [bps[0], bps[2]];
+      } else {
+        const midT = (bps[0].t + bps[1].t) / 2;
+        bps = [bps[0], { t: midT, value: evalBreakpoints(bps, midT), shape: 'linear' }, bps[1]];
+      }
+      commit(); render();
+    };
+    row.appendChild(midBtn);
+  }
+
+  render();
   return row;
+}
+
+// ── Global automation templates ───────────────────────────────────────────────
+
+const AUTO_TEMPLATES = [
+  {
+    name: 'Journey',
+    desc: 'Fade in · filter opens · reverb builds · binaural drifts',
+    global: {
+      master_output_db:  { enabled:true, breakpoints:[{t:0,value:-20,shape:'linear'},{t:0.2,value:0,shape:'exp'}] },
+      reverb_mix:        { enabled:true, breakpoints:[{t:0,value:0.1,shape:'linear'},{t:1,value:0.75,shape:'scurve'}] },
+      binaural_beat_hz:  { enabled:true, breakpoints:[{t:0,value:10,shape:'linear'},{t:1,value:2.5,shape:'exp'}] },
+    },
+    layer: {
+      filter_cutoff:     { enabled:true, breakpoints:[{t:0,value:300,shape:'linear'},{t:1,value:5000,shape:'exp'}] },
+    },
+  },
+  {
+    name: 'Arc',
+    desc: 'Output builds to peak then fades · reverb follows the arc',
+    global: {
+      master_output_db:  { enabled:true, breakpoints:[{t:0,value:-12,shape:'linear'},{t:0.5,value:0,shape:'scurve'},{t:1,value:-12,shape:'scurve'}] },
+      reverb_mix:        { enabled:true, breakpoints:[{t:0,value:0.1,shape:'linear'},{t:0.5,value:0.7,shape:'scurve'},{t:1,value:0.2,shape:'scurve'}] },
+    },
+    layer: {},
+  },
+  {
+    name: 'Breathe',
+    desc: 'Slow filter arc · volume gently pulses once',
+    global: {
+      master_output_db:  { enabled:true, breakpoints:[{t:0,value:-4,shape:'linear'},{t:0.45,value:0,shape:'scurve'},{t:1,value:-6,shape:'scurve'}] },
+    },
+    layer: {
+      filter_cutoff:     { enabled:true, breakpoints:[{t:0,value:500,shape:'linear'},{t:0.5,value:4000,shape:'scurve'},{t:1,value:400,shape:'scurve'}] },
+    },
+  },
+  {
+    name: 'Meditate',
+    desc: 'Binaural drifts alpha → delta · reverb deepens',
+    global: {
+      binaural_beat_hz:  { enabled:true, breakpoints:[{t:0,value:10,shape:'linear'},{t:1,value:1.5,shape:'exp'}] },
+      reverb_mix:        { enabled:true, breakpoints:[{t:0,value:0.2,shape:'linear'},{t:1,value:0.85,shape:'scurve'}] },
+      reverb_decay_trim: { enabled:true, breakpoints:[{t:0,value:0.3,shape:'linear'},{t:1,value:1.0,shape:'scurve'}] },
+    },
+    layer: {},
+  },
+  {
+    name: 'Sunrise',
+    desc: 'Very slow fade in · shimmer emerges in last third',
+    global: {
+      master_output_db:  { enabled:true, breakpoints:[{t:0,value:-30,shape:'linear'},{t:0.6,value:0,shape:'exp'}] },
+      shimmer_wet:       { enabled:true, breakpoints:[{t:0.65,value:0,shape:'linear'},{t:1,value:0.45,shape:'scurve'}] },
+      master_air_db:     { enabled:true, breakpoints:[{t:0,value:-3,shape:'linear'},{t:0.8,value:3,shape:'scurve'}] },
+    },
+    layer: {},
+  },
+];
+
+/** Apply a template to currentParams (merge, don't overwrite existing enabled automations). */
+function applyAutoTemplate(template) {
+  if (!currentParams) return;
+  currentParams.automation = currentParams.automation || {};
+  // Apply global params
+  Object.assign(currentParams.automation, template.global);
+  // Apply layer params to all non-muted layers
+  if (Object.keys(template.layer).length > 0) {
+    (currentParams.layers || []).forEach(layer => {
+      if (layer.muted) return;
+      layer.automation = layer.automation || {};
+      Object.assign(layer.automation, template.layer);
+    });
+  }
+  renderAutomationCard();
+  markDirty();
+}
+
+/** Clear all automation from currentParams. */
+function clearAllAutomation() {
+  if (!currentParams) return;
+  currentParams.automation = {};
+  (currentParams.layers || []).forEach(layer => { layer.automation = {}; });
+  renderAutomationCard();
+  markDirty();
 }
 
 function renderAutomationCard() {
@@ -5780,6 +5961,27 @@ function renderAutomationCard() {
   if (!body || !currentParams) return;
   body.innerHTML = '';
   currentParams.automation = currentParams.automation || {};
+
+  // ── Quick-set templates row ──────────────────────────────────────────
+  const qs = document.createElement('div');
+  qs.className = 'auto-quickset';
+  const qsLabel = document.createElement('span');
+  qsLabel.className = 'auto-quickset-label'; qsLabel.textContent = 'Quick set:';
+  qs.appendChild(qsLabel);
+  for (const tpl of AUTO_TEMPLATES) {
+    const btn = document.createElement('button');
+    btn.className = 'auto-quickset-btn';
+    btn.textContent = tpl.name;
+    btn.title = tpl.desc;
+    btn.onclick = () => applyAutoTemplate(tpl);
+    qs.appendChild(btn);
+  }
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'auto-clear-btn'; clearBtn.textContent = '✕ clear all';
+  clearBtn.title = 'Disable all automation';
+  clearBtn.onclick = clearAllAutomation;
+  qs.appendChild(clearBtn);
+  body.appendChild(qs);
 
   const globalLabel = document.createElement('div');
   globalLabel.className = 'auto-section-label'; globalLabel.textContent = 'Global';
