@@ -106,61 +106,36 @@ def oversampled_saturate(audio: np.ndarray, saturation: float, factor: int = 4) 
 
 
 def final_limit_normalize(audio: np.ndarray, ceiling: float = 0.97,
-                           attack_ms: float = 5.0, release_ms: float = 200.0,
                            sr: int = 22050) -> np.ndarray:
     """
-    Single-pass look-ahead limiter for the full render buffer.
+    True-peak normalize the full render buffer to ``ceiling``.
 
-    Computes a smooth gain envelope that never exceeds ``ceiling`` without
-    block-boundary discontinuities or audible pumping. Never boosts — only
-    attenuates when the ceiling would be exceeded.
+    For offline drone renders (constant-level material) a single static scale
+    factor is the correct approach — no attack lag, no pumping, no transients
+    slipping through before the envelope catches up.
 
     Algorithm:
-      1. True-peak detection: upsample 4× to catch inter-sample peaks, then
-         return to original rate (protects against MP3/AAC inter-sample clips).
-      2. Build a per-sample gain envelope with fast attack and slow release.
-      3. Smooth the envelope with a one-pole IIR to remove sudden steps.
-      4. Apply envelope to original audio.
+      1. True-peak detection: upsample 4× to find inter-sample peaks (prevents
+         MP3/AAC encode clipping caused by intersample overs).
+      2. If the true peak exceeds ``ceiling``, scale the whole buffer uniformly
+         by ceiling/peak.  Never boost — if peak < ceiling, return as-is.
+      3. Hard clip as final safety net (should be a no-op after step 2).
 
     Args:
-        audio:       (N, 2) stereo float32 at ``sr``.
-        ceiling:     Linear ceiling (default 0.97 ≈ −1 dBFS).
-        attack_ms:   Gain-reduction attack time in ms (how fast to react).
-        release_ms:  Gain recovery time in ms (how fast to return to unity).
-        sr:          Sample rate (used to convert ms → samples).
+        audio:    (N, 2) stereo float32 array.
+        ceiling:  Linear ceiling (default 0.97 ≈ −1 dBFS).
+        sr:       Sample rate (unused; kept for API compatibility).
 
     Returns:
-        Same shape — limited, never boosted, no DC offset added.
+        Same shape — normalized to ceiling if over, untouched if under.
     """
     from scipy.signal import resample_poly
-    n = audio.shape[0]
-
-    # 1. True-peak envelope via 4× oversampling
     factor = 4
-    up   = resample_poly(audio, factor, 1, axis=0)
-    env_up = np.max(np.abs(up), axis=1)           # per-sample peak across channels
-    # Decimate envelope back to original rate (take every factor-th sample)
-    env = env_up[::factor][:n]
-    if env.shape[0] < n:
-        env = np.pad(env, (0, n - env.shape[0]))
-
-    # 2. Smooth the peak envelope (one-pole IIR: fast attack, slow release)
-    att_coef = np.exp(-1.0 / (attack_ms  * 0.001 * sr))
-    rel_coef = np.exp(-1.0 / (release_ms * 0.001 * sr))
-    smoothed = np.empty(n, dtype=np.float64)
-    prev = float(env[0])
-    for i in range(n):
-        s = float(env[i])
-        coef = att_coef if s > prev else rel_coef
-        prev = coef * prev + (1.0 - coef) * s
-        smoothed[i] = prev
-
-    # 3. Gain envelope: only pull down, never boost
-    gain = np.where(smoothed > ceiling, ceiling / np.maximum(smoothed, 1e-9), 1.0)
-
-    # 4. Apply gain (broadcast over stereo channels)
-    limited = audio * gain[:, np.newaxis]
-    return limited.astype(audio.dtype)
+    up      = resample_poly(audio, factor, 1, axis=0)
+    tp      = float(np.max(np.abs(up)))          # true-peak
+    if tp > ceiling:
+        audio = audio * (ceiling / tp)
+    return np.clip(audio, -1.0, 1.0).astype(audio.dtype)
 
 
 def _load_pitch_cache():
@@ -1014,17 +989,16 @@ async def render_endpoint(request: Request):
                 print(f"  [render] Applying IR convolution reverb: space={space} mix={mix:.2f}…")
                 raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=out_sr)
 
-            # Full-buffer limiter — smooth gain envelope, true-peak detection, no pumping
-            print("  [render] Applying look-ahead limiter (ceiling −1 dBFS)…")
-            raw = final_limit_normalize(raw, ceiling=0.97, sr=out_sr)
+            # Full-buffer true-peak normalize — zero attack lag, zero pumping
+            print("  [render] True-peak normalize (ceiling −1 dBFS)…")
+            raw = final_limit_normalize(raw, ceiling=0.97)
 
             # TPDF dither before quantisation (adds 1 LSB of shaped noise, eliminates truncation distortion)
             if out_bd == "PCM_24":
                 lsb = 1.0 / (1 << 23)
                 raw = raw + lsb * (np.random.uniform(-1, 1, raw.shape) + np.random.uniform(-1, 1, raw.shape))
 
-            # Clip to [-1, 1] after dither
-            return np.clip(raw, -1.0, 1.0)
+            return np.clip(raw, -1.0, 1.0)  # safety net after dither
 
         audio = await loop.run_in_executor(None, _render)
 
