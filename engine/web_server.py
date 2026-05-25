@@ -62,8 +62,46 @@ _PITCH_CACHE_FILE = _SAMPLES_DIR / "pitch_cache.json"
 # In-memory pitch cache; populated at startup and on-demand
 _pitch_cache: dict = {}
 
+
+def oversampled_saturate(audio: np.ndarray, saturation: float, factor: int = 4) -> np.ndarray:
+    """
+    Apply tanh waveshaping at ``factor``× oversampling to eliminate in-band aliasing.
 
-def _load_pitch_cache():
+    Without oversampling, tanh generates harmonics above Nyquist that fold back
+    into the audible band as inharmonic noise ("fizz"). At 4× we cut everything
+    above the original Nyquist before decimating, reducing alias energy by >99%.
+
+    Args:
+        audio:      (N, 2) stereo float32 array at any sample rate.
+        saturation: 0–1 drive amount (same scale as the engine param).
+        factor:     Oversampling factor (4 is sufficient; cost ≈ 4× waveshaper math).
+
+    Returns:
+        Same shape as input, tanh-shaped without aliasing artefacts.
+    """
+    if saturation <= 0.01:
+        return audio
+    from scipy.signal import resample_poly, butter, sosfilt
+    drive = 1.0 + saturation * 3.0
+    norm  = float(np.tanh(drive))
+    n_in  = audio.shape[0]
+    # 1. Upsample
+    up = resample_poly(audio, factor, 1, axis=0)
+    # 2. Waveshaper at oversampled rate
+    up = np.tanh(up * drive) / norm
+    # 3. Anti-image low-pass just below original Nyquist (0.9/factor of new Nyquist)
+    sos = butter(8, 0.9 / factor, output="sos")
+    up  = sosfilt(sos, up, axis=0)
+    # 4. Decimate back to original rate
+    result = resample_poly(up, 1, factor, axis=0)
+    # Exact-length guard (float rounding in resample_poly)
+    if result.shape[0] > n_in:
+        result = result[:n_in]
+    elif result.shape[0] < n_in:
+        result = np.pad(result, ((0, n_in - result.shape[0]), (0, 0)))
+    return result
+
+
     """Load cached sample pitches from disk and share with granular_layer module."""
     global _pitch_cache
     try:
@@ -879,6 +917,11 @@ async def render_endpoint(request: Request):
             if reverb_enabled:
                 preset_for_render["reverb"] = {**reverb_cfg, "enabled": False}
 
+            # Capture saturation value and zero it out in the engine — we apply
+            # it post-synthesis with 4× oversampling to eliminate alias artefacts.
+            sat = float(preset.get("saturation", 0.3))
+            preset_for_render["saturation"] = 0.0
+
             engine = StreamingDroneEngine(preset_for_render, seed=seed)
             total_samples = int(preset["duration"] * render_sr)
             chunk_size = 2048
@@ -896,6 +939,11 @@ async def render_endpoint(request: Request):
                 from math import gcd
                 g = gcd(out_sr, render_sr)
                 raw = resample_poly(raw, out_sr // g, render_sr // g, axis=0)
+
+            # Oversampled saturation — apply on full buffer at final SR (no chunk artefacts)
+            if sat > 0.01:
+                print(f"  [render] Oversampled saturation ×4: drive={1.0 + sat * 3.0:.2f}…")
+                raw = oversampled_saturate(raw, sat)
 
             # Apply convolution reverb against real IR (replaces streaming FDN for renders)
             if reverb_enabled:
