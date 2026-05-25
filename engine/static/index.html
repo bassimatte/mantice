@@ -523,7 +523,9 @@ main {
 .card-collapsible.collapsed > *:not(h2) { display: none; }
 /* Automation card */
 .auto-section-label { font-size:10px; font-weight:600; letter-spacing:.08em; color:var(--text-dim); text-transform:uppercase; margin:8px 0 4px; padding-bottom:2px; border-bottom:1px solid rgba(255,255,255,0.06); }
-.auto-row { display:flex; align-items:center; gap:3px; padding:2px 0; font-size:10px; flex-wrap:nowrap; }
+.auto-row { display:flex; flex-direction:column; gap:0; padding:2px 0; font-size:10px; }
+.auto-controls { display:flex; align-items:center; gap:3px; flex-wrap:nowrap; }
+.auto-canvas { display:block; width:100%; height:14px; border-radius:2px; margin-top:2px; opacity:0.85; }
 .auto-row.disabled { opacity:0.42; }
 .auto-toggle-btn { cursor:pointer; font-size:13px; line-height:1; color:var(--text-dim); background:none; border:none; padding:0 2px; flex-shrink:0; }
 .auto-toggle-btn.on { color:var(--accent); }
@@ -5801,6 +5803,154 @@ function evalBreakpoints(bps, t) {
   return sorted[sorted.length - 1].value;
 }
 
+// ── Auto canvas helpers ───────────────────────────────────────────────────────
+
+/** Mulberry32 seeded PRNG — matches Python RandomState for visual approximation */
+function mulberry32(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Precompute noise table matching Python RandomWalkCurve logic */
+function makeWalkTable(speed, seed, N) {
+  const SPEED_MAP = { slow: 0.25, med: 0.85, fast: 2.5 };
+  const cycles = SPEED_MAP[speed] || 0.85;
+  const rng = mulberry32(seed >>> 0);
+  const freqs = [], phases = [], amps = [];
+  for (let k = 0; k < 6; k++) {
+    freqs.push(cycles * (k + 1) * (0.75 + rng() * 0.5));
+    phases.push(rng() * Math.PI * 2);
+    amps.push(1.0 / (k + 1));
+  }
+  const table = new Float32Array(N);
+  let peak = 0;
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    let v = 0;
+    for (let k = 0; k < 6; k++) v += amps[k] * Math.sin(2 * Math.PI * freqs[k] * t + phases[k]);
+    table[i] = v;
+    if (Math.abs(v) > peak) peak = Math.abs(v);
+  }
+  if (peak > 0) for (let i = 0; i < N; i++) table[i] /= peak;
+  return table;
+}
+
+/**
+ * Draw the automation curve into a canvas.
+ * For random_walk: draws the full noise waveform + depth zone + center line.
+ * For breakpoints: draws the interpolated curve.
+ * Returns the walk noise table (Float32Array) if random_walk, else null.
+ */
+function drawAutoCanvas(canvas, raw, paramDef, playheadT) {
+  const W = canvas.width;
+  const H = canvas.height;
+  if (!W || !H) return null;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  const lo = paramDef.min, hi = paramDef.max, range = hi - lo || 1;
+  const toY = v => H * (1 - Math.max(0, Math.min(1, (v - lo) / range)));
+
+  if (raw.mode === 'random_walk') {
+    const center = raw.center ?? (lo + hi) / 2;
+    const depth  = raw.depth  ?? 0;
+    const table  = makeWalkTable(raw.speed || 'med', 42, W);
+
+    // Depth zone
+    ctx.fillStyle = 'rgba(120,200,120,0.09)';
+    const y1 = toY(center + depth);
+    const y2 = toY(center - depth);
+    ctx.fillRect(0, Math.min(y1, y2), W, Math.abs(y2 - y1) || 1);
+
+    // Center line
+    ctx.strokeStyle = 'rgba(140,210,140,0.28)';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    const cy = toY(center);
+    ctx.moveTo(0, cy); ctx.lineTo(W, cy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Waveform
+    ctx.strokeStyle = 'rgba(140,210,140,0.75)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < W; i++) {
+      const y = toY(center + depth * table[i]);
+      i === 0 ? ctx.moveTo(i + 0.5, y) : ctx.lineTo(i + 0.5, y);
+    }
+    ctx.stroke();
+
+    // Playhead
+    if (playheadT != null) {
+      const x = Math.round(playheadT * W);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, 0); ctx.lineTo(x, H);
+      ctx.stroke();
+      // Value dot on curve
+      const idx = Math.min(W - 1, Math.round(playheadT * (W - 1)));
+      const dotY = toY(center + depth * table[idx]);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath();
+      ctx.arc(x, dotY, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return table;
+
+  } else {
+    // Breakpoints mode
+    const bps = raw.breakpoints;
+    if (!bps || bps.length < 2) return null;
+
+    ctx.strokeStyle = 'rgba(90,150,220,0.7)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < W; i++) {
+      const t = i / (W - 1);
+      const y = toY(evalBreakpoints(bps, t));
+      i === 0 ? ctx.moveTo(i + 0.5, y) : ctx.lineTo(i + 0.5, y);
+    }
+    ctx.stroke();
+
+    // Breakpoint marker dots
+    ctx.fillStyle = 'rgba(110,170,240,0.9)';
+    for (const bp of bps) {
+      const x = bp.t * W;
+      const y = toY(bp.value);
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return null;
+  }
+}
+
+/** Start a looping playhead animation on a random-walk canvas. Returns a cancel fn. */
+function animateWalkCanvas(canvas, raw, paramDef) {
+  const LOOP_SECS = { slow: 14, med: 8, fast: 4 };
+  const loopSecs = LOOP_SECS[raw.speed] || 8;
+  let start = null;
+  let rafId = null;
+
+  function frame(ts) {
+    if (!canvas.isConnected) return;           // auto-cleanup on DOM removal
+    if (!start) start = ts;
+    const t = ((ts - start) / 1000 / loopSecs) % 1.0;
+    canvas.width = canvas.offsetWidth || canvas.width; // keep width synced
+    drawAutoCanvas(canvas, raw, paramDef, t);
+    rafId = requestAnimationFrame(frame);
+  }
+  rafId = requestAnimationFrame(frame);
+  return () => { if (rafId) cancelAnimationFrame(rafId); };
+}
+
 /**
  * Normalise any stored auto data to a canonical object.
  * Handles: null, V1/V2 {enabled,start,end,shape}, V3 breakpoints, random_walk.
@@ -5867,9 +6017,16 @@ function makeAutoRow(paramDef, autoData, onSave) {
     markDirty();
   }
 
+  let cancelAnim = null;   // track RAF loop for walk canvas
+
   function render() {
+    if (cancelAnim) { cancelAnim(); cancelAnim = null; }
     row.innerHTML = '';
     row.className = 'auto-row' + (enabled ? '' : ' disabled');
+
+    // ── Controls row ──
+    const controls = document.createElement('div');
+    controls.className = 'auto-controls';
 
     // ── Enable toggle ──
     const toggleBtn = document.createElement('button');
@@ -5877,13 +6034,13 @@ function makeAutoRow(paramDef, autoData, onSave) {
     toggleBtn.textContent = enabled ? '●' : '○';
     toggleBtn.title = 'Enable/disable automation';
     toggleBtn.onclick = () => { enabled = !enabled; commit(); render(); };
-    row.appendChild(toggleBtn);
+    controls.appendChild(toggleBtn);
 
     // ── Label ──
     const lbl = document.createElement('span');
     lbl.className = 'auto-label';
     lbl.textContent = paramDef.label;
-    row.appendChild(lbl);
+    controls.appendChild(lbl);
 
     // ── Mode toggle button ──
     const modeBtn = document.createElement('button');
@@ -5904,29 +6061,29 @@ function makeAutoRow(paramDef, autoData, onSave) {
       }
       commit(); render();
     };
-    row.appendChild(modeBtn);
+    controls.appendChild(modeBtn);
 
     if (mode === 'random_walk') {
       // ── Random Walk controls: center, depth, speed ──
       const mkLabel = (txt) => { const s = document.createElement('span'); s.className = 'auto-walk-label'; s.textContent = txt; return s; };
 
-      row.appendChild(mkLabel('ctr'));
+      controls.appendChild(mkLabel('ctr'));
       const ctrIn = document.createElement('input');
       ctrIn.type = 'number'; ctrIn.className = 'auto-val';
       ctrIn.min = paramDef.min; ctrIn.max = paramDef.max; ctrIn.step = paramDef.step;
       ctrIn.value = walkCenter;
       ctrIn.title = 'Center value — the walk orbits around this';
-      ctrIn.onchange = () => { walkCenter = parseFloat(ctrIn.value); commit(); };
-      row.appendChild(ctrIn);
+      ctrIn.onchange = () => { walkCenter = parseFloat(ctrIn.value); commit(); render(); };
+      controls.appendChild(ctrIn);
 
-      row.appendChild(mkLabel('dep'));
+      controls.appendChild(mkLabel('dep'));
       const depIn = document.createElement('input');
       depIn.type = 'number'; depIn.className = 'auto-val';
       depIn.min = 0; depIn.max = paramDef.max - paramDef.min; depIn.step = paramDef.step;
       depIn.value = walkDepth;
       depIn.title = 'Depth — maximum deviation from center';
-      depIn.onchange = () => { walkDepth = Math.max(0, parseFloat(depIn.value)); commit(); };
-      row.appendChild(depIn);
+      depIn.onchange = () => { walkDepth = Math.max(0, parseFloat(depIn.value)); commit(); render(); };
+      controls.appendChild(depIn);
 
       const spdBtn = document.createElement('button');
       spdBtn.className = 'auto-shape-btn';
@@ -5937,7 +6094,7 @@ function makeAutoRow(paramDef, autoData, onSave) {
         walkSpeed = WALK_SPEEDS[(idx + 1) % WALK_SPEEDS.length];
         commit(); render();
       };
-      row.appendChild(spdBtn);
+      controls.appendChild(spdBtn);
 
     } else {
       // ── Breakpoint controls ──
@@ -5949,11 +6106,11 @@ function makeAutoRow(paramDef, autoData, onSave) {
         tIn.value = Math.round(bp.t * 100);
         tIn.title = 't position (% of duration)';
         tIn.onchange = () => { bps[i].t = Math.max(0, Math.min(1, parseFloat(tIn.value || 0) / 100)); commit(); };
-        row.appendChild(tIn);
+        controls.appendChild(tIn);
 
         const pct = document.createElement('span');
         pct.className = 'auto-pct'; pct.textContent = '%';
-        row.appendChild(pct);
+        controls.appendChild(pct);
 
         const vIn = document.createElement('input');
         vIn.type = 'number'; vIn.className = 'auto-val';
@@ -5961,7 +6118,7 @@ function makeAutoRow(paramDef, autoData, onSave) {
         vIn.value = bp.value;
         vIn.title = 'Value at this point';
         vIn.onchange = () => { bps[i].value = parseFloat(vIn.value); commit(); };
-        row.appendChild(vIn);
+        controls.appendChild(vIn);
 
         if (i < bps.length - 1) {
           const shapeBtn = document.createElement('button');
@@ -5969,7 +6126,7 @@ function makeAutoRow(paramDef, autoData, onSave) {
           shapeBtn.textContent = autoShapeLabel(bps[i + 1].shape || 'linear');
           shapeBtn.title = 'Curve shape — click to cycle: linear \u2192 exp \u2192 S-curve';
           shapeBtn.onclick = () => { bps[i + 1].shape = autoNextShape(bps[i + 1].shape); commit(); render(); };
-          row.appendChild(shapeBtn);
+          controls.appendChild(shapeBtn);
         }
       });
 
@@ -5988,8 +6145,29 @@ function makeAutoRow(paramDef, autoData, onSave) {
         }
         commit(); render();
       };
-      row.appendChild(midBtn);
+      controls.appendChild(midBtn);
     }
+
+    row.appendChild(controls);
+
+    // ── Mini waveform canvas ──
+    const canvas = document.createElement('canvas');
+    canvas.className = 'auto-canvas';
+    canvas.height = 14;
+    row.appendChild(canvas);
+
+    const currentRaw = mode === 'random_walk'
+      ? { mode: 'random_walk', enabled, center: walkCenter, depth: walkDepth, speed: walkSpeed }
+      : { enabled, breakpoints: bps.map(b => ({ ...b })) };
+
+    requestAnimationFrame(() => {
+      canvas.width = canvas.offsetWidth || 200;
+      if (mode === 'random_walk') {
+        cancelAnim = animateWalkCanvas(canvas, currentRaw, paramDef);
+      } else {
+        drawAutoCanvas(canvas, currentRaw, paramDef, null);
+      }
+    });
   }
 
   render();
