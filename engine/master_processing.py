@@ -239,3 +239,24 @@ class MasterProcessor:
             clone_stage["zi_r"] = stage["zi_r"].copy()
         clone._comp_env = float(self._comp_env)
         return clone
+
+    def set_output_gain_db(self, value_db: float) -> None:
+        """Update master output gain without rebuilding filters."""
+        self._output_gain = 10.0 ** (float(value_db) / 20.0)
+
+    def set_air_db(self, value_db: float) -> None:
+        """Update air (high-shelf) EQ gain, preserving filter states where possible."""
+        self.master_cfg.setdefault("eq", {})["air_db"] = float(value_db)
+        old_filters = self._filters
+        self._filters = []
+        for sos in _build_filter_chain(self.master_cfg, self.sr):
+            self._filters.append({
+                "sos": sos,
+                "zi_l": sosfilt_zi(sos) * 0.0,
+                "zi_r": sosfilt_zi(sos) * 0.0,
+            })
+        # Preserve filter states (same shape guaranteed for same filter order)
+        for new_stage, old_stage in zip(self._filters, old_filters):
+            if new_stage["zi_l"].shape == old_stage["zi_l"].shape:
+                new_stage["zi_l"] = old_stage["zi_l"].copy()
+                new_stage["zi_r"] = old_stage["zi_r"].copy()

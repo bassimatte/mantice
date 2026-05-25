@@ -32,6 +32,7 @@ VOWEL_FORMANTS: dict = {
 from . import config
 from .granular_layer import StreamingGranularLayer
 from .master_processing import MasterProcessor
+from .automation import parse_layer_automation, parse_global_automation
 
 
 def _ensure_freesound_sample(source_file: str, samples_dir: str) -> str:
@@ -1423,6 +1424,9 @@ class StreamingDroneEngine:
         # Seed random state for reproducible preview
         random.seed(seed)
         np.random.seed(seed)
+        # Automation time tracking
+        self._samples_elapsed: int = 0
+        self._duration_samples: int = 0  # set from preset duration; 0 = unknown
         self._build_from_preset(preset)
         self._crossfade_remaining = 0
         self._crossfade_total = 0
@@ -1441,6 +1445,11 @@ class StreamingDroneEngine:
         self._peak_meters = []   # per-layer peak in dBFS, smoothly decaying
         self.saturation = float(preset.get("saturation", 0.3))
         self._master = MasterProcessor(preset.get("master", {}), SR)
+
+        # Reset automation time on preset rebuild
+        self._samples_elapsed = 0
+        duration_secs = float(preset.get("duration", 0))
+        self._duration_samples = int(duration_secs * SR) if duration_secs > 0 else 0
 
         for layer_cfg in preset["layers"]:
             if layer_cfg.get("muted", False):
@@ -1537,6 +1546,17 @@ class StreamingDroneEngine:
         self._binaural_cfg = preset.get("binaural") or {}
         self._binaural_t   = 0  # sample counter for drift-free phase
 
+        # Automation curves — parsed from preset, applied per-chunk
+        # _layer_automations: list parallel to self.layers
+        # _global_automations: dict keyed by GLOBAL_AUTO_PARAMS keys
+        active_layer_cfgs = [
+            cfg for cfg in preset.get("layers", []) if not cfg.get("muted", False)
+        ]
+        self._layer_automations = [
+            parse_layer_automation(cfg) for cfg in active_layer_cfgs
+        ]
+        self._global_automations = parse_global_automation(preset)
+
     def next_chunk(self, n_samples: Optional[int] = None) -> np.ndarray:
         """Generate the next chunk of stereo audio (n_samples, 2)."""
         n = n_samples or self.chunk_size
@@ -1554,6 +1574,11 @@ class StreamingDroneEngine:
             self._build_from_preset(new_preset)
 
         stereo = np.zeros((n, 2), dtype=np.float32)
+
+        # Apply parameter automation before generating this chunk
+        if self._duration_samples > 0 and (self._layer_automations or self._global_automations):
+            t_norm = min(1.0, self._samples_elapsed / self._duration_samples)
+            self._apply_automation(t_norm)
 
         # Layers — signal chain: Synthesis → Filter → Distortion → Pan → Chorus → Flanger → Phaser
         for i, (layer, panner, chorus, layer_filter, distortion, flanger, phaser) in enumerate(zip(
@@ -1625,7 +1650,64 @@ class StreamingDroneEngine:
         # Binaural — absolutely last: psychoacoustic L/R difference must reach headphones unprocessed
         self._apply_binaural(stereo, n)
 
+        # Advance automation time counter
+        self._samples_elapsed += n
+
         return stereo
+
+    def _apply_automation(self, t_norm: float) -> None:
+        """Inject automated parameter values for this chunk's time position."""
+        # Per-layer automations
+        for i, auto in enumerate(self._layer_automations):
+            if not auto:
+                continue
+
+            if "filter_cutoff" in auto:
+                v = auto["filter_cutoff"].value_at(t_norm)
+                flt = self.filters[i]
+                flt.base_cutoff = v
+                if flt.filter_type not in ("off", "comb", "formant"):
+                    flt._build_filter(v)
+
+            if "fm_index" in auto:
+                v = auto["fm_index"].value_at(t_norm)
+                layer = self.layers[i]
+                if hasattr(layer, "fm_indices"):
+                    layer.fm_indices[:] = np.float32(v)
+
+            if "distortion_drive" in auto:
+                self.distortions[i].drive = auto["distortion_drive"].value_at(t_norm)
+
+            if "volume_db" in auto:
+                v = auto["volume_db"].value_at(t_norm)
+                self.layers[i]._gain = np.float32(10.0 ** (v / 20.0))
+
+            if "width" in auto:
+                self.panners[i].width = auto["width"].value_at(t_norm)
+
+        # Global automations
+        g = self._global_automations
+        if not g:
+            return
+
+        if "reverb_mix" in g:
+            self._reverb.mix = g["reverb_mix"].value_at(t_norm)
+
+        if "reverb_decay_trim" in g:
+            trim = g["reverb_decay_trim"].value_at(t_norm)
+            self._reverb.decay = 0.60 + float(np.clip(trim, 0.0, 1.0)) * 0.36
+
+        if "shimmer_wet" in g:
+            self._shimmer.wet = g["shimmer_wet"].value_at(t_norm)
+
+        if "binaural_beat_hz" in g:
+            self._binaural_cfg["beat_hz"] = g["binaural_beat_hz"].value_at(t_norm)
+
+        if "master_air_db" in g:
+            self._master.set_air_db(g["master_air_db"].value_at(t_norm))
+
+        if "master_output_db" in g:
+            self._master.set_output_gain_db(g["master_output_db"].value_at(t_norm))
 
     def reload(self, new_preset: dict, crossfade_secs: float = 3.0) -> None:
         """
