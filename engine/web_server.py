@@ -262,6 +262,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "distortion_type": layer.get("distortion_type", "soft"),
                 "position_mode": layer.get("position_mode", "linear"),
                 "position_chaos": layer.get("position_chaos", 0.3),
+                "automation": layer.get("automation") or {},
             })
 
     binaural = preset.get("binaural") or {}
@@ -339,6 +340,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
             "depth":    float(flanger.get("depth", 0.5)),
             "feedback": float(flanger.get("feedback", 0.4)),
         },
+        "automation": preset.get("automation") or {},
     }
 
 
@@ -411,6 +413,7 @@ def _ui_params_to_preset(params: dict) -> dict:
             "distortion_type": l.get("distortion_type", "soft"),
             "position_mode": l.get("position_mode", "linear"),
             "position_chaos": float(l.get("position_chaos", 0.3)),
+            "automation": l.get("automation") or {},
         })
     binaural = params.get("binaural", {})
     reverb = params.get("reverb", {})
@@ -470,6 +473,7 @@ def _ui_params_to_preset(params: dict) -> dict:
             "depth":    float(flanger_ui.get("depth", 0.5)),
             "feedback": float(flanger_ui.get("feedback", 0.4)),
         } if float(flanger_ui.get("wet", 0.0)) > 0 else None,
+        "automation": params.get("automation") or {},
     }
     return preset
 

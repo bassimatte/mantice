@@ -193,6 +193,8 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "phaser_center_hz":  float(layer.get("phaser_center_hz", 800.0)),
         "phaser_feedback":   float(layer.get("phaser_feedback", 0.0)),
         "phaser_stages":     int(layer.get("phaser_stages", 4)),
+        # V26 parameter automation
+        "automation":        layer.get("automation") or {},
     }
 
 
@@ -274,6 +276,8 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "phaser_center_hz":  float(layer.get("phaser_center_hz", 800.0)),
         "phaser_feedback":   float(layer.get("phaser_feedback", 0.0)),
         "phaser_stages":     int(layer.get("phaser_stages", 4)),
+        # V26 parameter automation
+        "automation":        layer.get("automation") or {},
     }
 
 
@@ -295,6 +299,7 @@ def _from_v1(raw: dict) -> dict:
         "flanger":       raw.get("flanger"),
         "shimmer":       raw.get("shimmer"),
         "master":        raw.get("master"),
+        "automation":    raw.get("automation") or {},
         "layers": [
             _normalize_layer_v1(l)
             for l in raw.get("layers", [])
@@ -323,6 +328,7 @@ def _from_v2(raw: dict) -> dict:
         "shimmer":       raw.get("shimmer"),
         "master":        raw.get("master"),
         "saturation":    float(raw.get("saturation", 0.3)),
+        "automation":    raw.get("automation") or {},
         "layers": [
             _normalize_layer_v2(l)
             for l in raw.get("layers", [])
