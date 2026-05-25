@@ -339,37 +339,38 @@ class StreamingLayer:
         return np.column_stack([filtered_L * self._gain, filtered_R * self._gain])
 
     def _generate_noise(self, n_samples: int) -> np.ndarray:
-        """Generate colored noise (white, pink, or brown)."""
+        """Generate colored noise (white, pink, or brown).
+
+        Per-chunk peak normalization is intentionally NOT used here — dividing by
+        chunk peak causes amplitude discontinuities at chunk boundaries (clicks),
+        especially for pink/brown noise whose LF energy varies slowly.  Instead a
+        fixed scale derived from the filter's steady-state RMS is applied so the
+        output has consistent amplitude without any inter-chunk jumps.
+        """
         white = np.random.randn(n_samples).astype(np.float32)
         if self.noise_color == "white":
             return white
         elif self.noise_color == "brown":
-            # Brown noise: integrated white noise with HPF to prevent DC drift
+            # Brown noise: integrated white noise. a=0.998, gain=0.02
+            # steady-state std ≈ 0.02/sqrt(1-0.998²) ≈ 0.316 → scale × 3.16 ≈ 1.0
             out = np.empty(n_samples, dtype=np.float32)
             state = self._brown_state
             for i in range(n_samples):
                 state = state * 0.998 + white[i] * 0.02
                 out[i] = state
             self._brown_state = state
-            # Normalize
-            peak = np.max(np.abs(out))
-            if peak > 0.001:
-                out /= peak
-            return out
+            return out * np.float32(3.16)
         else:
-            # Pink noise: 1-pole lowpass approximation (simple and efficient)
+            # Pink noise: 1-pole lowpass. a=0.94, gain=0.06
+            # steady-state std ≈ 0.06/sqrt(1-0.94²) ≈ 0.176 → scale × 5.68 ≈ 1.0
             out = np.empty(n_samples, dtype=np.float32)
             state = self._noise_state
-            alpha = np.float32(0.06)  # ~1/f characteristic
+            alpha = np.float32(0.06)
             for i in range(n_samples):
                 state = state * np.float32(0.94) + white[i] * alpha
                 out[i] = state
             self._noise_state = state
-            # Normalize
-            peak = np.max(np.abs(out))
-            if peak > 0.001:
-                out /= peak
-            return out
+            return out * np.float32(5.68)
 
 
 class StreamingSubtractiveLayer:
