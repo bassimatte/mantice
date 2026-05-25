@@ -46,6 +46,7 @@ from .preset_loader import load_preset, load_preset_from_yaml_string
 from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
 from .generator import generate_preset, mutate_preset, save_generated_preset
+from .convolution_reverb import apply_convolution_reverb
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -866,7 +867,14 @@ async def render_endpoint(request: Request):
         seed = int(body.get("seed", 42))
 
         def _render():
-            engine = StreamingDroneEngine(preset, seed=seed)
+            # Disable FDN reverb in the engine — convolution IR replaces it for renders
+            preset_for_render = {**preset}
+            reverb_cfg = dict(preset.get("reverb") or {})
+            reverb_enabled = reverb_cfg.get("enabled", False)
+            if reverb_enabled:
+                preset_for_render["reverb"] = {**reverb_cfg, "enabled": False}
+
+            engine = StreamingDroneEngine(preset_for_render, seed=seed)
             total_samples = int(preset["duration"] * render_sr)
             chunk_size = 2048
             chunks = []
@@ -883,6 +891,14 @@ async def render_endpoint(request: Request):
                 from math import gcd
                 g = gcd(out_sr, render_sr)
                 raw = resample_poly(raw, out_sr // g, render_sr // g, axis=0)
+
+            # Apply convolution reverb against real IR (replaces streaming FDN for renders)
+            if reverb_enabled:
+                space      = reverb_cfg.get("space", "cathedral")
+                mix        = float(reverb_cfg.get("mix", 0.3))
+                decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
+                print(f"  [render] Applying IR convolution reverb: space={space} mix={mix:.2f}…")
+                raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=out_sr)
 
             # TPDF dither before quantisation (adds 1 LSB of shaped noise, eliminates truncation distortion)
             if out_bd == "PCM_24":
