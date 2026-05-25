@@ -2100,6 +2100,17 @@ async function loadPresetList() {
   const result = await api('/api/presets');
   allPresets = Array.isArray(result) ? result : [];
   backendOffline = !Array.isArray(result);
+  // Apply manifest names to community presets (client-side override, works even before backend redeploy)
+  try {
+    const manifestUrl = 'https://raw.githubusercontent.com/bassimatte/mantice/main/shared/manifest.json';
+    const mRes = await fetch(manifestUrl);
+    if (mRes.ok) {
+      const manifest = await mRes.json();
+      allPresets = allPresets.map(p =>
+        p.source === 'community' && manifest[p.id] ? { ...p, name: manifest[p.id] } : p
+      );
+    }
+  } catch (_) {}
   buildTagFilter();
   renderPresetList();
 
