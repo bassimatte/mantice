@@ -1440,6 +1440,7 @@ class StreamingDroneEngine:
         # Seed random state for reproducible preview
         random.seed(seed)
         np.random.seed(seed)
+        self._seed = seed
         # Automation time tracking
         self._samples_elapsed: int = 0
         self._duration_samples: int = 0  # set from preset duration; 0 = unknown
@@ -1586,9 +1587,9 @@ class StreamingDroneEngine:
             cfg for cfg in preset.get("layers", []) if not cfg.get("muted", False)
         ]
         self._layer_automations = [
-            parse_layer_automation(cfg) for cfg in active_layer_cfgs
+            parse_layer_automation(cfg, seed=self._seed) for cfg in active_layer_cfgs
         ]
-        self._global_automations = parse_global_automation(preset)
+        self._global_automations = parse_global_automation(preset, seed=self._seed)
 
     def next_chunk(self, n_samples: Optional[int] = None) -> np.ndarray:
         """Generate the next chunk of stereo audio (n_samples, 2)."""

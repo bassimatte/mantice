@@ -3,14 +3,17 @@ Parameter automation curves for Mantice.
 
 V1/V2: simple start→end ramp with a single curve shape.
 V3:    arbitrary breakpoints — multiple (t, value, shape) tuples per parameter.
+V3+:   random walk — smooth seeded noise that orbits a center value.
 
-Both formats are supported in YAML presets and the JS UI.
+All formats are supported in YAML presets and the JS UI.
 Automation is opt-in per parameter — off by default.
 """
 
 from __future__ import annotations
 import math
+import numpy as np
 from typing import Any
+
 
 
 def _apply_shape(t: float, shape: str) -> float:
@@ -146,7 +149,111 @@ class AutomationCurve:
         )
 
 
-# ── Per-preset automation structure ──────────────────────────────────────────
+# ── Random Walk Curve ─────────────────────────────────────────────────────────
+
+# Maps the three named speed presets to cycles-per-render
+_WALK_SPEED_MAP: dict[str, float] = {
+    "slow": 0.25,
+    "med":  0.85,
+    "fast": 2.5,
+}
+
+
+class RandomWalkCurve:
+    """
+    A smooth, seeded random walk for a parameter.
+
+    Instead of authored breakpoints, the value orbits a center
+    value within ±depth using a sum of incommensurate sinusoids
+    (no external dependencies, fully deterministic from seed).
+
+    YAML format:
+        {enabled: true, mode: random_walk,
+         center: 1200, depth: 800, speed: slow}
+
+    speed choices: slow | med | fast
+    """
+
+    SPEEDS = tuple(_WALK_SPEED_MAP.keys())
+    _TABLE_SIZE = 1024
+
+    def __init__(
+        self,
+        center: float,
+        depth: float,
+        speed: str = "med",
+        seed: int = 42,
+        enabled: bool = True,
+    ) -> None:
+        self.center  = float(center)
+        self.depth   = float(depth)
+        self.speed   = speed if speed in _WALK_SPEED_MAP else "med"
+        self.enabled = bool(enabled)
+        self._table  = self._generate(seed)
+
+    def _generate(self, seed: int) -> np.ndarray:
+        """Precompute smooth noise table in [-1, 1] from seed."""
+        rng = np.random.RandomState(int(seed) % (2 ** 32))
+        N = self._TABLE_SIZE
+        t = np.linspace(0.0, 1.0, N)
+        cycles = _WALK_SPEED_MAP[self.speed]
+        signal = np.zeros(N, dtype=np.float64)
+        for k in range(6):
+            freq  = cycles * (k + 1) * rng.uniform(0.75, 1.25)
+            phase = rng.uniform(0.0, 2.0 * math.pi)
+            amp   = 1.0 / (k + 1)
+            signal += amp * np.sin(2.0 * math.pi * freq * t + phase)
+        peak = np.abs(signal).max()
+        if peak > 0.0:
+            signal /= peak
+        return signal.astype(np.float32)
+
+    def value_at(self, t_norm: float) -> float:
+        """Return interpolated value at normalised time t_norm ∈ [0, 1]."""
+        if not self.enabled:
+            return self.center
+        t = max(0.0, min(1.0, float(t_norm)))
+        idx = t * (self._TABLE_SIZE - 1)
+        i0  = int(idx)
+        i1  = min(i0 + 1, self._TABLE_SIZE - 1)
+        frac = idx - i0
+        raw = float(self._table[i0]) * (1.0 - frac) + float(self._table[i1]) * frac
+        return self.center + self.depth * raw
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any], seed: int = 42) -> "RandomWalkCurve":
+        return cls(
+            center  = float(d.get("center", 0.0)),
+            depth   = float(d.get("depth", 0.0)),
+            speed   = str(d.get("speed", "med")),
+            seed    = seed,
+            enabled = bool(d.get("enabled", True)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode":    "random_walk",
+            "enabled": self.enabled,
+            "center":  self.center,
+            "depth":   self.depth,
+            "speed":   self.speed,
+        }
+
+    def __repr__(self) -> str:
+        return (
+            f"RandomWalkCurve(center={self.center}, depth={self.depth}, "
+            f"speed={self.speed!r}, enabled={self.enabled})"
+        )
+
+
+def _curve_from_dict(d: dict[str, Any], seed: int = 42) -> "AutomationCurve | RandomWalkCurve":
+    """Factory: returns the correct curve type based on the 'mode' field."""
+    if d.get("mode") == "random_walk":
+        return RandomWalkCurve.from_dict(d, seed=seed)
+    return AutomationCurve.from_dict(d)
+
+
+
 
 # Automatable per-layer parameters with (min, max) clamp ranges
 LAYER_AUTO_PARAMS: dict[str, tuple[float, float]] = {
@@ -172,34 +279,41 @@ GLOBAL_AUTO_PARAMS: dict[str, tuple[float, float]] = {
 }
 
 
-def _clamp_curve(curve: AutomationCurve, lo: float, hi: float) -> AutomationCurve:
-    """Clamp all breakpoint values to [lo, hi] in-place and return the curve."""
+def _clamp_curve(curve: "AutomationCurve | RandomWalkCurve", lo: float, hi: float) -> "AutomationCurve | RandomWalkCurve":
+    """Clamp values to [lo, hi]. For breakpoint curves, clamps each node value.
+    For random walk curves, clamps center and ensures depth doesn't exceed range."""
+    if isinstance(curve, RandomWalkCurve):
+        curve.center = max(lo, min(hi, curve.center))
+        max_depth = (hi - lo) / 2.0
+        curve.depth = min(curve.depth, max_depth)
+        return curve
+    # AutomationCurve
     curve.breakpoints = [
         (t, max(lo, min(hi, v)), s) for t, v, s in curve.breakpoints
     ]
     return curve
 
 
-def parse_layer_automation(layer_cfg: dict) -> dict[str, AutomationCurve]:
+def parse_layer_automation(layer_cfg: dict, seed: int = 42) -> dict:
     """Extract automation curves from a layer config dict."""
-    result: dict[str, AutomationCurve] = {}
+    result = {}
     auto_block = layer_cfg.get("automation") or {}
     for key in LAYER_AUTO_PARAMS:
         if key in auto_block and isinstance(auto_block[key], dict):
-            curve = AutomationCurve.from_dict(auto_block[key])
+            curve = _curve_from_dict(auto_block[key], seed=seed)
             if curve.enabled:
                 lo, hi = LAYER_AUTO_PARAMS[key]
                 result[key] = _clamp_curve(curve, lo, hi)
     return result
 
 
-def parse_global_automation(preset: dict) -> dict[str, AutomationCurve]:
+def parse_global_automation(preset: dict, seed: int = 42) -> dict:
     """Extract global automation curves from a preset dict."""
-    result: dict[str, AutomationCurve] = {}
+    result = {}
     auto_block = preset.get("automation") or {}
     for key in GLOBAL_AUTO_PARAMS:
         if key in auto_block and isinstance(auto_block[key], dict):
-            curve = AutomationCurve.from_dict(auto_block[key])
+            curve = _curve_from_dict(auto_block[key], seed=seed)
             if curve.enabled:
                 lo, hi = GLOBAL_AUTO_PARAMS[key]
                 result[key] = _clamp_curve(curve, lo, hi)

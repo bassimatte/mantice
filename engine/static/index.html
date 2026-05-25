@@ -535,6 +535,11 @@ main {
 .auto-shape-btn:hover { color:var(--text); }
 .auto-mid-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.12); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-left:3px; flex-shrink:0; }
 .auto-mid-btn:hover { border-color:var(--accent); color:var(--accent); }
+.auto-mode-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.14); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-right:3px; flex-shrink:0; }
+.auto-mode-btn:hover { border-color:var(--accent); color:var(--accent); }
+.auto-mode-btn.walk { border-color:rgba(160,210,160,0.4); color:rgb(140,200,140); }
+.auto-mode-btn.walk:hover { border-color:rgb(160,220,160); color:rgb(180,240,180); }
+.auto-walk-label { font-size:9px; color:var(--text-dim); flex-shrink:0; margin-left:3px; }
 .auto-quickset { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:8px; padding-bottom:7px; border-bottom:1px solid rgba(255,255,255,0.07); }
 .auto-quickset-label { font-size:9px; color:var(--text-dim); flex-shrink:0; margin-right:2px; }
 .auto-quickset-btn { cursor:pointer; font-size:9px; background:var(--surface2); border:1px solid rgba(255,255,255,0.14); border-radius:10px; color:var(--text); padding:2px 9px; flex-shrink:0; transition:border-color .15s, color .15s; }
@@ -5795,15 +5800,24 @@ function evalBreakpoints(bps, t) {
 }
 
 /**
- * Normalise any stored auto data to V3 breakpoint format (max 3 breakpoints).
- * Accepts: null, V1/V2 {enabled,start,end,shape}, V3 {enabled,breakpoints:[...]}.
+ * Normalise any stored auto data to a canonical object.
+ * Handles: null, V1/V2 {enabled,start,end,shape}, V3 breakpoints, random_walk.
  */
 function autoNormalize(autoData, presetVal) {
+  // Random walk — pass through as-is
+  if (autoData && autoData.mode === 'random_walk') {
+    return {
+      mode: 'random_walk',
+      enabled: !!autoData.enabled,
+      center: autoData.center ?? presetVal,
+      depth:  autoData.depth  ?? 0,
+      speed:  autoData.speed  ?? 'med',
+    };
+  }
   if (!autoData) {
     return { enabled: false, breakpoints: [{ t: 0, value: presetVal, shape: 'linear' }, { t: 1, value: presetVal, shape: 'linear' }] };
   }
   if (Array.isArray(autoData.breakpoints)) {
-    // Keep at most 3 breakpoints
     const bps = autoData.breakpoints.slice(0, 3);
     return { enabled: !!autoData.enabled, breakpoints: bps };
   }
@@ -5826,15 +5840,27 @@ function autoNormalize(autoData, presetVal) {
  * t% inputs control when the sweep starts/ends; values outside the sweep hold.
  */
 function makeAutoRow(paramDef, autoData, onSave) {
-  const raw = autoNormalize(autoData, paramDef.presetVal);
-  let bps     = raw.breakpoints.map(b => ({ ...b }));
-  let enabled = raw.enabled;
+  const raw    = autoNormalize(autoData, paramDef.presetVal);
+  let mode     = raw.mode === 'random_walk' ? 'random_walk' : 'breakpoints';
+  let bps      = mode === 'breakpoints' ? raw.breakpoints.map(b => ({ ...b }))
+                  : [{ t: 0, value: paramDef.presetVal, shape: 'linear' }, { t: 1, value: paramDef.presetVal, shape: 'linear' }];
+  let enabled  = raw.enabled;
+  // Random walk state (used when mode === 'random_walk')
+  let walkCenter = raw.center  ?? paramDef.presetVal;
+  let walkDepth  = raw.depth   ?? 0;
+  let walkSpeed  = raw.speed   ?? 'med';
+
+  const WALK_SPEEDS = ['slow', 'med', 'fast'];
 
   const row = document.createElement('div');
 
   function commit() {
-    bps.sort((a, b) => a.t - b.t);
-    onSave({ enabled, breakpoints: bps.map(b => ({ ...b })) });
+    if (mode === 'random_walk') {
+      onSave({ mode: 'random_walk', enabled, center: walkCenter, depth: walkDepth, speed: walkSpeed });
+    } else {
+      bps.sort((a, b) => a.t - b.t);
+      onSave({ enabled, breakpoints: bps.map(b => ({ ...b })) });
+    }
     updateAutoBadge();
     markDirty();
   }
@@ -5843,7 +5869,7 @@ function makeAutoRow(paramDef, autoData, onSave) {
     row.innerHTML = '';
     row.className = 'auto-row' + (enabled ? '' : ' disabled');
 
-    // ── Toggle ──
+    // ── Enable toggle ──
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'auto-toggle-btn' + (enabled ? ' on' : '');
     toggleBtn.textContent = enabled ? '●' : '○';
@@ -5857,58 +5883,111 @@ function makeAutoRow(paramDef, autoData, onSave) {
     lbl.textContent = paramDef.label;
     row.appendChild(lbl);
 
-    // ── Breakpoints interleaved with shape buttons ──
-    bps.sort((a, b) => a.t - b.t);
-    bps.forEach((bp, i) => {
-      // t% input
-      const tIn = document.createElement('input');
-      tIn.type = 'number'; tIn.className = 'auto-t';
-      tIn.min = 0; tIn.max = 100; tIn.step = 1;
-      tIn.value = Math.round(bp.t * 100);
-      tIn.title = 't position (% of duration)';
-      tIn.onchange = () => { bps[i].t = Math.max(0, Math.min(1, parseFloat(tIn.value || 0) / 100)); commit(); };
-      row.appendChild(tIn);
-
-      const pct = document.createElement('span');
-      pct.className = 'auto-pct'; pct.textContent = '%';
-      row.appendChild(pct);
-
-      // Value input
-      const vIn = document.createElement('input');
-      vIn.type = 'number'; vIn.className = 'auto-val';
-      vIn.min = paramDef.min; vIn.max = paramDef.max; vIn.step = paramDef.step;
-      vIn.value = bp.value;
-      vIn.title = 'Value at this point';
-      vIn.onchange = () => { bps[i].value = parseFloat(vIn.value); commit(); };
-      row.appendChild(vIn);
-
-      // Shape button between breakpoints (shape stored on destination bps[i+1])
-      if (i < bps.length - 1) {
-        const shapeBtn = document.createElement('button');
-        shapeBtn.className = 'auto-shape-btn';
-        shapeBtn.textContent = autoShapeLabel(bps[i + 1].shape || 'linear');
-        shapeBtn.title = 'Curve shape — click to cycle: linear → exp → S-curve';
-        shapeBtn.onclick = () => { bps[i + 1].shape = autoNextShape(bps[i + 1].shape); commit(); render(); };
-        row.appendChild(shapeBtn);
-      }
-    });
-
-    // ── + mid / − mid button ──
-    const hasMid = bps.length === 3;
-    const midBtn = document.createElement('button');
-    midBtn.className = 'auto-mid-btn';
-    midBtn.textContent = hasMid ? '− mid' : '+ mid';
-    midBtn.title = hasMid ? 'Remove midpoint' : 'Add midpoint (arc / bell shapes)';
-    midBtn.onclick = () => {
-      if (hasMid) {
-        bps = [bps[0], bps[2]];
+    // ── Mode toggle button ──
+    const modeBtn = document.createElement('button');
+    modeBtn.className = 'auto-mode-btn' + (mode === 'random_walk' ? ' walk' : '');
+    modeBtn.textContent = mode === 'random_walk' ? '\u224B walk' : '\u2500bp\u2500';
+    modeBtn.title = 'Click to toggle: breakpoints \u2194 random walk';
+    modeBtn.onclick = () => {
+      if (mode === 'breakpoints') {
+        // Switch to walk — seed center from first breakpoint value
+        mode = 'random_walk';
+        walkCenter = bps[0].value;
+        walkDepth  = Math.abs(bps[bps.length - 1].value - bps[0].value) * 0.5 || Math.abs(paramDef.max - paramDef.min) * 0.1;
+        walkSpeed  = 'med';
       } else {
-        const midT = (bps[0].t + bps[1].t) / 2;
-        bps = [bps[0], { t: midT, value: evalBreakpoints(bps, midT), shape: 'linear' }, bps[1]];
+        // Switch back to breakpoints — seed from walk center
+        mode = 'breakpoints';
+        bps  = [{ t: 0, value: walkCenter, shape: 'linear' }, { t: 1, value: walkCenter, shape: 'linear' }];
       }
       commit(); render();
     };
-    row.appendChild(midBtn);
+    row.appendChild(modeBtn);
+
+    if (mode === 'random_walk') {
+      // ── Random Walk controls: center, depth, speed ──
+      const mkLabel = (txt) => { const s = document.createElement('span'); s.className = 'auto-walk-label'; s.textContent = txt; return s; };
+
+      row.appendChild(mkLabel('ctr'));
+      const ctrIn = document.createElement('input');
+      ctrIn.type = 'number'; ctrIn.className = 'auto-val';
+      ctrIn.min = paramDef.min; ctrIn.max = paramDef.max; ctrIn.step = paramDef.step;
+      ctrIn.value = walkCenter;
+      ctrIn.title = 'Center value — the walk orbits around this';
+      ctrIn.onchange = () => { walkCenter = parseFloat(ctrIn.value); commit(); };
+      row.appendChild(ctrIn);
+
+      row.appendChild(mkLabel('dep'));
+      const depIn = document.createElement('input');
+      depIn.type = 'number'; depIn.className = 'auto-val';
+      depIn.min = 0; depIn.max = paramDef.max - paramDef.min; depIn.step = paramDef.step;
+      depIn.value = walkDepth;
+      depIn.title = 'Depth — maximum deviation from center';
+      depIn.onchange = () => { walkDepth = Math.max(0, parseFloat(depIn.value)); commit(); };
+      row.appendChild(depIn);
+
+      const spdBtn = document.createElement('button');
+      spdBtn.className = 'auto-shape-btn';
+      spdBtn.textContent = walkSpeed;
+      spdBtn.title = 'Click to cycle speed: slow \u2192 med \u2192 fast';
+      spdBtn.onclick = () => {
+        const idx = WALK_SPEEDS.indexOf(walkSpeed);
+        walkSpeed = WALK_SPEEDS[(idx + 1) % WALK_SPEEDS.length];
+        commit(); render();
+      };
+      row.appendChild(spdBtn);
+
+    } else {
+      // ── Breakpoint controls ──
+      bps.sort((a, b) => a.t - b.t);
+      bps.forEach((bp, i) => {
+        const tIn = document.createElement('input');
+        tIn.type = 'number'; tIn.className = 'auto-t';
+        tIn.min = 0; tIn.max = 100; tIn.step = 1;
+        tIn.value = Math.round(bp.t * 100);
+        tIn.title = 't position (% of duration)';
+        tIn.onchange = () => { bps[i].t = Math.max(0, Math.min(1, parseFloat(tIn.value || 0) / 100)); commit(); };
+        row.appendChild(tIn);
+
+        const pct = document.createElement('span');
+        pct.className = 'auto-pct'; pct.textContent = '%';
+        row.appendChild(pct);
+
+        const vIn = document.createElement('input');
+        vIn.type = 'number'; vIn.className = 'auto-val';
+        vIn.min = paramDef.min; vIn.max = paramDef.max; vIn.step = paramDef.step;
+        vIn.value = bp.value;
+        vIn.title = 'Value at this point';
+        vIn.onchange = () => { bps[i].value = parseFloat(vIn.value); commit(); };
+        row.appendChild(vIn);
+
+        if (i < bps.length - 1) {
+          const shapeBtn = document.createElement('button');
+          shapeBtn.className = 'auto-shape-btn';
+          shapeBtn.textContent = autoShapeLabel(bps[i + 1].shape || 'linear');
+          shapeBtn.title = 'Curve shape — click to cycle: linear \u2192 exp \u2192 S-curve';
+          shapeBtn.onclick = () => { bps[i + 1].shape = autoNextShape(bps[i + 1].shape); commit(); render(); };
+          row.appendChild(shapeBtn);
+        }
+      });
+
+      // ── + mid / − mid ──
+      const hasMid = bps.length === 3;
+      const midBtn = document.createElement('button');
+      midBtn.className = 'auto-mid-btn';
+      midBtn.textContent = hasMid ? '\u2212 mid' : '+ mid';
+      midBtn.title = hasMid ? 'Remove midpoint' : 'Add midpoint (arc / bell shapes)';
+      midBtn.onclick = () => {
+        if (hasMid) {
+          bps = [bps[0], bps[2]];
+        } else {
+          const midT = (bps[0].t + bps[1].t) / 2;
+          bps = [bps[0], { t: midT, value: evalBreakpoints(bps, midT), shape: 'linear' }, bps[1]];
+        }
+        commit(); render();
+      };
+      row.appendChild(midBtn);
+    }
   }
 
   render();
