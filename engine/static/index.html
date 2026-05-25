@@ -2994,6 +2994,9 @@ function showLayerParams(layer) {
         <span class="value" id="lp-root-val">${rootLabel(layer.root)}</span><span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>
       </div>`;
 
+  const layerSpread = layer.spread ?? 1.0;
+  const layerBlend  = layer.blend  ?? 1.0;
+
   const fmSynthHtml = `
     <div class="param-row">
       <label>Volume (dB)</label>
@@ -3006,6 +3009,16 @@ function showLayerParams(layer) {
       <label>Voices</label>
       <input type="range" id="lp-voices" min="1" max="64" step="1" value="${layer.voices}" >
       <span class="value" id="lp-voices-val">${Number(layer.voices).toFixed(0)}</span>
+    </div>
+    <div class="param-row">
+      <label>Spread</label>
+      <input type="range" id="lp-spread" min="0" max="2" step="0.05" value="${layerSpread}" >
+      <span class="value" id="lp-spread-val">${layerSpread.toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Blend</label>
+      <input type="range" id="lp-blend" min="0" max="1" step="0.05" value="${layerBlend}" >
+      <span class="value" id="lp-blend-val">${layerBlend.toFixed(2)}</span>
     </div>
     <div class="param-row">
       <label>FM Index</label>
@@ -3043,9 +3056,6 @@ function showLayerParams(layer) {
       </select>
     </div>
   `;
-
-  const layerSpread = layer.spread ?? 1.0;
-  const layerBlend  = layer.blend  ?? 1.0;
 
   // Granular params
   const granularParams = [
@@ -3313,19 +3323,6 @@ function showLayerParams(layer) {
   const layerPan   = layer.pan   ?? 0.0;
   const layerWidth = layer.width ?? 1.0;
 
-  const spreadBlendHtml = layerType === 'fm' ? `
-    <div class="param-row">
-      <label>Spread</label>
-      <input type="range" id="lp-spread" min="0" max="2" step="0.05" value="${layerSpread}" >
-      <span class="value" id="lp-spread-val">${layerSpread.toFixed(2)}</span>
-    </div>
-    <div class="param-row">
-      <label>Blend</label>
-      <input type="range" id="lp-blend" min="0" max="1" step="0.05" value="${layerBlend}" >
-      <span class="value" id="lp-blend-val">${layerBlend.toFixed(2)}</span>
-    </div>
-  ` : '';
-
   const spatialHtml = `
     <div class="card-subsection-label">Stereo</div>
     <div class="param-row">
@@ -3338,7 +3335,6 @@ function showLayerParams(layer) {
       <input type="range" id="lp-width" min="0" max="2" step="0.05" value="${layerWidth}" >
       <span class="value" id="lp-width-val">${layerWidth.toFixed(2)}</span>
     </div>
-    ${spreadBlendHtml}
     <div class="card-subsection-label" style="margin-top:8px;">Position</div>
     <div class="param-row">
       <label>Quadrant</label>
