@@ -81,7 +81,7 @@ def oversampled_saturate(audio: np.ndarray, saturation: float, factor: int = 4) 
     """
     if saturation <= 0.01:
         return audio
-    from scipy.signal import resample_poly, butter, sosfilt
+    from scipy.signal import resample_poly, butter, sosfiltfilt
     drive = 1.0 + saturation * 3.0
     norm  = float(np.tanh(drive))
     n_in  = audio.shape[0]
@@ -89,9 +89,12 @@ def oversampled_saturate(audio: np.ndarray, saturation: float, factor: int = 4) 
     up = resample_poly(audio, factor, 1, axis=0)
     # 2. Waveshaper at oversampled rate
     up = np.tanh(up * drive) / norm
-    # 3. Anti-image low-pass just below original Nyquist (0.9/factor of new Nyquist)
+    # 3. Anti-image low-pass just below original Nyquist.
+    #    sosfiltfilt (bidirectional, zero-phase) automatically pads edges so the
+    #    filter starts from a stable state — avoids the click that sosfilt
+    #    produces when the first sample is non-zero (zero initial-condition step).
     sos = butter(8, 0.9 / factor, output="sos")
-    up  = sosfilt(sos, up, axis=0)
+    up  = sosfiltfilt(sos, up, axis=0)
     # 4. Decimate back to original rate
     result = resample_poly(up, 1, factor, axis=0)
     # Exact-length guard (float rounding in resample_poly)
