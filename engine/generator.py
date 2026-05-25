@@ -100,19 +100,6 @@ _MOOD_PROFILES = {
         "air_prob": 0.8,
         "mood_tags": ["organic", "natural", "earthy"],
     },
-    "chaotic": {
-        "root_range": (30, 2000),
-        "voice_range": (40, 120),
-        "fm_index_range": (0.3, 1.5),
-        "drift_range": (0.03, 0.08),
-        "ratios_pool": [[1.0, 1.17, 1.83, 2.41], [0.5, 1.0, 1.61, 2.72], [1.0, 1.33, 1.87, 3.14]],
-        "reverb_decay": (0.85, 0.95),
-        "reverb_damping": (0.2, 0.5),
-        "reverb_room": (0.5, 1.0),
-        "earth_prob": 0.5,
-        "air_prob": 0.7,
-        "mood_tags": ["chaotic", "dense", "unpredictable"],
-    },
 }
 
 _QUADRANTS = ["front_left", "front_right", "rear_left", "rear_right", "center"]
