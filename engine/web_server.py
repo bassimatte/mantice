@@ -852,57 +852,65 @@ async def render_endpoint(request: Request):
     try:
         preset = _ui_params_to_preset(params)
         duration = preset["duration"]
-        print(f"  [render] Starting {duration}s render ({fmt})…")
 
-        # Check hires flag from request
+        # Determine output quality locally — never mutate global config
         hires = body.get("hires", False)
-        if hires:
-            config.set_hires()
+        render_sr   = config.STREAM_SAMPLE_RATE          # synthesis always at 22050
+        out_sr      = 48_000 if hires else 22_050        # output sample rate
+        out_bd      = "PCM_24" if hires else "PCM_16"
+        mp3_bitrate = 320 if hires else 192
 
-        # Run CPU-heavy render in thread
+        print(f"  [render] Starting {duration}s render ({fmt}, {'hi-res 48k/24b' if hires else '22k/16b'})…")
+
         loop = asyncio.get_event_loop()
         seed = int(body.get("seed", 42))
 
         def _render():
             engine = StreamingDroneEngine(preset, seed=seed)
-            sr = config.STREAM_SAMPLE_RATE
-            total_samples = int(preset["duration"] * sr)
-            chunk_size = 2048  # must match engine's FDN reverb buffer size
+            total_samples = int(preset["duration"] * render_sr)
+            chunk_size = 2048
             chunks = []
             remaining = total_samples
             while remaining > 0:
                 n = min(chunk_size, remaining)
                 chunks.append(engine.next_chunk(n))
                 remaining -= n
-            return np.concatenate(chunks, axis=0)
+            raw = np.concatenate(chunks, axis=0)
+
+            # Upsample to target SR if hi-res (polyphase, band-limited, no aliasing)
+            if out_sr != render_sr:
+                from scipy.signal import resample_poly
+                from math import gcd
+                g = gcd(out_sr, render_sr)
+                raw = resample_poly(raw, out_sr // g, render_sr // g, axis=0)
+
+            # TPDF dither before quantisation (adds 1 LSB of shaped noise, eliminates truncation distortion)
+            if out_bd == "PCM_24":
+                lsb = 1.0 / (1 << 23)
+                raw = raw + lsb * (np.random.uniform(-1, 1, raw.shape) + np.random.uniform(-1, 1, raw.shape))
+
+            # Clip to [-1, 1] after dither
+            return np.clip(raw, -1.0, 1.0)
 
         audio = await loop.run_in_executor(None, _render)
 
-        print(f"  [render] Done. Encoding {fmt}…")
+        print(f"  [render] Done. Encoding {fmt} @ {out_sr} Hz…")
         import soundfile as sf
 
-        # Save to exports/ folder
         exports_dir = _ROOT / "exports"
         exports_dir.mkdir(exist_ok=True)
-        # Use preset name for filename (sanitize for filesystem)
-        import re
         preset_name = params.get("name", "MANTICE") or "MANTICE"
-        safe_name = re.sub(r'[^\w\s\-]', '', preset_name).strip()
-        if not safe_name:
-            safe_name = "MANTICE"
+        safe_name = re.sub(r'[^\w\s\-]', '', preset_name).strip() or "MANTICE"
         filename = f"{safe_name}.{fmt}"
         export_path = exports_dir / filename
 
-        sr = config.STREAM_SAMPLE_RATE
-        bd = config.BIT_DEPTH
-
         def _encode_audio(audio_arr, fmt, sr, bd):
-            """Encode audio array to bytes in the requested format. Returns (bytes, media_type)."""
+            """Encode audio array to bytes. Returns (bytes, media_type)."""
             if fmt == "mp3":
                 import lameenc
                 pcm = (audio_arr * 32767).clip(-32768, 32767).astype(np.int16)
                 encoder = lameenc.Encoder()
-                encoder.set_bit_rate(192)
+                encoder.set_bit_rate(mp3_bitrate)
                 encoder.set_in_sample_rate(sr)
                 encoder.set_channels(2)
                 encoder.set_quality(2)
@@ -911,27 +919,23 @@ async def render_endpoint(request: Request):
             else:
                 subtypes = {"wav": bd, "flac": bd, "ogg": "VORBIS"}
                 buf = io.BytesIO()
-                sf.write(buf, audio_arr, sr, format=fmt.upper(), subtype=subtypes.get(fmt))
+                sf.write(buf, audio_arr, sr, format=fmt.upper(), subtype=subtypes.get(fmt, bd))
                 buf.seek(0)
                 media = {"wav": "audio/wav", "flac": "audio/flac", "ogg": "audio/ogg"}
                 return buf.read(), media.get(fmt, "application/octet-stream")
 
-        # Save to disk
-        audio_bytes, media_type = _encode_audio(audio, fmt, sr, bd)
+        audio_bytes, media_type = _encode_audio(audio, fmt, out_sr, out_bd)
         with open(str(export_path), "wb") as _f:
             _f.write(audio_bytes)
-        print(f"  [render] Saved: {export_path}")
+        print(f"  [render] Saved: {export_path} ({len(audio_bytes) // 1024} KB)")
 
-        file_size = len(audio_bytes)
         buf = io.BytesIO(audio_bytes)
-        print(f"  [render] Sending file ({file_size // 1024} KB)")
-
         return StreamingResponse(
             buf,
             media_type=media_type,
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Length": str(file_size),
+                "Content-Length": str(len(audio_bytes)),
                 "X-Export-Path": str(export_path),
             }
         )
@@ -972,7 +976,7 @@ async def preview_audio(request: Request):
 
         import soundfile as sf
         buf = io.BytesIO()
-        sf.write(buf, audio, config.SAMPLE_RATE, format="WAV", subtype="PCM_16")
+        sf.write(buf, audio, config.STREAM_SAMPLE_RATE, format="WAV", subtype="PCM_16")
         buf.seek(0)
 
         return StreamingResponse(buf, media_type="audio/wav")
