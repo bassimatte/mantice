@@ -4746,7 +4746,10 @@ async function _flushAndRestart() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
   // 4. Fresh AudioContext (clean slate — no old buffered audio)
-  streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Match sampleRate to server chunk rate: 2048 samples / 22050 Hz = exactly integer chunk
+  // boundaries. Without this, default rate (44100/48000) gives fractional-sample overlap at
+  // every chunk edge → audible click in high-frequency layers.
+  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
   startCtxKeepAlive();
   startMeterPolling();
@@ -4854,6 +4857,7 @@ let currentSeed = 42;  // seed used for the current/last stream — sent with re
 let chunksBuffered = 0;
 const CHUNK_SIZE = 2048;
 const PRE_BUFFER_CHUNKS = 2;
+const STREAM_SR = 22050;  // must match server STREAM_SAMPLE_RATE; used for gapless chunk scheduling
 let workletNode = null;
 let ctxKeepAlive = null;
 let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
@@ -4974,8 +4978,10 @@ async function doPreview() {
 
   stopAudio();
 
-  const serverSR = 22050;  // matches server STREAM_SAMPLE_RATE
-  streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const serverSR = STREAM_SR;  // matches server STREAM_SAMPLE_RATE
+  // sampleRate: STREAM_SR ensures each 2048-sample chunk maps to exactly 2048 context samples,
+  // eliminating the fractional-sample overlap/gap that causes clicks in high-frequency layers.
+  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
 
   // Keep AudioContext alive while waiting for WS/Render cold start (iOS suspends after inactivity)

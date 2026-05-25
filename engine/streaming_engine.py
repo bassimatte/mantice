@@ -1538,7 +1538,7 @@ class StreamingDroneEngine:
         # Air engine (streaming noise)
         self.air_cfg = preset.get("air")
         self._air_kernel = int(0.1 * SR)
-        self._air_buffer = np.zeros(self._air_kernel, dtype=np.float32)
+        self._air_state = np.float32(0.0)  # EMA state carried across chunks (was _air_buffer[-1] = always 0)
 
         # DC block filter state
         nyquist = SR * 0.5
@@ -1738,10 +1738,11 @@ class StreamingDroneEngine:
         # Simple exponential smoothing instead of full convolution
         alpha = 2.0 / (self._air_kernel + 1)
         smoothed = np.zeros(n, dtype=np.float32)
-        state = self._air_buffer[-1] if len(self._air_buffer) > 0 else 0.0
+        state = self._air_state
         for i in range(n):
             state = alpha * noise[i] + (1 - alpha) * state
             smoothed[i] = state
+        self._air_state = np.float32(state)
 
         signal = smoothed * intensity
         stereo = np.stack([signal * 0.5, signal * 0.5], axis=1)
@@ -1767,7 +1768,7 @@ class _ShallowCopy:
         self.earth_phase = engine.earth_phase
         self.earth_wobble_phase = engine.earth_wobble_phase
         self._air_kernel = engine._air_kernel
-        self._air_buffer = engine._air_buffer.copy()
+        self._air_state  = engine._air_state
         self._dc_sos  = engine._dc_sos
         self._dc_zi_L = engine._dc_zi_L.copy()
         self._dc_zi_R = engine._dc_zi_R.copy()

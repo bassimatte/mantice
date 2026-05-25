@@ -367,14 +367,16 @@ aside h3 {
 .mood-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 .gen-type-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 5px;
+  margin-bottom: 5px;
   flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
 }
 .gen-type-row label {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -386,24 +388,16 @@ aside h3 {
 .generator-actions {
   display: flex;
   gap: 4px;
-  margin-top: 8px;
-  margin-bottom: 5px;
+  margin-top: 6px;
+  align-items: center;
 }
 .generator-actions .btn {
-  flex: 1;
+  flex: 0 0 auto;
+  width: auto;
   margin: 0;
-  padding: 5px 4px;
-  font-size: 9px;
-}
-.generator-amount {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  padding: 3px 7px;
   font-size: 8px;
-  color: var(--muted);
-  padding: 0 1px;
 }
-.generator-amount input[type=range] { flex: 1; }
 .btn {
   display: block;
   width: 100%;
@@ -527,6 +521,46 @@ main {
 .card-collapsible h2::after { content: ' ▾'; color: var(--text-dim); }
 .card-collapsible.collapsed h2::after { content: ' ▸'; }
 .card-collapsible.collapsed > *:not(h2) { display: none; }
+
+/* ── JI Tuning Panel ───────────────────────────── */
+#tuning-panel {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+}
+.tuning-mode-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 2px 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+}
+.tuning-mode-btn.active {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
+#tuning-ji-controls { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+#tuning-ji-controls select {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text-lcd); padding: 2px 4px;
+  font-family: 'Space Mono', monospace; font-size: 10px;
+}
+.ji-snap-warn { color: #ff8c42; font-size: 9px; margin-left: 4px; }
+#lp-ji-degree {
+  background: var(--bg); border: 1px solid var(--accent);
+  color: var(--text-lcd); padding: 2px 4px;
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  grid-column: 2 / 4; width: 100%;
+}
 
 /* ── Hamburger & Responsive ────────────────────── */
 .hamburger {
@@ -1158,6 +1192,7 @@ main {
       <div class="settings-row">
         <span class="settings-label">Zoom</span>
         <button class="zoom-btn" id="btn-zoom-out" title="Zoom out (Ctrl+-)">−</button>
+        <span id="zoom-pct-display" style="font-size:9px; color:var(--text-dim); min-width:30px; text-align:center; font-family:'Space Mono',monospace;">110%</span>
         <button class="zoom-btn" id="btn-zoom-in" title="Zoom in (Ctrl+=)">+</button>
       </div>
       <div class="settings-row">
@@ -1713,54 +1748,46 @@ python batch_render_freesound.py --metadata-only</pre>
       <button class="mood-btn" data-mood="minimal">minimal</button>
       <button class="mood-btn" data-mood="industrial">industrial</button>
       <button class="mood-btn" data-mood="nature">nature</button>
-      <button class="mood-btn" data-mood="chaotic">chaotic</button>
     </div>
     <div class="gen-type-row">
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
-      <label><input type="checkbox" id="gen-type-subtractive" checked> Subtractive</label>
+      <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
     </div>
-    <div style="display:flex; flex-direction:column; gap:4px; margin-top:6px;">
-      <div style="display:flex; align-items:center; gap:4px;">
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;white-space:nowrap;">
-          <input type="checkbox" id="gen-harmonic-mode"> Harm.
-        </label>
-        <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:40px;">
-          <option>C</option><option>C#</option><option>D</option><option>D#</option>
-          <option>E</option><option>F</option><option>F#</option><option>G</option>
-          <option>G#</option><option>A</option><option>A#</option><option>B</option>
-        </select>
-        <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:60px;">
-          <option value="major">Maj</option>
-          <option value="minor">Min</option>
-          <option value="pentatonic_major">P.Maj</option>
-          <option value="pentatonic_minor">P.Min</option>
-          <option value="dorian">Dor</option>
-          <option value="phrygian">Phryg</option>
-          <option value="lydian">Lyd</option>
-          <option value="mixolydian">Mixo</option>
-          <option value="chromatic">Chr</option>
-        </select>
-      </div>
-      <div style="display:flex; align-items:center; gap:4px;">
-        <select id="tuning-system" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 3px; font-family:'Space Mono',monospace; font-size:10px;">
-          <option value="12-TET">12-TET (Equal)</option>
-          <option value="Pythagorean">Pythagorean</option>
-          <option value="5-limit JI">5-limit JI</option>
-          <option value="Meantone">Meantone (¼-comma)</option>
-          <option value="19-TET">19-TET</option>
-          <option value="31-TET">31-TET</option>
-        </select>
-        <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
-      </div>
+    <div style="display:flex; gap:5px; justify-content:center; align-items:center; margin-bottom:5px;">
+      <label style="display:flex;align-items:center;gap:3px;font-size:8px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="gen-harmonic-mode" style="accent-color:var(--accent);width:11px;height:11px;cursor:pointer;"> Harm</label>
+      <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:32px;">
+        <option>C</option><option>C#</option><option>D</option><option>D#</option>
+        <option>E</option><option>F</option><option>F#</option><option>G</option>
+        <option>G#</option><option>A</option><option>A#</option><option>B</option>
+      </select>
+      <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:52px;">
+        <option value="major">Maj</option>
+        <option value="minor">Min</option>
+        <option value="pentatonic_major">P.Maj</option>
+        <option value="pentatonic_minor">P.Min</option>
+        <option value="dorian">Dor</option>
+        <option value="phrygian">Phryg</option>
+        <option value="lydian">Lyd</option>
+        <option value="mixolydian">Mixo</option>
+        <option value="chromatic">Chr</option>
+      </select>
+    </div>
+    <div style="display:flex; align-items:center; gap:4px; justify-content:center; margin-bottom:6px;">
+      <select id="tuning-system" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 3px; font-family:'Space Mono',monospace; font-size:9px;">
+        <option value="12-TET">12-TET (Equal)</option>
+        <option value="Pythagorean">Pythagorean</option>
+        <option value="5-limit JI">5-limit JI</option>
+        <option value="Meantone">Meantone (¼-comma)</option>
+        <option value="19-TET">19-TET</option>
+        <option value="31-TET">31-TET</option>
+      </select>
+      <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
     </div>
     <div class="generator-actions">
-      <button class="btn" id="btn-generate">🎲 Generate</button>
-      <button class="btn btn-outline" id="btn-mutate">🧬 Mutate</button>
-    </div>
-    <div class="generator-amount">
-      <span>Amount</span>
-      <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3">
-      <span id="mutate-amount-val">0.30</span>
+      <button class="btn" id="btn-generate">Generate</button>
+      <button class="btn btn-outline" id="btn-mutate">Mutate</button>
+      <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3" style="flex:1; min-width:0;">
+      <span id="mutate-amount-val" style="font-size:8px; color:var(--muted); white-space:nowrap; min-width:22px;">0.30</span>
     </div>
   </div>
 
@@ -1786,6 +1813,46 @@ python batch_render_freesound.py --metadata-only</pre>
   <!-- Layer Parameters -->
   <div class="card card-collapsible">
     <h2>Layers</h2>
+    <!-- JI Tuning panel — sits above layer tabs -->
+    <div id="tuning-panel">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="color:var(--text-dim);white-space:nowrap;">TUNING</span>
+        <button id="tuning-free-btn" class="tuning-mode-btn active" onclick="setTuningMode('free')">Free</button>
+        <button id="tuning-ji-btn"   class="tuning-mode-btn"        onclick="setTuningMode('ji')">JI</button>
+        <span id="tuning-ji-active-dot" style="display:none;color:var(--accent);font-size:11px;margin-left:2px;" title="Just Intonation active">●</span>
+      </div>
+      <div id="tuning-ji-controls" style="display:none;">
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+          <span style="color:var(--text-dim);">Tonic</span>
+          <select id="ji-tonic-note">
+            <option>C</option><option>C#</option><option>D</option><option>D#</option>
+            <option>E</option><option>F</option><option>F#</option><option>G</option>
+            <option>G#</option><option selected>A</option><option>A#</option><option>B</option>
+          </select>
+          <select id="ji-tonic-octave">
+            <option value="1">1</option><option value="2">2</option>
+            <option value="3" selected>3</option><option value="4">4</option><option value="5">5</option>
+          </select>
+          <select id="ji-ref-a4" title="A4 reference pitch">
+            <option value="432">A=432</option>
+            <option value="440" selected>A=440</option>
+          </select>
+          <span id="ji-tonic-hz-display" style="color:var(--accent);min-width:52px;"></span>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:3px;">
+          <span style="color:var(--text-dim);">System</span>
+          <select id="ji-system" style="flex:1;">
+            <option value="5limit_ji">5-limit JI</option>
+            <option value="pythagorean">Pythagorean</option>
+            <option value="7limit">7-limit</option>
+            <option value="harmonic_series">Harmonic Series</option>
+          </select>
+          <label style="white-space:nowrap;cursor:pointer;color:var(--text-dim);">
+            <input type="checkbox" id="ji-pure-mode"> Pure
+          </label>
+        </div>
+      </div>
+    </div>
     <div class="layer-tabs" id="layer-tabs"></div>
     <div id="layer-params"></div>
   </div>
@@ -2022,6 +2089,8 @@ python batch_render_freesound.py --metadata-only</pre>
     // Compensate body height so grid stays within physical viewport
     document.body.style.height = (100 / (pct / 100)) + 'vh';
     localStorage.setItem('mantice-zoom', pct);
+    const el = document.getElementById('zoom-pct-display');
+    if (el) el.textContent = pct + '%';
   }
 
   applyZoom();
@@ -2061,7 +2130,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = 'https://mantice.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -2119,31 +2188,27 @@ async function loadPresetList() {
   if (sharedMatch) {
     const id = sharedMatch[1];
     setStatus('Loading shared preset…');
-    function _applySharedParams(params) {
-      const genericNames = ['MANTICE', 'Untitled', 'untitled', ''];
-      const displayName = (!params.name || genericNames.includes(params.name))
-        ? id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ')
-        : params.name;
-      sharedPresetEntry = { name: displayName, params };
-      currentSharedId = id;
-      currentParams = params;
-      renderPresetList();
-      applyParamsToUI(currentParams);
-      markClean();
-      setStatus('🔗 Shared preset loaded: ' + displayName);
-    }
-    // Try backend first
     try {
       const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
-      if (data && data.ok) { _applySharedParams(data.params); return; }
-    } catch (_) {}
-    // Fallback: fetch JSON params directly from GitHub (works when backend is cold/offline)
-    try {
-      const ghJsonUrl = `https://raw.githubusercontent.com/bassimatte/mantice/main/shared/${encodeURIComponent(id)}.json`;
-      const res = await fetch(ghJsonUrl);
-      if (res.ok) { _applySharedParams(await res.json()); return; }
-    } catch (_) {}
-    setStatus('Could not load shared preset — backend may be starting up, try refreshing in 30s');
+      if (data.ok) {
+        const genericNames = ['MANTICE', 'Untitled', 'untitled', ''];
+        const displayName = (!data.params.name || genericNames.includes(data.params.name))
+          ? id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ')
+          : data.params.name;
+        sharedPresetEntry = { name: displayName, params: data.params };
+        currentSharedId = id;
+        currentParams = data.params;
+        renderPresetList();
+        applyParamsToUI(currentParams);
+        markClean();
+        setStatus('🔗 Shared preset loaded: ' + displayName);
+        return;
+      } else {
+        setStatus('Could not load shared preset: ' + data.error);
+      }
+    } catch (e) {
+      setStatus('Shared preset error: ' + e.message);
+    }
   }
 
   // #preset=<path> — direct link to an official preset
@@ -2396,6 +2461,27 @@ function applyParamsToUI(p) {
   $('saturation-val').textContent = sat.toFixed(2);
   if ($('tuning-system')) $('tuning-system').value = p.tuning_system || '12-TET';
 
+  // Restore JI tuning mode
+  const jiMode = p.tuning_mode === 'ji';
+  if ($('tuning-free-btn')) $('tuning-free-btn').classList.toggle('active', !jiMode);
+  if ($('tuning-ji-btn'))   $('tuning-ji-btn').classList.toggle('active', jiMode);
+  if ($('tuning-ji-controls')) $('tuning-ji-controls').style.display = jiMode ? '' : 'none';
+  if ($('tuning-ji-active-dot')) $('tuning-ji-active-dot').style.display = jiMode ? '' : 'none';
+  if (jiMode && p.tonic_hz) {
+    // Reverse-derive note/octave from tonic_hz to populate selectors
+    const refA4 = p.tuning_ref_a4 || 440;
+    if ($('ji-ref-a4')) $('ji-ref-a4').value = String(refA4);
+    const midi = Math.round(12 * Math.log2(p.tonic_hz / refA4) + 69);
+    const noteIdx = ((midi % 12) + 12) % 12;
+    const octave  = Math.floor(midi / 12) - 1;
+    const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    if ($('ji-tonic-note'))   $('ji-tonic-note').value   = noteNames[noteIdx];
+    if ($('ji-tonic-octave')) $('ji-tonic-octave').value = String(octave);
+    if ($('ji-system'))       $('ji-system').value        = p.tuning_system_ji || '5limit_ji';
+    if ($('ji-pure-mode'))    $('ji-pure-mode').checked   = !!p.pure_mode;
+    updateJITonicDisplay();
+  }
+
   const m = p.master || {};
   $('eq-low-cut').value = m.eq_low_cut_hz ?? 20;
   $('eq-low-cut-val').textContent = (m.eq_low_cut_hz ?? 20) + ' Hz';
@@ -2529,6 +2615,223 @@ function applyTuning() {
   buildLayerTabs(currentParams.layers);
   showLayerParams(currentParams.layers[activeLayerIdx]);
   markDirty();
+}
+
+// ── Just Intonation (JI mode) ─────────────────────────────────────────────────
+// Exact rational fractions (num, den) — mirrors engine/tuning.py
+const JI_SYSTEMS = {
+  '5limit_ji': {
+    'unison':    [1,1],   'minor_2nd': [16,15], 'major_2nd': [9,8],
+    'minor_3rd': [6,5],   'major_3rd': [5,4],   'fourth':    [4,3],
+    'tritone':   [45,32], 'fifth':     [3,2],    'minor_6th': [8,5],
+    'major_6th': [5,3],   'minor_7th': [16,9],  'major_7th': [15,8],
+    'octave':    [2,1],
+  },
+  'pythagorean': {
+    'unison':    [1,1],     'minor_2nd': [256,243], 'major_2nd': [9,8],
+    'minor_3rd': [32,27],   'major_3rd': [81,64],   'fourth':    [4,3],
+    'tritone':   [729,512], 'fifth':     [3,2],      'minor_6th': [128,81],
+    'major_6th': [27,16],   'minor_7th': [16,9],    'major_7th': [243,128],
+    'octave':    [2,1],
+  },
+  '7limit': {
+    'unison':       [1,1],  'minor_2nd':    [16,15], 'major_2nd':    [9,8],
+    'sep_min_3rd':  [7,6],  'major_3rd':    [5,4],   'fourth':       [4,3],
+    'sep_tritone':  [7,5],  'fifth':        [3,2],   'minor_6th':    [8,5],
+    'major_6th':    [5,3],  'harmonic_7th': [7,4],   'major_7th':    [15,8],
+    'octave':       [2,1],
+  },
+  'harmonic_series': {
+    'h1': [1,1],  'h9': [9,8],  'h5': [5,4],  'h11': [11,8],
+    'h3': [3,2],  'h13':[13,8], 'h7': [7,4],  'h15': [15,8],  'h2': [2,1],
+  },
+};
+
+const JI_DEGREE_LABELS = {
+  'unison':       'Unison  1:1',    'minor_2nd':    'Min 2nd  16:15',
+  'major_2nd':    'Maj 2nd  9:8',   'minor_3rd':    'Min 3rd  6:5',
+  'major_3rd':    'Maj 3rd  5:4',   'fourth':       'Fourth  4:3',
+  'tritone':      'Tritone  45:32', 'fifth':        'Fifth  3:2',
+  'minor_6th':    'Min 6th  8:5',   'major_6th':    'Maj 6th  5:3',
+  'minor_7th':    'Min 7th  16:9',  'major_7th':    'Maj 7th  15:8',
+  'octave':       'Octave  2:1',    'sep_min_3rd':  'Sep Min 3rd  7:6',
+  'sep_tritone':  'Sep Tritone 7:5','harmonic_7th': 'Harm 7th  7:4',
+  'h1': 'H1 – Fund 1:1',  'h9': 'H9 – Maj 2nd 9:8',   'h5': 'H5 – Maj 3rd 5:4',
+  'h11':'H11 – Neut 4th', 'h3': 'H3 – Fifth 3:2',      'h13':'H13 – Nat 6th',
+  'h7': 'H7 – Nat 7th',   'h15':'H15 – Maj 7th 15:8',  'h2': 'H2 – Octave 2:1',
+};
+
+/** Compute tonic Hz from note selector values. */
+function getJITonicHz() {
+  const NOTE_SEMITONES = {C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
+  const note    = $('ji-tonic-note').value;
+  const octave  = parseInt($('ji-tonic-octave').value);
+  const refA4   = parseFloat($('ji-ref-a4').value);
+  const semis   = NOTE_SEMITONES[note] ?? 9;
+  // MIDI for this note at this octave: C4=60 → note C at octave 4 = 12*(4+1)+0 = 60
+  const midi = 12 * (octave + 1) + semis;
+  return refA4 * Math.pow(2, (midi - 69) / 12);
+}
+
+/** Return exact JI Hz for a degree above tonicHz, staying within [tonicHz/2, tonicHz*4]. */
+function getJIHz(tonicHz, system, degree) {
+  const sys = JI_SYSTEMS[system] || JI_SYSTEMS['5limit_ji'];
+  const [num, den] = sys[degree] || [1,1];
+  let hz = tonicHz * num / den;
+  while (hz < tonicHz / 2) hz *= 2;
+  while (hz > tonicHz * 4) hz /= 2;
+  return hz;
+}
+
+/** Find the JI degree + octave shift closest to targetHz, return {degree, hz, cents}. */
+function nearestJIDegree(targetHz, tonicHz, system) {
+  const sys = JI_SYSTEMS[system] || JI_SYSTEMS['5limit_ji'];
+  let bestDeg = 'unison', bestHz = tonicHz, bestCents = Infinity;
+  for (const [deg, [num, den]] of Object.entries(sys)) {
+    for (let oct = -3; oct <= 3; oct++) {
+      const candidate = tonicHz * (num / den) * Math.pow(2, oct);
+      if (candidate < 15 || candidate > 4000) continue;
+      const cents = Math.abs(1200 * Math.log2(targetHz / candidate));
+      if (cents < bestCents) { bestCents = cents; bestDeg = deg; bestHz = candidate; }
+    }
+  }
+  return { degree: bestDeg, hz: parseFloat(bestHz.toFixed(4)), cents: parseFloat(bestCents.toFixed(1)) };
+}
+
+/**
+ * Find the dominant layer's root Hz — lowest non-muted, non-granular layer.
+ * Falls back to lowest non-muted, then layer[0].
+ */
+function getDominantLayerHz() {
+  if (!currentParams || !currentParams.layers.length) return null;
+  const candidates = currentParams.layers
+    .filter(l => !l.muted && l.type !== 'granular' && l.root > 0);
+  if (!candidates.length) {
+    // fallback: any non-muted layer
+    const any = currentParams.layers.filter(l => !l.muted && l.root > 0);
+    return any.length ? Math.min(...any.map(l => l.root)) : currentParams.layers[0].root;
+  }
+  return Math.min(...candidates.map(l => l.root));
+}
+
+/**
+ * Snap a raw Hz value to the nearest chromatic note at the given A4 reference.
+ * Returns { hz, noteIndex, octave } so we can populate the selectors.
+ */
+function snapHzToChromatic(hz, refA4) {
+  const midi    = Math.round(12 * Math.log2(hz / refA4) + 69);
+  const snappedHz = refA4 * Math.pow(2, (midi - 69) / 12);
+  const noteIndex = ((midi % 12) + 12) % 12;
+  const octave    = Math.floor(midi / 12) - 1;
+  return { hz: parseFloat(snappedHz.toFixed(4)), noteIndex, octave };
+}
+
+/**
+ * Populate the tonic note/octave selectors from a given Hz value.
+ * Returns the snapped Hz.
+ */
+function setTonicSelectorsFromHz(rawHz) {
+  const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const refA4 = parseFloat($('ji-ref-a4').value) || 440;
+  const { hz, noteIndex, octave } = snapHzToChromatic(rawHz, refA4);
+  if ($('ji-tonic-note'))   $('ji-tonic-note').value   = NOTE_NAMES[noteIndex];
+  if ($('ji-tonic-octave')) $('ji-tonic-octave').value = String(octave);
+  return hz;
+}
+
+/**
+ * Option A: snap all layers to nearest JI degree.
+ * On Free→JI: derives tonic FROM the dominant layer, then populates selectors.
+ * tonicHz is optional — if omitted, derived from dominant layer (initial switch).
+ */
+function snapLayersToJI(tonicHz) {
+  if (!currentParams) return;
+
+  // If no tonic provided, derive from dominant layer and sync selectors
+  if (tonicHz === undefined) {
+    const dominantHz = getDominantLayerHz();
+    tonicHz = dominantHz ? setTonicSelectorsFromHz(dominantHz) : getJITonicHz();
+  }
+
+  const system = $('ji-system').value;
+  currentParams.layers.forEach(layer => {
+    const { degree, hz, cents } = nearestJIDegree(layer.root, tonicHz, system);
+    layer.tuning_degree      = degree;
+    layer.root               = hz;
+    layer._ji_snap_cents     = cents;  // ephemeral — for ⚠ display only
+  });
+  currentParams.tonic_hz         = tonicHz;
+  currentParams.tuning_system_ji = system;
+}
+
+/** Update the tonic Hz display label from current selectors. */
+function updateJITonicDisplay() {
+  const hz = getJITonicHz();
+  const el = $('ji-tonic-hz-display');
+  if (el) el.textContent = hz.toFixed(2) + ' Hz';
+  return hz;
+}
+
+/** Switch between Free and JI tuning modes. */
+function setTuningMode(mode) {
+  if (!currentParams) return;
+  pushUndo();
+
+  if (mode === 'ji') {
+    // Show controls first so selectors are in DOM before snapLayersToJI reads them
+    $('tuning-ji-controls').style.display = '';
+    $('tuning-ji-active-dot').style.display = '';
+    $('tuning-free-btn').classList.remove('active');
+    $('tuning-ji-btn').classList.add('active');
+    // Derive tonic from dominant layer → populates selectors → snaps all layers
+    snapLayersToJI();
+    updateJITonicDisplay();
+    currentParams.tuning_mode = 'ji';
+  } else {
+    currentParams.tuning_mode = 'free';
+    $('tuning-free-btn').classList.add('active');
+    $('tuning-ji-btn').classList.remove('active');
+    $('tuning-ji-controls').style.display = 'none';
+    $('tuning-ji-active-dot').style.display = 'none';
+  }
+
+  buildLayerTabs(currentParams.layers);
+  showLayerParams(currentParams.layers[activeLayerIdx]);
+  markDirty();
+  liveReload();
+}
+
+/** Re-derive all layer roots when tonic/system/pure changes in JI mode. */
+function onJISettingChange() {
+  if (!currentParams || currentParams.tuning_mode !== 'ji') return;
+  updateJITonicDisplay();
+  const tonicHz = getJITonicHz();
+  const system  = $('ji-system').value;
+  const pure    = $('ji-pure-mode').checked;
+  currentParams.tonic_hz         = tonicHz;
+  currentParams.tuning_system_ji = system;
+  currentParams.pure_mode        = pure;
+  // Re-derive roots from stored degrees
+  currentParams.layers.forEach(layer => {
+    layer.root = parseFloat(getJIHz(tonicHz, system, layer.tuning_degree || 'unison').toFixed(4));
+  });
+  buildLayerTabs(currentParams.layers);
+  showLayerParams(currentParams.layers[activeLayerIdx]);
+  markDirty();
+  liveReload();
+}
+
+/** Populate degree <select> options for the current JI system. */
+function buildJIDegreeOptions(currentDegree) {
+  const system = $('ji-system') ? $('ji-system').value : '5limit_ji';
+  const sys = JI_SYSTEMS[system] || JI_SYSTEMS['5limit_ji'];
+  // Sort by ratio value
+  const sorted = Object.entries(sys).sort((a,b) => (a[1][0]/a[1][1]) - (b[1][0]/b[1][1]));
+  return sorted.map(([deg]) => {
+    const label = JI_DEGREE_LABELS[deg] || deg;
+    const sel = deg === currentDegree ? ' selected' : '';
+    return `<option value="${deg}"${sel}>${label}</option>`;
+  }).join('');
 }
 
 function buildLayerTabs(layers) {
@@ -2671,6 +2974,26 @@ function showLayerParams(layer) {
   `;
 
   // FM synthesis params — Volume at top, grouped by section
+  const isJI = currentParams && currentParams.tuning_mode === 'ji';
+  const snapWarn = isJI && layer._ji_snap_cents > 20
+    ? `<span class="ji-snap-warn" title="Snapped ${layer._ji_snap_cents}¢ from original">⚠ ${layer._ji_snap_cents}¢</span>`
+    : '';
+  const rootRowHtml = isJI
+    ? `<div class="param-row">
+        <label>Degree</label>
+        <select id="lp-ji-degree">${buildJIDegreeOptions(layer.tuning_degree || 'unison')}</select>
+        ${snapWarn}
+      </div>
+      <div class="param-row" style="opacity:0.55;">
+        <label>Root Hz</label>
+        <span style="grid-column:2/4;font-size:10px;color:var(--text-dim);">${rootLabel(layer.root)} <em>(JI derived)</em></span>
+      </div>`
+    : `<div class="param-row">
+        <label>Root Hz <button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button></label>
+        <input type="range" id="lp-root" min="20" max="2000" step="0.1" value="${layer.root}" >
+        <span class="value" id="lp-root-val">${rootLabel(layer.root)}</span><span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>
+      </div>`;
+
   const fmSynthHtml = `
     <div class="param-row">
       <label>Volume (dB)</label>
@@ -2678,11 +3001,7 @@ function showLayerParams(layer) {
       <span class="value" id="lp-volume_db-val">${((layer.volume_db ?? 0) >= 0 ? '+' : '') + Number(layer.volume_db ?? 0).toFixed(1) + ' dB'}</span>
     </div>
     <div class="card-subsection-label" style="margin-top:8px;">Oscillator</div>
-    <div class="param-row">
-      <label>Root Hz <button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button></label>
-      <input type="range" id="lp-root" min="20" max="2000" step="0.1" value="${layer.root}" >
-      <span class="value" id="lp-root-val">${rootLabel(layer.root)}</span><span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>
-    </div>
+    ${rootRowHtml}
     <div class="param-row">
       <label>Voices</label>
       <input type="range" id="lp-voices" min="1" max="64" step="1" value="${layer.voices}" >
@@ -2824,11 +3143,7 @@ function showLayerParams(layer) {
         <option value="triangle" ${(layer.waveform||'saw')==='triangle'?'selected':''}>Triangle</option>
       </select>
     </div>
-    <div class="param-row">
-      <label>Root Hz <button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button></label>
-      <input type="range" id="lp-root" min="20" max="2000" step="0.1" value="${layer.root||110}" >
-      <span class="value" id="lp-root-val">${rootLabel(layer.root||110)}</span><span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>
-    </div>
+    ${rootRowHtml}
     <div class="param-row">
       <label>Voices</label>
       <input type="range" id="lp-voices" min="1" max="8" step="1" value="${layer.voices||2}" >
@@ -3191,6 +3506,24 @@ function showLayerParams(layer) {
           markDirty();
         }
       }
+    });
+  }
+
+  // JI degree selector
+  const jiDegreeEl = $('lp-ji-degree');
+  if (jiDegreeEl) {
+    jiDegreeEl.addEventListener('change', () => {
+      pushUndo();
+      const layer = currentParams.layers[activeLayerIdx];
+      layer.tuning_degree = jiDegreeEl.value;
+      layer._ji_snap_cents = 0;  // user chose explicitly — clear warning
+      const tonicHz = currentParams.tonic_hz || getJITonicHz();
+      const system  = currentParams.tuning_system_ji || ($('ji-system') ? $('ji-system').value : '5limit_ji');
+      layer.root = parseFloat(getJIHz(tonicHz, system, layer.tuning_degree).toFixed(4));
+      buildLayerTabs(currentParams.layers);
+      showLayerParams(currentParams.layers[activeLayerIdx]);
+      markDirty();
+      liveReload();
     });
   }
 
@@ -3826,6 +4159,11 @@ function collectParams() {
   // Saturation
   p.saturation = parseFloat($('saturation-slider').value);
   p.tuning_system = $('tuning-system').value;
+  // JI tuning mode
+  p.tuning_mode       = currentParams ? (currentParams.tuning_mode || 'free') : 'free';
+  p.tonic_hz          = currentParams ? (currentParams.tonic_hz || getJITonicHz()) : getJITonicHz();
+  p.tuning_system_ji  = $('ji-system') ? $('ji-system').value : '5limit_ji';
+  p.pure_mode         = $('ji-pure-mode') ? $('ji-pure-mode').checked : false;
   p.master = {
     eq_low_cut_hz: parseFloat($('eq-low-cut').value),
     eq_bass_db:    parseFloat($('eq-bass').value),
@@ -4408,7 +4746,10 @@ async function _flushAndRestart() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
   // 4. Fresh AudioContext (clean slate — no old buffered audio)
-  streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Match sampleRate to server chunk rate: 2048 samples / 22050 Hz = exactly integer chunk
+  // boundaries. Without this, default rate (44100/48000) gives fractional-sample overlap at
+  // every chunk edge → audible click in high-frequency layers.
+  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
   startCtxKeepAlive();
   startMeterPolling();
@@ -4516,6 +4857,7 @@ let currentSeed = 42;  // seed used for the current/last stream — sent with re
 let chunksBuffered = 0;
 const CHUNK_SIZE = 2048;
 const PRE_BUFFER_CHUNKS = 2;
+const STREAM_SR = 22050;  // must match server STREAM_SAMPLE_RATE; used for gapless chunk scheduling
 let workletNode = null;
 let ctxKeepAlive = null;
 let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
@@ -4636,8 +4978,10 @@ async function doPreview() {
 
   stopAudio();
 
-  const serverSR = 22050;  // matches server STREAM_SAMPLE_RATE
-  streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const serverSR = STREAM_SR;  // matches server STREAM_SAMPLE_RATE
+  // sampleRate: STREAM_SR ensures each 2048-sample chunk maps to exactly 2048 context samples,
+  // eliminating the fractional-sample overlap/gap that causes clicks in high-frequency layers.
+  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
 
   // Keep AudioContext alive while waiting for WS/Render cold start (iOS suspends after inactivity)
@@ -5424,11 +5768,31 @@ function init() {
   });
   linkSlider('reverb-pre-delay', 'reverb-pre-delay-val', v => parseInt(v) + ' ms');
 
-  // Tuning system
+  // Tuning system (legacy cents-offset, sidebar generator)
   $('btn-apply-tuning').addEventListener('click', applyTuning);
   $('tuning-system').addEventListener('change', () => {
     if (currentParams) currentParams.tuning_system = $('tuning-system').value;
   });
+
+  // JI tuning panel controls
+  ['ji-tonic-note', 'ji-tonic-octave', 'ji-ref-a4'].forEach(id => {
+    const el = $(id); if (!el) return;
+    el.addEventListener('change', () => { updateJITonicDisplay(); onJISettingChange(); });
+  });
+  if ($('ji-system')) {
+    $('ji-system').addEventListener('change', () => {
+      onJISettingChange();
+      // Rebuild degree selectors for the new system
+      showLayerParams(currentParams && currentParams.layers[activeLayerIdx]);
+    });
+  }
+  if ($('ji-pure-mode')) {
+    $('ji-pure-mode').addEventListener('change', () => {
+      if (currentParams) currentParams.pure_mode = $('ji-pure-mode').checked;
+      markDirty(); liveReload();
+    });
+  }
+  updateJITonicDisplay();
 
   // EQ sliders — gain sliders show/hide freq & Q sub-rows on change
   linkSlider('eq-low-cut', 'eq-low-cut-val', v => v + ' Hz');
@@ -5565,4 +5929,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 </script>
 </body>
 </html>
-
