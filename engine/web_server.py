@@ -132,6 +132,59 @@ GITHUB_BRANCH = "main"
 FREESOUND_API_KEY = os.environ.get("FREESOUND_API_KEY", "zwjXCAeWopixCMievVQ5q1FLmyh1DBvMf4HJuqNE")
 FREESOUND_BASE = "https://freesound.org/apiv2"
 
+_GH_API_BASE = f"https://api.github.com/repos/{GITHUB_REPO}/contents"
+_GH_RAW_BASE = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}"
+
+
+def _gh_headers(auth: bool = False) -> dict:
+    h = {"User-Agent": "Mantice/1.0", "Accept": "application/vnd.github.v3+json"}
+    if auth and GITHUB_TOKEN:
+        h["Authorization"] = f"token {GITHUB_TOKEN}"
+    return h
+
+
+def _fetch_shared_manifest() -> dict:
+    """Fetch shared/manifest.json from GitHub raw URL. Returns {} on any error."""
+    try:
+        req = urllib.request.Request(f"{_GH_RAW_BASE}/shared/manifest.json",
+                                     headers={"User-Agent": "Mantice/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return {}
+
+
+def _update_shared_manifest(updates: dict) -> None:
+    """Merge updates into shared/manifest.json on GitHub (creates if absent). No-op if no token."""
+    if not GITHUB_TOKEN:
+        return
+    manifest: dict = {}
+    sha: str | None = None
+    try:
+        req = urllib.request.Request(f"{_GH_API_BASE}/shared/manifest.json",
+                                     headers=_gh_headers(auth=True))
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode())
+            sha = data.get("sha")
+            manifest = json.loads(base64.b64decode(data["content"]).decode())
+    except Exception:
+        pass
+    manifest.update(updates)
+    payload: dict = {
+        "message": "Update shared preset manifest",
+        "content": base64.b64encode(json.dumps(manifest, indent=2, sort_keys=True).encode()).decode(),
+        "branch": GITHUB_BRANCH,
+    }
+    if sha:
+        payload["sha"] = sha
+    req = urllib.request.Request(
+        f"{_GH_API_BASE}/shared/manifest.json",
+        data=json.dumps(payload).encode(),
+        method="PUT",
+        headers={**_gh_headers(auth=True), "Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(req)
+
 
 def _find_all_presets() -> list[dict]:
     """Scan preset directories and return metadata list with source field."""
@@ -163,13 +216,11 @@ def _find_all_presets() -> list[dict]:
     # Community presets — fetch live from GitHub Contents API so new shares appear immediately
     # (Render's local shared/ folder is stale until next deploy)
     try:
-        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared"
+        manifest = _fetch_shared_manifest()
         gh_req = urllib.request.Request(
-            api_url,
-            headers={"User-Agent": "Mantice/1.0", "Accept": "application/vnd.github.v3+json"}
+            f"{_GH_API_BASE}/shared",
+            headers=_gh_headers(auth=bool(GITHUB_TOKEN))
         )
-        if GITHUB_TOKEN:
-            gh_req.add_header("Authorization", f"token {GITHUB_TOKEN}")
         with urllib.request.urlopen(gh_req, timeout=6) as resp:
             files = json.loads(resp.read().decode())
         for f in files:
@@ -179,10 +230,14 @@ def _find_all_presets() -> list[dict]:
             if not fname.endswith(".yaml") or fname in (".gitkeep.yaml", ".gitkeep"):
                 continue
             stem = fname[:-5]
-            m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
-            short_id = m.group(1)[-6:] if m else None
-            base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
-            display_name = f"{base_name} #{short_id}" if short_id else base_name
+            # Manifest name takes priority; fall back to filename-derived name
+            if stem in manifest:
+                display_name = manifest[stem]
+            else:
+                m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
+                short_id = m.group(1)[-6:] if m else None
+                base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                display_name = f"{base_name} #{short_id}" if short_id else base_name
             presets.append({
                 "name": display_name or stem,
                 "category": "community",
@@ -195,13 +250,17 @@ def _find_all_presets() -> list[dict]:
     except Exception:
         # Fallback: scan local shared/ dir (available after deploy)
         if _SHARED_DIR.exists():
+            manifest = _fetch_shared_manifest()
             for yaml_file in sorted(_SHARED_DIR.glob("*.yaml")):
                 stem = yaml_file.stem
                 name, tags = _parse(yaml_file)
-                m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
-                short_id = m.group(1)[-6:] if m else None
-                base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
-                display_name = f"{base_name} #{short_id}" if short_id else base_name
+                if stem in manifest:
+                    display_name = manifest[stem]
+                else:
+                    m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
+                    short_id = m.group(1)[-6:] if m else None
+                    base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                    display_name = f"{base_name} #{short_id}" if short_id else base_name
                 presets.append({
                     "name": display_name or name,
                     "category": "community",
@@ -1112,22 +1171,9 @@ async def share_preset_endpoint(request: Request):
         import yaml as _yaml
         preset_data = _ui_params_to_preset(params)
         from .generator import _random_name
-        # Fetch existing names from GitHub to avoid duplicates (best-effort)
-        existing_names: set = set()
-        try:
-            list_req = urllib.request.Request(
-                f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared",
-                headers={"User-Agent": "Mantice/1.0", "Accept": "application/vnd.github.v3+json",
-                         "Authorization": f"token {GITHUB_TOKEN}"}
-            )
-            with urllib.request.urlopen(list_req, timeout=6) as resp:
-                for f in json.loads(resp.read().decode()):
-                    stem = f.get("name", "")[:-5]  # strip .yaml
-                    base = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
-                    if base:
-                        existing_names.add(base.lower())
-        except Exception:
-            pass  # if we can't check, proceed anyway
+        # Fetch existing names from manifest to avoid duplicates (best-effort)
+        manifest = _fetch_shared_manifest()
+        existing_names = {v.lower() for v in manifest.values()}
         # Pick a name not already in use (up to 20 attempts)
         for _ in range(20):
             preset_name = _random_name()
@@ -1180,6 +1226,11 @@ async def share_preset_endpoint(request: Request):
             await loop.run_in_executor(None, lambda: urllib.request.urlopen(json_req))
         except Exception:
             pass  # JSON upload is best-effort; YAML is the source of truth
+        # Register name in manifest so future shares avoid this name
+        try:
+            await loop.run_in_executor(None, lambda: _update_shared_manifest({file_id: preset_name}))
+        except Exception:
+            pass
         return JSONResponse({"ok": True, "id": file_id})
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()
@@ -1209,6 +1260,30 @@ async def load_shared_preset(id: str):
         if e.code == 404:
             return JSONResponse({"ok": False, "error": "Shared preset not found"}, status_code=404)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/rename-shared")
+async def rename_shared_preset(request: Request):
+    """Rename a shared preset's display name without changing its file ID (link stays valid)."""
+    if not GITHUB_TOKEN:
+        return JSONResponse({"ok": False, "error": "Not configured"}, status_code=503)
+    body = await request.json()
+    preset_id = (body.get("id") or "").strip()
+    new_name = (body.get("name") or "").strip()
+    if not preset_id or not new_name:
+        return JSONResponse({"ok": False, "error": "id and name required"}, status_code=400)
+    if not re.match(r'^[a-zA-Z0-9_\-]{1,120}$', preset_id):
+        return JSONResponse({"ok": False, "error": "Invalid id"}, status_code=400)
+    try:
+        manifest = _fetch_shared_manifest()
+        taken = {v.lower() for k, v in manifest.items() if k != preset_id}
+        if new_name.lower() in taken:
+            return JSONResponse({"ok": False, "error": "Name already in use"}, status_code=409)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: _update_shared_manifest({preset_id: new_name}))
+        return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
