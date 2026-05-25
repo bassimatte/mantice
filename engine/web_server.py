@@ -46,6 +46,7 @@ from .preset_loader import load_preset, load_preset_from_yaml_string
 from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
 from .generator import generate_preset, mutate_preset, save_generated_preset
+from .convolution_reverb import apply_convolution_reverb
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -61,9 +62,83 @@ _PITCH_CACHE_FILE = _SAMPLES_DIR / "pitch_cache.json"
 # In-memory pitch cache; populated at startup and on-demand
 _pitch_cache: dict = {}
 
+
+def oversampled_saturate(audio: np.ndarray, saturation: float, factor: int = 4) -> np.ndarray:
+    """
+    Apply tanh waveshaping at ``factor``× oversampling to eliminate in-band aliasing.
+
+    Without oversampling, tanh generates harmonics above Nyquist that fold back
+    into the audible band as inharmonic noise ("fizz"). At 4× we cut everything
+    above the original Nyquist before decimating, reducing alias energy by >99%.
+
+    Args:
+        audio:      (N, 2) stereo float32 array at any sample rate.
+        saturation: 0–1 drive amount (same scale as the engine param).
+        factor:     Oversampling factor (4 is sufficient; cost ≈ 4× waveshaper math).
+
+    Returns:
+        Same shape as input, tanh-shaped without aliasing artefacts.
+    """
+    if saturation <= 0.01:
+        return audio
+    from scipy.signal import resample_poly, butter, sosfiltfilt
+    drive = 1.0 + saturation * 3.0
+    norm  = float(np.tanh(drive))
+    n_in  = audio.shape[0]
+    # 1. Upsample
+    up = resample_poly(audio, factor, 1, axis=0)
+    # 2. Waveshaper at oversampled rate
+    up = np.tanh(up * drive) / norm
+    # 3. Anti-image low-pass just below original Nyquist.
+    #    sosfiltfilt (bidirectional, zero-phase) automatically pads edges so the
+    #    filter starts from a stable state — avoids the click that sosfilt
+    #    produces when the first sample is non-zero (zero initial-condition step).
+    sos = butter(8, 0.9 / factor, output="sos")
+    up  = sosfiltfilt(sos, up, axis=0)
+    # 4. Decimate back to original rate
+    result = resample_poly(up, 1, factor, axis=0)
+    # Exact-length guard (float rounding in resample_poly)
+    if result.shape[0] > n_in:
+        result = result[:n_in]
+    elif result.shape[0] < n_in:
+        result = np.pad(result, ((0, n_in - result.shape[0]), (0, 0)))
+    return result
+
+
+def final_limit_normalize(audio: np.ndarray, ceiling: float = 0.97,
+                           sr: int = 22050) -> np.ndarray:
+    """
+    True-peak normalize the full render buffer to ``ceiling``.
+
+    For offline drone renders (constant-level material) a single static scale
+    factor is the correct approach — no attack lag, no pumping, no transients
+    slipping through before the envelope catches up.
+
+    Algorithm:
+      1. True-peak detection: upsample 4× to find inter-sample peaks (prevents
+         MP3/AAC encode clipping caused by intersample overs).
+      2. If the true peak exceeds ``ceiling``, scale the whole buffer uniformly
+         by ceiling/peak.  Never boost — if peak < ceiling, return as-is.
+      3. Hard clip as final safety net (should be a no-op after step 2).
+
+    Args:
+        audio:    (N, 2) stereo float32 array.
+        ceiling:  Linear ceiling (default 0.97 ≈ −1 dBFS).
+        sr:       Sample rate (unused; kept for API compatibility).
+
+    Returns:
+        Same shape — normalized to ceiling if over, untouched if under.
+    """
+    from scipy.signal import resample_poly
+    factor = 4
+    up      = resample_poly(audio, factor, 1, axis=0)
+    tp      = float(np.max(np.abs(up)))          # true-peak
+    if tp > ceiling:
+        audio = audio * (ceiling / tp)
+    return np.clip(audio, -1.0, 1.0).astype(audio.dtype)
+
 
 def _load_pitch_cache():
-    """Load cached sample pitches from disk and share with granular_layer module."""
     global _pitch_cache
     try:
         if _PITCH_CACHE_FILE.exists():
@@ -132,6 +207,59 @@ GITHUB_BRANCH = "main"
 FREESOUND_API_KEY = os.environ.get("FREESOUND_API_KEY", "zwjXCAeWopixCMievVQ5q1FLmyh1DBvMf4HJuqNE")
 FREESOUND_BASE = "https://freesound.org/apiv2"
 
+_GH_API_BASE = f"https://api.github.com/repos/{GITHUB_REPO}/contents"
+_GH_RAW_BASE = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{GITHUB_BRANCH}"
+
+
+def _gh_headers(auth: bool = False) -> dict:
+    h = {"User-Agent": "Mantice/1.0", "Accept": "application/vnd.github.v3+json"}
+    if auth and GITHUB_TOKEN:
+        h["Authorization"] = f"token {GITHUB_TOKEN}"
+    return h
+
+
+def _fetch_shared_manifest() -> dict:
+    """Fetch shared/manifest.json from GitHub raw URL. Returns {} on any error."""
+    try:
+        req = urllib.request.Request(f"{_GH_RAW_BASE}/shared/manifest.json",
+                                     headers={"User-Agent": "Mantice/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return {}
+
+
+def _update_shared_manifest(updates: dict) -> None:
+    """Merge updates into shared/manifest.json on GitHub (creates if absent). No-op if no token."""
+    if not GITHUB_TOKEN:
+        return
+    manifest: dict = {}
+    sha: str | None = None
+    try:
+        req = urllib.request.Request(f"{_GH_API_BASE}/shared/manifest.json",
+                                     headers=_gh_headers(auth=True))
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode())
+            sha = data.get("sha")
+            manifest = json.loads(base64.b64decode(data["content"]).decode())
+    except Exception:
+        pass
+    manifest.update(updates)
+    payload: dict = {
+        "message": "Update shared preset manifest",
+        "content": base64.b64encode(json.dumps(manifest, indent=2, sort_keys=True).encode()).decode(),
+        "branch": GITHUB_BRANCH,
+    }
+    if sha:
+        payload["sha"] = sha
+    req = urllib.request.Request(
+        f"{_GH_API_BASE}/shared/manifest.json",
+        data=json.dumps(payload).encode(),
+        method="PUT",
+        headers={**_gh_headers(auth=True), "Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(req)
+
 
 def _find_all_presets() -> list[dict]:
     """Scan preset directories and return metadata list with source field."""
@@ -163,13 +291,11 @@ def _find_all_presets() -> list[dict]:
     # Community presets — fetch live from GitHub Contents API so new shares appear immediately
     # (Render's local shared/ folder is stale until next deploy)
     try:
-        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared"
+        manifest = _fetch_shared_manifest()
         gh_req = urllib.request.Request(
-            api_url,
-            headers={"User-Agent": "Mantice/1.0", "Accept": "application/vnd.github.v3+json"}
+            f"{_GH_API_BASE}/shared",
+            headers=_gh_headers(auth=bool(GITHUB_TOKEN))
         )
-        if GITHUB_TOKEN:
-            gh_req.add_header("Authorization", f"token {GITHUB_TOKEN}")
         with urllib.request.urlopen(gh_req, timeout=6) as resp:
             files = json.loads(resp.read().decode())
         for f in files:
@@ -179,7 +305,14 @@ def _find_all_presets() -> list[dict]:
             if not fname.endswith(".yaml") or fname in (".gitkeep.yaml", ".gitkeep"):
                 continue
             stem = fname[:-5]
-            display_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+            # Manifest name takes priority; fall back to filename-derived name
+            if stem in manifest:
+                display_name = manifest[stem]
+            else:
+                m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
+                short_id = m.group(1)[-6:] if m else None
+                base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                display_name = f"{base_name} #{short_id}" if short_id else base_name
             presets.append({
                 "name": display_name or stem,
                 "category": "community",
@@ -192,10 +325,17 @@ def _find_all_presets() -> list[dict]:
     except Exception:
         # Fallback: scan local shared/ dir (available after deploy)
         if _SHARED_DIR.exists():
+            manifest = _fetch_shared_manifest()
             for yaml_file in sorted(_SHARED_DIR.glob("*.yaml")):
                 stem = yaml_file.stem
                 name, tags = _parse(yaml_file)
-                display_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                if stem in manifest:
+                    display_name = manifest[stem]
+                else:
+                    m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
+                    short_id = m.group(1)[-6:] if m else None
+                    base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
+                    display_name = f"{base_name} #{short_id}" if short_id else base_name
                 presets.append({
                     "name": display_name or name,
                     "category": "community",
@@ -360,6 +500,7 @@ def _ui_params_to_preset(params: dict) -> dict:
             "scatter": float(l.get("scatter", 0.5)),
             "envelope": l.get("envelope", "hann"),
             "root": float(l.get("root", 100)),
+            "tuning_degree": l.get("tuning_degree", "unison"),
             "voices": int(l.get("voices", 4)),
             "ratios": l.get("ratios", [1.0]),
             "fm_ratios": l.get("fm_ratios", [1.0]),
@@ -458,6 +599,10 @@ def _ui_params_to_preset(params: dict) -> dict:
         },
         "swarm_density": 0.5,
         "layers": layers,
+        "tuning_mode":      params.get("tuning_mode", "free"),
+        "tonic_hz":         float(params.get("tonic_hz", 432.0)),
+        "tuning_system_ji": params.get("tuning_system_ji", "5limit_ji"),
+        "pure_mode":        bool(params.get("pure_mode", False)),
         "binaural": binaural if binaural.get("enabled") else None,
         "reverb": reverb if reverb.get("enabled") else None,
         "earth": earth if earth.get("enabled") else None,
@@ -791,57 +936,93 @@ async def render_endpoint(request: Request):
     try:
         preset = _ui_params_to_preset(params)
         duration = preset["duration"]
-        print(f"  [render] Starting {duration}s render ({fmt})…")
 
-        # Check hires flag from request
+        # Determine output quality locally — never mutate global config
         hires = body.get("hires", False)
-        if hires:
-            config.set_hires()
+        render_sr   = config.STREAM_SAMPLE_RATE          # synthesis always at 22050
+        out_sr      = 48_000 if hires else 22_050        # output sample rate
+        out_bd      = "PCM_24" if hires else "PCM_16"
+        mp3_bitrate = 320 if hires else 192
 
-        # Run CPU-heavy render in thread
+        print(f"  [render] Starting {duration}s render ({fmt}, {'hi-res 48k/24b' if hires else '22k/16b'})…")
+
         loop = asyncio.get_event_loop()
         seed = int(body.get("seed", 42))
 
         def _render():
-            engine = StreamingDroneEngine(preset, seed=seed)
-            sr = config.STREAM_SAMPLE_RATE
-            total_samples = int(preset["duration"] * sr)
-            chunk_size = 2048  # must match engine's FDN reverb buffer size
+            # Disable FDN reverb in the engine — convolution IR replaces it for renders
+            preset_for_render = {**preset}
+            reverb_cfg = dict(preset.get("reverb") or {})
+            reverb_enabled = reverb_cfg.get("enabled", False)
+            if reverb_enabled:
+                preset_for_render["reverb"] = {**reverb_cfg, "enabled": False}
+
+            # Capture saturation value and zero it out in the engine — we apply
+            # it post-synthesis with 4× oversampling to eliminate alias artefacts.
+            sat = float(preset.get("saturation", 0.3))
+            preset_for_render["saturation"] = 0.0
+
+            engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=True)
+            total_samples = int(preset["duration"] * render_sr)
+            chunk_size = 2048
             chunks = []
             remaining = total_samples
             while remaining > 0:
                 n = min(chunk_size, remaining)
                 chunks.append(engine.next_chunk(n))
                 remaining -= n
-            return np.concatenate(chunks, axis=0)
+            raw = np.concatenate(chunks, axis=0)
+
+            # Upsample to target SR if hi-res (polyphase, band-limited, no aliasing)
+            if out_sr != render_sr:
+                from scipy.signal import resample_poly
+                from math import gcd
+                g = gcd(out_sr, render_sr)
+                raw = resample_poly(raw, out_sr // g, render_sr // g, axis=0)
+
+            # Oversampled saturation — apply on full buffer at final SR (no chunk artefacts)
+            if sat > 0.01:
+                print(f"  [render] Oversampled saturation ×4: drive={1.0 + sat * 3.0:.2f}…")
+                raw = oversampled_saturate(raw, sat)
+
+            # Apply convolution reverb against real IR (replaces streaming FDN for renders)
+            if reverb_enabled:
+                space      = reverb_cfg.get("space", "cathedral")
+                mix        = float(reverb_cfg.get("mix", 0.3))
+                decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
+                print(f"  [render] Applying IR convolution reverb: space={space} mix={mix:.2f}…")
+                raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=out_sr)
+
+            # Full-buffer true-peak normalize — zero attack lag, zero pumping
+            print("  [render] True-peak normalize (ceiling −1 dBFS)…")
+            raw = final_limit_normalize(raw, ceiling=0.97)
+
+            # TPDF dither before quantisation (adds 1 LSB of shaped noise, eliminates truncation distortion)
+            if out_bd == "PCM_24":
+                lsb = 1.0 / (1 << 23)
+                raw = raw + lsb * (np.random.uniform(-1, 1, raw.shape) + np.random.uniform(-1, 1, raw.shape))
+
+            return np.clip(raw, -1.0, 1.0)  # safety net after dither
 
         audio = await loop.run_in_executor(None, _render)
 
-        print(f"  [render] Done. Encoding {fmt}…")
+        print(f"  [render] Done. Encoding {fmt} @ {out_sr} Hz…")
         import soundfile as sf
 
-        # Save to exports/ folder
         exports_dir = _ROOT / "exports"
         exports_dir.mkdir(exist_ok=True)
-        # Use preset name for filename (sanitize for filesystem)
-        import re
         preset_name = params.get("name", "MANTICE") or "MANTICE"
-        safe_name = re.sub(r'[^\w\s\-]', '', preset_name).strip()
-        if not safe_name:
-            safe_name = "MANTICE"
+        safe_name = re.sub(r'[^\w\s\-]', '', preset_name).strip() or "MANTICE"
         filename = f"{safe_name}.{fmt}"
         export_path = exports_dir / filename
 
-        sr = config.STREAM_SAMPLE_RATE
-        bd = config.BIT_DEPTH
-
         def _encode_audio(audio_arr, fmt, sr, bd):
-            """Encode audio array to bytes in the requested format. Returns (bytes, media_type)."""
+            """Encode audio array to bytes. Returns (bytes, media_type)."""
             if fmt == "mp3":
                 import lameenc
                 pcm = (audio_arr * 32767).clip(-32768, 32767).astype(np.int16)
                 encoder = lameenc.Encoder()
-                encoder.set_bit_rate(192)
+                encoder.set_bit_rate(mp3_bitrate)
                 encoder.set_in_sample_rate(sr)
                 encoder.set_channels(2)
                 encoder.set_quality(2)
@@ -850,27 +1031,23 @@ async def render_endpoint(request: Request):
             else:
                 subtypes = {"wav": bd, "flac": bd, "ogg": "VORBIS"}
                 buf = io.BytesIO()
-                sf.write(buf, audio_arr, sr, format=fmt.upper(), subtype=subtypes.get(fmt))
+                sf.write(buf, audio_arr, sr, format=fmt.upper(), subtype=subtypes.get(fmt, bd))
                 buf.seek(0)
                 media = {"wav": "audio/wav", "flac": "audio/flac", "ogg": "audio/ogg"}
                 return buf.read(), media.get(fmt, "application/octet-stream")
 
-        # Save to disk
-        audio_bytes, media_type = _encode_audio(audio, fmt, sr, bd)
+        audio_bytes, media_type = _encode_audio(audio, fmt, out_sr, out_bd)
         with open(str(export_path), "wb") as _f:
             _f.write(audio_bytes)
-        print(f"  [render] Saved: {export_path}")
+        print(f"  [render] Saved: {export_path} ({len(audio_bytes) // 1024} KB)")
 
-        file_size = len(audio_bytes)
         buf = io.BytesIO(audio_bytes)
-        print(f"  [render] Sending file ({file_size // 1024} KB)")
-
         return StreamingResponse(
             buf,
             media_type=media_type,
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Length": str(file_size),
+                "Content-Length": str(len(audio_bytes)),
                 "X-Export-Path": str(export_path),
             }
         )
@@ -911,7 +1088,7 @@ async def preview_audio(request: Request):
 
         import soundfile as sf
         buf = io.BytesIO()
-        sf.write(buf, audio, config.SAMPLE_RATE, format="WAV", subtype="PCM_16")
+        sf.write(buf, audio, config.STREAM_SAMPLE_RATE, format="WAV", subtype="PCM_16")
         buf.seek(0)
 
         return StreamingResponse(buf, media_type="audio/wav")
@@ -1110,7 +1287,14 @@ async def share_preset_endpoint(request: Request):
         import yaml as _yaml
         preset_data = _ui_params_to_preset(params)
         from .generator import _random_name
-        preset_name = _random_name()
+        # Fetch existing names from manifest to avoid duplicates (best-effort)
+        manifest = _fetch_shared_manifest()
+        existing_names = {v.lower() for v in manifest.values()}
+        # Pick a name not already in use (up to 20 attempts)
+        for _ in range(20):
+            preset_name = _random_name()
+            if preset_name.lower() not in existing_names:
+                break
         preset_data["meta"]["name"] = preset_name
         safe_name = "".join(c for c in preset_name if c.isalnum() or c in " -_").strip().replace(" ", "_")
         short_id = uuid.uuid4().hex[:6]
@@ -1138,9 +1322,32 @@ async def share_preset_endpoint(request: Request):
             with urllib.request.urlopen(req) as resp:
                 return resp.status
         status = await loop.run_in_executor(None, do_gh_put)
-        if status in (200, 201):
-            return JSONResponse({"ok": True, "id": file_id})
-        return JSONResponse({"ok": False, "error": f"GitHub API returned {status}"}, status_code=500)
+        if status not in (200, 201):
+            return JSONResponse({"ok": False, "error": f"GitHub API returned {status}"}, status_code=500)
+        # Also upload JSON params — enables backend-free loading on GitHub Pages
+        params["name"] = preset_name
+        json_b64 = base64.b64encode(json.dumps(params).encode("utf-8")).decode("ascii")
+        json_req = urllib.request.Request(
+            f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared/{file_id}.json",
+            data=json.dumps({"message": f"Share preset params: {preset_name}", "content": json_b64, "branch": GITHUB_BRANCH}).encode("utf-8"),
+            method="PUT",
+            headers={
+                "Authorization": f"token {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github.v3+json",
+                "Content-Type": "application/json",
+                "User-Agent": "Mantice/1.0",
+            }
+        )
+        try:
+            await loop.run_in_executor(None, lambda: urllib.request.urlopen(json_req))
+        except Exception:
+            pass  # JSON upload is best-effort; YAML is the source of truth
+        # Register name in manifest so future shares avoid this name
+        try:
+            await loop.run_in_executor(None, lambda: _update_shared_manifest({file_id: preset_name}))
+        except Exception:
+            pass
+        return JSONResponse({"ok": True, "id": file_id})
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()
         return JSONResponse({"ok": False, "error": f"GitHub API error {e.code}: {err_body}"}, status_code=500)
@@ -1169,6 +1376,30 @@ async def load_shared_preset(id: str):
         if e.code == 404:
             return JSONResponse({"ok": False, "error": "Shared preset not found"}, status_code=404)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/rename-shared")
+async def rename_shared_preset(request: Request):
+    """Rename a shared preset's display name without changing its file ID (link stays valid)."""
+    if not GITHUB_TOKEN:
+        return JSONResponse({"ok": False, "error": "Not configured"}, status_code=503)
+    body = await request.json()
+    preset_id = (body.get("id") or "").strip()
+    new_name = (body.get("name") or "").strip()
+    if not preset_id or not new_name:
+        return JSONResponse({"ok": False, "error": "id and name required"}, status_code=400)
+    if not re.match(r'^[a-zA-Z0-9_\-]{1,120}$', preset_id):
+        return JSONResponse({"ok": False, "error": "Invalid id"}, status_code=400)
+    try:
+        manifest = _fetch_shared_manifest()
+        taken = {v.lower() for k, v in manifest.items() if k != preset_id}
+        if new_name.lower() in taken:
+            return JSONResponse({"ok": False, "error": "Name already in use"}, status_code=409)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: _update_shared_manifest({preset_id: new_name}))
+        return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 

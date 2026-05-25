@@ -16,8 +16,8 @@ _IR_DIR = Path(__file__).parent / "impulse_responses"
 # Available spaces (filename stems)
 AVAILABLE_SPACES = ["cathedral", "cave", "hall", "plate", "infinite"]
 
-# Cache loaded IRs to avoid re-reading from disk
-_ir_cache: dict[str, np.ndarray] = {}
+# Cache loaded IRs keyed by (space, sr) to avoid re-reading from disk
+_ir_cache: dict[tuple, np.ndarray] = {}
 
 
 def get_available_spaces() -> list[str]:
@@ -25,10 +25,12 @@ def get_available_spaces() -> list[str]:
     return [f.stem for f in _IR_DIR.glob("*.wav")]
 
 
-def load_ir(space: str) -> np.ndarray:
-    """Load an IR file, resampled to current config sample rate if needed."""
-    if space in _ir_cache:
-        return _ir_cache[space]
+def load_ir(space: str, sr: int | None = None) -> np.ndarray:
+    """Load an IR file, resampled to *sr* (default: config.STREAM_SAMPLE_RATE)."""
+    target_sr = sr if sr is not None else config.STREAM_SAMPLE_RATE
+    cache_key = (space, target_sr)
+    if cache_key in _ir_cache:
+        return _ir_cache[cache_key]
 
     ir_path = _IR_DIR / f"{space}.wav"
     if not ir_path.exists():
@@ -36,23 +38,25 @@ def load_ir(space: str) -> np.ndarray:
 
     ir_data, ir_sr = sf.read(str(ir_path), dtype="float32")
 
-    # Resample if needed
-    if ir_sr != config.SAMPLE_RATE:
-        from scipy.signal import resample
-        n_target = int(len(ir_data) * config.SAMPLE_RATE / ir_sr)
+    # Resample to target SR if needed
+    if ir_sr != target_sr:
+        from scipy.signal import resample_poly
+        from math import gcd
+        g = gcd(target_sr, ir_sr)
+        up, down = target_sr // g, ir_sr // g
         if ir_data.ndim == 2:
             ir_data = np.column_stack([
-                resample(ir_data[:, 0], n_target),
-                resample(ir_data[:, 1], n_target),
+                resample_poly(ir_data[:, 0], up, down),
+                resample_poly(ir_data[:, 1], up, down),
             ])
         else:
-            ir_data = resample(ir_data, n_target)
+            ir_data = resample_poly(ir_data, up, down)
 
     # Ensure stereo
     if ir_data.ndim == 1:
         ir_data = np.column_stack([ir_data, ir_data])
 
-    _ir_cache[space] = ir_data
+    _ir_cache[cache_key] = ir_data
     return ir_data
 
 
@@ -61,6 +65,7 @@ def apply_convolution_reverb(
     space: str = "cathedral",
     mix: float = 0.3,
     decay_trim: float = 1.0,
+    sr: int | None = None,
 ) -> np.ndarray:
     """
     Apply convolution reverb to stereo audio.
@@ -75,6 +80,9 @@ def apply_convolution_reverb(
         Wet/dry mix (0.0 = fully dry, 1.0 = fully wet).
     decay_trim : float
         Fraction of IR to use (0.0-1.0). Shorter = tighter reverb.
+    sr : int, optional
+        Sample rate of *audio*; used to load/resample the correct IR.
+        Defaults to config.STREAM_SAMPLE_RATE.
 
     Returns
     -------
@@ -84,7 +92,7 @@ def apply_convolution_reverb(
     if mix <= 0.0:
         return audio
 
-    ir = load_ir(space)
+    ir = load_ir(space, sr=sr)
 
     # Trim IR if requested
     if 0.0 < decay_trim < 1.0:
@@ -92,7 +100,9 @@ def apply_convolution_reverb(
         ir = ir[:trim_samples]
         # Fade out the trimmed IR
         fade = int(0.1 * trim_samples)
-        ir[-fade:] *= np.linspace(1, 0, fade)[:, np.newaxis]
+        if fade > 0:
+            ir = ir.copy()
+            ir[-fade:] *= np.linspace(1, 0, fade)[:, np.newaxis]
 
     # Ensure audio is stereo
     if audio.ndim == 1:

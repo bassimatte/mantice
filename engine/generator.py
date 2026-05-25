@@ -100,19 +100,6 @@ _MOOD_PROFILES = {
         "air_prob": 0.8,
         "mood_tags": ["organic", "natural", "earthy"],
     },
-    "chaotic": {
-        "root_range": (30, 2000),
-        "voice_range": (40, 120),
-        "fm_index_range": (0.3, 1.5),
-        "drift_range": (0.03, 0.08),
-        "ratios_pool": [[1.0, 1.17, 1.83, 2.41], [0.5, 1.0, 1.61, 2.72], [1.0, 1.33, 1.87, 3.14]],
-        "reverb_decay": (0.85, 0.95),
-        "reverb_damping": (0.2, 0.5),
-        "reverb_room": (0.5, 1.0),
-        "earth_prob": 0.5,
-        "air_prob": 0.7,
-        "mood_tags": ["chaotic", "dense", "unpredictable"],
-    },
 }
 
 _QUADRANTS = ["front_left", "front_right", "rear_left", "rear_right", "center"]
@@ -145,14 +132,44 @@ _SUB_PROFILES = {
 }
 
 _NAME_PARTS_A = [
-    "Ancient", "Frozen", "Burning", "Infinite", "Hollow", "Crystal", "Iron",
-    "Solar", "Lunar", "Void", "Phantom", "Tectonic", "Spectral", "Magnetic",
-    "Obsidian", "Amber", "Molten", "Silent", "Fractal", "Orbital",
+    # elements & matter
+    "Ancient", "Frozen", "Burning", "Hollow", "Crystal", "Iron", "Obsidian",
+    "Amber", "Molten", "Ashen", "Copper", "Glacial", "Ember", "Cinnabar",
+    "Basalt", "Quartz", "Titanium", "Onyx", "Alabaster", "Chromium",
+    # space & cosmos
+    "Solar", "Lunar", "Orbital", "Stellar", "Cosmic", "Nebular", "Astral",
+    "Sidereal", "Zenith", "Galactic", "Ecliptic", "Crepuscular", "Solstice",
+    "Equinox", "Perihelion", "Interstellar", "Sublunar", "Liminal",
+    # physics & nature
+    "Infinite", "Tectonic", "Spectral", "Magnetic", "Fractal", "Seismic",
+    "Thermal", "Ionic", "Photonic", "Resonant", "Radiant", "Harmonic",
+    "Kinetic", "Entropic", "Quantum", "Plasmid", "Ferrous", "Telluric",
+    # atmosphere & water
+    "Silent", "Phantom", "Void", "Abyssal", "Torrential", "Tempestuous",
+    "Boreal", "Austral", "Riparian", "Pelagic", "Tidal",
+    "Aeolian", "Nimbus", "Vernal", "Nocturnal", "Diurnal", "Ethereal",
+    # sacred & mythic
+    "Sacred", "Primordial", "Orphic", "Hermetic", "Arcane",
+    "Druidic", "Shamanic", "Pythian", "Vedic", "Runic",
+    "Sibylline", "Mantric", "Alchemical", "Telestial", "Chthonic",
 ]
 _NAME_PARTS_B = [
-    "Resonance", "Cathedral", "Monolith", "Engine", "Drift", "Pulse", "Choir",
-    "Chamber", "Expanse", "Vortex", "Field", "Machine", "Horizon", "Abyss",
-    "Frequency", "Pressure", "Continuum", "Whisper", "Storm", "Membrane",
+    # acoustic & music
+    "Resonance", "Choir", "Pulse", "Frequency", "Continuum", "Whisper",
+    "Membrane", "Overtone", "Harmonic", "Timbre", "Tremolo", "Cadence",
+    "Sustain", "Pedaltone", "Undertone", "Formant", "Partials", "Vibration",
+    # architecture & space
+    "Cathedral", "Chamber", "Expanse", "Abyss", "Horizon",
+    "Nave", "Sanctum", "Threshold", "Corridor", "Atrium", "Canopy",
+    "Alcove", "Cloister", "Vestibule", "Archway", "Labyrinth", "Terminus",
+    # forces & phenomena
+    "Drift", "Vortex", "Storm", "Field", "Pressure", "Machine", "Engine",
+    "Current", "Torrent", "Cascade", "Gradient", "Flux", "Surge", "Tide",
+    "Undertow", "Resonator", "Oscillation", "Convergence", "Emanation",
+    # cosmic & mythic objects
+    "Monolith", "Obelisk", "Nexus", "Meridian", "Apex", "Nadir",
+    "Portal", "Sigil", "Glyph", "Oracle", "Mandala", "Yantra", "Stele",
+    "Reliquary", "Totem", "Cipher", "Vessel", "Prism", "Talisman", "Codex",
 ]
 
 

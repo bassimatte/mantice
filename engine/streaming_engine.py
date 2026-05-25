@@ -340,37 +340,38 @@ class StreamingLayer:
         return np.column_stack([filtered_L * self._gain, filtered_R * self._gain])
 
     def _generate_noise(self, n_samples: int) -> np.ndarray:
-        """Generate colored noise (white, pink, or brown)."""
+        """Generate colored noise (white, pink, or brown).
+
+        Per-chunk peak normalization is intentionally NOT used here — dividing by
+        chunk peak causes amplitude discontinuities at chunk boundaries (clicks),
+        especially for pink/brown noise whose LF energy varies slowly.  Instead a
+        fixed scale derived from the filter's steady-state RMS is applied so the
+        output has consistent amplitude without any inter-chunk jumps.
+        """
         white = np.random.randn(n_samples).astype(np.float32)
         if self.noise_color == "white":
             return white
         elif self.noise_color == "brown":
-            # Brown noise: integrated white noise with HPF to prevent DC drift
+            # Brown noise: integrated white noise. a=0.998, gain=0.02
+            # steady-state std ≈ 0.02/sqrt(1-0.998²) ≈ 0.316 → scale × 3.16 ≈ 1.0
             out = np.empty(n_samples, dtype=np.float32)
             state = self._brown_state
             for i in range(n_samples):
                 state = state * 0.998 + white[i] * 0.02
                 out[i] = state
             self._brown_state = state
-            # Normalize
-            peak = np.max(np.abs(out))
-            if peak > 0.001:
-                out /= peak
-            return out
+            return out * np.float32(3.16)
         else:
-            # Pink noise: 1-pole lowpass approximation (simple and efficient)
+            # Pink noise: 1-pole lowpass. a=0.94, gain=0.06
+            # steady-state std ≈ 0.06/sqrt(1-0.94²) ≈ 0.176 → scale × 5.68 ≈ 1.0
             out = np.empty(n_samples, dtype=np.float32)
             state = self._noise_state
-            alpha = np.float32(0.06)  # ~1/f characteristic
+            alpha = np.float32(0.06)
             for i in range(n_samples):
                 state = state * np.float32(0.94) + white[i] * alpha
                 out[i] = state
             self._noise_state = state
-            # Normalize
-            peak = np.max(np.abs(out))
-            if peak > 0.001:
-                out /= peak
-            return out
+            return out * np.float32(5.68)
 
 
 class StreamingSubtractiveLayer:
@@ -688,13 +689,17 @@ class StreamingChorus:
         self.depth = float(depth)
         self.mix = float(mix)
         self.n_voices = int(voices)
-        self.max_delay = int(0.03 * SR) + 1
+        # center_delay must exceed depth_samples so the modulated delay never
+        # goes negative (negative delay wraps the circular buffer to stale audio
+        # thousands of samples old, causing loud clicks).
+        depth_samples = int(self.depth * SR) + 1
+        self.center_delay = max(int(0.015 * SR), depth_samples + 16)
+        self.max_delay = max(int(0.03 * SR) + 1, self.center_delay + depth_samples + 16)
         self.buffer_size = self.max_delay + 8192
         self.buf_L = np.zeros(self.buffer_size, dtype=np.float32)
         self.buf_R = np.zeros(self.buffer_size, dtype=np.float32)
         self.write_pos = 0
         self.lfo_phases = np.linspace(0, 2 * np.pi, self.n_voices, endpoint=False)
-        self.center_delay = int(0.015 * SR)
 
     def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
         if self.mix < 0.001:
@@ -724,7 +729,7 @@ class StreamingChorus:
             # LFO for this voice across all samples
             phases = self.lfo_phases[v] + lfo_inc * sample_indices
             mod = np.sin(phases) * depth_samples
-            delay = self.center_delay + mod
+            delay = np.maximum(self.center_delay + mod, 1.0)  # clamp: never negative
 
             # Read positions (fractional)
             read_pos = (self.write_pos + sample_indices - delay)
@@ -1419,8 +1424,10 @@ class StreamingDroneEngine:
         engine.reload(new_preset)  # crossfades to new parameters
     """
 
-    def __init__(self, preset: dict, seed: int = 42):
+    def __init__(self, preset: dict, seed: int = 42, render_mode: bool = False):
         self.chunk_size = 2048
+        self.render_mode = render_mode  # disables per-chunk peak scaler for offline renders
+        self._limiter_gain = 1.0        # stateful gain carried across chunks
         # Seed random state for reproducible preview
         random.seed(seed)
         np.random.seed(seed)
@@ -1450,6 +1457,23 @@ class StreamingDroneEngine:
         self._samples_elapsed = 0
         duration_secs = float(preset.get("duration", 0))
         self._duration_samples = int(duration_secs * SR) if duration_secs > 0 else 0
+
+        # JI tuning: derive each layer's root from a single tonic
+        tuning_mode = preset.get("tuning_mode", "free")
+        if tuning_mode == "ji":
+            from .tuning import get_ji_hz
+            tonic_hz   = float(preset.get("tonic_hz", 432.0))
+            ji_system  = preset.get("tuning_system_ji", "5limit_ji")
+            pure_mode  = bool(preset.get("pure_mode", False))
+            resolved = []
+            for lc in preset["layers"]:
+                lc = dict(lc)  # shallow copy — never mutate the original preset
+                degree = lc.get("tuning_degree", "unison")
+                lc["root"] = get_ji_hz(tonic_hz, ji_system, degree)
+                if pure_mode:
+                    lc["detune_cents"] = 0.0
+                resolved.append(lc)
+            preset = {**preset, "layers": resolved}
 
         for layer_cfg in preset["layers"]:
             if layer_cfg.get("muted", False):
@@ -1523,7 +1547,7 @@ class StreamingDroneEngine:
         # Air engine (streaming noise)
         self.air_cfg = preset.get("air")
         self._air_kernel = int(0.1 * SR)
-        self._air_buffer = np.zeros(self._air_kernel, dtype=np.float32)
+        self._air_state = np.float32(0.0)  # EMA state carried across chunks (was _air_buffer[-1] = always 0)
 
         # DC block filter state
         nyquist = SR * 0.5
@@ -1625,10 +1649,14 @@ class StreamingDroneEngine:
         # Master EQ + compression
         stereo = self._master.process(stereo)
 
-        # Soft limiter — after master so the compressor has full dynamic range
-        peak = np.max(np.abs(stereo))
-        if peak > 0.92:
-            stereo = stereo * (0.92 / peak)
+        # Soft limiter — streaming only; render path uses full-buffer final_limit_normalize
+        if not self.render_mode:
+            peak = float(np.max(np.abs(stereo)))
+            target = min(1.0, 0.92 / peak) if peak > 1e-6 else 1.0
+            # Ramp gain smoothly across the chunk — no sudden step at chunk boundary
+            gain_ramp = np.linspace(self._limiter_gain, target, stereo.shape[0], dtype=np.float64)
+            stereo = stereo * gain_ramp[:, np.newaxis]
+            self._limiter_gain = target
 
         # Handle crossfade from hot-reload
         if self._crossfade_remaining > 0 and self._old_engine is not None:
@@ -1792,10 +1820,11 @@ class StreamingDroneEngine:
         # Simple exponential smoothing instead of full convolution
         alpha = 2.0 / (self._air_kernel + 1)
         smoothed = np.zeros(n, dtype=np.float32)
-        state = self._air_buffer[-1] if len(self._air_buffer) > 0 else 0.0
+        state = self._air_state
         for i in range(n):
             state = alpha * noise[i] + (1 - alpha) * state
             smoothed[i] = state
+        self._air_state = np.float32(state)
 
         signal = smoothed * intensity
         stereo = np.stack([signal * 0.5, signal * 0.5], axis=1)
@@ -1821,11 +1850,12 @@ class _ShallowCopy:
         self.earth_phase = engine.earth_phase
         self.earth_wobble_phase = engine.earth_wobble_phase
         self._air_kernel = engine._air_kernel
-        self._air_buffer = engine._air_buffer.copy()
+        self._air_state  = engine._air_state
         self._dc_sos  = engine._dc_sos
         self._dc_zi_L = engine._dc_zi_L.copy()
         self._dc_zi_R = engine._dc_zi_R.copy()
         self.saturation = engine.saturation
+        self._limiter_gain = engine._limiter_gain
         self._master = engine._master.copy_state()
         self._reverb  = engine._reverb.copy_state()
         self._shimmer = engine._shimmer.copy_state()
@@ -1863,9 +1893,11 @@ class _ShallowCopy:
 
         stereo = self._master.process(stereo)
 
-        peak = np.max(np.abs(stereo))
-        if peak > 0.92:
-            stereo = stereo * (0.92 / peak)
+        peak = float(np.max(np.abs(stereo)))
+        target = min(1.0, 0.92 / peak) if peak > 1e-6 else 1.0
+        gain_ramp = np.linspace(self._limiter_gain, target, stereo.shape[0], dtype=np.float64)
+        stereo = stereo * gain_ramp[:, np.newaxis]
+        self._limiter_gain = target
 
         return stereo
 
