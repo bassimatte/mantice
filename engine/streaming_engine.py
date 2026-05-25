@@ -687,13 +687,17 @@ class StreamingChorus:
         self.depth = float(depth)
         self.mix = float(mix)
         self.n_voices = int(voices)
-        self.max_delay = int(0.03 * SR) + 1
+        # center_delay must exceed depth_samples so the modulated delay never
+        # goes negative (negative delay wraps the circular buffer to stale audio
+        # thousands of samples old, causing loud clicks).
+        depth_samples = int(self.depth * SR) + 1
+        self.center_delay = max(int(0.015 * SR), depth_samples + 16)
+        self.max_delay = max(int(0.03 * SR) + 1, self.center_delay + depth_samples + 16)
         self.buffer_size = self.max_delay + 8192
         self.buf_L = np.zeros(self.buffer_size, dtype=np.float32)
         self.buf_R = np.zeros(self.buffer_size, dtype=np.float32)
         self.write_pos = 0
         self.lfo_phases = np.linspace(0, 2 * np.pi, self.n_voices, endpoint=False)
-        self.center_delay = int(0.015 * SR)
 
     def next_chunk(self, stereo: np.ndarray) -> np.ndarray:
         if self.mix < 0.001:
@@ -723,7 +727,7 @@ class StreamingChorus:
             # LFO for this voice across all samples
             phases = self.lfo_phases[v] + lfo_inc * sample_indices
             mod = np.sin(phases) * depth_samples
-            delay = self.center_delay + mod
+            delay = np.maximum(self.center_delay + mod, 1.0)  # clamp: never negative
 
             # Read positions (fractional)
             read_pos = (self.write_pos + sample_indices - delay)
