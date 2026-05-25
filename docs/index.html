@@ -893,6 +893,18 @@ main {
 .layer-tab.muted.active { background: var(--layer-color, var(--accent)); opacity: 0.65; }
 .layer-tab.muted::after { content: ' M'; font-size: 8px; opacity: 0.8; }
 
+/* Layer peak meter bar — shown at bottom of each layer tab */
+.layer-meter {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 3px;
+  background: #22cc44;
+  width: 0%;
+  transition: width 0.08s linear, background 0.08s;
+  border-radius: 0 0 2px 2px;
+}
+.layer-tab { position: relative; overflow: hidden; }
+
 /* Layer sub-tabs */
 .layer-subtabs {
   display: flex;
@@ -1249,9 +1261,8 @@ main {
           <h4>Layer Sub-tabs & Global FX</h4>
           <p>Layer parameters are organised into four sub-tabs: <strong>Synth</strong> (oscillator type and tuning),
           <strong>Filter</strong> (filter type + LFO), <strong>Space</strong> (quadrant, trajectory, elevation),
-          and <strong>FX</strong> (chorus + distortion). Global processing — Binaural, Reverb, Earth &amp; Air,
-          and <strong>Flanger</strong> — lives in the <strong>Global FX</strong> card below the layers.
-          The Flanger applies a global LFO-modulated delay post-mix for psychedelic shimmer and jet-engine sweeps.</p>
+          and <strong>FX</strong> (chorus + distortion + per-layer flanger + phaser). Global processing — Binaural, Reverb, Earth &amp; Air —
+          lives in the <strong>Global FX</strong> card below the layers.</p>
         </div>
 
         <h3>Global Processing</h3>
@@ -1456,9 +1467,15 @@ python batch_render_freesound.py --metadata-only</pre>
         <h3>Layer — Dynamics</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Mix</td><td>0.0–1.0</td><td>1.0</td><td>Layer volume in final mix</td></tr>
-          <tr><td>Amp Min / Max</td><td>0.0–1.0</td><td>0.001 / 0.05</td><td>Amplitude envelope range</td></tr>
-          <tr><td>Drift</td><td>0.0–0.1</td><td>0.01</td><td>Pitch drift for organic beating</td></tr>
+          <tr><td>Volume</td><td>-60 to +6 dB</td><td>0 dB</td><td>Layer gain in the master mix (replaces old Mix + Loudness controls)</td></tr>
+          <tr><td>Drift</td><td>0.0–0.1</td><td>0.01</td><td>Pitch drift for organic beating between voices</td></tr>
+        </table>
+
+        <h3>Layer — Unison (FM only)</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Spread</td><td>0–2</td><td>1.0</td><td>Stereo field width: 0=mono, 1=default π/8–3π/8 arc, 2=full L/R</td></tr>
+          <tr><td>Blend</td><td>0–1</td><td>1.0</td><td>Voice amplitude taper: 1=all voices equal, 0=centre dominant, edges silent</td></tr>
         </table>
 
         <h3>Layer — Spatial Motion</h3>
@@ -1557,16 +1574,6 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>Makeup Gain</td><td>-6–12 dB</td><td>0</td><td>Output gain after compression</td></tr>
         </table>
         <p class="docs-note">Feed-forward peak compressor on the master bus. Use a soft knee (4–8 dB) for transparent limiting; fast attack/slow release for pumping effects.</p>
-
-        <h3>Global FX — Flanger</h3>
-        <table class="docs-table">
-          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Wet</td><td>0.0–1.0</td><td>0.0 (off)</td><td>Dry/wet mix — 0 bypasses the effect entirely</td></tr>
-          <tr><td>Rate</td><td>0.01–2.0 Hz</td><td>0.25</td><td>LFO speed — slow for gentle sweeps, faster for jet-engine effect</td></tr>
-          <tr><td>Depth</td><td>0.0–1.0</td><td>0.5</td><td>LFO range — maps to 0.5–10 ms delay sweep</td></tr>
-          <tr><td>Feedback</td><td>0.0–0.95</td><td>0.4</td><td>Signal fed back into delay — higher = more resonant metallic coloring</td></tr>
-        </table>
-        <p class="docs-note">Global effect applied post-mix after all layers are blended. Uses a circular buffer with LFO-modulated read position. Active only when Wet &gt; 0.</p>
       </div>
 
       <!-- ═══ TAB 3: Shortcuts ═══ -->
@@ -1737,14 +1744,14 @@ python batch_render_freesound.py --metadata-only</pre>
   <div class="card" id="global-fx-card">
     <h2>Global FX</h2>
     <div class="layer-subtabs" id="global-fx-tabs">
-      <button class="layer-subtab active" data-gfx="space">Binaural</button>
-      <button class="layer-subtab" data-gfx="reverb">Reverb</button>
+      <button class="layer-subtab active" data-gfx="reverb">Reverb</button>
+      <button class="layer-subtab" data-gfx="shimmer">Shimmer</button>
       <button class="layer-subtab" data-gfx="earth">Earth &amp; Air</button>
-      <button class="layer-subtab" data-gfx="flanger">Flanger</button>
+      <button class="layer-subtab" data-gfx="space">Binaural</button>
     </div>
 
     <!-- Space (Binaural) -->
-    <div class="gfx-content" data-gfx="space">
+    <div class="gfx-content" data-gfx="space" style="display:none">
       <div class="toggle-row">
         <label>Enabled</label>
         <div class="toggle" id="binaural-toggle"></div>
@@ -1774,7 +1781,7 @@ python batch_render_freesound.py --metadata-only</pre>
     </div>
 
     <!-- Reverb -->
-    <div class="gfx-content" data-gfx="reverb" style="display:none">
+    <div class="gfx-content" data-gfx="reverb">
       <div class="toggle-row">
         <label>Enabled</label>
         <div class="toggle" id="reverb-toggle"></div>
@@ -1803,29 +1810,34 @@ python batch_render_freesound.py --metadata-only</pre>
       <div class="param-row"><label>Intensity</label><input type="range" id="air-intensity" min="0.0" max="0.5" step="0.01" value="0.12"><span class="value" id="air-intensity-val">0.12</span></div>
     </div>
 
-    <!-- Flanger -->
-    <div class="gfx-content" data-gfx="flanger" style="display:none">
+    <!-- Shimmer -->
+    <div class="gfx-content" data-gfx="shimmer" style="display:none">
       <div class="param-row">
         <label>Wet</label>
-        <input type="range" id="flanger-wet" min="0" max="1" step="0.01" value="0">
-        <span class="value" id="flanger-wet-val">0.00</span>
+        <input type="range" id="shimmer-wet" min="0" max="1" step="0.01" value="0">
+        <span class="value" id="shimmer-wet-val">0.00</span>
       </div>
       <div class="param-row">
-        <label>Rate</label>
-        <input type="range" id="flanger-rate" min="0.01" max="2" step="0.01" value="0.25">
-        <span class="value" id="flanger-rate-val">0.25 Hz</span>
-      </div>
-      <div class="param-row">
-        <label>Depth</label>
-        <input type="range" id="flanger-depth" min="0" max="1" step="0.01" value="0.5">
-        <span class="value" id="flanger-depth-val">0.50</span>
+        <label>Pitch</label>
+        <select id="shimmer-pitch" style="flex:1; background:var(--surface2); color:var(--text); border:1px solid var(--border); font-family:'Space Mono',monospace; font-size:10px; padding:3px 6px;">
+          <option value="-12">↓ Octave Down (−12)</option>
+          <option value="5">Perfect 4th (+5)</option>
+          <option value="7">Perfect 5th (+7)</option>
+          <option value="12" selected>Octave Up (+12)</option>
+          <option value="19">Octave + 5th (+19)</option>
+          <option value="24">Two Octaves (+24)</option>
+        </select>
       </div>
       <div class="param-row">
         <label>Feedback</label>
-        <input type="range" id="flanger-feedback" min="0" max="0.95" step="0.01" value="0.4">
-        <span class="value" id="flanger-feedback-val">0.40</span>
+        <input type="range" id="shimmer-feedback" min="0" max="0.95" step="0.01" value="0.5">
+        <span class="value" id="shimmer-feedback-val">0.50</span>
+      </div>
+      <div style="font-size:10px; color:var(--text-dim); margin-top:6px; line-height:1.4">
+        Pitch-shifted feedback tail — best with Reverb on.<br>Wet 0 = bypassed.
       </div>
     </div>
+
   </div>
 
   <!-- Master -->
@@ -1999,7 +2011,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || '';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -2289,16 +2301,13 @@ function applyParamsToUI(p) {
   $('air-intensity').value = p.air.intensity;
   $('air-intensity-val').textContent = p.air.intensity.toFixed(2);
 
-  // Flanger
-  const fl = p.flanger || {};
-  $('flanger-wet').value = fl.wet ?? 0;
-  $('flanger-wet-val').textContent = (fl.wet ?? 0).toFixed(2);
-  $('flanger-rate').value = fl.rate ?? 0.25;
-  $('flanger-rate-val').textContent = (fl.rate ?? 0.25).toFixed(2) + ' Hz';
-  $('flanger-depth').value = fl.depth ?? 0.5;
-  $('flanger-depth-val').textContent = (fl.depth ?? 0.5).toFixed(2);
-  $('flanger-feedback').value = fl.feedback ?? 0.4;
-  $('flanger-feedback-val').textContent = (fl.feedback ?? 0.4).toFixed(2);
+  // Shimmer
+  const sh = p.shimmer || {};
+  $('shimmer-wet').value = sh.wet ?? 0;
+  $('shimmer-wet-val').textContent = (sh.wet ?? 0).toFixed(2);
+  $('shimmer-pitch').value = String(Math.round(sh.pitch_semitones ?? 12));
+  $('shimmer-feedback').value = sh.feedback ?? 0.5;
+  $('shimmer-feedback-val').textContent = (sh.feedback ?? 0.5).toFixed(2);
 
   // Saturation
   const sat = p.saturation !== undefined ? p.saturation : 0.3;
@@ -2445,7 +2454,7 @@ function buildLayerTabs(layers) {
   const tabs = $('layer-tabs');
   tabs.innerHTML = layers.map((l, i) => {
     const color = getLayerColor(l.root);
-    return `<button class="layer-tab ${i === activeLayerIdx ? 'active' : ''} ${l.muted ? 'muted' : ''}" data-idx="${i}" style="--layer-color:${color}">${l.name || 'Layer ' + i}</button>`;
+    return `<button class="layer-tab ${i === activeLayerIdx ? 'active' : ''} ${l.muted ? 'muted' : ''}" data-idx="${i}" style="--layer-color:${color}">${l.name || 'Layer ' + i}<span class="layer-meter" id="layer-meter-${i}"></span></button>`;
   }).join('');
   // Set CSS custom properties for layer colors
   layers.forEach((l, i) => {
@@ -2505,10 +2514,14 @@ function doAddLayer() {
     voices: 4,
     fm_index: 1.0,
     drift: 0.01,
-    mix: 0.8,
+    volume_db: 0,
     amp_min: 0.005,
     amp_max: 0.04,
     chorus_mix: 0,
+    spread: 1.0,
+    blend: 1.0,
+    flanger_wet: 0, flanger_rate: 0.25, flanger_depth: 0.5, flanger_feedback: 0.4,
+    phaser_wet: 0, phaser_rate: 0.5, phaser_depth: 0.7, phaser_center_hz: 800, phaser_feedback: 0, phaser_stages: 4,
     spatial_motion: { quadrant: 'front', speed: 0.005, trajectory_x: 'sine', trajectory_y: 'cosine' }
   };
   currentParams.layers.push(newLayer);
@@ -2576,25 +2589,35 @@ function showLayerParams(layer) {
     </div>
   `;
 
-  // FM synthesis params
-  const fmParams = [
-    { id: 'root', label: 'Root Hz', min: 20, max: 2000, step: 0.1, val: layer.root },
-    { id: 'voices', label: 'Voices', min: 1, max: 64, step: 1, val: layer.voices },
-    { id: 'fm_index', label: 'FM Index', min: 0, max: 5, step: 0.1, val: layer.fm_index },
-    { id: 'drift', label: 'Drift', min: 0, max: 0.05, step: 0.001, val: layer.drift },
-    { id: 'mix', label: 'Mix', min: 0, max: 2, step: 0.05, val: layer.mix },
-    { id: 'loudness', label: 'Loudness', min: 0, max: 0.15, step: 0.001, val: layer.amp_max || 0.03 },
-  ];
-
-  const fmHtml = fmParams.map(p => `
+  // FM synthesis params — Volume at top, grouped by section
+  const fmSynthHtml = `
     <div class="param-row">
-      <label>${p.label}${p.id === 'root' ? `<button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button>` : ''}</label>
-      <input type="range" id="lp-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" >
-      <span class="value" id="lp-${p.id}-val">${p.id === 'root' ? rootLabel(p.val) : Number(p.val).toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0)}</span>${p.id === 'root' ? `<span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>` : ''}
+      <label>Volume (dB)</label>
+      <input type="range" id="lp-volume_db" min="-60" max="6" step="0.5" value="${layer.volume_db ?? 0}" >
+      <span class="value" id="lp-volume_db-val">${((layer.volume_db ?? 0) >= 0 ? '+' : '') + Number(layer.volume_db ?? 0).toFixed(1) + ' dB'}</span>
     </div>
-  `).join('');
-
-  const harmonicsHtml = `
+    <div class="card-subsection-label" style="margin-top:8px;">Oscillator</div>
+    <div class="param-row">
+      <label>Root Hz <button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Snap to semitones">♩</button></label>
+      <input type="range" id="lp-root" min="20" max="2000" step="0.1" value="${layer.root}" >
+      <span class="value" id="lp-root-val">${rootLabel(layer.root)}</span><span id="lp-root-cents" style="font-size:9px;color:var(--text-dim);margin-left:2px"></span>
+    </div>
+    <div class="param-row">
+      <label>Voices</label>
+      <input type="range" id="lp-voices" min="1" max="64" step="1" value="${layer.voices}" >
+      <span class="value" id="lp-voices-val">${Number(layer.voices).toFixed(0)}</span>
+    </div>
+    <div class="param-row">
+      <label>FM Index</label>
+      <input type="range" id="lp-fm_index" min="0" max="5" step="0.1" value="${layer.fm_index}" >
+      <span class="value" id="lp-fm_index-val">${Number(layer.fm_index).toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Drift</label>
+      <input type="range" id="lp-drift" min="0" max="0.05" step="0.001" value="${layer.drift}" >
+      <span class="value" id="lp-drift-val">${Number(layer.drift).toFixed(3)}</span>
+    </div>
+    <div class="card-subsection-label" style="margin-top:8px;">Timbre</div>
     <div class="param-row">
       <label>Harmonics</label>
       <input type="range" id="lp-harmonics" min="1" max="8" step="1" value="${layer.harmonics || 4}" >
@@ -2605,9 +2628,7 @@ function showLayerParams(layer) {
       <input type="range" id="lp-harmonic_decay" min="0.3" max="0.95" step="0.05" value="${layer.harmonic_decay || 0.7}" >
       <span class="value" id="lp-harmonic_decay-val">${(layer.harmonic_decay || 0.7).toFixed(2)}</span>
     </div>
-  `;
-
-  const textureHtml = `
+    <div class="card-subsection-label" style="margin-top:8px;">Texture</div>
     <div class="param-row">
       <label>Noise</label>
       <input type="range" id="lp-noise_amount" min="0" max="0.3" step="0.01" value="${layer.noise_amount || 0}" >
@@ -2615,13 +2636,16 @@ function showLayerParams(layer) {
     </div>
     <div class="param-row">
       <label>Color</label>
-      <select id="lp-noise_color"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+      <select id="lp-noise_color" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
         <option value="white" ${(layer.noise_color || 'pink') === 'white' ? 'selected' : ''}>White</option>
         <option value="pink" ${(layer.noise_color || 'pink') === 'pink' ? 'selected' : ''}>Pink</option>
         <option value="brown" ${(layer.noise_color || 'pink') === 'brown' ? 'selected' : ''}>Brown</option>
       </select>
     </div>
   `;
+
+  const layerSpread = layer.spread ?? 1.0;
+  const layerBlend  = layer.blend  ?? 1.0;
 
   // Granular params
   const granularParams = [
@@ -2706,6 +2730,12 @@ function showLayerParams(layer) {
 
   const subtractiveHtml = `
     <div class="param-row">
+      <label>Volume (dB)</label>
+      <input type="range" id="lp-volume_db" min="-60" max="6" step="0.5" value="${layer.volume_db ?? 0}" >
+      <span class="value" id="lp-volume_db-val">${((layer.volume_db ?? 0) >= 0 ? '+' : '') + (layer.volume_db ?? 0).toFixed(1) + ' dB'}</span>
+    </div>
+    <div class="card-subsection-label" style="margin-top:8px;">Oscillator</div>
+    <div class="param-row">
       <label>Waveform</label>
       <select id="lp-waveform"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
         <option value="saw" ${(layer.waveform||'saw')==='saw'?'selected':''}>Sawtooth</option>
@@ -2738,80 +2768,148 @@ function showLayerParams(layer) {
       <input type="range" id="lp-drift" min="0" max="0.05" step="0.001" value="${layer.drift||0.01}" >
       <span class="value" id="lp-drift-val">${(layer.drift||0.01).toFixed(3)}</span>
     </div>
-    <div class="param-row">
-      <label>Mix</label>
-      <input type="range" id="lp-mix" min="0" max="2" step="0.05" value="${layer.mix||0.8}" >
-      <span class="value" id="lp-mix-val">${(layer.mix||0.8).toFixed(2)}</span>
-    </div>
-    <div class="param-row">
-      <label>Loudness</label>
-      <input type="range" id="lp-loudness" min="0" max="0.15" step="0.001" value="${layer.amp_max||0.04}" >
-      <span class="value" id="lp-loudness-val">${(layer.amp_max||0.04).toFixed(3)}</span>
-    </div>
   `;
 
+  const elevIsActive = (layer.elevation || 0) !== 0 || (layer.elevation_motion || 'static') !== 'static';
   const elevationHtml = `
-    <div class="param-row">
-      <label>Elevation</label>
-      <input type="range" id="lp-elevation" min="-90" max="90" step="5" value="${layer.elevation || 0}" >
-      <span class="value" id="lp-elevation-val">${layer.elevation || 0}</span>
+    <div class="card-subsection-label" style="margin-top:8px; cursor:pointer; display:flex; justify-content:space-between; user-select:none;" onclick="var b=document.getElementById('lp-elev-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.lp-elev-arrow').textContent=open?'▶':'▼';">
+      Elevation <span class="lp-elev-arrow" style="font-size:9px; color:var(--text-dim);">${elevIsActive ? '▼' : '▶'}</span>
     </div>
-    <div class="param-row">
-      <label>Elev. Motion</label>
-      <select id="lp-elevation_motion"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
-        <option value="static" ${(layer.elevation_motion || 'static') === 'static' ? 'selected' : ''}>Static</option>
-        <option value="rise" ${(layer.elevation_motion || 'static') === 'rise' ? 'selected' : ''}>Rise</option>
-        <option value="fall" ${(layer.elevation_motion || 'static') === 'fall' ? 'selected' : ''}>Fall</option>
-        <option value="float" ${(layer.elevation_motion || 'static') === 'float' ? 'selected' : ''}>Float</option>
-        <option value="breathe" ${(layer.elevation_motion || 'static') === 'breathe' ? 'selected' : ''}>Breathe</option>
-      </select>
-    </div>
-    <div class="param-row">
-      <label>Elev. Speed</label>
-      <input type="range" id="lp-elevation_speed" min="0.01" max="1" step="0.01" value="${layer.elevation_speed || 0.1}" >
-      <span class="value" id="lp-elevation_speed-val">${(layer.elevation_speed || 0.1).toFixed(2)}</span>
-    </div>
-    <div class="param-row">
-      <label>Elev. Range</label>
-      <input type="range" id="lp-elevation_range" min="0" max="180" step="10" value="${layer.elevation_range || 60}" >
-      <span class="value" id="lp-elevation_range-val">${layer.elevation_range || 60}</span>
+    <div id="lp-elev-body" style="display:${elevIsActive ? 'block' : 'none'};">
+      <div class="param-row">
+        <label>Elevation</label>
+        <input type="range" id="lp-elevation" min="-90" max="90" step="5" value="${layer.elevation || 0}" >
+        <span class="value" id="lp-elevation-val">${layer.elevation || 0}</span>
+      </div>
+      <div class="param-row">
+        <label>Elev. Motion</label>
+        <select id="lp-elevation_motion"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+          <option value="static" ${(layer.elevation_motion || 'static') === 'static' ? 'selected' : ''}>Static</option>
+          <option value="rise" ${(layer.elevation_motion || 'static') === 'rise' ? 'selected' : ''}>Rise</option>
+          <option value="fall" ${(layer.elevation_motion || 'static') === 'fall' ? 'selected' : ''}>Fall</option>
+          <option value="float" ${(layer.elevation_motion || 'static') === 'float' ? 'selected' : ''}>Float</option>
+          <option value="breathe" ${(layer.elevation_motion || 'static') === 'breathe' ? 'selected' : ''}>Breathe</option>
+        </select>
+      </div>
+      <div class="param-row">
+        <label>Elev. Speed</label>
+        <input type="range" id="lp-elevation_speed" min="0.01" max="1" step="0.01" value="${layer.elevation_speed || 0.1}" >
+        <span class="value" id="lp-elevation_speed-val">${(layer.elevation_speed || 0.1).toFixed(2)}</span>
+      </div>
+      <div class="param-row">
+        <label>Elev. Range</label>
+        <input type="range" id="lp-elevation_range" min="0" max="180" step="10" value="${layer.elevation_range || 60}" >
+        <span class="value" id="lp-elevation_range-val">${layer.elevation_range || 60}</span>
+      </div>
     </div>
   `;
 
+  const chorusActive   = (layer.chorus_mix     || 0)    > 0;
+  const distActive     = (layer.distortion_drive ?? 0)  > 0;
+  const flangerActive  = (layer.flanger_wet      ?? 0)  > 0;
+  const phaserActive   = (layer.phaser_wet       ?? 0)  > 0;
   const chorusHtml = `
-    <div class="card-subsection-label">Chorus</div>
-    <div class="param-row">
-      <label>Mix</label>
-      <input type="range" id="lp-chorus_mix" min="0" max="1" step="0.01" value="${layer.chorus_mix || 0}" >
-      <span class="value" id="lp-chorus_mix-val">${(layer.chorus_mix || 0).toFixed(2)}</span>
+    <div class="card-subsection-label" style="cursor:pointer; display:flex; justify-content:space-between; user-select:none;" onclick="var b=document.getElementById('lp-chorus-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.lp-fx-arrow').textContent=open?'▶':'▼';">
+      Chorus <span class="lp-fx-arrow" style="font-size:9px; color:var(--text-dim);">${chorusActive ? '▼' : '▶'}</span>
     </div>
-    <div class="param-row">
-      <label>Rate</label>
-      <input type="range" id="lp-chorus_rate" min="0.1" max="5" step="0.1" value="${layer.chorus_rate || 0.5}" >
-      <span class="value" id="lp-chorus_rate-val">${(layer.chorus_rate || 0.5).toFixed(1)}</span>
+    <div id="lp-chorus-body" style="display:${chorusActive ? 'block' : 'none'};">
+      <div class="param-row">
+        <label>Mix</label>
+        <input type="range" id="lp-chorus_mix" min="0" max="1" step="0.01" value="${layer.chorus_mix || 0}" >
+        <span class="value" id="lp-chorus_mix-val">${(layer.chorus_mix || 0).toFixed(2)}</span>
+      </div>
+      <div class="param-row">
+        <label>Rate</label>
+        <input type="range" id="lp-chorus_rate" min="0.1" max="5" step="0.1" value="${layer.chorus_rate || 0.5}" >
+        <span class="value" id="lp-chorus_rate-val">${(layer.chorus_rate || 0.5).toFixed(1)}</span>
+      </div>
+      <div class="param-row">
+        <label>Depth</label>
+        <input type="range" id="lp-chorus_depth" min="0.001" max="0.02" step="0.001" value="${layer.chorus_depth || 0.005}" >
+        <span class="value" id="lp-chorus_depth-val">${(layer.chorus_depth || 0.005).toFixed(3)}</span>
+      </div>
+      <div class="param-row">
+        <label>Voices</label>
+        <input type="range" id="lp-chorus_voices" min="1" max="4" step="1" value="${layer.chorus_voices || 2}" >
+        <span class="value" id="lp-chorus_voices-val">${layer.chorus_voices || 2}</span>
+      </div>
     </div>
-    <div class="param-row">
-      <label>Depth</label>
-      <input type="range" id="lp-chorus_depth" min="0.001" max="0.02" step="0.001" value="${layer.chorus_depth || 0.005}" >
-      <span class="value" id="lp-chorus_depth-val">${(layer.chorus_depth || 0.005).toFixed(3)}</span>
+    <div class="card-subsection-label" style="margin-top:6px; cursor:pointer; display:flex; justify-content:space-between; user-select:none;" onclick="var b=document.getElementById('lp-dist-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.lp-fx-arrow').textContent=open?'▶':'▼';">
+      Distortion <span class="lp-fx-arrow" style="font-size:9px; color:var(--text-dim);">${distActive ? '▼' : '▶'}</span>
     </div>
-    <div class="param-row">
-      <label>Voices</label>
-      <input type="range" id="lp-chorus_voices" min="1" max="4" step="1" value="${layer.chorus_voices || 2}" >
-      <span class="value" id="lp-chorus_voices-val">${layer.chorus_voices || 2}</span>
+    <div id="lp-dist-body" style="display:${distActive ? 'block' : 'none'};">
+      <div class="param-row">
+        <label>Drive</label>
+        <input type="range" id="lp-distortion_drive" min="0" max="5" step="0.1" value="${layer.distortion_drive ?? 0}" >
+        <span class="value" id="lp-distortion_drive-val">${(layer.distortion_drive ?? 0).toFixed(1)}</span>
+      </div>
+      <div class="param-row">
+        <label>Type</label>
+        <select id="lp-distortion_type" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+          <option value="soft" ${(layer.distortion_type||'soft')==='soft'?'selected':''}>Soft (tanh)</option>
+          <option value="hard" ${(layer.distortion_type||'soft')==='hard'?'selected':''}>Hard clip</option>
+        </select>
+      </div>
     </div>
-    <div class="card-subsection-label" style="margin-top:10px">Distortion</div>
-    <div class="param-row">
-      <label>Drive</label>
-      <input type="range" id="lp-distortion_drive" min="0" max="5" step="0.1" value="${layer.distortion_drive ?? 0}" >
-      <span class="value" id="lp-distortion_drive-val">${(layer.distortion_drive ?? 0).toFixed(1)}</span>
+    <div class="card-subsection-label" style="margin-top:6px; cursor:pointer; display:flex; justify-content:space-between; user-select:none;" onclick="var b=document.getElementById('lp-flanger-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.lp-fx-arrow').textContent=open?'▶':'▼';">
+      Flanger <span class="lp-fx-arrow" style="font-size:9px; color:var(--text-dim);">${flangerActive ? '▼' : '▶'}</span>
     </div>
-    <div class="param-row">
-      <label>Type</label>
-      <select id="lp-distortion_type" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
-        <option value="soft" ${(layer.distortion_type||'soft')==='soft'?'selected':''}>Soft (tanh)</option>
-        <option value="hard" ${(layer.distortion_type||'soft')==='hard'?'selected':''}>Hard clip</option>
-      </select>
+    <div id="lp-flanger-body" style="display:${flangerActive ? 'block' : 'none'};">
+      <div class="param-row">
+        <label>Wet</label>
+        <input type="range" id="lp-flanger_wet" min="0" max="1" step="0.01" value="${layer.flanger_wet ?? 0}" >
+        <span class="value" id="lp-flanger_wet-val">${(layer.flanger_wet ?? 0).toFixed(2)}</span>
+      </div>
+      <div class="param-row">
+        <label>Rate</label>
+        <input type="range" id="lp-flanger_rate" min="0.01" max="2" step="0.01" value="${layer.flanger_rate ?? 0.25}" >
+        <span class="value" id="lp-flanger_rate-val">${(layer.flanger_rate ?? 0.25).toFixed(2)} Hz</span>
+      </div>
+      <div class="param-row">
+        <label>Depth</label>
+        <input type="range" id="lp-flanger_depth" min="0" max="1" step="0.01" value="${layer.flanger_depth ?? 0.5}" >
+        <span class="value" id="lp-flanger_depth-val">${(layer.flanger_depth ?? 0.5).toFixed(2)}</span>
+      </div>
+      <div class="param-row">
+        <label>Feedback</label>
+        <input type="range" id="lp-flanger_feedback" min="0" max="0.95" step="0.01" value="${layer.flanger_feedback ?? 0.4}" >
+        <span class="value" id="lp-flanger_feedback-val">${(layer.flanger_feedback ?? 0.4).toFixed(2)}</span>
+      </div>
+    </div>
+    <div class="card-subsection-label" style="margin-top:6px; cursor:pointer; display:flex; justify-content:space-between; user-select:none;" onclick="var b=document.getElementById('lp-phaser-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.lp-fx-arrow').textContent=open?'▶':'▼';">
+      Phaser <span class="lp-fx-arrow" style="font-size:9px; color:var(--text-dim);">${phaserActive ? '▼' : '▶'}</span>
+    </div>
+    <div id="lp-phaser-body" style="display:${phaserActive ? 'block' : 'none'};">
+      <div class="param-row">
+        <label>Wet</label>
+        <input type="range" id="lp-phaser_wet" min="0" max="1" step="0.01" value="${layer.phaser_wet ?? 0}" >
+        <span class="value" id="lp-phaser_wet-val">${(layer.phaser_wet ?? 0).toFixed(2)}</span>
+      </div>
+      <div class="param-row">
+        <label>Rate</label>
+        <input type="range" id="lp-phaser_rate" min="0.01" max="4" step="0.01" value="${layer.phaser_rate ?? 0.5}" >
+        <span class="value" id="lp-phaser_rate-val">${(layer.phaser_rate ?? 0.5).toFixed(2)} Hz</span>
+      </div>
+      <div class="param-row">
+        <label>Depth</label>
+        <input type="range" id="lp-phaser_depth" min="0" max="1" step="0.01" value="${layer.phaser_depth ?? 0.7}" >
+        <span class="value" id="lp-phaser_depth-val">${(layer.phaser_depth ?? 0.7).toFixed(2)}</span>
+      </div>
+      <div class="param-row">
+        <label>Center</label>
+        <input type="range" id="lp-phaser_center_hz" min="100" max="4000" step="10" value="${layer.phaser_center_hz ?? 800}" >
+        <span class="value" id="lp-phaser_center_hz-val">${(layer.phaser_center_hz ?? 800).toFixed(0)} Hz</span>
+      </div>
+      <div class="param-row">
+        <label>Feedback</label>
+        <input type="range" id="lp-phaser_feedback" min="-0.95" max="0.95" step="0.01" value="${layer.phaser_feedback ?? 0}" >
+        <span class="value" id="lp-phaser_feedback-val">${(layer.phaser_feedback ?? 0).toFixed(2)}</span>
+      </div>
+      <div class="param-row">
+        <label>Stages</label>
+        <input type="range" id="lp-phaser_stages" min="2" max="12" step="2" value="${layer.phaser_stages ?? 4}" >
+        <span class="value" id="lp-phaser_stages-val">${layer.phaser_stages ?? 4}</span>
+      </div>
     </div>
   `;
 
@@ -2819,7 +2917,21 @@ function showLayerParams(layer) {
   const layerPan   = layer.pan   ?? 0.0;
   const layerWidth = layer.width ?? 1.0;
 
+  const spreadBlendHtml = layerType === 'fm' ? `
+    <div class="param-row">
+      <label>Spread</label>
+      <input type="range" id="lp-spread" min="0" max="2" step="0.05" value="${layerSpread}" >
+      <span class="value" id="lp-spread-val">${layerSpread.toFixed(2)}</span>
+    </div>
+    <div class="param-row">
+      <label>Blend</label>
+      <input type="range" id="lp-blend" min="0" max="1" step="0.05" value="${layerBlend}" >
+      <span class="value" id="lp-blend-val">${layerBlend.toFixed(2)}</span>
+    </div>
+  ` : '';
+
   const spatialHtml = `
+    <div class="card-subsection-label">Stereo</div>
     <div class="param-row">
       <label>Pan</label>
       <input type="range" id="lp-pan" min="-1" max="1" step="0.01" value="${layerPan}" >
@@ -2830,8 +2942,10 @@ function showLayerParams(layer) {
       <input type="range" id="lp-width" min="0" max="2" step="0.05" value="${layerWidth}" >
       <span class="value" id="lp-width-val">${layerWidth.toFixed(2)}</span>
     </div>
+    ${spreadBlendHtml}
+    <div class="card-subsection-label" style="margin-top:8px;">Position</div>
     <div class="param-row">
-      <label>Position</label>
+      <label>Quadrant</label>
       <select id="lp-quadrant"  style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
         <option value="front_left" ${spatialMotion.quadrant === 'front_left' ? 'selected' : ''}>Front Left</option>
         <option value="front_right" ${spatialMotion.quadrant === 'front_right' ? 'selected' : ''}>Front Right</option>
@@ -2863,7 +2977,7 @@ function showLayerParams(layer) {
   } else if (layerType === 'subtractive') {
     synthHtml = subtractiveHtml;
   } else {
-    synthHtml = fmHtml + harmonicsHtml + textureHtml;
+    synthHtml = fmSynthHtml;
   }
 
   const synthDiv = `<div class="layer-subtab-content" data-subtab="synth" style="display:${activeLayerSubTab==='synth'?'block':'none'}">${synthHtml}</div>`;
@@ -3027,6 +3141,13 @@ function showLayerParams(layer) {
   });
 
   // Bind FM sliders (only if FM type)
+  const fmParams = [
+    { id: 'root',      step: 0.1   },
+    { id: 'voices',    step: 1     },
+    { id: 'fm_index',  step: 0.1   },
+    { id: 'drift',     step: 0.001 },
+    { id: 'volume_db', step: 0.5   },
+  ];
   if (layerType === 'fm') {
     fmParams.forEach(p => {
       const slider = $(`lp-${p.id}`);
@@ -3038,14 +3159,11 @@ function showLayerParams(layer) {
           v = snapToSemitone(v);
           slider.value = v;
         }
-        $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(v) : v.toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0);
+        $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(v) :
+          p.id === 'volume_db' ? ((v >= 0 ? '+' : '') + v.toFixed(1) + ' dB') :
+          v.toFixed(p.step < 1 ? (p.step < 0.01 ? 3 : 2) : 0);
         if (p.id === 'root') updateRootCentsDisplay(v);
-        if (p.id === 'loudness') {
-          currentParams.layers[activeLayerIdx].amp_max = v;
-          currentParams.layers[activeLayerIdx].amp_min = Math.min(0.005, v * 0.15);
-        } else {
-          currentParams.layers[activeLayerIdx][p.id] = v;
-        }
+        currentParams.layers[activeLayerIdx][p.id] = v;
         markDirty();
       });
     });
@@ -3089,11 +3207,32 @@ function showLayerParams(layer) {
         markDirty();
       });
     }
+    // Unison: spread & blend
+    const spreadSlider = $('lp-spread');
+    if (spreadSlider) {
+      spreadSlider.addEventListener('mousedown', () => { pushUndo(); });
+      spreadSlider.addEventListener('input', () => {
+        const v = parseFloat(spreadSlider.value);
+        $('lp-spread-val').textContent = v.toFixed(2);
+        currentParams.layers[activeLayerIdx].spread = v;
+        markDirty();
+      });
+    }
+    const blendSlider = $('lp-blend');
+    if (blendSlider) {
+      blendSlider.addEventListener('mousedown', () => { pushUndo(); });
+      blendSlider.addEventListener('input', () => {
+        const v = parseFloat(blendSlider.value);
+        $('lp-blend-val').textContent = v.toFixed(2);
+        currentParams.layers[activeLayerIdx].blend = v;
+        markDirty();
+      });
+    }
   }
 
   // Bind subtractive controls
   if (layerType === 'subtractive') {
-    const subtractiveParams = ['root', 'voices', 'detune_cents', 'sub_mix', 'drift', 'mix'];
+    const subtractiveParams = ['root', 'voices', 'detune_cents', 'sub_mix', 'drift', 'volume_db'];
     subtractiveParams.forEach(id => {
       const slider = $(`lp-${id}`);
       if (!slider) return;
@@ -3104,24 +3243,15 @@ function showLayerParams(layer) {
           v = snapToSemitone(v);
           slider.value = v;
         }
-        $(`lp-${id}-val`).textContent = id === 'root' ? rootLabel(v) : v.toFixed(id === 'drift' ? 3 : id === 'sub_mix' || id === 'mix' ? 2 : 0);
+        $(`lp-${id}-val`).textContent = id === 'root' ? rootLabel(v) :
+          id === 'volume_db' ? ((v >= 0 ? '+' : '') + v.toFixed(1) + ' dB') :
+          v.toFixed(id === 'drift' ? 3 : id === 'sub_mix' ? 2 : 0);
         if (id === 'root') updateRootCentsDisplay(v);
         if (id === 'voices') currentParams.layers[activeLayerIdx][id] = parseInt(v);
         else currentParams.layers[activeLayerIdx][id] = v;
         markDirty();
       });
     });
-    const loudnessSlider = $('lp-loudness');
-    if (loudnessSlider) {
-      loudnessSlider.addEventListener('mousedown', () => pushUndo());
-      loudnessSlider.addEventListener('input', () => {
-        const v = parseFloat(loudnessSlider.value);
-        $('lp-loudness-val').textContent = v.toFixed(3);
-        currentParams.layers[activeLayerIdx].amp_max = v;
-        currentParams.layers[activeLayerIdx].amp_min = Math.min(0.005, v * 0.15);
-        markDirty();
-      });
-    }
     const waveformSel = $('lp-waveform');
     if (waveformSel) {
       waveformSel.addEventListener('change', () => {
@@ -3525,6 +3655,29 @@ function showLayerParams(layer) {
       markDirty();
     });
   }
+  // Per-layer Flanger & Phaser handlers
+  [
+    { id: 'flanger_wet',      fmt: v => v.toFixed(2),            key: 'flanger_wet' },
+    { id: 'flanger_rate',     fmt: v => v.toFixed(2) + ' Hz',    key: 'flanger_rate' },
+    { id: 'flanger_depth',    fmt: v => v.toFixed(2),            key: 'flanger_depth' },
+    { id: 'flanger_feedback', fmt: v => v.toFixed(2),            key: 'flanger_feedback' },
+    { id: 'phaser_wet',       fmt: v => v.toFixed(2),            key: 'phaser_wet' },
+    { id: 'phaser_rate',      fmt: v => v.toFixed(2) + ' Hz',    key: 'phaser_rate' },
+    { id: 'phaser_depth',     fmt: v => v.toFixed(2),            key: 'phaser_depth' },
+    { id: 'phaser_center_hz', fmt: v => v.toFixed(0) + ' Hz',    key: 'phaser_center_hz' },
+    { id: 'phaser_feedback',  fmt: v => v.toFixed(2),            key: 'phaser_feedback' },
+    { id: 'phaser_stages',    fmt: v => String(parseInt(v)),      key: 'phaser_stages', int: true },
+  ].forEach(({ id, fmt, key, int: isInt }) => {
+    const el = $(`lp-${id}`);
+    if (!el) return;
+    el.addEventListener('mousedown', () => { pushUndo(); });
+    el.addEventListener('input', () => {
+      const v = isInt ? parseInt(el.value) : parseFloat(el.value);
+      $(`lp-${id}-val`).textContent = fmt(v);
+      currentParams.layers[activeLayerIdx][key] = v;
+      markDirty();
+    });
+  });
 }
 function setToggle(id, state) {
   const el = $(id);
@@ -3583,12 +3736,11 @@ function collectParams() {
   p.air.enabled = $('air-toggle').dataset.state === '1';
   p.air.intensity = parseFloat($('air-intensity').value);
 
-  // Flanger
-  p.flanger = p.flanger || {};
-  p.flanger.wet      = parseFloat($('flanger-wet').value);
-  p.flanger.rate     = parseFloat($('flanger-rate').value);
-  p.flanger.depth    = parseFloat($('flanger-depth').value);
-  p.flanger.feedback = parseFloat($('flanger-feedback').value);
+  // Shimmer
+  p.shimmer = p.shimmer || {};
+  p.shimmer.wet             = parseFloat($('shimmer-wet').value);
+  p.shimmer.pitch_semitones = parseFloat($('shimmer-pitch').value);
+  p.shimmer.feedback        = parseFloat($('shimmer-feedback').value);
 
   // Saturation
   p.saturation = parseFloat($('saturation-slider').value);
@@ -4178,6 +4330,7 @@ async function _flushAndRestart() {
   streamingCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
   startCtxKeepAlive();
+  startMeterPolling();
 
   const streamAnalyser = startSpectrum(streamingCtx);
   startupGain = streamingCtx.createGain();
@@ -4286,6 +4439,31 @@ let workletNode = null;
 let ctxKeepAlive = null;
 let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
 
+// ── Peak meter polling ─────────────────────────────────────────────────────────
+let _meterInterval = null;
+function startMeterPolling() {
+  if (_meterInterval) return;
+  _meterInterval = setInterval(async () => {
+    try {
+      const data = await fetch('/api/meters').then(r => r.json());
+      const layers = data.layers || [];
+      layers.forEach((db, i) => {
+        const el = document.getElementById(`layer-meter-${i}`);
+        if (!el) return;
+        // Map dBFS to width: -60 dB = 0%, 0 dB = 100% (clamp -60 to 0)
+        const clamped = Math.max(-60, Math.min(0, db));
+        const pct = ((clamped + 60) / 60) * 100;
+        el.style.width = pct.toFixed(1) + '%';
+        // Color: green < -12, amber < -3, red >= -3
+        el.style.background = db >= -3 ? '#ff3333' : db >= -12 ? '#ffaa00' : '#22cc44';
+      });
+    } catch (_) { /* server not ready */ }
+  }, 150);
+}
+function stopMeterPolling() {
+  if (_meterInterval) { clearInterval(_meterInterval); _meterInterval = null; }
+}
+
 function startCtxKeepAlive() {
   stopCtxKeepAlive();
   // Ping context every second — iOS suspends AudioContext during silence
@@ -4383,6 +4561,7 @@ async function doPreview() {
 
   // Keep AudioContext alive while waiting for WS/Render cold start (iOS suspends after inactivity)
   startCtxKeepAlive();
+  startMeterPolling();
 
   nextPlayTime = 0;
   chunksBuffered = 0;
@@ -4480,6 +4659,7 @@ async function doPreview() {
 function stopAudio() {
   isStreaming = false;
   stopCtxKeepAlive();
+  stopMeterPolling();
   stopAurora();
   stopSpectrum();
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -5129,6 +5309,9 @@ function init() {
     r.addEventListener('change', () => { pushUndo(); updateBinauralUI(); markDirty(); });
   });
 
+  // Shimmer pitch dropdown
+  $('shimmer-pitch').addEventListener('change', () => { pushUndo(); markDirty(); });
+
   // Slider value displays (with undo on change, throttled input)
   function linkSlider(sliderId, valId, formatter) {
     const handler = () => {
@@ -5150,16 +5333,14 @@ function init() {
     ['reverb-mod-depth', 'reverb-mod-depth-val', 2],
     ['earth-pressure', 'earth-pressure-val', 2],
     ['air-intensity', 'air-intensity-val', 2],
+    ['shimmer-wet', 'shimmer-wet-val', 2],
+    ['shimmer-feedback', 'shimmer-feedback-val', 2],
     ['saturation-slider', 'saturation-val', 2],
     ['mutate-amount', 'mutate-amount-val', 2],
-    ['flanger-wet', 'flanger-wet-val', 2],
-    ['flanger-depth', 'flanger-depth-val', 2],
-    ['flanger-feedback', 'flanger-feedback-val', 2],
   ];
   sliderPairs.forEach(([sliderId, valId, decimals]) => {
     linkSlider(sliderId, valId, v => parseFloat(v).toFixed(decimals));
   });
-  linkSlider('flanger-rate', 'flanger-rate-val', v => parseFloat(v).toFixed(2) + ' Hz');
   linkSlider('reverb-pre-delay', 'reverb-pre-delay-val', v => parseInt(v) + ' ms');
 
   // Tuning system
