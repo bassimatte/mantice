@@ -1,5 +1,5 @@
 """
-main.py — MANTICE V25.0
+main.py — MANTICE V26.0
 ---------------------
 Usage:
     python main.py                              # process all presets
@@ -7,8 +7,11 @@ Usage:
     python main.py --preset path/to.yaml        # single preset by path
     python main.py --name "Breathing Cathedral" # run preset by name
     python main.py --duration 90                # override duration (seconds)
+    python main.py --hires                      # render at 48kHz/24-bit
     python main.py --format flac               # export as FLAC (wav, flac, ogg, mp3)
     python main.py --seed 42                    # global reproducibility seed
+    python main.py --auto-template journey      # apply automation template (journey/arc/breathe/meditate/sunrise)
+    python main.py --no-automation              # strip all automation (static render)
     python main.py --preview --name "Cavern"   # real-time preview to speakers
     python main.py --preview --infinite        # infinite drone, Ctrl+C to stop
     python main.py --generate                  # generate a random preset
@@ -37,6 +40,7 @@ from engine.preset_loader    import load_preset
 from engine.streaming_engine import StreamingDroneEngine
 from engine.exporter         import export_audio, SUPPORTED_FORMATS
 from engine.generator        import generate_preset, mutate_preset, save_generated_preset, get_available_moods
+from engine.automation       import apply_auto_template, strip_automation, TEMPLATE_NAMES
 from engine                  import config as _engine_config
 
 PRESET_DIR = Path("presets")
@@ -145,6 +149,8 @@ def run(
     cli_duration: Optional[float],
     audio_format: str,
     solo_layer: Optional[str] = None,
+    auto_template: Optional[str] = None,
+    no_automation: bool = False,
 ) -> None:
     ok = failed = 0
     total = len(preset_paths)
@@ -160,6 +166,14 @@ def run(
             # Override duration from CLI if specified
             if cli_duration is not None:
                 preset["duration"] = cli_duration
+
+            # Apply / strip automation
+            if no_automation:
+                strip_automation(preset)
+                print("  ⚙  Automation: disabled")
+            elif auto_template:
+                apply_auto_template(preset, auto_template)
+                print(f"  ⚙  Automation template: {auto_template}")
 
             apply_seed(preset, cli_seed)
 
@@ -353,6 +367,19 @@ def main() -> None:
         help="Render only a single layer (by name or index, e.g. '0' or 'Gravitational Bass'). "
              "Output filename includes layer name.",
     )
+    parser.add_argument(
+        "--auto-template", type=str, default=None, metavar="TEMPLATE",
+        choices=TEMPLATE_NAMES,
+        help=(
+            f"Apply a global automation template before rendering. "
+            f"Options: {', '.join(TEMPLATE_NAMES)}. "
+            "Does not overwrite automation already defined in the preset."
+        ),
+    )
+    parser.add_argument(
+        "--no-automation", action="store_true",
+        help="Strip all automation from the preset before rendering (render a static snapshot).",
+    )
     args = parser.parse_args()
 
     # ── Hi-res mode ──────────────────────────────────────────────────────
@@ -465,7 +492,8 @@ def main() -> None:
 
     # ── Normal render mode ────────────────────────────────────────────────
     run(preset_paths, cli_seed=args.seed, cli_duration=args.duration,
-        audio_format=args.format, solo_layer=args.solo)
+        audio_format=args.format, solo_layer=args.solo,
+        auto_template=args.auto_template, no_automation=args.no_automation)
 
 
 if __name__ == "__main__":

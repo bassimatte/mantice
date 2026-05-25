@@ -200,3 +200,168 @@ def parse_global_automation(preset: dict) -> dict[str, AutomationCurve]:
                 lo, hi = GLOBAL_AUTO_PARAMS[key]
                 result[key] = _clamp_curve(curve, lo, hi)
     return result
+
+
+# ── Global automation templates ───────────────────────────────────────────────
+
+# Each template is a dict with:
+#   "name"   — display name (lowercase slug used as CLI arg)
+#   "desc"   — one-line description
+#   "global" — dict of global param → breakpoint list
+#   "layer"  — dict of layer param  → breakpoint list (applied to ALL enabled layers)
+#
+# Breakpoint format: {"t": float, "value": float, "shape": "linear"|"exp"|"scurve"}
+
+AUTO_TEMPLATES: list[dict] = [
+    {
+        "name": "journey",
+        "desc": "Fade in · filter opens · reverb builds · binaural drifts alpha→delta",
+        "global": {
+            "master_output_db": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": -20, "shape": "linear"},
+                {"t": 0.2, "value": 0,   "shape": "exp"},
+            ]},
+            "reverb_mix": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 0.1,  "shape": "linear"},
+                {"t": 1.0, "value": 0.75, "shape": "scurve"},
+            ]},
+            "binaural_beat_hz": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 10.0, "shape": "linear"},
+                {"t": 1.0, "value": 2.5,  "shape": "exp"},
+            ]},
+        },
+        "layer": {
+            "filter_cutoff": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 300,  "shape": "linear"},
+                {"t": 1.0, "value": 5000, "shape": "exp"},
+            ]},
+        },
+    },
+    {
+        "name": "arc",
+        "desc": "Output builds to peak then fades · reverb follows the arc",
+        "global": {
+            "master_output_db": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": -12, "shape": "linear"},
+                {"t": 0.5, "value": 0,   "shape": "scurve"},
+                {"t": 1.0, "value": -12, "shape": "scurve"},
+            ]},
+            "reverb_mix": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 0.1, "shape": "linear"},
+                {"t": 0.5, "value": 0.7, "shape": "scurve"},
+                {"t": 1.0, "value": 0.2, "shape": "scurve"},
+            ]},
+        },
+        "layer": {},
+    },
+    {
+        "name": "breathe",
+        "desc": "Slow filter arc · volume gently pulses once",
+        "global": {
+            "master_output_db": {"enabled": True, "breakpoints": [
+                {"t": 0.00, "value": -4, "shape": "linear"},
+                {"t": 0.45, "value": 0,  "shape": "scurve"},
+                {"t": 1.00, "value": -6, "shape": "scurve"},
+            ]},
+        },
+        "layer": {
+            "filter_cutoff": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 500,  "shape": "linear"},
+                {"t": 0.5, "value": 4000, "shape": "scurve"},
+                {"t": 1.0, "value": 400,  "shape": "scurve"},
+            ]},
+        },
+    },
+    {
+        "name": "meditate",
+        "desc": "Binaural drifts alpha → delta · reverb deepens slowly",
+        "global": {
+            "binaural_beat_hz": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 10.0, "shape": "linear"},
+                {"t": 1.0, "value": 1.5,  "shape": "exp"},
+            ]},
+            "reverb_mix": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 0.2,  "shape": "linear"},
+                {"t": 1.0, "value": 0.85, "shape": "scurve"},
+            ]},
+            "reverb_decay_trim": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 0.3, "shape": "linear"},
+                {"t": 1.0, "value": 1.0, "shape": "scurve"},
+            ]},
+        },
+        "layer": {},
+    },
+    {
+        "name": "sunrise",
+        "desc": "Very slow fade in · shimmer emerges in the last third",
+        "global": {
+            "master_output_db": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": -30, "shape": "linear"},
+                {"t": 0.6, "value": 0,   "shape": "exp"},
+            ]},
+            "shimmer_wet": {"enabled": True, "breakpoints": [
+                {"t": 0.65, "value": 0,    "shape": "linear"},
+                {"t": 1.0,  "value": 0.45, "shape": "scurve"},
+            ]},
+            "master_air_db": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": -3, "shape": "linear"},
+                {"t": 0.8, "value": 3,  "shape": "scurve"},
+            ]},
+        },
+        "layer": {},
+    },
+]
+
+# Quick lookup by name
+_TEMPLATE_BY_NAME: dict[str, dict] = {t["name"]: t for t in AUTO_TEMPLATES}
+TEMPLATE_NAMES: list[str] = [t["name"] for t in AUTO_TEMPLATES]
+
+
+def apply_auto_template(preset: dict, template_name: str) -> None:
+    """
+    Merge an automation template into a preset dict (in-place).
+    Only sets a parameter if it is not already enabled in the preset,
+    so explicitly-authored automation is never overwritten.
+
+    Args:
+        preset:        The loaded preset dict (modified in-place).
+        template_name: One of the names in TEMPLATE_NAMES (case-insensitive).
+
+    Raises:
+        ValueError: if template_name is not recognised.
+    """
+    key = template_name.lower()
+    if key not in _TEMPLATE_BY_NAME:
+        raise ValueError(
+            f"Unknown automation template '{template_name}'. "
+            f"Available: {', '.join(TEMPLATE_NAMES)}"
+        )
+    tpl = _TEMPLATE_BY_NAME[key]
+
+    # -- global automation block ------------------------------------------
+    preset.setdefault("automation", {})
+    for param, curve in tpl["global"].items():
+        existing = preset["automation"].get(param)
+        if isinstance(existing, dict) and existing.get("enabled"):
+            continue  # don't overwrite an already-enabled curve
+        preset["automation"][param] = curve
+
+    # -- layer automation (applied to every enabled layer) ----------------
+    if tpl["layer"]:
+        for layer in preset.get("layers", []):
+            if not layer.get("enabled", True):
+                continue
+            layer.setdefault("automation", {})
+            for param, curve in tpl["layer"].items():
+                existing = layer["automation"].get(param)
+                if isinstance(existing, dict) and existing.get("enabled"):
+                    continue
+                layer["automation"][param] = curve
+
+
+def strip_automation(preset: dict) -> None:
+    """Remove all automation blocks from a preset dict (in-place)."""
+    preset.pop("automation", None)
+    for layer in preset.get("layers", []):
+        layer.pop("automation", None)
+
