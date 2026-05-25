@@ -2709,22 +2709,73 @@ function nearestJIDegree(targetHz, tonicHz, system) {
   return { degree: bestDeg, hz: parseFloat(bestHz.toFixed(4)), cents: parseFloat(bestCents.toFixed(1)) };
 }
 
-/** Option A: snap all layers to nearest JI degree. Called on Free→JI switch. */
-function snapLayersToJI() {
+/**
+ * Find the dominant layer's root Hz — lowest non-muted, non-granular layer.
+ * Falls back to lowest non-muted, then layer[0].
+ */
+function getDominantLayerHz() {
+  if (!currentParams || !currentParams.layers.length) return null;
+  const candidates = currentParams.layers
+    .filter(l => !l.muted && l.type !== 'granular' && l.root > 0);
+  if (!candidates.length) {
+    // fallback: any non-muted layer
+    const any = currentParams.layers.filter(l => !l.muted && l.root > 0);
+    return any.length ? Math.min(...any.map(l => l.root)) : currentParams.layers[0].root;
+  }
+  return Math.min(...candidates.map(l => l.root));
+}
+
+/**
+ * Snap a raw Hz value to the nearest chromatic note at the given A4 reference.
+ * Returns { hz, noteIndex, octave } so we can populate the selectors.
+ */
+function snapHzToChromatic(hz, refA4) {
+  const midi    = Math.round(12 * Math.log2(hz / refA4) + 69);
+  const snappedHz = refA4 * Math.pow(2, (midi - 69) / 12);
+  const noteIndex = ((midi % 12) + 12) % 12;
+  const octave    = Math.floor(midi / 12) - 1;
+  return { hz: parseFloat(snappedHz.toFixed(4)), noteIndex, octave };
+}
+
+/**
+ * Populate the tonic note/octave selectors from a given Hz value.
+ * Returns the snapped Hz.
+ */
+function setTonicSelectorsFromHz(rawHz) {
+  const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const refA4 = parseFloat($('ji-ref-a4').value) || 440;
+  const { hz, noteIndex, octave } = snapHzToChromatic(rawHz, refA4);
+  if ($('ji-tonic-note'))   $('ji-tonic-note').value   = NOTE_NAMES[noteIndex];
+  if ($('ji-tonic-octave')) $('ji-tonic-octave').value = String(octave);
+  return hz;
+}
+
+/**
+ * Option A: snap all layers to nearest JI degree.
+ * On Free→JI: derives tonic FROM the dominant layer, then populates selectors.
+ * tonicHz is optional — if omitted, derived from dominant layer (initial switch).
+ */
+function snapLayersToJI(tonicHz) {
   if (!currentParams) return;
-  const tonicHz = getJITonicHz();
-  const system  = $('ji-system').value;
+
+  // If no tonic provided, derive from dominant layer and sync selectors
+  if (tonicHz === undefined) {
+    const dominantHz = getDominantLayerHz();
+    tonicHz = dominantHz ? setTonicSelectorsFromHz(dominantHz) : getJITonicHz();
+  }
+
+  const system = $('ji-system').value;
   currentParams.layers.forEach(layer => {
     const { degree, hz, cents } = nearestJIDegree(layer.root, tonicHz, system);
-    layer.tuning_degree = degree;
-    layer.root = hz;
-    layer._ji_snap_cents = cents;   // ephemeral — for warning display only
+    layer.tuning_degree      = degree;
+    layer.root               = hz;
+    layer._ji_snap_cents     = cents;  // ephemeral — for ⚠ display only
   });
-  currentParams.tonic_hz        = tonicHz;
+  currentParams.tonic_hz         = tonicHz;
   currentParams.tuning_system_ji = system;
 }
 
-/** Update the tonic Hz display label. */
+/** Update the tonic Hz display label from current selectors. */
 function updateJITonicDisplay() {
   const hz = getJITonicHz();
   const el = $('ji-tonic-hz-display');
@@ -2738,12 +2789,15 @@ function setTuningMode(mode) {
   pushUndo();
 
   if (mode === 'ji') {
-    snapLayersToJI();
-    currentParams.tuning_mode = 'ji';
-    $('tuning-free-btn').classList.remove('active');
-    $('tuning-ji-btn').classList.add('active');
+    // Show controls first so selectors are in DOM before snapLayersToJI reads them
     $('tuning-ji-controls').style.display = '';
     $('tuning-ji-active-dot').style.display = '';
+    $('tuning-free-btn').classList.remove('active');
+    $('tuning-ji-btn').classList.add('active');
+    // Derive tonic from dominant layer → populates selectors → snaps all layers
+    snapLayersToJI();
+    updateJITonicDisplay();
+    currentParams.tuning_mode = 'ji';
   } else {
     currentParams.tuning_mode = 'free';
     $('tuning-free-btn').classList.add('active');
