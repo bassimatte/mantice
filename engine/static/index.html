@@ -523,15 +523,25 @@ main {
 .card-collapsible.collapsed > *:not(h2) { display: none; }
 /* Automation card */
 .auto-section-label { font-size:10px; font-weight:600; letter-spacing:.08em; color:var(--text-dim); text-transform:uppercase; margin:8px 0 4px; padding-bottom:2px; border-bottom:1px solid rgba(255,255,255,0.06); }
-.auto-row { display:flex; align-items:center; gap:4px; padding:3px 0; font-size:11px; }
-.auto-row.disabled { opacity:0.45; }
+.auto-param-block { margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.auto-param-block:last-child { border-bottom:none; }
+.auto-param-header { display:flex; align-items:center; gap:6px; padding:2px 0; font-size:11px; }
+.auto-param-header.disabled { opacity:0.45; }
 .auto-toggle-btn { cursor:pointer; font-size:14px; line-height:1; color:var(--text-dim); background:none; border:none; padding:0 2px; flex-shrink:0; }
 .auto-toggle-btn.on { color:var(--accent); }
-.auto-label { min-width:90px; color:var(--text-lcd); font-size:10px; flex-shrink:0; }
-.auto-preset-val { font-size:9px; color:var(--text-dim); min-width:58px; flex-shrink:0; }
-.auto-input { width:52px; padding:2px 4px; font-size:10px; background:var(--bg-card); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:3px; text-align:right; flex-shrink:0; }
-.auto-arrow { color:var(--text-dim); font-size:10px; flex-shrink:0; }
-.auto-shape { padding:2px 4px; font-size:10px; background:var(--bg-card); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:3px; }
+.auto-label { min-width:88px; color:var(--text-lcd); font-size:10px; flex-shrink:0; }
+.auto-preset-val { font-size:9px; color:var(--text-dim); flex:1; }
+.auto-add-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.14); border-radius:2px; color:var(--text-dim); padding:1px 5px; flex-shrink:0; }
+.auto-add-btn:hover { border-color:var(--accent); color:var(--accent); }
+.auto-sparkline { display:block; width:100%; height:28px; margin:3px 0 2px; overflow:visible; }
+.auto-bp-list { padding-left:2px; }
+.auto-bp-row { display:flex; align-items:center; gap:3px; padding:2px 0; font-size:10px; }
+.auto-bp-t { width:34px; padding:2px 3px; font-size:10px; background:var(--bg-card); color:var(--text-dim); border:1px solid rgba(255,255,255,0.10); border-radius:3px; text-align:right; }
+.auto-bp-val { width:58px; padding:2px 4px; font-size:10px; background:var(--bg-card); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:3px; text-align:right; }
+.auto-bp-shape { padding:2px 3px; font-size:10px; background:var(--bg-card); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:3px; flex-shrink:0; }
+.auto-bp-remove { cursor:pointer; font-size:11px; background:none; border:none; color:var(--text-dim); padding:0 3px; flex-shrink:0; line-height:1; }
+.auto-bp-remove:hover:not(:disabled) { color:var(--danger); }
+.auto-bp-remove:disabled { opacity:0.18; cursor:default; }
 .auto-snap { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.15); border-radius:2px; color:var(--text-dim); padding:1px 4px; flex-shrink:0; }
 .auto-snap:hover { border-color:var(--accent); color:var(--accent); }
 
@@ -5702,14 +5712,108 @@ function updateAutoBadge() {
   el.textContent = n > 0 ? n + ' active' : '';
 }
 
-function makeAutoRow(paramDef, autoData, onSave) {
-  const cfg = autoData || { enabled: false, start: paramDef.presetVal, end: paramDef.presetVal, shape: 'linear' };
-  const row = document.createElement('div');
-  row.className = 'auto-row' + (cfg.enabled ? '' : ' disabled');
+// ── V3 Automation helpers ─────────────────────────────────────────────────────
+
+/** Evaluate a breakpoints array at normalised time t ∈ [0,1]. */
+function evalBreakpoints(bps, t) {
+  if (!bps || !bps.length) return 0;
+  const sorted = [...bps].sort((a, b) => a.t - b.t);
+  if (t <= sorted[0].t) return sorted[0].value;
+  if (t >= sorted[sorted.length - 1].t) return sorted[sorted.length - 1].value;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const { t: t0, value: v0 } = sorted[i];
+    const { t: t1, value: v1, shape } = sorted[i + 1];
+    if (t >= t0 && t <= t1) {
+      const span = t1 - t0;
+      if (!span) return v1;
+      return v0 + (v1 - v0) * autoApplyShape((t - t0) / span, shape || 'linear');
+    }
+  }
+  return sorted[sorted.length - 1].value;
+}
+
+/** Apply a named curve shape to t ∈ [0,1]. */
+function autoApplyShape(t, shape) {
+  if (shape === 'scurve') return t * t * (3 - 2 * t);
+  if (shape === 'exp') {
+    if (t === 0) return 0;
+    const k = 4;
+    return (Math.exp(k * t) - 1) / (Math.exp(k) - 1);
+  }
+  return t; // linear
+}
+
+/**
+ * Normalise any auto data (V1/V2 or V3 or null) to V3 breakpoint format.
+ * V1/V2: {enabled, start, end, shape} → two breakpoints
+ * V3:    {enabled, breakpoints:[...]}  → unchanged
+ */
+function autoNormalize(autoData, presetVal) {
+  if (!autoData) {
+    return { enabled: false, breakpoints: [{ t: 0, value: presetVal, shape: 'linear' }, { t: 1, value: presetVal, shape: 'linear' }] };
+  }
+  if (Array.isArray(autoData.breakpoints)) return autoData;
+  // V1/V2 migration
+  return {
+    enabled: !!autoData.enabled,
+    breakpoints: [
+      { t: 0, value: autoData.start ?? presetVal, shape: 'linear' },
+      { t: 1, value: autoData.end ?? presetVal,   shape: autoData.shape ?? 'linear' },
+    ],
+  };
+}
+
+/** Draw sparkline SVG from breakpoints. */
+function drawAutoSparkline(svg, bps, min, max) {
+  const W = 160, H = 28;
+  svg.innerHTML = '';
+  if (!bps || bps.length < 2) return;
+  const range = max - min || 1;
+  const toY = v => H - ((v - min) / range) * H;
+
+  // Curve polyline at 80 sample points
+  const points = [];
+  for (let i = 0; i <= 80; i++) {
+    const t = i / 80;
+    points.push(t * W + ',' + toY(evalBreakpoints(bps, t)).toFixed(1));
+  }
+  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  poly.setAttribute('points', points.join(' '));
+  poly.setAttribute('fill', 'none');
+  poly.setAttribute('stroke', 'var(--accent)');
+  poly.setAttribute('stroke-width', '1.5');
+  poly.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(poly);
+
+  // Breakpoint circles
+  for (const bp of bps) {
+    const cx = (bp.t * W).toFixed(1);
+    const cy = toY(bp.value).toFixed(1);
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', '3');
+    c.setAttribute('fill', 'var(--accent)');
+    svg.appendChild(c);
+  }
+}
+
+/**
+ * Build a full automation block for one parameter (V3 breakpoint editor).
+ * paramDef: { key, label, min, max, step, fmt, presetVal }
+ * autoData: stored automation config (V1/V2 or V3 or null)
+ * onSave(cfg): called with {enabled, breakpoints:[{t,value,shape},...]}
+ */
+function makeAutoParamBlock(paramDef, autoData, onSave) {
+  const data = autoNormalize(autoData, paramDef.presetVal);
+  const block = document.createElement('div');
+  block.className = 'auto-param-block';
+
+  // ── Header ────────────────────────────────────────────────────────────
+  const header = document.createElement('div');
+  header.className = 'auto-param-header' + (data.enabled ? '' : ' disabled');
 
   const toggleBtn = document.createElement('button');
-  toggleBtn.className = 'auto-toggle-btn' + (cfg.enabled ? ' on' : '');
-  toggleBtn.textContent = cfg.enabled ? '●' : '○';
+  toggleBtn.className = 'auto-toggle-btn' + (data.enabled ? ' on' : '');
+  toggleBtn.textContent = data.enabled ? '●' : '○';
   toggleBtn.title = 'Enable/disable automation';
 
   const labelEl = document.createElement('span');
@@ -5718,61 +5822,149 @@ function makeAutoRow(paramDef, autoData, onSave) {
 
   const presetEl = document.createElement('span');
   presetEl.className = 'auto-preset-val';
-  presetEl.textContent = 'preset: ' + paramDef.fmt(paramDef.presetVal);
+  presetEl.textContent = paramDef.fmt(paramDef.presetVal);
 
-  const startInput = document.createElement('input');
-  startInput.type = 'number';
-  startInput.className = 'auto-input';
-  startInput.min = paramDef.min; startInput.max = paramDef.max; startInput.step = paramDef.step;
-  startInput.value = cfg.start !== undefined ? cfg.start : paramDef.presetVal;
-  startInput.title = 'Start value';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'auto-add-btn';
+  addBtn.textContent = '+ point';
+  addBtn.title = 'Add a breakpoint in the largest gap';
 
-  const snapStart = document.createElement('button');
-  snapStart.className = 'auto-snap'; snapStart.textContent = '↓'; snapStart.title = 'Snap start to preset';
+  header.append(toggleBtn, labelEl, presetEl, addBtn);
+  block.appendChild(header);
 
-  const arrow = document.createElement('span');
-  arrow.className = 'auto-arrow'; arrow.textContent = '→';
+  // ── Sparkline ─────────────────────────────────────────────────────────
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 160 28');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.className = 'auto-sparkline';
+  block.appendChild(svg);
 
-  const endInput = document.createElement('input');
-  endInput.type = 'number';
-  endInput.className = 'auto-input';
-  endInput.min = paramDef.min; endInput.max = paramDef.max; endInput.step = paramDef.step;
-  endInput.value = cfg.end !== undefined ? cfg.end : paramDef.presetVal;
-  endInput.title = 'End value';
+  // ── Breakpoint list ───────────────────────────────────────────────────
+  const bpList = document.createElement('div');
+  bpList.className = 'auto-bp-list';
+  block.appendChild(bpList);
 
-  const snapEnd = document.createElement('button');
-  snapEnd.className = 'auto-snap'; snapEnd.textContent = '↓'; snapEnd.title = 'Snap end to preset';
+  // Working copy
+  let bps = data.breakpoints.map(b => ({ ...b }));
 
-  const shapeSelect = document.createElement('select');
-  shapeSelect.className = 'auto-shape';
-  for (const [val, lbl] of [['linear','Linear'],['scurve','S-Curve'],['exp','Exp']]) {
-    const opt = document.createElement('option');
-    opt.value = val; opt.textContent = lbl;
-    if ((cfg.shape || 'linear') === val) opt.selected = true;
-    shapeSelect.appendChild(opt);
-  }
-
-  function save() {
-    onSave({ enabled: toggleBtn.classList.contains('on'), start: parseFloat(startInput.value), end: parseFloat(endInput.value), shape: shapeSelect.value });
+  function commit() {
+    onSave({ enabled: toggleBtn.classList.contains('on'), breakpoints: bps.map(b => ({ ...b })) });
     updateAutoBadge();
     markDirty();
   }
 
-  snapStart.onclick = () => { startInput.value = paramDef.presetVal; save(); };
-  snapEnd.onclick   = () => { endInput.value   = paramDef.presetVal; save(); };
+  function refreshBpList() {
+    bpList.innerHTML = '';
+    bps.sort((a, b) => a.t - b.t);
+    // Ensure t=0 and t=1 anchors exist
+    if (!bps.length || bps[0].t !== 0)             bps.unshift({ t: 0, value: paramDef.presetVal, shape: 'linear' });
+    if (bps[bps.length - 1].t !== 1)               bps.push({ t: 1, value: paramDef.presetVal, shape: 'linear' });
+
+    bps.forEach((bp, idx) => {
+      const isFirst = idx === 0, isLast = idx === bps.length - 1;
+      const row = document.createElement('div');
+      row.className = 'auto-bp-row';
+
+      // t% label + input
+      const tLbl = document.createElement('span');
+      tLbl.style.cssText = 'font-size:9px;color:var(--text-dim);flex-shrink:0;';
+      tLbl.textContent = 't:';
+
+      const tInput = document.createElement('input');
+      tInput.type = 'number'; tInput.className = 'auto-bp-t';
+      tInput.min = 0; tInput.max = 100; tInput.step = 1;
+      tInput.value = Math.round(bp.t * 100);
+      tInput.disabled = isFirst || isLast;
+      tInput.title = isFirst ? 'Start (locked at 0%)' : isLast ? 'End (locked at 100%)' : 'Position (%)';
+
+      const pctLbl = document.createElement('span');
+      pctLbl.style.cssText = 'font-size:9px;color:var(--text-dim);flex-shrink:0;';
+      pctLbl.textContent = '%';
+
+      // Value input
+      const valInput = document.createElement('input');
+      valInput.type = 'number'; valInput.className = 'auto-bp-val';
+      valInput.min = paramDef.min; valInput.max = paramDef.max; valInput.step = paramDef.step;
+      valInput.value = bp.value;
+      valInput.title = 'Value at this point';
+
+      // Snap-to-preset button
+      const snapBtn = document.createElement('button');
+      snapBtn.className = 'auto-snap'; snapBtn.textContent = '↓';
+      snapBtn.title = 'Snap to current preset value';
+      snapBtn.onclick = () => { valInput.value = paramDef.presetVal; rowCommit(); };
+
+      // Shape dropdown — hidden on first breakpoint (no incoming segment)
+      const shapeSelect = document.createElement('select');
+      shapeSelect.className = 'auto-bp-shape';
+      shapeSelect.style.visibility = isFirst ? 'hidden' : '';
+      shapeSelect.title = 'Curve shape from previous point';
+      for (const [val, lbl] of [['linear', 'Lin'], ['scurve', 'S'], ['exp', 'Exp']]) {
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = lbl;
+        if ((bp.shape || 'linear') === val) opt.selected = true;
+        shapeSelect.appendChild(opt);
+      }
+
+      // Remove button — disabled on anchors
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'auto-bp-remove'; removeBtn.textContent = '×';
+      removeBtn.disabled = isFirst || isLast;
+      removeBtn.title = isFirst || isLast ? 'Anchor point — cannot remove' : 'Remove this breakpoint';
+
+      function rowCommit() {
+        bps[idx] = {
+          t: isFirst ? 0 : isLast ? 1 : Math.max(0, Math.min(1, parseFloat(tInput.value || 0) / 100)),
+          value: parseFloat(valInput.value ?? bp.value),
+          shape: shapeSelect.value,
+        };
+        bps.sort((a, b) => a.t - b.t);
+        drawAutoSparkline(svg, bps, paramDef.min, paramDef.max);
+        commit();
+      }
+
+      tInput.onchange = rowCommit;
+      valInput.onchange = rowCommit;
+      shapeSelect.onchange = rowCommit;
+
+      removeBtn.onclick = () => {
+        bps.splice(idx, 1);
+        refreshBpList();
+        drawAutoSparkline(svg, bps, paramDef.min, paramDef.max);
+        commit();
+      };
+
+      row.append(tLbl, tInput, pctLbl, valInput, snapBtn, shapeSelect, removeBtn);
+      bpList.appendChild(row);
+    });
+
+    drawAutoSparkline(svg, bps, paramDef.min, paramDef.max);
+  }
+
+  addBtn.onclick = () => {
+    // Insert at the midpoint of the largest gap
+    bps.sort((a, b) => a.t - b.t);
+    let bestIdx = 0, bestGap = 0;
+    for (let i = 0; i < bps.length - 1; i++) {
+      const gap = bps[i + 1].t - bps[i].t;
+      if (gap > bestGap) { bestGap = gap; bestIdx = i; }
+    }
+    const newT = (bps[bestIdx].t + bps[bestIdx + 1].t) / 2;
+    bps.splice(bestIdx + 1, 0, { t: newT, value: evalBreakpoints(bps, newT), shape: 'linear' });
+    refreshBpList();
+    commit();
+  };
 
   toggleBtn.onclick = () => {
     const isOn = !toggleBtn.classList.contains('on');
     toggleBtn.classList.toggle('on', isOn);
     toggleBtn.textContent = isOn ? '●' : '○';
-    row.classList.toggle('disabled', !isOn);
-    if (isOn && !autoData) startInput.value = paramDef.presetVal;
-    save();
+    header.classList.toggle('disabled', !isOn);
+    commit();
   };
-  startInput.onchange = save; endInput.onchange = save; shapeSelect.onchange = save;
 
-  row.append(toggleBtn, labelEl, presetEl, startInput, snapStart, arrow, endInput, snapEnd, shapeSelect);
-  return row;
+  refreshBpList();
+  return block;
 }
 
 function renderAutomationCard() {
@@ -5786,7 +5978,7 @@ function renderAutomationCard() {
   body.appendChild(globalLabel);
   for (const def of GLOBAL_AUTO_PARAMS) {
     const paramDef = { ...def, presetVal: getGlobalAutoPresetVal(def.key) };
-    body.appendChild(makeAutoRow(paramDef, currentParams.automation[def.key], cfg => { currentParams.automation[def.key] = cfg; }));
+    body.appendChild(makeAutoParamBlock(paramDef, currentParams.automation[def.key], cfg => { currentParams.automation[def.key] = cfg; }));
   }
 
   (currentParams.layers || []).forEach((layer, i) => {
@@ -5797,7 +5989,7 @@ function renderAutomationCard() {
     body.appendChild(lbl);
     for (const def of LAYER_AUTO_PARAMS) {
       const paramDef = { ...def, presetVal: getLayerAutoPresetVal(def.key, i) };
-      body.appendChild(makeAutoRow(paramDef, layer.automation[def.key], cfg => { layer.automation[def.key] = cfg; }));
+      body.appendChild(makeAutoParamBlock(paramDef, layer.automation[def.key], cfg => { layer.automation[def.key] = cfg; }));
     }
   });
   updateAutoBadge();
