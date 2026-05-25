@@ -983,7 +983,7 @@ async def render_endpoint(request: Request):
             sat = float(preset.get("saturation", 0.3))
             preset_for_render["saturation"] = 0.0
 
-            engine = StreamingDroneEngine(preset_for_render, seed=seed)
+            engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=True)
             total_samples = int(preset["duration"] * render_sr)
             chunk_size = 2048
             chunks = []

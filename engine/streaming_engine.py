@@ -1418,8 +1418,9 @@ class StreamingDroneEngine:
         engine.reload(new_preset)  # crossfades to new parameters
     """
 
-    def __init__(self, preset: dict, seed: int = 42):
+    def __init__(self, preset: dict, seed: int = 42, render_mode: bool = False):
         self.chunk_size = 2048
+        self.render_mode = render_mode  # disables per-chunk peak scaler for offline renders
         # Seed random state for reproducible preview
         random.seed(seed)
         np.random.seed(seed)
@@ -1617,10 +1618,11 @@ class StreamingDroneEngine:
         # Master EQ + compression
         stereo = self._master.process(stereo)
 
-        # Soft limiter — after master so the compressor has full dynamic range
-        peak = np.max(np.abs(stereo))
-        if peak > 0.92:
-            stereo = stereo * (0.92 / peak)
+        # Soft limiter — streaming only; render path uses full-buffer final_limit_normalize
+        if not self.render_mode:
+            peak = np.max(np.abs(stereo))
+            if peak > 0.92:
+                stereo = stereo * (0.92 / peak)
 
         # Handle crossfade from hot-reload
         if self._crossfade_remaining > 0 and self._old_engine is not None:
