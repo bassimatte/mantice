@@ -1,21 +1,22 @@
 meta:
-  name: Wandering Tide
-  slug: wandering_tide
+  name: Fossil Light
+  slug: fossil_light
   category: experimental
   mood:
-  - ambient
+  - meditative
   - organic
   - evolving
   description: >
-    All key parameters use random walk automation — the sound drifts continuously and
-    never quite repeats. Ideal for long unattended renders.
+    A slow-burning granular meditation. Bowl and glass grains orbit different
+    positions while the filter and FM undertow drift on long, unpredictable
+    arcs — every playback unique, always smooth.
   author: Mantice
   engine_version: MANTICE_V26
   tags:
   - granular
   - experimental
   - random_walk
-  - long-form
+  - meditative
 global:
   duration_seconds: 120
   sample_rate: 44100
@@ -23,159 +24,154 @@ global:
 reverb:
   enabled: true
   space: cathedral
-  mix: 0.4
-  decay_trim: 1.0
+  mix: 0.55
+  decay_trim: 1.4
 spatial:
-  depth: 1.8
-  wetness: 0.5
-  swarm_density: 0.5
+  depth: 2.0
+  wetness: 0.6
+  swarm_density: 0.4
 earth:
   enabled: false
 air:
   enabled: true
-saturation: 0.15
+saturation: 0.1
 
 automation:
   reverb_mix:
     enabled: true
     mode: random_walk
-    center: 0.4
-    depth: 0.25
+    center: 0.55
+    depth: 0.2
     speed: slow
-  shimmer_wet:
-    enabled: true
-    mode: random_walk
-    center: 0.2
-    depth: 0.15
-    speed: med
   binaural_beat_hz:
     enabled: true
     mode: random_walk
-    center: 6.5
-    depth: 4.0
+    center: 5.0
+    depth: 3.5
     speed: slow
 
 layers:
-- name: Shifting Sands
+- name: Ancient Bowl
   enabled: true
   type: granular
   source: singing_bowl.ogg
-  grain_size: 120
-  density: 10
-  pitch_spread: 0.4
-  position: 0.35
-  scatter: 0.6
+  grain_size: 180
+  density: 9
+  pitch_spread: 0.3
+  position: 0.25
+  scatter: 0.5
   envelope: hann
   dynamics:
     amp_min: 0.005
-    amp_max: 0.04
+    amp_max: 0.038
     drift: 0.003
     volume_db: 0.0
   spatial_motion:
     quadrant: front_left
-    speed: 0.015
+    speed: 0.01
     trajectory_x: drift
-  elevation: 15
+  elevation: 10
   elevation_motion: float
-  elevation_speed: 0.04
-  elevation_range: 35
-  chorus_mix: 0.3
-  chorus_rate: 0.4
-  chorus_depth: 0.008
+  elevation_speed: 0.03
+  elevation_range: 25
+  chorus_mix: 0.25
+  chorus_rate: 0.3
+  chorus_depth: 0.007
   chorus_voices: 2
   automation:
-    filter_cutoff:
-      enabled: true
-      mode: random_walk
-      center: 1400
-      depth: 900
-      speed: med
     granular_position:
       enabled: true
       mode: random_walk
-      center: 0.4
-      depth: 0.35
+      center: 0.25
+      depth: 0.22
       speed: slow
+    filter_cutoff:
+      enabled: true
+      mode: random_walk
+      center: 1100
+      depth: 700
+      speed: med
 
-- name: Glass Drift
+- name: Glass Memory
   enabled: true
   type: granular
   source: bowed_glass.ogg
-  grain_size: 160
-  density: 7
-  pitch_spread: 0.8
-  position: 0.5
-  scatter: 0.4
+  grain_size: 200
+  density: 6
+  pitch_spread: 0.7
+  position: 0.6
+  scatter: 0.35
   envelope: hann
   dynamics:
     amp_min: 0.003
-    amp_max: 0.028
+    amp_max: 0.025
     drift: 0.004
-    volume_db: -3.0
+    volume_db: -4.0
   spatial_motion:
     quadrant: front_right
-    speed: 0.02
+    speed: 0.014
     trajectory_x: orbit
-  elevation: 40
+  elevation: 35
   elevation_motion: breathe
-  elevation_speed: 0.06
-  elevation_range: 30
-  chorus_mix: 0.4
+  elevation_speed: 0.05
+  elevation_range: 28
+  chorus_mix: 0.35
   chorus_rate: 0.5
-  chorus_depth: 0.009
+  chorus_depth: 0.01
   chorus_voices: 3
   automation:
+    granular_position:
+      enabled: true
+      mode: random_walk
+      center: 0.6
+      depth: 0.3
+      speed: med
     chorus_rate:
       enabled: true
       mode: random_walk
       center: 0.5
-      depth: 0.4
-      speed: med
-    granular_position:
-      enabled: true
-      mode: random_walk
-      center: 0.5
-      depth: 0.4
-      speed: med
+      depth: 0.38
+      speed: slow
 
-- name: FM Undertow
+- name: Undertow
   enabled: true
   type: fm
   synthesis:
     root: 55
-    voices: 6
+    voices: 5
     ratios:
     - 1.0
     - 2.0
+    - 3.0
   fm:
     ratios:
     - 1.0
-    index: 0.8
+    index: 0.6
   dynamics:
-    amp_min: 0.002
-    amp_max: 0.018
+    amp_min: 0.003
+    amp_max: 0.02
     drift: 0.002
-    volume_db: -6.0
+    volume_db: -8.0
   harmonics: 3
-  harmonic_decay: 0.7
+  harmonic_decay: 0.65
   noise_amount: 0.0
   noise_color: pink
   spatial_motion:
     quadrant: center
-    speed: 0.008
+    speed: 0.006
     trajectory_x: none
-  elevation: -25
+  elevation: -20
   elevation_motion: static
   elevation_speed: 0.1
   elevation_range: 60
   chorus_mix: 0.0
-  chorus_rate: 0.5
+  chorus_rate: 0.4
   chorus_depth: 0.005
   chorus_voices: 2
   automation:
     fm_index:
       enabled: true
       mode: random_walk
-      center: 0.8
-      depth: 0.7
+      center: 0.6
+      depth: 0.5
       speed: fast

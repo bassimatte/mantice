@@ -528,9 +528,11 @@ main {
 .auto-toggle-btn { cursor:pointer; font-size:13px; line-height:1; color:var(--text-dim); background:none; border:none; padding:0 2px; flex-shrink:0; }
 .auto-toggle-btn.on { color:var(--accent); }
 .auto-label { min-width:82px; color:var(--text-lcd); font-size:10px; flex-shrink:0; }
-.auto-t { width:26px; padding:1px 3px; font-size:9px; text-align:right; background:var(--surface); color:var(--text-dim); border:1px solid rgba(255,255,255,0.10); border-radius:2px; flex-shrink:0; }
+.auto-t { width:26px; padding:1px 3px; font-size:9px; text-align:right; background:var(--surface); color:var(--text-dim); border:1px solid rgba(255,255,255,0.10); border-radius:2px; flex-shrink:0; -moz-appearance:textfield; }
+.auto-t::-webkit-outer-spin-button, .auto-t::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 .auto-pct { font-size:9px; color:var(--text-dim); flex-shrink:0; }
-.auto-val { width:48px; padding:1px 4px; font-size:10px; text-align:right; background:var(--surface); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:2px; flex-shrink:0; }
+.auto-val { width:48px; padding:1px 4px; font-size:10px; text-align:right; background:var(--surface); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:2px; flex-shrink:0; -moz-appearance:textfield; }
+.auto-val::-webkit-outer-spin-button, .auto-val::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 .auto-shape-btn { background:none; border:none; color:var(--accent); font-size:9px; cursor:pointer; padding:0 2px; flex-shrink:0; white-space:nowrap; letter-spacing:-.02em; }
 .auto-shape-btn:hover { color:var(--text); }
 .auto-mid-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.12); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-left:3px; flex-shrink:0; }
