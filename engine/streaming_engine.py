@@ -1421,6 +1421,7 @@ class StreamingDroneEngine:
     def __init__(self, preset: dict, seed: int = 42, render_mode: bool = False):
         self.chunk_size = 2048
         self.render_mode = render_mode  # disables per-chunk peak scaler for offline renders
+        self._limiter_gain = 1.0        # stateful gain carried across chunks
         # Seed random state for reproducible preview
         random.seed(seed)
         np.random.seed(seed)
@@ -1620,9 +1621,12 @@ class StreamingDroneEngine:
 
         # Soft limiter — streaming only; render path uses full-buffer final_limit_normalize
         if not self.render_mode:
-            peak = np.max(np.abs(stereo))
-            if peak > 0.92:
-                stereo = stereo * (0.92 / peak)
+            peak = float(np.max(np.abs(stereo)))
+            target = min(1.0, 0.92 / peak) if peak > 1e-6 else 1.0
+            # Ramp gain smoothly across the chunk — no sudden step at chunk boundary
+            gain_ramp = np.linspace(self._limiter_gain, target, stereo.shape[0], dtype=np.float64)
+            stereo = stereo * gain_ramp[:, np.newaxis]
+            self._limiter_gain = target
 
         # Handle crossfade from hot-reload
         if self._crossfade_remaining > 0 and self._old_engine is not None:
@@ -1763,6 +1767,7 @@ class _ShallowCopy:
         self._dc_zi_L = engine._dc_zi_L.copy()
         self._dc_zi_R = engine._dc_zi_R.copy()
         self.saturation = engine.saturation
+        self._limiter_gain = engine._limiter_gain
         self._master = engine._master.copy_state()
         self._reverb  = engine._reverb.copy_state()
         self._shimmer = engine._shimmer.copy_state()
@@ -1800,9 +1805,11 @@ class _ShallowCopy:
 
         stereo = self._master.process(stereo)
 
-        peak = np.max(np.abs(stereo))
-        if peak > 0.92:
-            stereo = stereo * (0.92 / peak)
+        peak = float(np.max(np.abs(stereo)))
+        target = min(1.0, 0.92 / peak) if peak > 1e-6 else 1.0
+        gain_ramp = np.linspace(self._limiter_gain, target, stereo.shape[0], dtype=np.float64)
+        stereo = stereo * gain_ramp[:, np.newaxis]
+        self._limiter_gain = target
 
         return stereo
 
