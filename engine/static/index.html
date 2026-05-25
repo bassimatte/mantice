@@ -535,6 +535,12 @@ main {
 .auto-shape-btn:hover { color:var(--text); }
 .auto-mid-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.12); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-left:3px; flex-shrink:0; }
 .auto-mid-btn:hover { border-color:var(--accent); color:var(--accent); }
+.auto-quickset { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:8px; padding-bottom:7px; border-bottom:1px solid rgba(255,255,255,0.07); }
+.auto-quickset-label { font-size:9px; color:var(--text-dim); flex-shrink:0; margin-right:2px; }
+.auto-quickset-btn { cursor:pointer; font-size:9px; background:var(--surface2); border:1px solid rgba(255,255,255,0.14); border-radius:10px; color:var(--text); padding:2px 9px; flex-shrink:0; transition:border-color .15s, color .15s; }
+.auto-quickset-btn:hover { border-color:var(--accent); color:var(--accent); }
+.auto-clear-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.09); border-radius:10px; color:var(--text-dim); padding:2px 8px; margin-left:auto; flex-shrink:0; }
+.auto-clear-btn:hover { border-color:var(--danger); color:var(--danger); }
 
 /* ── JI Tuning Panel ───────────────────────────── */
 #tuning-panel {
@@ -5867,11 +5873,115 @@ function makeAutoRow(paramDef, autoData, onSave) {
   return row;
 }
 
+// ── Global automation templates ───────────────────────────────────────────────
+
+const AUTO_TEMPLATES = [
+  {
+    name: 'Journey',
+    desc: 'Fade in · filter opens · reverb builds · binaural drifts',
+    global: {
+      master_output_db:  { enabled:true, breakpoints:[{t:0,value:-20,shape:'linear'},{t:0.2,value:0,shape:'exp'}] },
+      reverb_mix:        { enabled:true, breakpoints:[{t:0,value:0.1,shape:'linear'},{t:1,value:0.75,shape:'scurve'}] },
+      binaural_beat_hz:  { enabled:true, breakpoints:[{t:0,value:10,shape:'linear'},{t:1,value:2.5,shape:'exp'}] },
+    },
+    layer: {
+      filter_cutoff:     { enabled:true, breakpoints:[{t:0,value:300,shape:'linear'},{t:1,value:5000,shape:'exp'}] },
+    },
+  },
+  {
+    name: 'Arc',
+    desc: 'Output builds to peak then fades · reverb follows the arc',
+    global: {
+      master_output_db:  { enabled:true, breakpoints:[{t:0,value:-12,shape:'linear'},{t:0.5,value:0,shape:'scurve'},{t:1,value:-12,shape:'scurve'}] },
+      reverb_mix:        { enabled:true, breakpoints:[{t:0,value:0.1,shape:'linear'},{t:0.5,value:0.7,shape:'scurve'},{t:1,value:0.2,shape:'scurve'}] },
+    },
+    layer: {},
+  },
+  {
+    name: 'Breathe',
+    desc: 'Slow filter arc · volume gently pulses once',
+    global: {
+      master_output_db:  { enabled:true, breakpoints:[{t:0,value:-4,shape:'linear'},{t:0.45,value:0,shape:'scurve'},{t:1,value:-6,shape:'scurve'}] },
+    },
+    layer: {
+      filter_cutoff:     { enabled:true, breakpoints:[{t:0,value:500,shape:'linear'},{t:0.5,value:4000,shape:'scurve'},{t:1,value:400,shape:'scurve'}] },
+    },
+  },
+  {
+    name: 'Meditate',
+    desc: 'Binaural drifts alpha → delta · reverb deepens',
+    global: {
+      binaural_beat_hz:  { enabled:true, breakpoints:[{t:0,value:10,shape:'linear'},{t:1,value:1.5,shape:'exp'}] },
+      reverb_mix:        { enabled:true, breakpoints:[{t:0,value:0.2,shape:'linear'},{t:1,value:0.85,shape:'scurve'}] },
+      reverb_decay_trim: { enabled:true, breakpoints:[{t:0,value:0.3,shape:'linear'},{t:1,value:1.0,shape:'scurve'}] },
+    },
+    layer: {},
+  },
+  {
+    name: 'Sunrise',
+    desc: 'Very slow fade in · shimmer emerges in last third',
+    global: {
+      master_output_db:  { enabled:true, breakpoints:[{t:0,value:-30,shape:'linear'},{t:0.6,value:0,shape:'exp'}] },
+      shimmer_wet:       { enabled:true, breakpoints:[{t:0.65,value:0,shape:'linear'},{t:1,value:0.45,shape:'scurve'}] },
+      master_air_db:     { enabled:true, breakpoints:[{t:0,value:-3,shape:'linear'},{t:0.8,value:3,shape:'scurve'}] },
+    },
+    layer: {},
+  },
+];
+
+/** Apply a template to currentParams (merge, don't overwrite existing enabled automations). */
+function applyAutoTemplate(template) {
+  if (!currentParams) return;
+  currentParams.automation = currentParams.automation || {};
+  // Apply global params
+  Object.assign(currentParams.automation, template.global);
+  // Apply layer params to all non-muted layers
+  if (Object.keys(template.layer).length > 0) {
+    (currentParams.layers || []).forEach(layer => {
+      if (layer.muted) return;
+      layer.automation = layer.automation || {};
+      Object.assign(layer.automation, template.layer);
+    });
+  }
+  renderAutomationCard();
+  markDirty();
+}
+
+/** Clear all automation from currentParams. */
+function clearAllAutomation() {
+  if (!currentParams) return;
+  currentParams.automation = {};
+  (currentParams.layers || []).forEach(layer => { layer.automation = {}; });
+  renderAutomationCard();
+  markDirty();
+}
+
 function renderAutomationCard() {
   const body = $('automation-body');
   if (!body || !currentParams) return;
   body.innerHTML = '';
   currentParams.automation = currentParams.automation || {};
+
+  // ── Quick-set templates row ──────────────────────────────────────────
+  const qs = document.createElement('div');
+  qs.className = 'auto-quickset';
+  const qsLabel = document.createElement('span');
+  qsLabel.className = 'auto-quickset-label'; qsLabel.textContent = 'Quick set:';
+  qs.appendChild(qsLabel);
+  for (const tpl of AUTO_TEMPLATES) {
+    const btn = document.createElement('button');
+    btn.className = 'auto-quickset-btn';
+    btn.textContent = tpl.name;
+    btn.title = tpl.desc;
+    btn.onclick = () => applyAutoTemplate(tpl);
+    qs.appendChild(btn);
+  }
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'auto-clear-btn'; clearBtn.textContent = '✕ clear all';
+  clearBtn.title = 'Disable all automation';
+  clearBtn.onclick = clearAllAutomation;
+  qs.appendChild(clearBtn);
+  body.appendChild(qs);
 
   const globalLabel = document.createElement('div');
   globalLabel.className = 'auto-section-label'; globalLabel.textContent = 'Global';
