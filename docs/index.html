@@ -1258,11 +1258,26 @@ main {
           <p>A per-layer <strong>chorus</strong> effect adds width and shimmer through modulated
           delay copies. Slow rates create gentle swaying; faster rates add vibrato-like movement.</p>
 
+          <h4>Flanger</h4>
+          <p>A per-layer <strong>flanger</strong> modulates a short delay (comb filter) with an LFO,
+          creating the classic jet-plane sweeping sound. Rate controls sweep speed, Depth controls
+          modulation intensity, Feedback controls resonance. Runs sample-by-sample for artefact-free
+          audio. Applied after Chorus in the per-layer chain.</p>
+
+          <h4>Phaser</h4>
+          <p>A per-layer <strong>phaser</strong> uses cascaded all-pass filter stages to create
+          notch sweeps through the spectrum. Center Hz sets the sweep range, Stages controls the
+          number of notches (more stages = deeper effect), Feedback adds resonance.
+          Applied after Flanger in the per-layer chain.</p>
+
           <h4>Layer Sub-tabs & Global FX</h4>
           <p>Layer parameters are organised into four sub-tabs: <strong>Synth</strong> (oscillator type and tuning),
           <strong>Filter</strong> (filter type + LFO), <strong>Space</strong> (quadrant, trajectory, elevation),
-          and <strong>FX</strong> (chorus + distortion + per-layer flanger + phaser). Global processing — Binaural, Reverb, Earth &amp; Air —
-          lives in the <strong>Global FX</strong> card below the layers.</p>
+          and <strong>FX</strong> (chorus → flanger → phaser, distortion). Global processing lives in the
+          <strong>Global FX</strong> card below the layers, ordered by signal chain:
+          Reverb → Shimmer → Earth &amp; Air → Binaural.</p>
+          <p class="docs-note" style="font-size:11px;">Per-layer signal chain: Synthesis → Filter → Distortion → Panner → Chorus → Flanger → Phaser<br>
+          Global chain: DC Block → Saturation → Reverb → Shimmer → Earth &amp; Air → Master EQ/Comp → Limiter → Binaural</p>
         </div>
 
         <h3>Global Processing</h3>
@@ -1277,6 +1292,12 @@ main {
           per-line damping, and stereo decorrelation. Choose from spaces (cathedral, cave, hall,
           chamber, plate) or use custom impulse responses. The reverb glues layers together
           into a unified acoustic space.</p>
+
+          <h4>Shimmer FX</h4>
+          <p>A global <strong>pitch-shifted feedback tail</strong> applied after the reverb.
+          The reverb output is pitch-shifted (by a selectable interval — octave up, fifth, fourth, etc.),
+          then fed back into the reverb input, creating an ethereal upward bloom.
+          Feedback controls how long the tail sustains. Works best with reverb enabled.</p>
 
           <h4>Binaural Beats</h4>
           <p>Optional <strong>binaural entrainment</strong> creates a perceived beat frequency
@@ -1440,7 +1461,7 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>LFO Depth</td><td>0.0–1.0</td><td>0.0</td><td>Modulation amount — 0 = off (LP/HP/BP only)</td></tr>
           <tr><td>LFO Shape</td><td>sine / triangle / square</td><td>sine</td><td>LFO waveform (LP/HP/BP only)</td></tr>
         </table>
-        <p class="docs-note">Comb: feedforward FIR comb — metallic ringing and spectral combing. Formant: 3-band vowel resonance (A=800/1200/2500, E=400/2000/2800, I=270/2300/3000, O=570/850/2500, U=380/950/2200 Hz). Filter is applied after synthesis and chorus on all layer types.</p>
+        <p class="docs-note">Comb: feedforward FIR comb — metallic ringing and spectral combing. Formant: 3-band vowel resonance (A=800/1200/2500, E=400/2000/2800, I=270/2300/3000, O=570/850/2500, U=380/950/2200 Hz). Filter is applied after synthesis, before chorus/flanger/phaser on all layer types.</p>
 
         <h3>Layer — Distortion</h3>
         <table class="docs-table">
@@ -1508,6 +1529,28 @@ python batch_render_freesound.py --metadata-only</pre>
         </table>
         <p class="docs-note">Adds width and shimmer by creating modulated delay copies. Best for thin layers that need extra richness.</p>
 
+        <h3>Layer — Flanger</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Wet</td><td>0.0–1.0</td><td>0.0 (off)</td><td>Flanger wet/dry mix — 0 bypasses the stage</td></tr>
+          <tr><td>Rate</td><td>0.01–2.0 Hz</td><td>0.25</td><td>LFO speed — slow rates for jet sweep, faster for vibrato</td></tr>
+          <tr><td>Depth</td><td>0.0–1.0</td><td>0.5</td><td>Modulation depth — controls delay sweep range</td></tr>
+          <tr><td>Feedback</td><td>0.0–0.95</td><td>0.4</td><td>Comb resonance — higher values = more metallic ringing</td></tr>
+        </table>
+        <p class="docs-note">Runs sample-by-sample (not chunk-wise) for artefact-free modulation. Applied after Chorus in the per-layer chain.</p>
+
+        <h3>Layer — Phaser</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Wet</td><td>0.0–1.0</td><td>0.0 (off)</td><td>Phaser wet/dry mix — 0 bypasses the stage</td></tr>
+          <tr><td>Rate</td><td>0.01–4.0 Hz</td><td>0.5</td><td>LFO speed for notch sweep</td></tr>
+          <tr><td>Depth</td><td>0.0–1.0</td><td>0.7</td><td>Sweep depth — how far the notches move</td></tr>
+          <tr><td>Center Hz</td><td>100–4000 Hz</td><td>800</td><td>Center frequency of the notch sweep</td></tr>
+          <tr><td>Feedback</td><td>−0.95–+0.95</td><td>0.0</td><td>Resonance — positive brightens, negative darkens the notches</td></tr>
+          <tr><td>Stages</td><td>2–12 (even)</td><td>4</td><td>Number of all-pass stages — more stages = more notches, deeper effect</td></tr>
+        </table>
+        <p class="docs-note">Cascaded all-pass filter stages create phase notches that sweep through the spectrum. Applied after Flanger in the per-layer chain.</p>
+
         <h3>Layer — Granular</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
@@ -1529,6 +1572,15 @@ python batch_render_freesound.py --metadata-only</pre>
           <tr><td>Decay Trim</td><td>0.0–2.0</td><td>1.0</td><td>Multiplier on tail length</td></tr>
         </table>
         <p class="docs-note">8-line Feedback Delay Network with Hadamard mixing, per-line damping, stereo decorrelation.</p>
+
+        <h3>Shimmer FX (Global)</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>Wet</td><td>0.0–1.0</td><td>0.0 (off)</td><td>Shimmer mix — 0 bypasses entirely</td></tr>
+          <tr><td>Pitch</td><td>−12, +5, +7, +12, +19, +24 semitones</td><td>+12 (Octave Up)</td><td>Pitch shift applied to the feedback tail</td></tr>
+          <tr><td>Feedback</td><td>0.0–0.95</td><td>0.5</td><td>How long the shimmer tail sustains — higher = longer bloom</td></tr>
+        </table>
+        <p class="docs-note">Pitch-shifted feedback tail fed after reverb — creates an ethereal upward bloom. Works best with Reverb enabled. Applied in the global chain after Reverb, before Earth &amp; Air.</p>
 
         <h3>Binaural Beats</h3>
         <table class="docs-table">
@@ -2011,7 +2063,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || '';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -2027,9 +2079,15 @@ function wsUrl(path) {
 
 // ── API helpers ─────────────────────────────────────────────────────────────
 async function api(path, opts = {}) {
-  const res = await fetch(apiUrl(path), opts);
-  if (path.includes('render') || path.includes('preview-audio')) return res;
-  return res.json();
+  try {
+    const res = await fetch(apiUrl(path), opts);
+    if (path.includes('render') || path.includes('preview-audio')) return res;
+    try { return await res.json(); }
+    catch (e) { return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` }; }
+  } catch (e) {
+    if (path.includes('render') || path.includes('preview-audio')) return null;
+    return { ok: false, error: 'Backend unavailable — run: python main.py --gui' };
+  }
 }
 
 // ── Load presets list ───────────────────────────────────────────────────────
@@ -2038,9 +2096,12 @@ let localPresets = [];   // [ { localId, name, params } ] — user-uploaded YAML
 let activeTagFilter = null;
 let sharedPresetEntry = null; // { name, params } — ephemeral entry loaded via #shared= URL
 let currentSharedId = null;   // ID of the currently loaded community preset (null if official/generated)
+let backendOffline = false;   // true when backend is unreachable (GitHub Pages / no local server)
 
 async function loadPresetList() {
-  allPresets = await api('/api/presets');
+  const result = await api('/api/presets');
+  allPresets = Array.isArray(result) ? result : [];
+  backendOffline = !Array.isArray(result);
   buildTagFilter();
   renderPresetList();
 
@@ -2177,6 +2238,13 @@ function renderPresetList() {
   }
 
   container.innerHTML = renderOfficialSection(official) + renderCommunitySection(community);
+
+  if (backendOffline) {
+    container.innerHTML = `<div style="padding:12px 10px; color:var(--text-dim); font-size:11px; line-height:1.5; border-bottom:1px solid var(--border); margin-bottom:8px;">
+      ⚡ Demo mode — no backend.<br>
+      Run <code style="color:var(--accent)">python main.py --gui</code> locally to use presets, Generate &amp; Render.
+    </div>` + container.innerHTML;
+  }
 
   if (sharedPresetEntry) {
     const el = $('shared-entry-item');
@@ -4813,7 +4881,7 @@ async function doGenerate() {
                            harmonic_mode: harmonicMode, harmonic_key: harmonicKey,
                            harmonic_scale: harmonicScale })
   });
-  if (data.ok) {
+  if (data?.ok) {
     currentParams = data.params;
     currentPresetPath = null; // generated preset has no saved path
     currentSharedId = null;
@@ -4826,7 +4894,7 @@ async function doGenerate() {
     stopAudio();
     doPreview();
   } else {
-    setStatus(`Error: ${data.error}`);
+    setStatus(`Error: ${data?.error || 'Backend unavailable'}`);
   }
 }
 
@@ -4842,7 +4910,7 @@ async function doMutate() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
-  if (data.ok) {
+  if (data?.ok) {
     currentParams = data.params;
     currentPresetPath = null; // mutated preset has no saved path
     currentSharedId = null;
@@ -4855,7 +4923,7 @@ async function doMutate() {
     stopAudio();
     doPreview();
   } else {
-    setStatus(`Error: ${data.error}`);
+    setStatus(`Error: ${data?.error || 'Backend unavailable'}`);
   }
 }
 
@@ -5459,9 +5527,20 @@ async function checkBackendConnection() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if (MANTICE_API_BASE) {
+    // Configured backend URL (e.g. Render.com) — do health check
     const ok = await checkBackendConnection();
     if (!ok) return;
+  } else if (!isLocal) {
+    // Deployed to GitHub Pages or similar static host, no backend configured
+    const overlay = $('connection-overlay');
+    const msg = $('connection-msg');
+    msg.innerHTML = 'This is a static preview.<br>To use the full engine, run it locally:<br><code style="font-size:12px;color:var(--accent)">python main.py --gui</code>';
+    $('connection-retry').style.display = 'none';
+    // Don't block — let the UI load anyway (presets list will be empty)
+    overlay.classList.add('hidden');
+    setTimeout(() => overlay.style.display = 'none', 0);
   } else {
     // Local mode — hide overlay immediately
     const overlay = $('connection-overlay');
