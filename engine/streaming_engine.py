@@ -1442,6 +1442,23 @@ class StreamingDroneEngine:
         self.saturation = float(preset.get("saturation", 0.3))
         self._master = MasterProcessor(preset.get("master", {}), SR)
 
+        # JI tuning: derive each layer's root from a single tonic
+        tuning_mode = preset.get("tuning_mode", "free")
+        if tuning_mode == "ji":
+            from .tuning import get_ji_hz
+            tonic_hz   = float(preset.get("tonic_hz", 432.0))
+            ji_system  = preset.get("tuning_system_ji", "5limit_ji")
+            pure_mode  = bool(preset.get("pure_mode", False))
+            resolved = []
+            for lc in preset["layers"]:
+                lc = dict(lc)  # shallow copy — never mutate the original preset
+                degree = lc.get("tuning_degree", "unison")
+                lc["root"] = get_ji_hz(tonic_hz, ji_system, degree)
+                if pure_mode:
+                    lc["detune_cents"] = 0.0
+                resolved.append(lc)
+            preset = {**preset, "layers": resolved}
+
         for layer_cfg in preset["layers"]:
             if layer_cfg.get("muted", False):
                 continue
