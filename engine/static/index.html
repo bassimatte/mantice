@@ -2027,9 +2027,15 @@ function wsUrl(path) {
 
 // ── API helpers ─────────────────────────────────────────────────────────────
 async function api(path, opts = {}) {
-  const res = await fetch(apiUrl(path), opts);
-  if (path.includes('render') || path.includes('preview-audio')) return res;
-  return res.json();
+  try {
+    const res = await fetch(apiUrl(path), opts);
+    if (path.includes('render') || path.includes('preview-audio')) return res;
+    try { return await res.json(); }
+    catch (e) { return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` }; }
+  } catch (e) {
+    if (path.includes('render') || path.includes('preview-audio')) return null;
+    return { ok: false, error: 'Backend unavailable — run: python main.py --gui' };
+  }
 }
 
 // ── Load presets list ───────────────────────────────────────────────────────
@@ -2040,7 +2046,11 @@ let sharedPresetEntry = null; // { name, params } — ephemeral entry loaded via
 let currentSharedId = null;   // ID of the currently loaded community preset (null if official/generated)
 
 async function loadPresetList() {
-  allPresets = await api('/api/presets');
+  const result = await api('/api/presets');
+  allPresets = Array.isArray(result) ? result : [];
+  if (!Array.isArray(result)) {
+    setStatus('⚠ Backend not reachable — run: python main.py --gui');
+  }
   buildTagFilter();
   renderPresetList();
 
@@ -4813,7 +4823,7 @@ async function doGenerate() {
                            harmonic_mode: harmonicMode, harmonic_key: harmonicKey,
                            harmonic_scale: harmonicScale })
   });
-  if (data.ok) {
+  if (data?.ok) {
     currentParams = data.params;
     currentPresetPath = null; // generated preset has no saved path
     currentSharedId = null;
@@ -4826,7 +4836,7 @@ async function doGenerate() {
     stopAudio();
     doPreview();
   } else {
-    setStatus(`Error: ${data.error}`);
+    setStatus(`Error: ${data?.error || 'Backend unavailable'}`);
   }
 }
 
@@ -4842,7 +4852,7 @@ async function doMutate() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
-  if (data.ok) {
+  if (data?.ok) {
     currentParams = data.params;
     currentPresetPath = null; // mutated preset has no saved path
     currentSharedId = null;
@@ -4855,7 +4865,7 @@ async function doMutate() {
     stopAudio();
     doPreview();
   } else {
-    setStatus(`Error: ${data.error}`);
+    setStatus(`Error: ${data?.error || 'Backend unavailable'}`);
   }
 }
 
@@ -5459,9 +5469,20 @@ async function checkBackendConnection() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if (MANTICE_API_BASE) {
+    // Configured backend URL (e.g. Render.com) — do health check
     const ok = await checkBackendConnection();
     if (!ok) return;
+  } else if (!isLocal) {
+    // Deployed to GitHub Pages or similar static host, no backend configured
+    const overlay = $('connection-overlay');
+    const msg = $('connection-msg');
+    msg.innerHTML = 'This is a static preview.<br>To use the full engine, run it locally:<br><code style="font-size:12px;color:var(--accent)">python main.py --gui</code>';
+    $('connection-retry').style.display = 'none';
+    // Don't block — let the UI load anyway (presets list will be empty)
+    overlay.classList.add('hidden');
+    setTimeout(() => overlay.style.display = 'none', 0);
   } else {
     // Local mode — hide overlay immediately
     const overlay = $('connection-overlay');
