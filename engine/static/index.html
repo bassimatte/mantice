@@ -367,14 +367,16 @@ aside h3 {
 .mood-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 .gen-type-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 5px;
+  margin-bottom: 5px;
   flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
 }
 .gen-type-row label {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-size: 8px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -386,24 +388,16 @@ aside h3 {
 .generator-actions {
   display: flex;
   gap: 4px;
-  margin-top: 8px;
-  margin-bottom: 5px;
+  margin-top: 6px;
+  align-items: center;
 }
 .generator-actions .btn {
-  flex: 1;
+  flex: 0 0 auto;
+  width: auto;
   margin: 0;
-  padding: 5px 4px;
-  font-size: 9px;
-}
-.generator-amount {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  padding: 3px 7px;
   font-size: 8px;
-  color: var(--muted);
-  padding: 0 1px;
 }
-.generator-amount input[type=range] { flex: 1; }
 .btn {
   display: block;
   width: 100%;
@@ -1757,50 +1751,41 @@ python batch_render_freesound.py --metadata-only</pre>
     </div>
     <div class="gen-type-row">
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
-      <label><input type="checkbox" id="gen-type-subtractive" checked> Subtractive</label>
+      <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
+      <label><input type="checkbox" id="gen-harmonic-mode"> Harm</label>
+      <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:32px;">
+        <option>C</option><option>C#</option><option>D</option><option>D#</option>
+        <option>E</option><option>F</option><option>F#</option><option>G</option>
+        <option>G#</option><option>A</option><option>A#</option><option>B</option>
+      </select>
+      <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:52px;">
+        <option value="major">Maj</option>
+        <option value="minor">Min</option>
+        <option value="pentatonic_major">P.Maj</option>
+        <option value="pentatonic_minor">P.Min</option>
+        <option value="dorian">Dor</option>
+        <option value="phrygian">Phryg</option>
+        <option value="lydian">Lyd</option>
+        <option value="mixolydian">Mixo</option>
+        <option value="chromatic">Chr</option>
+      </select>
     </div>
-    <div style="display:flex; flex-direction:column; gap:4px; margin-top:6px;">
-      <div style="display:flex; align-items:center; gap:4px;">
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;white-space:nowrap;">
-          <input type="checkbox" id="gen-harmonic-mode"> Harm.
-        </label>
-        <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:40px;">
-          <option>C</option><option>C#</option><option>D</option><option>D#</option>
-          <option>E</option><option>F</option><option>F#</option><option>G</option>
-          <option>G#</option><option>A</option><option>A#</option><option>B</option>
-        </select>
-        <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 2px; font-family:'Space Mono',monospace; font-size:10px; width:60px;">
-          <option value="major">Maj</option>
-          <option value="minor">Min</option>
-          <option value="pentatonic_major">P.Maj</option>
-          <option value="pentatonic_minor">P.Min</option>
-          <option value="dorian">Dor</option>
-          <option value="phrygian">Phryg</option>
-          <option value="lydian">Lyd</option>
-          <option value="mixolydian">Mixo</option>
-          <option value="chromatic">Chr</option>
-        </select>
-      </div>
-      <div style="display:flex; align-items:center; gap:4px;">
-        <select id="tuning-system" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 3px; font-family:'Space Mono',monospace; font-size:10px;">
-          <option value="12-TET">12-TET (Equal)</option>
-          <option value="Pythagorean">Pythagorean</option>
-          <option value="5-limit JI">5-limit JI</option>
-          <option value="Meantone">Meantone (¼-comma)</option>
-          <option value="19-TET">19-TET</option>
-          <option value="31-TET">31-TET</option>
-        </select>
-        <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
-      </div>
+    <div style="display:flex; align-items:center; gap:4px; justify-content:center; margin-bottom:6px;">
+      <select id="tuning-system" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 3px; font-family:'Space Mono',monospace; font-size:9px;">
+        <option value="12-TET">12-TET (Equal)</option>
+        <option value="Pythagorean">Pythagorean</option>
+        <option value="5-limit JI">5-limit JI</option>
+        <option value="Meantone">Meantone (¼-comma)</option>
+        <option value="19-TET">19-TET</option>
+        <option value="31-TET">31-TET</option>
+      </select>
+      <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
     </div>
     <div class="generator-actions">
       <button class="btn" id="btn-generate">🎲 Generate</button>
       <button class="btn btn-outline" id="btn-mutate">🧬 Mutate</button>
-    </div>
-    <div class="generator-amount">
-      <span>Amount</span>
-      <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3">
-      <span id="mutate-amount-val">0.30</span>
+      <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3" style="flex:1; min-width:0;">
+      <span id="mutate-amount-val" style="font-size:8px; color:var(--muted); white-space:nowrap; min-width:22px;">0.30</span>
     </div>
   </div>
 
