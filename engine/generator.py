@@ -145,14 +145,44 @@ _SUB_PROFILES = {
 }
 
 _NAME_PARTS_A = [
-    "Ancient", "Frozen", "Burning", "Infinite", "Hollow", "Crystal", "Iron",
-    "Solar", "Lunar", "Void", "Phantom", "Tectonic", "Spectral", "Magnetic",
-    "Obsidian", "Amber", "Molten", "Silent", "Fractal", "Orbital",
+    # elements & matter
+    "Ancient", "Frozen", "Burning", "Hollow", "Crystal", "Iron", "Obsidian",
+    "Amber", "Molten", "Ashen", "Copper", "Glacial", "Ember", "Cinnabar",
+    "Basalt", "Quartz", "Titanium", "Onyx", "Alabaster", "Chromium",
+    # space & cosmos
+    "Solar", "Lunar", "Orbital", "Stellar", "Cosmic", "Nebular", "Astral",
+    "Sidereal", "Zenith", "Galactic", "Ecliptic", "Crepuscular", "Solstice",
+    "Equinox", "Perihelion", "Interstellar", "Sublunar", "Liminal",
+    # physics & nature
+    "Infinite", "Tectonic", "Spectral", "Magnetic", "Fractal", "Seismic",
+    "Thermal", "Ionic", "Photonic", "Resonant", "Radiant", "Harmonic",
+    "Kinetic", "Entropic", "Quantum", "Plasmid", "Ferrous", "Telluric",
+    # atmosphere & water
+    "Silent", "Phantom", "Void", "Abyssal", "Torrential", "Tempestuous",
+    "Boreal", "Austral", "Riparian", "Pelagic", "Tidal",
+    "Aeolian", "Nimbus", "Vernal", "Nocturnal", "Diurnal", "Ethereal",
+    # sacred & mythic
+    "Sacred", "Primordial", "Orphic", "Hermetic", "Arcane",
+    "Druidic", "Shamanic", "Pythian", "Vedic", "Runic",
+    "Sibylline", "Mantric", "Alchemical", "Telestial", "Chthonic",
 ]
 _NAME_PARTS_B = [
-    "Resonance", "Cathedral", "Monolith", "Engine", "Drift", "Pulse", "Choir",
-    "Chamber", "Expanse", "Vortex", "Field", "Machine", "Horizon", "Abyss",
-    "Frequency", "Pressure", "Continuum", "Whisper", "Storm", "Membrane",
+    # acoustic & music
+    "Resonance", "Choir", "Pulse", "Frequency", "Continuum", "Whisper",
+    "Membrane", "Overtone", "Harmonic", "Timbre", "Tremolo", "Cadence",
+    "Sustain", "Pedaltone", "Undertone", "Formant", "Partials", "Vibration",
+    # architecture & space
+    "Cathedral", "Chamber", "Expanse", "Abyss", "Horizon",
+    "Nave", "Sanctum", "Threshold", "Corridor", "Atrium", "Canopy",
+    "Alcove", "Cloister", "Vestibule", "Archway", "Labyrinth", "Terminus",
+    # forces & phenomena
+    "Drift", "Vortex", "Storm", "Field", "Pressure", "Machine", "Engine",
+    "Current", "Torrent", "Cascade", "Gradient", "Flux", "Surge", "Tide",
+    "Undertow", "Resonator", "Oscillation", "Convergence", "Emanation",
+    # cosmic & mythic objects
+    "Monolith", "Obelisk", "Nexus", "Meridian", "Apex", "Nadir",
+    "Portal", "Sigil", "Glyph", "Oracle", "Mandala", "Yantra", "Stele",
+    "Reliquary", "Totem", "Cipher", "Vessel", "Prism", "Talisman", "Codex",
 ]
 
 
