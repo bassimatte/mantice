@@ -1192,6 +1192,7 @@ main {
       <div class="settings-row">
         <span class="settings-label">Zoom</span>
         <button class="zoom-btn" id="btn-zoom-out" title="Zoom out (Ctrl+-)">−</button>
+        <span id="zoom-pct-display" style="font-size:9px; color:var(--text-dim); min-width:30px; text-align:center; font-family:'Space Mono',monospace;">110%</span>
         <button class="zoom-btn" id="btn-zoom-in" title="Zoom in (Ctrl+=)">+</button>
       </div>
       <div class="settings-row">
@@ -1753,6 +1754,8 @@ python batch_render_freesound.py --metadata-only</pre>
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
       <label><input type="checkbox" id="gen-harmonic-mode"> Harm</label>
+    </div>
+    <div style="display:flex; gap:4px; justify-content:center; align-items:center; margin-bottom:5px;">
       <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:32px;">
         <option>C</option><option>C#</option><option>D</option><option>D#</option>
         <option>E</option><option>F</option><option>F#</option><option>G</option>
@@ -1782,8 +1785,8 @@ python batch_render_freesound.py --metadata-only</pre>
       <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
     </div>
     <div class="generator-actions">
-      <button class="btn" id="btn-generate">🎲 Generate</button>
-      <button class="btn btn-outline" id="btn-mutate">🧬 Mutate</button>
+      <button class="btn" id="btn-generate">Generate</button>
+      <button class="btn btn-outline" id="btn-mutate">Mutate</button>
       <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3" style="flex:1; min-width:0;">
       <span id="mutate-amount-val" style="font-size:8px; color:var(--muted); white-space:nowrap; min-width:22px;">0.30</span>
     </div>
@@ -2087,6 +2090,8 @@ python batch_render_freesound.py --metadata-only</pre>
     // Compensate body height so grid stays within physical viewport
     document.body.style.height = (100 / (pct / 100)) + 'vh';
     localStorage.setItem('mantice-zoom', pct);
+    const el = document.getElementById('zoom-pct-display');
+    if (el) el.textContent = pct + '%';
   }
 
   applyZoom();
