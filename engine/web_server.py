@@ -1140,9 +1140,27 @@ async def share_preset_endpoint(request: Request):
             with urllib.request.urlopen(req) as resp:
                 return resp.status
         status = await loop.run_in_executor(None, do_gh_put)
-        if status in (200, 201):
-            return JSONResponse({"ok": True, "id": file_id})
-        return JSONResponse({"ok": False, "error": f"GitHub API returned {status}"}, status_code=500)
+        if status not in (200, 201):
+            return JSONResponse({"ok": False, "error": f"GitHub API returned {status}"}, status_code=500)
+        # Also upload JSON params — enables backend-free loading on GitHub Pages
+        params["name"] = preset_name
+        json_b64 = base64.b64encode(json.dumps(params).encode("utf-8")).decode("ascii")
+        json_req = urllib.request.Request(
+            f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared/{file_id}.json",
+            data=json.dumps({"message": f"Share preset params: {preset_name}", "content": json_b64, "branch": GITHUB_BRANCH}).encode("utf-8"),
+            method="PUT",
+            headers={
+                "Authorization": f"token {GITHUB_TOKEN}",
+                "Accept": "application/vnd.github.v3+json",
+                "Content-Type": "application/json",
+                "User-Agent": "Mantice/1.0",
+            }
+        )
+        try:
+            await loop.run_in_executor(None, lambda: urllib.request.urlopen(json_req))
+        except Exception:
+            pass  # JSON upload is best-effort; YAML is the source of truth
+        return JSONResponse({"ok": True, "id": file_id})
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()
         return JSONResponse({"ok": False, "error": f"GitHub API error {e.code}: {err_body}"}, status_code=500)

@@ -2061,7 +2061,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || '';
+const MANTICE_API_BASE = 'https://mantice.onrender.com';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -2108,27 +2108,31 @@ async function loadPresetList() {
   if (sharedMatch) {
     const id = sharedMatch[1];
     setStatus('Loading shared preset…');
+    function _applySharedParams(params) {
+      const genericNames = ['MANTICE', 'Untitled', 'untitled', ''];
+      const displayName = (!params.name || genericNames.includes(params.name))
+        ? id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ')
+        : params.name;
+      sharedPresetEntry = { name: displayName, params };
+      currentSharedId = id;
+      currentParams = params;
+      renderPresetList();
+      applyParamsToUI(currentParams);
+      markClean();
+      setStatus('🔗 Shared preset loaded: ' + displayName);
+    }
+    // Try backend first
     try {
       const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
-      if (data.ok) {
-        const genericNames = ['MANTICE', 'Untitled', 'untitled', ''];
-        const displayName = (!data.params.name || genericNames.includes(data.params.name))
-          ? id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ')
-          : data.params.name;
-        sharedPresetEntry = { name: displayName, params: data.params };
-        currentSharedId = id;
-        currentParams = data.params;
-        renderPresetList();
-        applyParamsToUI(currentParams);
-        markClean();
-        setStatus('🔗 Shared preset loaded: ' + displayName);
-        return;
-      } else {
-        setStatus('Could not load shared preset: ' + data.error);
-      }
-    } catch (e) {
-      setStatus('Shared preset error: ' + e.message);
-    }
+      if (data && data.ok) { _applySharedParams(data.params); return; }
+    } catch (_) {}
+    // Fallback: fetch JSON params directly from GitHub (works when backend is cold/offline)
+    try {
+      const ghJsonUrl = `https://raw.githubusercontent.com/bassimatte/mantice/main/shared/${encodeURIComponent(id)}.json`;
+      const res = await fetch(ghJsonUrl);
+      if (res.ok) { _applySharedParams(await res.json()); return; }
+    } catch (_) {}
+    setStatus('Could not load shared preset — backend may be starting up, try refreshing in 30s');
   }
 
   // #preset=<path> — direct link to an official preset
