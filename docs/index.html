@@ -1797,16 +1797,14 @@ python batch_render_freesound.py --metadata-only</pre>
   </div>
 
   <!-- Layer Parameters -->
-  <div class="card">
-    <div style="margin-bottom:6px;">
-      <h2 style="margin:0">Layers</h2>
-    </div>
+  <div class="card card-collapsible" id="layers-card">
+    <h2 style="margin:0">Layers</h2>
     <div class="layer-tabs" id="layer-tabs"></div>
     <div id="layer-params"></div>
   </div>
 
   <!-- Global FX -->
-  <div class="card" id="global-fx-card">
+  <div class="card card-collapsible" id="global-fx-card">
     <h2>Global FX</h2>
     <div class="layer-subtabs" id="global-fx-tabs">
       <button class="layer-subtab active" data-gfx="reverb">Reverb</button>
@@ -5295,6 +5293,161 @@ function setProgress(pct) {
 })();
 
 // ── Init ────────────────────────────────────────────────────────────────────
+
+// ── Automation Card ──────────────────────────────────────────────────────────
+const GLOBAL_AUTO_PARAMS = [
+  { key: 'reverb_mix',        label: 'Reverb Mix',   min: 0,   max: 1,   step: 0.01, fmt: v => v.toFixed(2) },
+  { key: 'reverb_decay_trim', label: 'Reverb Decay', min: 0,   max: 1,   step: 0.01, fmt: v => v.toFixed(2) },
+  { key: 'shimmer_wet',       label: 'Shimmer Wet',  min: 0,   max: 1,   step: 0.01, fmt: v => v.toFixed(2) },
+  { key: 'binaural_beat_hz',  label: 'Binaural Hz',  min: 0.5, max: 40,  step: 0.5,  fmt: v => v.toFixed(1) + ' Hz' },
+  { key: 'master_air_db',     label: 'Air EQ',       min: -12, max: 12,  step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
+  { key: 'master_output_db',  label: 'Output Gain',  min: -6,  max: 12,  step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
+];
+const LAYER_AUTO_PARAMS = [
+  { key: 'filter_cutoff',    label: 'Filter Cutoff', min: 40,  max: 8000, step: 10,   fmt: v => Math.round(v) + ' Hz' },
+  { key: 'fm_index',         label: 'FM Index',      min: 0,   max: 5,    step: 0.1,  fmt: v => v.toFixed(1) },
+  { key: 'distortion_drive', label: 'Drive',         min: 0,   max: 1,    step: 0.01, fmt: v => v.toFixed(2) },
+  { key: 'volume_db',        label: 'Volume',        min: -60, max: 6,    step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
+  { key: 'width',            label: 'Width',         min: 0,   max: 2,    step: 0.05, fmt: v => v.toFixed(2) },
+];
+
+function getGlobalAutoPresetVal(key) {
+  if (!currentParams) return 0;
+  const p = currentParams;
+  switch (key) {
+    case 'reverb_mix':        return p.reverb?.mix ?? 0.3;
+    case 'reverb_decay_trim': return p.reverb?.decay_trim ?? 1.0;
+    case 'shimmer_wet':       return p.shimmer?.wet ?? 0;
+    case 'binaural_beat_hz':  return p.binaural?.beat_hz ?? 6.0;
+    case 'master_air_db':     return p.master?.eq_air_db ?? 0;
+    case 'master_output_db':  return p.master?.output_gain_db ?? 3.0;
+    default: return 0;
+  }
+}
+
+function getLayerAutoPresetVal(key, layerIdx) {
+  if (!currentParams || !currentParams.layers[layerIdx]) return 0;
+  return currentParams.layers[layerIdx][key] ?? 0;
+}
+
+function autoActiveCount() {
+  if (!currentParams) return 0;
+  let n = 0;
+  for (const v of Object.values(currentParams.automation || {})) { if (v?.enabled) n++; }
+  for (const layer of (currentParams.layers || [])) {
+    for (const v of Object.values(layer.automation || {})) { if (v?.enabled) n++; }
+  }
+  return n;
+}
+
+function updateAutoBadge() {
+  const el = $('auto-active-badge');
+  if (!el) return;
+  const n = autoActiveCount();
+  el.textContent = n > 0 ? n + ' active' : '';
+}
+
+function makeAutoRow(paramDef, autoData, onSave) {
+  const cfg = autoData || { enabled: false, start: paramDef.presetVal, end: paramDef.presetVal, shape: 'linear' };
+  const row = document.createElement('div');
+  row.className = 'auto-row' + (cfg.enabled ? '' : ' disabled');
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.className = 'auto-toggle-btn' + (cfg.enabled ? ' on' : '');
+  toggleBtn.textContent = cfg.enabled ? '●' : '○';
+  toggleBtn.title = 'Enable/disable automation';
+
+  const labelEl = document.createElement('span');
+  labelEl.className = 'auto-label';
+  labelEl.textContent = paramDef.label;
+
+  const presetEl = document.createElement('span');
+  presetEl.className = 'auto-preset-val';
+  presetEl.textContent = 'preset: ' + paramDef.fmt(paramDef.presetVal);
+
+  const startInput = document.createElement('input');
+  startInput.type = 'number';
+  startInput.className = 'auto-input';
+  startInput.min = paramDef.min; startInput.max = paramDef.max; startInput.step = paramDef.step;
+  startInput.value = cfg.start !== undefined ? cfg.start : paramDef.presetVal;
+  startInput.title = 'Start value';
+
+  const snapStart = document.createElement('button');
+  snapStart.className = 'auto-snap'; snapStart.textContent = '↓'; snapStart.title = 'Snap start to preset';
+
+  const arrow = document.createElement('span');
+  arrow.className = 'auto-arrow'; arrow.textContent = '→';
+
+  const endInput = document.createElement('input');
+  endInput.type = 'number';
+  endInput.className = 'auto-input';
+  endInput.min = paramDef.min; endInput.max = paramDef.max; endInput.step = paramDef.step;
+  endInput.value = cfg.end !== undefined ? cfg.end : paramDef.presetVal;
+  endInput.title = 'End value';
+
+  const snapEnd = document.createElement('button');
+  snapEnd.className = 'auto-snap'; snapEnd.textContent = '↓'; snapEnd.title = 'Snap end to preset';
+
+  const shapeSelect = document.createElement('select');
+  shapeSelect.className = 'auto-shape';
+  for (const [val, lbl] of [['linear','Linear'],['scurve','S-Curve'],['exp','Exp']]) {
+    const opt = document.createElement('option');
+    opt.value = val; opt.textContent = lbl;
+    if ((cfg.shape || 'linear') === val) opt.selected = true;
+    shapeSelect.appendChild(opt);
+  }
+
+  function save() {
+    onSave({ enabled: toggleBtn.classList.contains('on'), start: parseFloat(startInput.value), end: parseFloat(endInput.value), shape: shapeSelect.value });
+    updateAutoBadge();
+    markDirty();
+  }
+
+  snapStart.onclick = () => { startInput.value = paramDef.presetVal; save(); };
+  snapEnd.onclick   = () => { endInput.value   = paramDef.presetVal; save(); };
+
+  toggleBtn.onclick = () => {
+    const isOn = !toggleBtn.classList.contains('on');
+    toggleBtn.classList.toggle('on', isOn);
+    toggleBtn.textContent = isOn ? '●' : '○';
+    row.classList.toggle('disabled', !isOn);
+    if (isOn && !autoData) startInput.value = paramDef.presetVal;
+    save();
+  };
+  startInput.onchange = save; endInput.onchange = save; shapeSelect.onchange = save;
+
+  row.append(toggleBtn, labelEl, presetEl, startInput, snapStart, arrow, endInput, snapEnd, shapeSelect);
+  return row;
+}
+
+function renderAutomationCard() {
+  const body = $('automation-body');
+  if (!body || !currentParams) return;
+  body.innerHTML = '';
+  currentParams.automation = currentParams.automation || {};
+
+  const globalLabel = document.createElement('div');
+  globalLabel.className = 'auto-section-label'; globalLabel.textContent = 'Global';
+  body.appendChild(globalLabel);
+  for (const def of GLOBAL_AUTO_PARAMS) {
+    const paramDef = { ...def, presetVal: getGlobalAutoPresetVal(def.key) };
+    body.appendChild(makeAutoRow(paramDef, currentParams.automation[def.key], cfg => { currentParams.automation[def.key] = cfg; }));
+  }
+
+  (currentParams.layers || []).forEach((layer, i) => {
+    layer.automation = layer.automation || {};
+    const lbl = document.createElement('div');
+    lbl.className = 'auto-section-label'; lbl.style.marginTop = '10px';
+    lbl.textContent = (layer.name || 'Layer ' + (i + 1)) + (layer.muted ? ' (muted)' : '');
+    body.appendChild(lbl);
+    for (const def of LAYER_AUTO_PARAMS) {
+      const paramDef = { ...def, presetVal: getLayerAutoPresetVal(def.key, i) };
+      body.appendChild(makeAutoRow(paramDef, layer.automation[def.key], cfg => { layer.automation[def.key] = cfg; }));
+    }
+  });
+  updateAutoBadge();
+}
+
 function init() {
   loadPresetList();
 
@@ -5491,159 +5644,6 @@ function init() {
     e.stopPropagation();
   });
   $('btn-render-files').addEventListener('click', doRender);
-
-// ── Automation Card ──────────────────────────────────────────────────────────
-const GLOBAL_AUTO_PARAMS = [
-  { key: 'reverb_mix',        label: 'Reverb Mix',   min: 0,   max: 1,   step: 0.01, fmt: v => v.toFixed(2) },
-  { key: 'reverb_decay_trim', label: 'Reverb Decay', min: 0,   max: 1,   step: 0.01, fmt: v => v.toFixed(2) },
-  { key: 'shimmer_wet',       label: 'Shimmer Wet',  min: 0,   max: 1,   step: 0.01, fmt: v => v.toFixed(2) },
-  { key: 'binaural_beat_hz',  label: 'Binaural Hz',  min: 0.5, max: 40,  step: 0.5,  fmt: v => v.toFixed(1) + ' Hz' },
-  { key: 'master_air_db',     label: 'Air EQ',       min: -12, max: 12,  step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
-  { key: 'master_output_db',  label: 'Output Gain',  min: -6,  max: 12,  step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
-];
-const LAYER_AUTO_PARAMS = [
-  { key: 'filter_cutoff',    label: 'Filter Cutoff', min: 40,  max: 8000, step: 10,   fmt: v => Math.round(v) + ' Hz' },
-  { key: 'fm_index',         label: 'FM Index',      min: 0,   max: 5,    step: 0.1,  fmt: v => v.toFixed(1) },
-  { key: 'distortion_drive', label: 'Drive',         min: 0,   max: 1,    step: 0.01, fmt: v => v.toFixed(2) },
-  { key: 'volume_db',        label: 'Volume',        min: -60, max: 6,    step: 0.5,  fmt: v => (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB' },
-  { key: 'width',            label: 'Width',         min: 0,   max: 2,    step: 0.05, fmt: v => v.toFixed(2) },
-];
-
-function getGlobalAutoPresetVal(key) {
-  if (!currentParams) return 0;
-  const p = currentParams;
-  switch (key) {
-    case 'reverb_mix':        return p.reverb?.mix ?? 0.3;
-    case 'reverb_decay_trim': return p.reverb?.decay_trim ?? 1.0;
-    case 'shimmer_wet':       return p.shimmer?.wet ?? 0;
-    case 'binaural_beat_hz':  return p.binaural?.beat_hz ?? 6.0;
-    case 'master_air_db':     return p.master?.eq_air_db ?? 0;
-    case 'master_output_db':  return p.master?.output_gain_db ?? 3.0;
-    default: return 0;
-  }
-}
-
-function getLayerAutoPresetVal(key, layerIdx) {
-  if (!currentParams || !currentParams.layers[layerIdx]) return 0;
-  return currentParams.layers[layerIdx][key] ?? 0;
-}
-
-function autoActiveCount() {
-  if (!currentParams) return 0;
-  let n = 0;
-  for (const v of Object.values(currentParams.automation || {})) { if (v?.enabled) n++; }
-  for (const layer of (currentParams.layers || [])) {
-    for (const v of Object.values(layer.automation || {})) { if (v?.enabled) n++; }
-  }
-  return n;
-}
-
-function updateAutoBadge() {
-  const el = $('auto-active-badge');
-  if (!el) return;
-  const n = autoActiveCount();
-  el.textContent = n > 0 ? n + ' active' : '';
-}
-
-function makeAutoRow(paramDef, autoData, onSave) {
-  const cfg = autoData || { enabled: false, start: paramDef.presetVal, end: paramDef.presetVal, shape: 'linear' };
-  const row = document.createElement('div');
-  row.className = 'auto-row' + (cfg.enabled ? '' : ' disabled');
-
-  const toggleBtn = document.createElement('button');
-  toggleBtn.className = 'auto-toggle-btn' + (cfg.enabled ? ' on' : '');
-  toggleBtn.textContent = cfg.enabled ? '●' : '○';
-  toggleBtn.title = 'Enable/disable automation';
-
-  const labelEl = document.createElement('span');
-  labelEl.className = 'auto-label';
-  labelEl.textContent = paramDef.label;
-
-  const presetEl = document.createElement('span');
-  presetEl.className = 'auto-preset-val';
-  presetEl.textContent = 'preset: ' + paramDef.fmt(paramDef.presetVal);
-
-  const startInput = document.createElement('input');
-  startInput.type = 'number';
-  startInput.className = 'auto-input';
-  startInput.min = paramDef.min; startInput.max = paramDef.max; startInput.step = paramDef.step;
-  startInput.value = cfg.start !== undefined ? cfg.start : paramDef.presetVal;
-  startInput.title = 'Start value';
-
-  const snapStart = document.createElement('button');
-  snapStart.className = 'auto-snap'; snapStart.textContent = '↓'; snapStart.title = 'Snap start to preset';
-  snapStart.onclick = () => { startInput.value = paramDef.presetVal; save(); };
-
-  const arrow = document.createElement('span');
-  arrow.className = 'auto-arrow'; arrow.textContent = '→';
-
-  const endInput = document.createElement('input');
-  endInput.type = 'number';
-  endInput.className = 'auto-input';
-  endInput.min = paramDef.min; endInput.max = paramDef.max; endInput.step = paramDef.step;
-  endInput.value = cfg.end !== undefined ? cfg.end : paramDef.presetVal;
-  endInput.title = 'End value';
-
-  const snapEnd = document.createElement('button');
-  snapEnd.className = 'auto-snap'; snapEnd.textContent = '↓'; snapEnd.title = 'Snap end to preset';
-  snapEnd.onclick = () => { endInput.value = paramDef.presetVal; save(); };
-
-  const shapeSelect = document.createElement('select');
-  shapeSelect.className = 'auto-shape';
-  for (const [val, lbl] of [['linear','Linear'],['scurve','S-Curve'],['exp','Exp']]) {
-    const opt = document.createElement('option');
-    opt.value = val; opt.textContent = lbl;
-    if ((cfg.shape || 'linear') === val) opt.selected = true;
-    shapeSelect.appendChild(opt);
-  }
-
-  const save = () => {
-    onSave({ enabled: toggleBtn.classList.contains('on'), start: parseFloat(startInput.value), end: parseFloat(endInput.value), shape: shapeSelect.value });
-    updateAutoBadge();
-    markDirty();
-  };
-
-  toggleBtn.onclick = () => {
-    const isOn = !toggleBtn.classList.contains('on');
-    toggleBtn.classList.toggle('on', isOn);
-    toggleBtn.textContent = isOn ? '●' : '○';
-    row.classList.toggle('disabled', !isOn);
-    if (isOn && !autoData) startInput.value = paramDef.presetVal;
-    save();
-  };
-  startInput.onchange = save; endInput.onchange = save; shapeSelect.onchange = save;
-
-  row.append(toggleBtn, labelEl, presetEl, startInput, snapStart, arrow, endInput, snapEnd, shapeSelect);
-  return row;
-}
-
-function renderAutomationCard() {
-  const body = $('automation-body');
-  if (!body || !currentParams) return;
-  body.innerHTML = '';
-  currentParams.automation = currentParams.automation || {};
-
-  const globalLabel = document.createElement('div');
-  globalLabel.className = 'auto-section-label'; globalLabel.textContent = 'Global';
-  body.appendChild(globalLabel);
-  for (const def of GLOBAL_AUTO_PARAMS) {
-    const paramDef = { ...def, presetVal: getGlobalAutoPresetVal(def.key) };
-    body.appendChild(makeAutoRow(paramDef, currentParams.automation[def.key], cfg => { currentParams.automation[def.key] = cfg; }));
-  }
-
-  (currentParams.layers || []).forEach((layer, i) => {
-    layer.automation = layer.automation || {};
-    const lbl = document.createElement('div');
-    lbl.className = 'auto-section-label'; lbl.style.marginTop = '10px';
-    lbl.textContent = (layer.name || 'Layer ' + (i + 1)) + (layer.muted ? ' (muted)' : '');
-    body.appendChild(lbl);
-    for (const def of LAYER_AUTO_PARAMS) {
-      const paramDef = { ...def, presetVal: getLayerAutoPresetVal(def.key, i) };
-      body.appendChild(makeAutoRow(paramDef, layer.automation[def.key], cfg => { layer.automation[def.key] = cfg; }));
-    }
-  });
-  updateAutoBadge();
-}
 
   // ── Collapsible Cards ───────────────────────────────────────────────────────
   document.querySelectorAll('.card-collapsible h2').forEach(h2 => {
