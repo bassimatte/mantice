@@ -1860,7 +1860,7 @@ def launch_gui(host: str = "127.0.0.1", port: int = 8432, open_browser: bool = T
     import webbrowser
 
     url = f"http://{host}:{port}"
-    print(f"\n  🔊 MANTICE Web UI starting at {url}")
+    print(f"\n  MANTICE Web UI starting at {url}")
     print(f"  Press Ctrl+C or close this terminal to stop.\n")
 
     if open_browser:
@@ -1872,7 +1872,7 @@ def launch_gui(host: str = "127.0.0.1", port: int = 8432, open_browser: bool = T
 
     # Force clean exit on Ctrl+C (uvicorn on Windows ignores SIGINT sometimes)
     def _force_exit(sig, frame):
-        print("\n  Shutting down…")
+        print("\n  Shutting down...")
         import os
         os._exit(0)
 
