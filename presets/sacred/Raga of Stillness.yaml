@@ -1,0 +1,228 @@
+meta:
+  name: Raga of Stillness
+  slug: raga_of_stillness
+  category: sacred
+  mood:
+  - sacred
+  - meditative
+  - devotional
+  - evolving
+  description: >
+    Three FM layers tuned to A (110 Hz) with inharmonic bowl overtones.
+    Random walk automation breathes life into the timbre slowly and unpredictably —
+    the FM character shifts, the reverb ebbs, the binaural beat drifts between
+    theta and alpha. Every listening is unique.
+  author: Mantice
+  engine_version: MANTICE_V26
+  tags:
+  - sacred
+  - fm
+  - random_walk
+  - bowls
+  - meditation
+global:
+  duration_seconds: 120
+  sample_rate: 44100
+  bit_depth: 16-bit
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.5
+  decay_trim: 1.2
+spatial:
+  depth: 2.2
+  wetness: 0.6
+  swarm_density: 0.4
+earth:
+  enabled: false
+air:
+  enabled: true
+saturation: 0.25
+binaural:
+  enabled: true
+  beat_hz: 6.0
+
+automation:
+  reverb_mix:
+    enabled: true
+    mode: random_walk
+    center: 0.5
+    depth: 0.2
+    speed: slow
+  binaural_beat_hz:
+    enabled: true
+    mode: random_walk
+    center: 6.0
+    depth: 3.5
+    speed: slow
+
+layers:
+# ── Root bowl — large, A2 (110 Hz) ──────────────────────────────────────────
+- name: Root Bowl
+  enabled: true
+  type: fm
+  synthesis:
+    root: 110
+    voices: 5
+    ratios:
+    - 1.0
+    - 2.0
+    - 2.756   # inharmonic partial typical of large bowl
+    - 4.0
+    - 5.19
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.5
+  dynamics:
+    amp_min: 0.018
+    amp_max: 0.055
+    drift: 0.003
+    volume_db: 0.0
+  harmonics: 6
+  harmonic_decay: 0.55
+  noise_amount: 0.005
+  noise_color: pink
+  spatial_motion:
+    quadrant: center
+    speed: 0.006
+    trajectory_x: drift
+    trajectory_y: none
+  elevation: -10
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60
+  chorus_mix: 0.15
+  chorus_rate: 0.25
+  chorus_depth: 0.004
+  chorus_voices: 2
+  detune_cents: 4
+  filter_type: lowpass
+  filter_cutoff: 3200
+  filter_resonance: 0.4
+  automation:
+    fm_index:
+      enabled: true
+      mode: random_walk
+      center: 0.5
+      depth: 0.4
+      speed: slow
+    detune_cents:
+      enabled: true
+      mode: random_walk
+      center: 4
+      depth: 6
+      speed: slow
+
+# ── Fifth — E3 (165 Hz), pure fifth above root ───────────────────────────────
+- name: Pure Fifth
+  enabled: true
+  type: fm
+  synthesis:
+    root: 165
+    voices: 4
+    ratios:
+    - 1.0
+    - 2.0
+    - 3.56
+    - 5.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.4
+  dynamics:
+    amp_min: 0.008
+    amp_max: 0.032
+    drift: 0.003
+    volume_db: -3.5
+  harmonics: 5
+  harmonic_decay: 0.6
+  noise_amount: 0.008
+  noise_color: pink
+  spatial_motion:
+    quadrant: front_left
+    speed: 0.009
+    trajectory_x: orbit
+    trajectory_y: none
+  elevation: 15
+  elevation_motion: float
+  elevation_speed: 0.04
+  elevation_range: 30
+  chorus_mix: 0.2
+  chorus_rate: 0.35
+  chorus_depth: 0.006
+  chorus_voices: 3
+  detune_cents: 6
+  filter_type: lowpass
+  filter_cutoff: 4000
+  filter_resonance: 0.3
+  automation:
+    fm_index:
+      enabled: true
+      mode: random_walk
+      center: 0.4
+      depth: 0.35
+      speed: med
+    filter_cutoff:
+      enabled: true
+      mode: random_walk
+      center: 4000
+      depth: 2500
+      speed: med
+
+# ── Overtone shimmer — A3 (220 Hz), high partials ────────────────────────────
+- name: Overtone Shimmer
+  enabled: true
+  type: fm
+  synthesis:
+    root: 220
+    voices: 3
+    ratios:
+    - 1.0
+    - 2.24
+    - 3.67
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.3
+  dynamics:
+    amp_min: 0.004
+    amp_max: 0.018
+    drift: 0.004
+    volume_db: -7.0
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.01
+  noise_color: white
+  spatial_motion:
+    quadrant: front_right
+    speed: 0.012
+    trajectory_x: orbit
+    trajectory_y: none
+  elevation: 40
+  elevation_motion: breathe
+  elevation_speed: 0.05
+  elevation_range: 35
+  chorus_mix: 0.3
+  chorus_rate: 0.5
+  chorus_depth: 0.008
+  chorus_voices: 2
+  detune_cents: 8
+  filter_type: lowpass
+  filter_cutoff: 6000
+  filter_resonance: 0.25
+  automation:
+    fm_index:
+      enabled: true
+      mode: random_walk
+      center: 0.3
+      depth: 0.28
+      speed: fast
+    chorus_rate:
+      enabled: true
+      mode: random_walk
+      center: 0.5
+      depth: 0.4
+      speed: med
