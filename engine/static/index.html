@@ -4923,6 +4923,19 @@ const PRE_BUFFER_CHUNKS = 2;
 const STREAM_SR = 22050;  // must match server STREAM_SAMPLE_RATE; used for gapless chunk scheduling
 let workletNode = null;
 let ctxKeepAlive = null;
+
+// ── Segment player state (MANT-16) ───────────────────────────────────────────
+let _segToken    = null;
+let _segCtx      = null;
+let _segNextStart = 0;
+let _segPlaying  = false;
+let _segParams   = null;
+let _segSeed     = 42;
+
+// ── WS auto-reconnect state (MANT-18) ────────────────────────────────────────
+let _wsReconnects       = 0;
+const _WS_MAX_RECONNECTS = 5;
+let _autoReconnect      = false; // one-shot flag: true when doPreview is triggered by reconnect logic
 let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
 
 // ── Peak meter polling ─────────────────────────────────────────────────────────
@@ -5036,6 +5049,10 @@ async function setupWorklet(ctx) {
 }
 
 async function doPreview() {
+  if (isMobile()) { return doPreviewSegmented(); }  // MANT-17: mobile uses segment player
+  if (!_autoReconnect) _wsReconnects = 0;           // MANT-18: manual start resets retry counter
+  _autoReconnect = false;
+
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
 
@@ -5071,6 +5088,7 @@ async function doPreview() {
   ws.binaryType = 'arraybuffer';
 
   ws.onopen = () => {
+    _wsReconnects = 0;  // MANT-18: successful connect resets retry counter
     currentSeed = $('seed-lock').dataset.state === '1' ? parseInt($('seed-value').value) || 42 : Math.floor(Math.random() * 99999);
     ws.send(JSON.stringify({ action: 'start', params, seed: currentSeed }));
     isStreaming = true;
@@ -5130,7 +5148,9 @@ async function doPreview() {
         source.buffer = buffer;
         source.connect(spectrumAnalyser || streamingCtx.destination);
         const now = streamingCtx.currentTime;
-        if (nextPlayTime < now) nextPlayTime = now + 0.02;
+        if (nextPlayTime < now)
+          // MANT-18: recovery gap instead of hard-snap — brief smooth pause, not a click
+          nextPlayTime = now + PRE_BUFFER_CHUNKS * (CHUNK_SIZE / STREAM_SR) + 0.05;
         source.start(nextPlayTime);
         nextPlayTime += buffer.duration;
         // Release node after playback to prevent memory buildup
@@ -5140,12 +5160,41 @@ async function doPreview() {
     }
   };
 
-  ws.onerror = () => { setStatus('Connection error – tap play to retry'); stopAudio(); };
-  ws.onclose = () => { if (isStreaming) setStatus('Stream ended'); isStreaming = false; stopCtxKeepAlive(); };
+  // MANT-18: auto-reconnect on error/unexpected close
+  ws.onerror = () => {
+    if (isStreaming && _wsReconnects < _WS_MAX_RECONNECTS) {
+      _wsReconnects++;
+      const delay = Math.min(1500 * _wsReconnects, 8000);
+      setStatus(`Reconnecting… (${_wsReconnects}/${_WS_MAX_RECONNECTS})`);
+      setTimeout(() => { _autoReconnect = true; doPreview(); }, delay);
+    } else {
+      _wsReconnects = 0;
+      setStatus('Connection error – tap play to retry');
+      stopAudio();
+    }
+  };
+  ws.onclose = () => {
+    if (isStreaming) {
+      if (_wsReconnects < _WS_MAX_RECONNECTS) {
+        _wsReconnects++;
+        const delay = Math.min(1500 * _wsReconnects, 8000);
+        setStatus('Stream lost — reconnecting…');
+        setTimeout(() => { _autoReconnect = true; doPreview(); }, delay);
+      } else {
+        setStatus('Stream ended');
+        isStreaming = false;
+        stopCtxKeepAlive();
+      }
+    } else {
+      stopCtxKeepAlive();
+    }
+  };
 }
 
 function stopAudio() {
   isStreaming = false;
+  _autoReconnect = false;  // MANT-18: cancel any pending reconnect
+  _wsReconnects  = 0;
   stopCtxKeepAlive();
   stopMeterPolling();
   stopAurora();
@@ -5170,8 +5219,108 @@ function stopAudio() {
     playbackCtx.close().catch(() => {});
   }
   playbackCtx = null;
+  // MANT-16: segment player cleanup
+  _segPlaying = false;
+  if (_segToken) {
+    fetch(apiUrl('/api/preview-segment/' + _segToken), { method: 'DELETE' }).catch(() => {});
+    _segToken = null;
+  }
+  if (_segCtx && _segCtx.state !== 'closed') {
+    _segCtx.close().catch(() => {});
+  }
+  _segCtx = null;
   setStatus('STOPPED');
   setLiveIndicator(false);
+}
+
+
+// ── MANT-17: Mobile detection ─────────────────────────────────────────────────
+function isMobile() {
+  const ua = navigator.userAgent || '';
+  if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return true;
+  // iPadOS 13+ reports as "Macintosh" but has touch points
+  if (navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua)) return true;
+  return false;
+}
+
+// ── MANT-16: Segmented render-then-play (mobile/cellular) ────────────────────
+async function doPreviewSegmented() {
+  stopAudio();
+  const params = collectParams();
+  if (!params) { setStatus('Load a preset first'); return; }
+
+  _segParams = params;
+  _segSeed = $('seed-lock').dataset.state === '1'
+    ? (parseInt($('seed-value').value) || 42)
+    : Math.floor(Math.random() * 99999);
+  currentSeed   = _segSeed;
+  _segToken     = null;
+  _segNextStart = 0;
+  _segPlaying   = true;
+  isStreaming   = true;
+
+  _segCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_segCtx.state === 'suspended') await _segCtx.resume();
+
+  startMeterPolling();
+  startAurora();
+  setStatus('Buffering…');
+  setLiveIndicator(true);
+
+  await _fetchAndPlaySegment(true);
+}
+
+async function _fetchAndPlaySegment(isFirst) {
+  if (!_segPlaying || !_segCtx) return;
+
+  try {
+    const resp = await fetch(apiUrl('/api/preview-segment'), {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        params:    _segParams,
+        seed:      _segSeed,
+        segment_s: 25,
+        token:     _segToken,
+      }),
+    });
+
+    if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+
+    _segToken = resp.headers.get('X-Segment-Token') || _segToken;
+    const arrayBuf = await resp.arrayBuffer();
+    if (!_segPlaying || !_segCtx) return;  // stopped while fetching
+
+    const audioBuf = await _segCtx.decodeAudioData(arrayBuf);
+    if (!_segPlaying || !_segCtx) return;
+
+    const source = _segCtx.createBufferSource();
+    source.buffer = audioBuf;
+    source.connect(_segCtx.destination);
+
+    const now     = _segCtx.currentTime;
+    const startAt = isFirst ? now + 0.15 : Math.max(now + 0.05, _segNextStart);
+    source.start(startAt);
+    _segNextStart = startAt + audioBuf.duration;
+
+    if (isFirst) {
+      setStatus('▶ Playing…');
+      setLiveIndicator(false);
+    }
+
+    source.onended = () => { try { source.disconnect(); } catch(e) {} };
+
+    // Prefetch next segment 8 s before current ends so the server has render time
+    const msTillPrefetch = Math.max(200, (_segNextStart - _segCtx.currentTime - 8) * 1000);
+    setTimeout(() => { if (_segPlaying) _fetchAndPlaySegment(false); }, msTillPrefetch);
+
+  } catch(e) {
+    console.warn('[seg] fetch error:', e);
+    if (_segPlaying) {
+      setStatus('Buffering…');
+      setTimeout(() => { if (_segPlaying) _fetchAndPlaySegment(isFirst); }, 3000);
+    }
+  }
 }
 
 

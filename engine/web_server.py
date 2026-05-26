@@ -1567,6 +1567,90 @@ async def delete_preset_endpoint(request: Request):
 
 _active_streams: dict[str, bool] = {}  # session_id -> running flag
 
+# ── Segment player engines (MANT-16) ─────────────────────────────────────────
+_segment_engines: dict[str, "StreamingDroneEngine"] = {}  # token → engine
+_SEGMENT_ENGINE_MAX = 20  # max concurrent mobile sessions
+
+
+@app.post("/api/preview-segment")
+async def preview_segment(request: Request):
+    """Render a compressed audio segment for mobile buffered playback (MANT-16).
+
+    Body: { params, seed, segment_s?, token? }
+    Omit ``token`` on the first call; subsequent calls with the same token
+    continue rendering from where the engine left off (seamless gapless playback).
+    Returns OGG audio bytes; the session token is in the X-Segment-Token header.
+    """
+    body = await request.json()
+    params = body.get("params")
+    if not params:
+        return JSONResponse({"ok": False, "error": "No params"}, status_code=400)
+
+    seed       = int(body.get("seed", 42))
+    segment_s  = float(body.get("segment_s", 25.0))
+    segment_s  = max(5.0, min(60.0, segment_s))
+    token      = body.get("token") or ""
+    reset      = bool(body.get("reset", False))
+
+    try:
+        preset = _ui_params_to_preset(params)
+        sr = config.STREAM_SAMPLE_RATE
+
+        # Create new engine or reuse existing session
+        if not token or reset or token not in _segment_engines:
+            token = uuid.uuid4().hex[:16]
+            engine = StreamingDroneEngine(preset, seed=seed, render_mode=True)
+            # Evict oldest entry when over the limit (simple LRU approximation)
+            if len(_segment_engines) >= _SEGMENT_ENGINE_MAX:
+                oldest = next(iter(_segment_engines))
+                del _segment_engines[oldest]
+            _segment_engines[token] = engine
+        else:
+            engine = _segment_engines[token]
+
+        total_samples = int(segment_s * sr)
+        chunk_size    = 2048
+
+        def _render():
+            remaining = total_samples
+            chunks    = []
+            while remaining > 0:
+                n = min(chunk_size, remaining)
+                chunks.append(engine.next_chunk(n))
+                remaining -= n
+            raw = np.concatenate(chunks, axis=0)
+            return np.clip(raw, -1.0, 1.0).astype(np.float32)
+
+        loop  = asyncio.get_event_loop()
+        audio = await loop.run_in_executor(None, _render)
+
+        import soundfile as sf
+        buf = io.BytesIO()
+        sf.write(buf, audio, sr, format="OGG", subtype="VORBIS")
+        buf.seek(0)
+        audio_bytes = buf.read()
+
+        return Response(
+            content=audio_bytes,
+            media_type="audio/ogg",
+            headers={
+                "X-Segment-Token":             token,
+                "Content-Length":              str(len(audio_bytes)),
+                "Access-Control-Expose-Headers": "X-Segment-Token",
+            },
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.delete("/api/preview-segment/{token}")
+async def delete_segment_engine(token: str):
+    """Release the segment engine for a session (called by client on stop)."""
+    _segment_engines.pop(token, None)
+    return JSONResponse({"ok": True})
+
 
 @app.websocket("/ws/preview")
 async def ws_preview(websocket: WebSocket):
