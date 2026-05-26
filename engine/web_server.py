@@ -1681,7 +1681,19 @@ async def render_journey_endpoint(request: Request):
     try:
         from .journey import render_journey, journey_total_seconds
 
-        total_s = journey_total_seconds(steps, loop)
+        # Pre-resolve presets: use full params if provided, else load from file
+        resolved_steps = []
+        for step in steps:
+            s = dict(step)
+            if s.get("params"):
+                s["preset"] = _ui_params_to_preset(s["params"])
+            elif s.get("preset_path"):
+                s["preset"] = load_preset(s["preset_path"])
+            else:
+                return JSONResponse({"ok": False, "error": "Step missing preset_path or params"}, status_code=400)
+            resolved_steps.append(s)
+
+        total_s = journey_total_seconds(resolved_steps, loop)
         max_samples = int(60 * config.STREAM_SAMPLE_RATE) if preview else None
         fmt_out = "ogg" if preview else fmt
 
@@ -1691,7 +1703,7 @@ async def render_journey_endpoint(request: Request):
         ev = asyncio.get_event_loop()
 
         def _render():
-            return render_journey(steps, loop=loop, seed=seed, max_samples=max_samples)
+            return render_journey(resolved_steps, loop=loop, seed=seed, max_samples=max_samples)
 
         audio = await ev.run_in_executor(None, _render)
 
@@ -1885,6 +1897,16 @@ async def ws_journey(websocket: WebSocket):
                     await websocket.send_text(json.dumps({"error": "No steps"}))
                     continue
 
+                # Pre-resolve presets: use full params if provided, else load from file
+                resolved = []
+                for step in steps:
+                    s = dict(step)
+                    if s.get("params"):
+                        s["preset"] = _ui_params_to_preset(s["params"])
+                    elif s.get("preset_path"):
+                        s["preset"] = load_preset(s["preset_path"])
+                    resolved.append(s)
+
                 await websocket.send_text(json.dumps({
                     "status": "streaming",
                     "sample_rate": config.STREAM_SAMPLE_RATE,
@@ -1893,7 +1915,7 @@ async def ws_journey(websocket: WebSocket):
                 }))
                 _active_streams[stream_id] = True
                 task = asyncio.create_task(
-                    _stream_journey_audio(websocket, steps, loop, seed, stream_id)
+                    _stream_journey_audio(websocket, resolved, loop, seed, stream_id)
                 )
 
             elif action == "stop":

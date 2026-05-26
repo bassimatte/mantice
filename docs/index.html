@@ -1212,6 +1212,19 @@ main {
 .journey-action-btn.primary:hover { opacity:0.85; }
 .journey-note { font-size:10px; color:var(--text-dim); margin:0; line-height:1.5; }
 .journey-empty { font-size:11px; color:var(--text-dim); text-align:center; padding:12px 0; }
+
+/* ── Automation context bar (Morphing per-step editing) ──────────────────── */
+.auto-ctx-bar {
+  display:flex; align-items:center; gap:6px; margin-bottom:10px;
+  padding:4px 8px; border-radius:3px;
+  background:color-mix(in srgb,var(--accent) 8%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);
+}
+.auto-ctx-bar > span { font-size:10px; color:var(--text-dim); white-space:nowrap; }
+#auto-ctx-select {
+  background:var(--surface); color:var(--text); border:1px solid var(--accent);
+  padding:2px 6px; font-size:10px; border-radius:3px; flex:1;
+}
 </style>
 </head>
 <body>
@@ -2202,9 +2215,9 @@ python batch_render_freesound.py --metadata-only</pre>
     <div id="automation-body"></div>
   </div>
 
-  <!-- Preset Journey -->
+  <!-- Morphing (Preset Journey) -->
   <div class="card card-collapsible collapsed" id="journey-card">
-    <h2>Preset Journey <span id="journey-duration-badge" style="font-size:10px;color:var(--accent);font-weight:normal;margin-left:4px"></span></h2>
+    <h2>Morphing <span id="journey-duration-badge" style="font-size:10px;color:var(--accent);font-weight:normal;margin-left:4px"></span></h2>
     <div id="journey-body"></div>
   </div>
 </main>
@@ -2513,6 +2526,7 @@ async function loadPreset(path, el) {
   currentPresetPath = path;
   currentSharedId = null; // loading an official preset clears shared context
   renderedBuffer = null; // clear so Play does preview, not old render
+  _autoCtx = null;        // reset automation context to current preset
   applyParamsToUI(currentParams);
   if (!isStreaming) stopAurora();  // don't kill waveform if audio is still playing
   markClean();
@@ -5935,8 +5949,8 @@ const LAYER_AUTO_PARAMS = [
 ];
 
 function getGlobalAutoPresetVal(key) {
-  if (!currentParams) return 0;
-  const p = currentParams;
+  const p = _autoSource();
+  if (!p) return 0;
   switch (key) {
     case 'reverb_mix':        return p.reverb?.mix ?? 0.3;
     case 'reverb_decay_trim': return p.reverb?.decay_trim ?? 1.0;
@@ -5950,8 +5964,9 @@ function getGlobalAutoPresetVal(key) {
 }
 
 function getLayerAutoPresetVal(key, layerIdx) {
-  if (!currentParams || !currentParams.layers[layerIdx]) return 0;
-  const layer = currentParams.layers[layerIdx];
+  const p = _autoSource();
+  if (!p || !p.layers?.[layerIdx]) return 0;
+  const layer = p.layers[layerIdx];
   switch (key) {
     case 'chorus_rate':       return layer.chorus_rate       ?? 0.5;
     case 'lfo_rate':          return layer.filter_lfo_rate   ?? 0.1;
@@ -5962,10 +5977,11 @@ function getLayerAutoPresetVal(key, layerIdx) {
 }
 
 function autoActiveCount() {
-  if (!currentParams) return 0;
+  const src = _autoSource();
+  if (!src) return 0;
   let n = 0;
-  for (const v of Object.values(currentParams.automation || {})) { if (v?.enabled) n++; }
-  for (const layer of (currentParams.layers || [])) {
+  for (const v of Object.values(src.automation || {})) { if (v?.enabled) n++; }
+  for (const layer of (src.layers || [])) {
     for (const v of Object.values(layer.automation || {})) { if (v?.enabled) n++; }
   }
   return n;
@@ -6549,38 +6565,73 @@ const AUTO_TEMPLATES = [
 
 /** Apply a template to currentParams (merge, don't overwrite existing enabled automations). */
 function applyAutoTemplate(template) {
-  if (!currentParams) return;
+  const src = _autoSource();
+  if (!src) return;
   // Clear all existing automation first so templates don't stack
-  currentParams.automation = {};
-  (currentParams.layers || []).forEach(layer => { layer.automation = {}; });
+  src.automation = {};
+  (src.layers || []).forEach(layer => { layer.automation = {}; });
   // Apply global params
-  Object.assign(currentParams.automation, template.global);
+  Object.assign(src.automation, template.global);
   // Apply layer params to all non-muted layers
   if (Object.keys(template.layer).length > 0) {
-    (currentParams.layers || []).forEach(layer => {
+    (src.layers || []).forEach(layer => {
       if (layer.muted) return;
       layer.automation = layer.automation || {};
       Object.assign(layer.automation, template.layer);
     });
   }
   renderAutomationCard();
-  markDirty();
+  if (_autoCtx === null) markDirty();
 }
 
-/** Clear all automation from currentParams. */
+/** Clear all automation from the active source (current preset or morphing step). */
 function clearAllAutomation() {
-  if (!currentParams) return;
-  currentParams.automation = {};
-  (currentParams.layers || []).forEach(layer => { layer.automation = {}; });
+  const src = _autoSource();
+  if (!src) return;
+  src.automation = {};
+  (src.layers || []).forEach(layer => { layer.automation = {}; });
   renderAutomationCard();
-  markDirty();
+  if (_autoCtx === null) markDirty();
 }
 
 function renderAutomationCard() {
   const body = $('automation-body');
   if (!body || !currentParams) return;
   body.innerHTML = '';
-  currentParams.automation = currentParams.automation || {};
+  const src = _autoSource();
+  if (!src) return;
+  src.automation = src.automation || {};
+
+  // ── Context selector (shown when morphing has steps with loaded params) ──
+  const morphSteps = currentJourney.steps.filter(s => s.presetParams && s.presetName);
+  if (morphSteps.length > 0) {
+    const ctxBar = document.createElement('div');
+    ctxBar.className = 'auto-ctx-bar';
+    const ctxLbl = document.createElement('span');
+    ctxLbl.textContent = 'Editing:';
+    ctxBar.appendChild(ctxLbl);
+    const ctxSel = document.createElement('select');
+    ctxSel.id = 'auto-ctx-select';
+    const optCurrent = document.createElement('option');
+    optCurrent.value = ''; optCurrent.textContent = 'Current preset';
+    ctxSel.appendChild(optCurrent);
+    currentJourney.steps.forEach((step, i) => {
+      if (!step.presetParams || !step.presetName) return;
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = `Step ${i + 1}: ${step.presetName}`;
+      if (_autoCtx === i) opt.selected = true;
+      ctxSel.appendChild(opt);
+    });
+    ctxSel.onchange = () => {
+      _autoCtx = ctxSel.value === '' ? null : parseInt(ctxSel.value);
+      renderAutomationCard();
+    };
+    ctxBar.appendChild(ctxSel);
+    body.appendChild(ctxBar);
+  } else if (_autoCtx !== null) {
+    _autoCtx = null; // reset if steps were cleared
+  }
 
   // ── Quick-set templates row ──────────────────────────────────────────
   const qs = document.createElement('div');
@@ -6608,10 +6659,10 @@ function renderAutomationCard() {
   body.appendChild(globalLabel);
   for (const def of GLOBAL_AUTO_PARAMS) {
     const paramDef = { ...def, presetVal: getGlobalAutoPresetVal(def.key) };
-    body.appendChild(makeAutoRow(paramDef, currentParams.automation[def.key], cfg => { currentParams.automation[def.key] = cfg; }));
+    body.appendChild(makeAutoRow(paramDef, src.automation[def.key], cfg => { src.automation[def.key] = cfg; }));
   }
 
-  (currentParams.layers || []).forEach((layer, i) => {
+  (src.layers || []).forEach((layer, i) => {
     layer.automation = layer.automation || {};
     const lbl = document.createElement('div');
     lbl.className = 'auto-section-label'; lbl.style.marginTop = '10px';
@@ -6882,6 +6933,18 @@ let currentJourney = {
   format: 'mp3',
 };
 
+// ── Automation context: which params are being edited in the Automation card ──
+// null = current preset; integer = morphing step index
+let _autoCtx = null;
+
+function _autoSource() {
+  if (_autoCtx !== null) {
+    const step = currentJourney.steps[_autoCtx];
+    if (step?.presetParams) return step.presetParams;
+  }
+  return currentParams;
+}
+
 function _journeyTotalSeconds() {
   const { steps, loop } = currentJourney;
   const n = steps.length;
@@ -6959,11 +7022,24 @@ function renderJourneyCard() {
       });
       sel.appendChild(grp);
     });
-    sel.onchange = () => {
+    sel.onchange = async () => {
       const chosen = allPresets.find(p => p.path === sel.value);
       currentJourney.steps[i].presetPath = sel.value;
       currentJourney.steps[i].presetName = chosen?.name || '';
+      currentJourney.steps[i].presetParams = null;
       _updateJourneyBadge();
+      // Load preset params for per-step automation editing
+      if (sel.value) {
+        try {
+          const data = await api(`/api/preset/load?path=${encodeURIComponent(sel.value)}`);
+          if (data?.ok && data.params) {
+            currentJourney.steps[i].presetParams = data.params;
+            // Refresh automation context bar if it's already open
+            const ctxSel = $('auto-ctx-select');
+            if (ctxSel) renderAutomationCard();
+          }
+        } catch(e) { console.warn('[morphing] Could not load step params:', e); }
+      }
     };
     row.appendChild(sel);
 
@@ -7015,15 +7091,34 @@ function renderJourneyCard() {
   });
   body.appendChild(stepsList);
 
-  // ── Add step button ──
+  // ── Add step + Clear all buttons ──
+  const addRow = document.createElement('div');
+  addRow.style.cssText = 'display:flex;gap:6px;margin-bottom:10px;';
+
   const addBtn = document.createElement('button');
-  addBtn.className = 'journey-add-btn';
+  addBtn.className = 'journey-add-btn'; addBtn.style.flex = '1'; addBtn.style.margin = '0';
   addBtn.textContent = '+ Add Preset';
   addBtn.onclick = () => {
-    currentJourney.steps.push({ presetPath: '', presetName: '', holdMin: 10, morphMin: 2 });
+    currentJourney.steps.push({ presetPath: '', presetName: '', holdMin: 10, morphMin: 2, presetParams: null });
     renderJourneyCard();
   };
-  body.appendChild(addBtn);
+  addRow.appendChild(addBtn);
+
+  const clearAllBtn = document.createElement('button');
+  clearAllBtn.className = 'journey-del-btn';
+  clearAllBtn.textContent = '✕ clear all';
+  clearAllBtn.title = 'Remove all steps';
+  clearAllBtn.onclick = () => {
+    if (currentJourney.steps.length === 0 || confirm('Clear all morphing steps?')) {
+      currentJourney.steps = [];
+      _autoCtx = null;
+      renderJourneyCard();
+      const ctxSel = $('auto-ctx-select');
+      if (ctxSel) renderAutomationCard();
+    }
+  };
+  addRow.appendChild(clearAllBtn);
+  body.appendChild(addRow);
 
   // ── Controls row: loop + format ──
   const ctrlRow = document.createElement('div');
@@ -7088,7 +7183,7 @@ function renderJourneyCard() {
   // ── Tip ──
   const note = document.createElement('p');
   note.className = 'journey-note';
-  note.textContent = '💡 Tip: random-walk automation inside each preset runs naturally during hold windows for evolving, living textures.';
+  note.textContent = '💡 Tip: open the Automation card and select a step to configure per-step automation. Walk automation runs naturally during hold windows.';
   body.appendChild(note);
 
   _updateJourneyBadge();
@@ -7100,6 +7195,7 @@ function _journeyPayload(preview) {
       .filter(s => s.presetPath)
       .map(s => ({
         preset_path: s.presetPath,
+        params: s.presetParams || null,   // full params with edited automation
         hold_s: (parseFloat(s.holdMin) || 0) * 60,
         morph_s: (parseFloat(s.morphMin) || 0) * 60,
       })),
