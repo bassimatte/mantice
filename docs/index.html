@@ -1159,7 +1159,13 @@ main {
   width:18px; height:18px; border-radius:50%; background:var(--accent);
   color:#000; font-size:10px; font-weight:700;
   display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  cursor:pointer; transition:transform 0.1s ease;
 }
+.journey-step-num:hover { transform:scale(1.15); }
+.journey-step-num.active {
+  background:var(--accent); box-shadow:0 0 8px var(--accent); animation:pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity:1; } 50% { opacity:0.65; } }
 .journey-preset-select {
   flex:1; min-width:130px; max-width:200px;
   background:var(--surface); color:var(--text); border:1px solid var(--border);
@@ -5277,6 +5283,7 @@ function stopAudio() {
   isStreaming = false;
   _autoReconnect = false;  // MANT-18: cancel any pending reconnect
   _wsReconnects  = 0;
+  _currentMorphingStep = -1;  // reset morphing step highlight
   stopCtxKeepAlive();
   stopMeterPolling();
   stopAurora();
@@ -7038,6 +7045,8 @@ let currentJourney = {
   loop: 'none',
 };
 
+let _currentMorphingStep = -1;  // currently playing step index (-1 = none)
+
 /** True when morphing has ≥2 configured presets and should override play/render. */
 function _morphingActive() {
   return currentJourney.steps.filter(s => s.presetPath).length >= 2;
@@ -7129,6 +7138,8 @@ function renderJourneyCard() {
   mqsClearBtn.title = 'Remove all morphing steps';
   mqsClearBtn.onclick = () => {
     if (currentJourney.steps.length === 0 || confirm('Clear all morphing steps?')) {
+      stopAudio();
+      _currentMorphingStep = -1;
       currentJourney.steps = [];
       _autoCtx = null;
       renderJourneyCard();
@@ -7156,7 +7167,22 @@ function renderJourneyCard() {
     // Step number badge
     const num = document.createElement('span');
     num.className = 'journey-step-num';
+    if (_currentMorphingStep === i) num.classList.add('active');
     num.textContent = i + 1;
+    num.title = 'Click to load this preset';
+    num.onclick = async () => {
+      // Load this step's preset into main editor + stop playback
+      stopAudio();
+      const presetPath = step.presetPath;
+      if (!presetPath) return;
+      try {
+        const data = await api(`/api/preset/load?path=${encodeURIComponent(presetPath)}`);
+        if (data?.ok && data.params) {
+          loadPresetParams(data.params);
+          setStatus(`Loaded: ${step.presetName}`);
+        }
+      } catch(e) { setStatus('Load failed: ' + e.message); }
+    };
     row.appendChild(num);
 
     // Preset selector — grouped by category
@@ -7443,9 +7469,14 @@ async function doJourneyStream() {
   ws.onmessage = (event) => {
     if (typeof event.data === 'string') {
       const msg = JSON.parse(event.data);
-      if (msg.status === 'done')    { setStatus('Journey complete'); return; }
-      if (msg.status === 'stopped') { setStatus('Stopped'); return; }
-      if (msg.error) { setStatus('Stream error: ' + msg.error); return; }
+      if (msg.step_index !== undefined) {
+        _currentMorphingStep = msg.step_index;
+        renderJourneyCard();  // re-render to highlight active step
+        return;
+      }
+      if (msg.status === 'done')    { setStatus('Journey complete'); _currentMorphingStep = -1; renderJourneyCard(); return; }
+      if (msg.status === 'stopped') { setStatus('Stopped'); _currentMorphingStep = -1; renderJourneyCard(); return; }
+      if (msg.error) { setStatus('Stream error: ' + msg.error); _currentMorphingStep = -1; renderJourneyCard(); return; }
       return;
     }
     if (!streamingCtx || streamingCtx.state === 'closed') return;

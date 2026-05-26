@@ -1959,6 +1959,9 @@ async def _stream_journey_audio(websocket: WebSocket, steps: list, loop: str,
             morph_s = float(step.get("morph_s", 0.0))
             is_last = (i == n - 1)
 
+            # Notify client which step is now playing
+            await websocket.send_text(json.dumps({"step_index": i}))
+
             # Reuse engine_b from previous morph (continuous audio), or start fresh
             if prev_engine_b is not None:
                 engine_a      = prev_engine_b
