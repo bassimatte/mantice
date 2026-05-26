@@ -6563,7 +6563,50 @@ const AUTO_TEMPLATES = [
   },
 ];
 
-/** Apply a template to currentParams (merge, don't overwrite existing enabled automations). */
+// ── Morphing quick-set templates ─────────────────────────────────────────────
+const MORPH_TEMPLATES = [
+  {
+    name: 'Drift',
+    desc: 'Very slow evolution — long holds with gradual morphs. Best for extended meditation or sleep.',
+    holdMin: 30, morphMin: 12, loop: 'loop',
+  },
+  {
+    name: 'Flow',
+    desc: 'Smooth back-and-forth — medium holds, ping-pong loop. A living, breathing texture.',
+    holdMin: 15, morphMin: 6, loop: 'pingpong',
+  },
+  {
+    name: 'Pulse',
+    desc: 'Rhythmic cycling — shorter holds with crisp morphs. Keeps energy moving.',
+    holdMin: 8, morphMin: 2, loop: 'loop',
+  },
+  {
+    name: 'Ceremony',
+    desc: 'Monumental pace — very long holds, slow ceremonial transitions. One full loop per session.',
+    holdMin: 60, morphMin: 20, loop: 'loop',
+  },
+  {
+    name: 'Dawn',
+    desc: 'One-time journey — plays through all presets once with unhurried morphs. Great for guided sessions.',
+    holdMin: 20, morphMin: 8, loop: 'none',
+  },
+  {
+    name: 'Shimmer',
+    desc: 'Fast ping-pong shimmer — short holds, quick morphs. Sparkling, constantly shifting.',
+    holdMin: 4, morphMin: 1, loop: 'pingpong',
+  },
+];
+
+function applyMorphTemplate(tpl) {
+  if (currentJourney.steps.length === 0) return;
+  currentJourney.steps.forEach(step => {
+    step.holdMin = tpl.holdMin;
+    step.morphMin = tpl.morphMin;
+  });
+  currentJourney.loop = tpl.loop;
+  renderJourneyCard();
+}
+
 function applyAutoTemplate(template) {
   const src = _autoSource();
   if (!src) return;
@@ -6602,29 +6645,40 @@ function renderAutomationCard() {
   if (!src) return;
   src.automation = src.automation || {};
 
-  // ── Context selector (shown when morphing has steps with loaded params) ──
-  const morphSteps = currentJourney.steps.filter(s => s.presetParams && s.presetName);
+  // ── Context selector (shown when morphing has steps) ──
+  const morphSteps = currentJourney.steps.filter(s => s.presetPath && s.presetName);
   if (morphSteps.length > 0) {
     const ctxBar = document.createElement('div');
     ctxBar.className = 'auto-ctx-bar';
     const ctxLbl = document.createElement('span');
-    ctxLbl.textContent = 'Editing:';
+    ctxLbl.textContent = 'Morphing step:';
     ctxBar.appendChild(ctxLbl);
     const ctxSel = document.createElement('select');
     ctxSel.id = 'auto-ctx-select';
     const optCurrent = document.createElement('option');
-    optCurrent.value = ''; optCurrent.textContent = 'Current preset';
+    optCurrent.value = ''; optCurrent.textContent = '— current preset —';
     ctxSel.appendChild(optCurrent);
     currentJourney.steps.forEach((step, i) => {
-      if (!step.presetParams || !step.presetName) return;
+      if (!step.presetPath || !step.presetName) return;
       const opt = document.createElement('option');
       opt.value = String(i);
       opt.textContent = `Step ${i + 1}: ${step.presetName}`;
       if (_autoCtx === i) opt.selected = true;
       ctxSel.appendChild(opt);
     });
-    ctxSel.onchange = () => {
-      _autoCtx = ctxSel.value === '' ? null : parseInt(ctxSel.value);
+    ctxSel.onchange = async () => {
+      const idx = ctxSel.value === '' ? null : parseInt(ctxSel.value);
+      _autoCtx = idx;
+      // Auto-load params for this step if not yet loaded
+      if (idx !== null) {
+        const step = currentJourney.steps[idx];
+        if (!step.presetParams && step.presetPath) {
+          try {
+            const data = await api(`/api/preset/load?path=${encodeURIComponent(step.presetPath)}`);
+            if (data?.ok && data.params) step.presetParams = data.params;
+          } catch(e) { console.warn('[auto-ctx] Could not load step params:', e); }
+        }
+      }
       renderAutomationCard();
     };
     ctxBar.appendChild(ctxSel);
@@ -7120,6 +7174,23 @@ function renderJourneyCard() {
   addRow.appendChild(clearAllBtn);
   body.appendChild(addRow);
 
+  // ── Morphing quick-set row ──
+  const mqsRow = document.createElement('div');
+  mqsRow.className = 'auto-quickset';
+  mqsRow.style.marginBottom = '10px';
+  const mqsLabel = document.createElement('span');
+  mqsLabel.className = 'auto-quickset-label'; mqsLabel.textContent = 'Quick set:';
+  mqsRow.appendChild(mqsLabel);
+  for (const tpl of MORPH_TEMPLATES) {
+    const btn = document.createElement('button');
+    btn.className = 'auto-quickset-btn';
+    btn.textContent = tpl.name;
+    btn.title = tpl.desc;
+    btn.onclick = () => applyMorphTemplate(tpl);
+    mqsRow.appendChild(btn);
+  }
+  body.appendChild(mqsRow);
+
   // ── Controls row: loop + format ──
   const ctrlRow = document.createElement('div');
   ctrlRow.className = 'journey-ctrl-row';
@@ -7162,16 +7233,10 @@ function renderJourneyCard() {
   actRow.appendChild(durSpan);
 
   const prevBtn = document.createElement('button');
-  prevBtn.className = 'journey-action-btn'; prevBtn.textContent = '▶ Preview 60s';
-  prevBtn.title = 'Render and play the first 60 seconds';
-  prevBtn.onclick = doJourneyPreview;
+  prevBtn.className = 'journey-action-btn'; prevBtn.textContent = '📡 Stream';
+  prevBtn.title = 'Stream the full morphing sequence in real-time (no waiting)';
+  prevBtn.onclick = doJourneyStream;
   actRow.appendChild(prevBtn);
-
-  const streamBtn = document.createElement('button');
-  streamBtn.className = 'journey-action-btn'; streamBtn.textContent = '📡 Stream';
-  streamBtn.title = 'Stream the full journey in real-time (no waiting)';
-  streamBtn.onclick = doJourneyStream;
-  actRow.appendChild(streamBtn);
 
   const renderBtn = document.createElement('button');
   renderBtn.className = 'journey-action-btn primary'; renderBtn.textContent = '⬇ Render Journey';
@@ -7183,7 +7248,7 @@ function renderJourneyCard() {
   // ── Tip ──
   const note = document.createElement('p');
   note.className = 'journey-note';
-  note.textContent = '💡 Tip: open the Automation card and select a step to configure per-step automation. Walk automation runs naturally during hold windows.';
+  note.textContent = '💡 Tip: open the Automation card, pick a step from "Morphing step:" menu to configure its automation independently. Walk automation runs naturally during hold windows.';
   body.appendChild(note);
 
   _updateJourneyBadge();
