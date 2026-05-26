@@ -10,7 +10,7 @@ Usage:
     python main.py --hires                      # render at 48kHz/24-bit
     python main.py --format flac               # export as FLAC (wav, flac, ogg, mp3)
     python main.py --seed 42                    # global reproducibility seed
-    python main.py --auto-template journey      # apply automation template (journey/arc/breathe/meditate/sunrise)
+    python main.py --auto-template journey      # apply automation template (journey/arc/breathe/meditate/sunrise/wander/trance/shimmer)
     python main.py --no-automation              # strip all automation (static render)
     python main.py --preview --name "Cavern"   # real-time preview to speakers
     python main.py --preview --infinite        # infinite drone, Ctrl+C to stop

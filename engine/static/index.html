@@ -6234,6 +6234,38 @@ const AUTO_TEMPLATES = [
     },
     layer: {},
   },
+  {
+    name: 'Wander',
+    desc: 'All key params drift on slow random walks — ideal for long, unattended renders',
+    global: {
+      reverb_mix:       { enabled:true, mode:'random_walk', center:0.45, depth:0.25, speed:'slow' },
+      binaural_beat_hz: { enabled:true, mode:'random_walk', center:6.0,  depth:4.0,  speed:'slow' },
+    },
+    layer: {
+      filter_cutoff: { enabled:true, mode:'random_walk', center:2000, depth:1500, speed:'med'  },
+      fm_index:      { enabled:true, mode:'random_walk', center:0.8,  depth:0.6,  speed:'slow' },
+    },
+  },
+  {
+    name: 'Trance',
+    desc: 'Binaural wanders theta/delta while reverb breathes — deep entrainment focus',
+    global: {
+      binaural_beat_hz:  { enabled:true, mode:'random_walk', center:5.0,  depth:4.5,  speed:'slow' },
+      reverb_decay_trim: { enabled:true, mode:'random_walk', center:0.7,  depth:0.25, speed:'slow' },
+      reverb_mix:        { enabled:true, mode:'random_walk', center:0.65, depth:0.2,  speed:'slow' },
+    },
+    layer: {},
+  },
+  {
+    name: 'Shimmer',
+    desc: 'Shimmer, air and reverb drift slowly — top-end sparkle never settles',
+    global: {
+      shimmer_wet:   { enabled:true, mode:'random_walk', center:0.4,  depth:0.3, speed:'med'  },
+      reverb_mix:    { enabled:true, mode:'random_walk', center:0.5,  depth:0.2, speed:'slow' },
+      master_air_db: { enabled:true, mode:'random_walk', center:1.5,  depth:3.0, speed:'slow' },
+    },
+    layer: {},
+  },
 ];
 
 /** Apply a template to currentParams (merge, don't overwrite existing enabled automations). */

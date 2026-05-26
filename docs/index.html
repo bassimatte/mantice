@@ -2196,7 +2196,7 @@ const $ = id => document.getElementById(id);
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = 'https://mantice.onrender.com';
+const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -6231,6 +6231,38 @@ const AUTO_TEMPLATES = [
       master_output_db:  { enabled:true, breakpoints:[{t:0,value:-30,shape:'linear'},{t:0.6,value:0,shape:'exp'}] },
       shimmer_wet:       { enabled:true, breakpoints:[{t:0.65,value:0,shape:'linear'},{t:1,value:0.45,shape:'scurve'}] },
       master_air_db:     { enabled:true, breakpoints:[{t:0,value:-3,shape:'linear'},{t:0.8,value:3,shape:'scurve'}] },
+    },
+    layer: {},
+  },
+  {
+    name: 'Wander',
+    desc: 'All key params drift on slow random walks — ideal for long, unattended renders',
+    global: {
+      reverb_mix:       { enabled:true, mode:'random_walk', center:0.45, depth:0.25, speed:'slow' },
+      binaural_beat_hz: { enabled:true, mode:'random_walk', center:6.0,  depth:4.0,  speed:'slow' },
+    },
+    layer: {
+      filter_cutoff: { enabled:true, mode:'random_walk', center:2000, depth:1500, speed:'med'  },
+      fm_index:      { enabled:true, mode:'random_walk', center:0.8,  depth:0.6,  speed:'slow' },
+    },
+  },
+  {
+    name: 'Trance',
+    desc: 'Binaural wanders theta/delta while reverb breathes — deep entrainment focus',
+    global: {
+      binaural_beat_hz:  { enabled:true, mode:'random_walk', center:5.0,  depth:4.5,  speed:'slow' },
+      reverb_decay_trim: { enabled:true, mode:'random_walk', center:0.7,  depth:0.25, speed:'slow' },
+      reverb_mix:        { enabled:true, mode:'random_walk', center:0.65, depth:0.2,  speed:'slow' },
+    },
+    layer: {},
+  },
+  {
+    name: 'Shimmer',
+    desc: 'Shimmer, air and reverb drift slowly — top-end sparkle never settles',
+    global: {
+      shimmer_wet:   { enabled:true, mode:'random_walk', center:0.4,  depth:0.3, speed:'med'  },
+      reverb_mix:    { enabled:true, mode:'random_walk', center:0.5,  depth:0.2, speed:'slow' },
+      master_air_db: { enabled:true, mode:'random_walk', center:1.5,  depth:3.0, speed:'slow' },
     },
     layer: {},
   },

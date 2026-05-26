@@ -428,9 +428,39 @@ AUTO_TEMPLATES: list[dict] = [
         },
         "layer": {},
     },
+    {
+        "name": "wander",
+        "desc": "All key params drift on slow random walks — ideal for long, unattended renders",
+        "global": {
+            "reverb_mix":       {"enabled": True, "mode": "random_walk", "center": 0.45, "depth": 0.25, "speed": "slow"},
+            "binaural_beat_hz": {"enabled": True, "mode": "random_walk", "center": 6.0,  "depth": 4.0,  "speed": "slow"},
+        },
+        "layer": {
+            "filter_cutoff": {"enabled": True, "mode": "random_walk", "center": 2000, "depth": 1500, "speed": "med"},
+            "fm_index":      {"enabled": True, "mode": "random_walk", "center": 0.8,  "depth": 0.6,  "speed": "slow"},
+        },
+    },
+    {
+        "name": "trance",
+        "desc": "Binaural wanders theta/delta while reverb breathes — deep entrainment focus",
+        "global": {
+            "binaural_beat_hz":  {"enabled": True, "mode": "random_walk", "center": 5.0,  "depth": 4.5,  "speed": "slow"},
+            "reverb_decay_trim": {"enabled": True, "mode": "random_walk", "center": 0.7,  "depth": 0.25, "speed": "slow"},
+            "reverb_mix":        {"enabled": True, "mode": "random_walk", "center": 0.65, "depth": 0.2,  "speed": "slow"},
+        },
+        "layer": {},
+    },
+    {
+        "name": "shimmer",
+        "desc": "Shimmer, air and reverb drift slowly — top-end sparkle never settles",
+        "global": {
+            "shimmer_wet":   {"enabled": True, "mode": "random_walk", "center": 0.4,  "depth": 0.3,  "speed": "med"},
+            "reverb_mix":    {"enabled": True, "mode": "random_walk", "center": 0.5,  "depth": 0.2,  "speed": "slow"},
+            "master_air_db": {"enabled": True, "mode": "random_walk", "center": 1.5,  "depth": 3.0,  "speed": "slow"},
+        },
+        "layer": {},
+    },
 ]
-
-# Quick lookup by name
 _TEMPLATE_BY_NAME: dict[str, dict] = {t["name"]: t for t in AUTO_TEMPLATES}
 TEMPLATE_NAMES: list[str] = [t["name"] for t in AUTO_TEMPLATES]
 
