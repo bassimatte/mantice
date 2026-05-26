@@ -276,6 +276,7 @@ GLOBAL_AUTO_PARAMS: dict[str, tuple[float, float]] = {
     "binaural_beat_hz":  (0.5,   40.0),
     "master_air_db":     (-12.0, 12.0),
     "master_output_db":  (-12.0, 6.0),
+    "saturation":        (0.0,   1.0),
 }
 
 

@@ -1764,6 +1764,9 @@ class StreamingDroneEngine:
         if "master_output_db" in g:
             self._master.set_output_gain_db(g["master_output_db"].value_at(t_norm))
 
+        if "saturation" in g:
+            self.saturation = float(np.clip(g["saturation"].value_at(t_norm), 0.0, 1.0))
+
     def reload(self, new_preset: dict, crossfade_secs: float = 3.0) -> None:
         """
         Queue a hot-reload to the new preset with a smooth crossfade.
