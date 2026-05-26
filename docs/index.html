@@ -6567,43 +6567,90 @@ const AUTO_TEMPLATES = [
 const MORPH_TEMPLATES = [
   {
     name: 'Drift',
-    desc: 'Very slow evolution — long holds with gradual morphs. Best for extended meditation or sleep.',
+    desc: 'Very slow evolution — long holds, gradual morphs. Extended meditation or sleep.',
     holdMin: 30, morphMin: 12, loop: 'loop',
+    presets: ['forest','rain','ocean','river','wind','nature','ambient'],
   },
   {
     name: 'Flow',
-    desc: 'Smooth back-and-forth — medium holds, ping-pong loop. A living, breathing texture.',
+    desc: 'Smooth back-and-forth ping-pong. A living, breathing texture.',
     holdMin: 15, morphMin: 6, loop: 'pingpong',
+    presets: ['bowl','bell','gong','singing','crystal','harmonic','resonan'],
   },
   {
     name: 'Pulse',
     desc: 'Rhythmic cycling — shorter holds with crisp morphs. Keeps energy moving.',
     holdMin: 8, morphMin: 2, loop: 'loop',
+    presets: ['drone','bass','low','deep','earth','ground','root'],
   },
   {
     name: 'Ceremony',
-    desc: 'Monumental pace — very long holds, slow ceremonial transitions. One full loop per session.',
+    desc: 'Monumental pace — very long holds, slow ceremonial transitions.',
     holdMin: 60, morphMin: 20, loop: 'loop',
+    presets: ['sacred','tibetan','temple','ritual','ancient','om','mantra'],
   },
   {
     name: 'Dawn',
-    desc: 'One-time journey — plays through all presets once with unhurried morphs. Great for guided sessions.',
+    desc: 'One-time journey — plays through presets once. Great for guided sessions.',
     holdMin: 20, morphMin: 8, loop: 'none',
+    presets: ['light','morning','dawn','space','celestial','air','rise'],
   },
   {
     name: 'Shimmer',
-    desc: 'Fast ping-pong shimmer — short holds, quick morphs. Sparkling, constantly shifting.',
+    desc: 'Fast ping-pong shimmer — short holds, quick morphs. Constantly shifting.',
     holdMin: 4, morphMin: 1, loop: 'pingpong',
+    presets: ['shimmer','bright','crystal','high','sky','glitter','spark'],
   },
 ];
 
-function applyMorphTemplate(tpl) {
-  if (currentJourney.steps.length === 0) return;
-  currentJourney.steps.forEach(step => {
-    step.holdMin = tpl.holdMin;
-    step.morphMin = tpl.morphMin;
-  });
+/**
+ * Apply a morphing template: populate steps from preset keywords + set timing/loop.
+ * Searches allPresets names (case-insensitive) for each keyword, picks up to 4 unique matches.
+ * If fewer than 2 matches, applies timing to existing steps without replacing them.
+ */
+async function applyMorphTemplate(tpl) {
+  // Find matching presets from the library
+  const found = [];
+  if (allPresets && allPresets.length > 0) {
+    for (const kw of tpl.presets) {
+      const match = allPresets.find(p =>
+        p.name.toLowerCase().includes(kw.toLowerCase()) &&
+        !found.some(f => f.path === p.path)
+      );
+      if (match) found.push(match);
+      if (found.length >= 4) break;
+    }
+  }
+
+  if (found.length >= 2) {
+    // Replace steps with matched presets
+    currentJourney.steps = found.map(p => ({
+      presetPath: p.path,
+      presetName: p.name,
+      holdMin: tpl.holdMin,
+      morphMin: tpl.morphMin,
+      presetParams: null,
+    }));
+    // Load params for each step asynchronously
+    currentJourney.steps.forEach(async (step, i) => {
+      try {
+        const data = await api(`/api/preset/load?path=${encodeURIComponent(step.presetPath)}`);
+        if (data?.ok && data.params) currentJourney.steps[i].presetParams = data.params;
+      } catch(e) {}
+    });
+  } else {
+    // No matching presets — just apply timing to existing steps
+    if (currentJourney.steps.length === 0) {
+      currentJourney.steps.push({ presetPath: '', presetName: '', holdMin: tpl.holdMin, morphMin: tpl.morphMin, presetParams: null });
+    } else {
+      currentJourney.steps.forEach(step => {
+        step.holdMin = tpl.holdMin;
+        step.morphMin = tpl.morphMin;
+      });
+    }
+  }
   currentJourney.loop = tpl.loop;
+  _autoCtx = null;
   renderJourneyCard();
 }
 
@@ -7033,6 +7080,23 @@ function renderJourneyCard() {
   if (!body) return;
   body.innerHTML = '';
 
+  // ── Morphing quick-set row (at top) ──
+  const mqsRow = document.createElement('div');
+  mqsRow.className = 'auto-quickset';
+  mqsRow.style.marginBottom = '12px';
+  const mqsLabel = document.createElement('span');
+  mqsLabel.className = 'auto-quickset-label'; mqsLabel.textContent = 'Quick set:';
+  mqsRow.appendChild(mqsLabel);
+  for (const tpl of MORPH_TEMPLATES) {
+    const btn = document.createElement('button');
+    btn.className = 'auto-quickset-btn';
+    btn.textContent = tpl.name;
+    btn.title = tpl.desc + '\nSuggests: ' + tpl.presets.slice(0,4).join(', ');
+    btn.onclick = () => applyMorphTemplate(tpl);
+    mqsRow.appendChild(btn);
+  }
+  body.appendChild(mqsRow);
+
   // ── Steps list ──
   const stepsList = document.createElement('div');
   stepsList.className = 'journey-steps';
@@ -7040,7 +7104,7 @@ function renderJourneyCard() {
   if (currentJourney.steps.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'journey-empty';
-    empty.textContent = 'No presets yet — click "+ Add Preset" to start building your journey.';
+    empty.textContent = 'Use a Quick Set above to auto-fill presets, or click "+ Add Preset" to build manually.';
     stepsList.appendChild(empty);
   }
 
@@ -7173,23 +7237,6 @@ function renderJourneyCard() {
   };
   addRow.appendChild(clearAllBtn);
   body.appendChild(addRow);
-
-  // ── Morphing quick-set row ──
-  const mqsRow = document.createElement('div');
-  mqsRow.className = 'auto-quickset';
-  mqsRow.style.marginBottom = '10px';
-  const mqsLabel = document.createElement('span');
-  mqsLabel.className = 'auto-quickset-label'; mqsLabel.textContent = 'Quick set:';
-  mqsRow.appendChild(mqsLabel);
-  for (const tpl of MORPH_TEMPLATES) {
-    const btn = document.createElement('button');
-    btn.className = 'auto-quickset-btn';
-    btn.textContent = tpl.name;
-    btn.title = tpl.desc;
-    btn.onclick = () => applyMorphTemplate(tpl);
-    mqsRow.appendChild(btn);
-  }
-  body.appendChild(mqsRow);
 
   // ── Controls row: loop + format ──
   const ctrlRow = document.createElement('div');
