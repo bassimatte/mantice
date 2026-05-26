@@ -1652,6 +1652,106 @@ async def delete_segment_engine(token: str):
     return JSONResponse({"ok": True})
 
 
+# ── Preset Journey (render multi-preset sequence with crossfades) ─────────────
+
+@app.post("/api/render-journey")
+async def render_journey_endpoint(request: Request):
+    """Render a preset journey and return as a downloadable audio file.
+
+    Body: {
+        steps: [{ preset_path, hold_s, morph_s }, ...],
+        loop: "none" | "loop" | "pingpong",
+        format: "mp3" | "wav" | "ogg" | "flac",
+        seed: int,
+        preview: bool   -- if true, limit to first 60s and return OGG
+    }
+    """
+    body = await request.json()
+    steps   = body.get("steps", [])
+    loop    = body.get("loop", "none")
+    fmt     = body.get("format", "mp3")
+    seed    = int(body.get("seed", 42))
+    preview = bool(body.get("preview", False))
+
+    if not steps:
+        return JSONResponse({"ok": False, "error": "No steps provided"}, status_code=400)
+    if not all(s.get("preset_path") for s in steps):
+        return JSONResponse({"ok": False, "error": "All steps must have a preset_path"}, status_code=400)
+
+    try:
+        from .journey import render_journey, journey_total_seconds
+
+        total_s = journey_total_seconds(steps, loop)
+        max_samples = int(60 * config.STREAM_SAMPLE_RATE) if preview else None
+        fmt_out = "ogg" if preview else fmt
+
+        print(f"  [journey] {len(steps)} steps, loop={loop}, "
+              f"total={total_s:.0f}s, preview={preview}, fmt={fmt_out}")
+
+        ev = asyncio.get_event_loop()
+
+        def _render():
+            return render_journey(steps, loop=loop, seed=seed, max_samples=max_samples)
+
+        audio = await ev.run_in_executor(None, _render)
+
+        sr = config.STREAM_SAMPLE_RATE
+        import soundfile as sf
+
+        if fmt_out == "mp3":
+            try:
+                import lameenc
+                pcm = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
+                enc = lameenc.Encoder()
+                enc.set_bit_rate(192)
+                enc.set_in_sample_rate(sr)
+                enc.set_channels(2)
+                enc.set_quality(2)
+                audio_bytes = enc.encode(pcm.tobytes()) + enc.flush()
+                media_type = "audio/mpeg"
+            except ImportError:
+                # Fallback to OGG if lameenc unavailable
+                buf = io.BytesIO()
+                sf.write(buf, audio, sr, format="OGG", subtype="VORBIS")
+                buf.seek(0)
+                audio_bytes = buf.read()
+                media_type = "audio/ogg"
+                fmt_out = "ogg"
+        elif fmt_out == "flac":
+            buf = io.BytesIO()
+            sf.write(buf, audio, sr, format="FLAC")
+            buf.seek(0)
+            audio_bytes = buf.read()
+            media_type = "audio/flac"
+        elif fmt_out == "wav":
+            buf = io.BytesIO()
+            sf.write(buf, audio, sr, format="WAV", subtype="PCM_16")
+            buf.seek(0)
+            audio_bytes = buf.read()
+            media_type = "audio/wav"
+        else:  # ogg (default for preview)
+            buf = io.BytesIO()
+            sf.write(buf, audio, sr, format="OGG", subtype="VORBIS")
+            buf.seek(0)
+            audio_bytes = buf.read()
+            media_type = "audio/ogg"
+
+        filename = f"MANTICE_Journey_preview.ogg" if preview else f"MANTICE_Journey.{fmt_out}"
+        return Response(
+            content=audio_bytes,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(audio_bytes)),
+                "X-Journey-Duration": str(round(total_s, 1)),
+            },
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 @app.websocket("/ws/preview")
 async def ws_preview(websocket: WebSocket):
     """

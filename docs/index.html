@@ -1151,6 +1151,67 @@ main {
   margin-top: 16px; padding: 8px 20px; background: var(--accent); color: #000;
   border: none; border-radius: var(--radius); cursor: pointer; font-weight: bold; display: none;
 }
+
+/* ── Preset Journey ──────────────────────────────────────────────────────── */
+.journey-steps { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.journey-step  { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.journey-step-num {
+  width:18px; height:18px; border-radius:50%; background:var(--accent);
+  color:#000; font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.journey-preset-select {
+  flex:1; min-width:130px; max-width:200px;
+  background:var(--surface); color:var(--text); border:1px solid var(--border);
+  padding:3px 5px; font-size:11px; border-radius:3px;
+}
+.journey-dur-label { font-size:10px; color:var(--text-dim); }
+.journey-dur-unit  { font-size:10px; color:var(--text-dim); }
+.journey-dur-input {
+  width:42px; background:var(--surface); color:var(--text);
+  border:1px solid var(--border); padding:2px 4px; font-size:11px;
+  border-radius:3px; text-align:right;
+  -moz-appearance:textfield;
+}
+.journey-dur-input::-webkit-inner-spin-button,
+.journey-dur-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+.journey-del-btn {
+  background:none; border:1px solid var(--border); color:var(--text-dim);
+  padding:2px 6px; font-size:11px; border-radius:3px; cursor:pointer; flex-shrink:0;
+}
+.journey-del-btn:hover { color:var(--accent); border-color:var(--accent); }
+.journey-add-btn {
+  background:none; border:1px dashed var(--border); color:var(--text-dim);
+  padding:4px 12px; font-size:11px; border-radius:3px; cursor:pointer;
+  width:100%; margin-bottom:10px; transition:border-color 0.15s, color 0.15s;
+}
+.journey-add-btn:hover { border-color:var(--accent); color:var(--accent); }
+.journey-ctrl-row {
+  display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:10px;
+}
+.journey-ctrl-label { font-size:10px; color:var(--text-dim); white-space:nowrap; }
+.journey-loop-btn {
+  background:none; border:1px solid var(--border); color:var(--text-dim);
+  padding:2px 8px; font-size:10px; border-radius:3px; cursor:pointer;
+}
+.journey-loop-btn.active { border-color:var(--accent); color:var(--accent); }
+.journey-fmt-select {
+  background:var(--surface); color:var(--text); border:1px solid var(--border);
+  padding:2px 4px; font-size:10px; border-radius:3px;
+}
+.journey-actions-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+.journey-total-dur { font-size:11px; color:var(--text-dim); flex:1; }
+.journey-action-btn {
+  background:var(--surface); border:1px solid var(--border); color:var(--text);
+  padding:4px 12px; font-size:11px; border-radius:3px; cursor:pointer;
+}
+.journey-action-btn:hover { border-color:var(--accent); }
+.journey-action-btn.primary {
+  background:var(--accent); border-color:var(--accent); color:#000; font-weight:600;
+}
+.journey-action-btn.primary:hover { opacity:0.85; }
+.journey-note { font-size:10px; color:var(--text-dim); margin:0; line-height:1.5; }
+.journey-empty { font-size:11px; color:var(--text-dim); text-align:center; padding:12px 0; }
 </style>
 </head>
 <body>
@@ -2139,6 +2200,12 @@ python batch_render_freesound.py --metadata-only</pre>
   <div class="card card-collapsible collapsed" id="automation-card">
     <h2>Automation <span id="auto-active-badge" style="font-size:10px;color:var(--accent);font-weight:normal;margin-left:4px"></span></h2>
     <div id="automation-body"></div>
+  </div>
+
+  <!-- Preset Journey -->
+  <div class="card card-collapsible collapsed" id="journey-card">
+    <h2>Preset Journey <span id="journey-duration-badge" style="font-size:10px;color:var(--accent);font-weight:normal;margin-left:4px"></span></h2>
+    <div id="journey-body"></div>
   </div>
 </main>
 
@@ -6778,7 +6845,12 @@ function init() {
   // ── Collapsible Cards ───────────────────────────────────────────────────────
   document.querySelectorAll('.card-collapsible h2').forEach(h2 => {
     h2.addEventListener('click', () => {
-      h2.parentElement.classList.toggle('collapsed');
+      const card = h2.parentElement;
+      card.classList.toggle('collapsed');
+      // Lazily render Journey card on first open
+      if (!card.classList.contains('collapsed') && card.id === 'journey-card') {
+        renderJourneyCard();
+      }
     });
   });
 
@@ -6801,6 +6873,320 @@ function init() {
   });
   backdrop.addEventListener('click', closeSidebar);
 
+}
+
+// ── Preset Journey ────────────────────────────────────────────────────────────
+let currentJourney = {
+  steps: [],
+  loop: 'none',
+  format: 'mp3',
+};
+
+function _journeyTotalSeconds() {
+  const { steps, loop } = currentJourney;
+  const n = steps.length;
+  let total = 0;
+  for (let i = 0; i < n; i++) {
+    total += (parseFloat(steps[i].holdMin) || 0) * 60;
+    if (i < n - 1 || (loop !== 'none' && n > 1)) {
+      total += (parseFloat(steps[i].morphMin) || 0) * 60;
+    }
+  }
+  return total;
+}
+
+function _journeyFmtDuration(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (h > 0) return `${h}h ${String(m).padStart(2,'0')}m`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function _updateJourneyBadge() {
+  const totalS = _journeyTotalSeconds();
+  const badge = $('journey-duration-badge');
+  if (badge) badge.textContent = totalS > 0 ? _journeyFmtDuration(totalS) : '';
+  const dur = $('journey-total-dur');
+  if (dur) dur.textContent = 'Total: ' + (totalS > 0 ? _journeyFmtDuration(totalS) : '—');
+}
+
+function renderJourneyCard() {
+  const body = $('journey-body');
+  if (!body) return;
+  body.innerHTML = '';
+
+  // ── Steps list ──
+  const stepsList = document.createElement('div');
+  stepsList.className = 'journey-steps';
+
+  if (currentJourney.steps.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'journey-empty';
+    empty.textContent = 'No presets yet — click "+ Add Preset" to start building your journey.';
+    stepsList.appendChild(empty);
+  }
+
+  currentJourney.steps.forEach((step, i) => {
+    const row = document.createElement('div');
+    row.className = 'journey-step';
+
+    // Step number badge
+    const num = document.createElement('span');
+    num.className = 'journey-step-num';
+    num.textContent = i + 1;
+    row.appendChild(num);
+
+    // Preset selector — grouped by category
+    const sel = document.createElement('select');
+    sel.className = 'journey-preset-select';
+    const ph = document.createElement('option');
+    ph.value = ''; ph.textContent = '— select preset —';
+    sel.appendChild(ph);
+    const cats = {};
+    allPresets.filter(p => p.source === 'official').forEach(p => {
+      (cats[p.category] = cats[p.category] || []).push(p);
+    });
+    Object.entries(cats).forEach(([cat, presets]) => {
+      const grp = document.createElement('optgroup');
+      grp.label = cat;
+      presets.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.path;
+        opt.textContent = p.name;
+        if (p.path === step.presetPath) opt.selected = true;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    });
+    sel.onchange = () => {
+      const chosen = allPresets.find(p => p.path === sel.value);
+      currentJourney.steps[i].presetPath = sel.value;
+      currentJourney.steps[i].presetName = chosen?.name || '';
+      _updateJourneyBadge();
+    };
+    row.appendChild(sel);
+
+    // Hold duration
+    const holdLbl = document.createElement('span');
+    holdLbl.className = 'journey-dur-label';
+    holdLbl.textContent = 'hold';
+    row.appendChild(holdLbl);
+
+    const holdIn = document.createElement('input');
+    holdIn.type = 'number'; holdIn.className = 'journey-dur-input';
+    holdIn.min = 0; holdIn.max = 180; holdIn.step = 1;
+    holdIn.value = step.holdMin ?? 10;
+    holdIn.title = 'Hold duration in minutes';
+    holdIn.oninput = () => { currentJourney.steps[i].holdMin = holdIn.value; _updateJourneyBadge(); };
+    row.appendChild(holdIn);
+
+    const holdUnit = document.createElement('span');
+    holdUnit.className = 'journey-dur-unit'; holdUnit.textContent = 'min';
+    row.appendChild(holdUnit);
+
+    // Morph duration (disabled for last step when loop=none)
+    const morphLbl = document.createElement('span');
+    morphLbl.className = 'journey-dur-label'; morphLbl.textContent = '→';
+    row.appendChild(morphLbl);
+
+    const morphIn = document.createElement('input');
+    morphIn.type = 'number'; morphIn.className = 'journey-dur-input';
+    morphIn.min = 0; morphIn.max = 30; morphIn.step = 0.5;
+    morphIn.value = step.morphMin ?? 2;
+    morphIn.title = 'Crossfade into next preset (minutes)';
+    const isLastNoLoop = (i === currentJourney.steps.length - 1) && currentJourney.loop === 'none';
+    if (isLastNoLoop) { morphIn.disabled = true; morphIn.style.opacity = '0.3'; }
+    morphIn.oninput = () => { currentJourney.steps[i].morphMin = morphIn.value; _updateJourneyBadge(); };
+    row.appendChild(morphIn);
+
+    const morphUnit = document.createElement('span');
+    morphUnit.className = 'journey-dur-unit'; morphUnit.textContent = 'min';
+    row.appendChild(morphUnit);
+
+    // Delete button
+    const del = document.createElement('button');
+    del.className = 'journey-del-btn'; del.textContent = '✕';
+    del.title = 'Remove step';
+    del.onclick = () => { currentJourney.steps.splice(i, 1); renderJourneyCard(); };
+    row.appendChild(del);
+
+    stepsList.appendChild(row);
+  });
+  body.appendChild(stepsList);
+
+  // ── Add step button ──
+  const addBtn = document.createElement('button');
+  addBtn.className = 'journey-add-btn';
+  addBtn.textContent = '+ Add Preset';
+  addBtn.onclick = () => {
+    currentJourney.steps.push({ presetPath: '', presetName: '', holdMin: 10, morphMin: 2 });
+    renderJourneyCard();
+  };
+  body.appendChild(addBtn);
+
+  // ── Controls row: loop + format ──
+  const ctrlRow = document.createElement('div');
+  ctrlRow.className = 'journey-ctrl-row';
+
+  const loopLbl = document.createElement('span');
+  loopLbl.className = 'journey-ctrl-label'; loopLbl.textContent = 'Loop:';
+  ctrlRow.appendChild(loopLbl);
+
+  [['none','Once'],['loop','Loop'],['pingpong','Ping-pong']].forEach(([val,lbl]) => {
+    const btn = document.createElement('button');
+    btn.className = 'journey-loop-btn' + (currentJourney.loop === val ? ' active' : '');
+    btn.textContent = lbl;
+    btn.onclick = () => { currentJourney.loop = val; renderJourneyCard(); };
+    ctrlRow.appendChild(btn);
+  });
+
+  const fmtLbl = document.createElement('span');
+  fmtLbl.className = 'journey-ctrl-label'; fmtLbl.style.marginLeft = '10px';
+  fmtLbl.textContent = 'Format:';
+  ctrlRow.appendChild(fmtLbl);
+
+  const fmtSel = document.createElement('select');
+  fmtSel.className = 'journey-fmt-select';
+  [['mp3','MP3'],['wav','WAV'],['ogg','OGG'],['flac','FLAC']].forEach(([v,t]) => {
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = t;
+    if (currentJourney.format === v) opt.selected = true;
+    fmtSel.appendChild(opt);
+  });
+  fmtSel.onchange = () => { currentJourney.format = fmtSel.value; };
+  ctrlRow.appendChild(fmtSel);
+  body.appendChild(ctrlRow);
+
+  // ── Actions row: total duration + buttons ──
+  const actRow = document.createElement('div');
+  actRow.className = 'journey-actions-row';
+
+  const durSpan = document.createElement('span');
+  durSpan.id = 'journey-total-dur'; durSpan.className = 'journey-total-dur';
+  actRow.appendChild(durSpan);
+
+  const prevBtn = document.createElement('button');
+  prevBtn.className = 'journey-action-btn'; prevBtn.textContent = '▶ Preview 60s';
+  prevBtn.title = 'Render and play the first 60 seconds';
+  prevBtn.onclick = doJourneyPreview;
+  actRow.appendChild(prevBtn);
+
+  const renderBtn = document.createElement('button');
+  renderBtn.className = 'journey-action-btn primary'; renderBtn.textContent = '⬇ Render Journey';
+  renderBtn.title = 'Render the full journey and download';
+  renderBtn.onclick = doJourneyRender;
+  actRow.appendChild(renderBtn);
+  body.appendChild(actRow);
+
+  // ── Tip ──
+  const note = document.createElement('p');
+  note.className = 'journey-note';
+  note.textContent = '💡 Tip: random-walk automation inside each preset runs naturally during hold windows for evolving, living textures.';
+  body.appendChild(note);
+
+  _updateJourneyBadge();
+}
+
+function _journeyPayload(preview) {
+  return {
+    steps: currentJourney.steps
+      .filter(s => s.presetPath)
+      .map(s => ({
+        preset_path: s.presetPath,
+        hold_s: (parseFloat(s.holdMin) || 0) * 60,
+        morph_s: (parseFloat(s.morphMin) || 0) * 60,
+      })),
+    loop: currentJourney.loop,
+    format: preview ? 'ogg' : currentJourney.format,
+    seed: currentSeed,
+    preview: !!preview,
+  };
+}
+
+let _journeyPreviewCtx = null;
+
+async function doJourneyPreview() {
+  const payload = _journeyPayload(true);
+  if (!payload.steps.length) { setStatus('Add at least one preset to preview'); return; }
+  // Stop existing preview
+  if (_journeyPreviewCtx) { try { _journeyPreviewCtx.close(); } catch(_){} _journeyPreviewCtx = null; }
+  stopAudio();
+  setStatus('Rendering journey preview…');
+  try {
+    const res = await fetch(apiUrl('/api/render-journey'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+    const arrayBuf = await res.arrayBuffer();
+    const ctx = new AudioContext();
+    _journeyPreviewCtx = ctx;
+    const audioBuf = await ctx.decodeAudioData(arrayBuf);
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuf;
+    source.connect(ctx.destination);
+    source.start();
+    setStatus('▶ Playing journey preview…');
+    source.onended = () => {
+      ctx.close();
+      if (_journeyPreviewCtx === ctx) _journeyPreviewCtx = null;
+      setStatus('READY');
+    };
+  } catch (e) {
+    console.error('[journey preview]', e);
+    setStatus('Preview failed: ' + e.message);
+  }
+}
+
+async function doJourneyRender() {
+  const payload = _journeyPayload(false);
+  if (!payload.steps.length) { setStatus('Add at least one preset to render'); return; }
+  if (_journeyPreviewCtx) { try { _journeyPreviewCtx.close(); } catch(_){} _journeyPreviewCtx = null; }
+  stopAudio();
+  const totalS = _journeyTotalSeconds();
+  setStatus(`Rendering journey (${_journeyFmtDuration(totalS)})…`);
+  setProgress(0);
+  const estChunks = Math.max(1, Math.ceil(totalS / 4));
+  let elapsed = 0;
+  const ticker = setInterval(() => {
+    elapsed++;
+    setProgress(Math.min((elapsed / estChunks) * 85, 85));
+  }, 1000);
+  try {
+    const res = await fetch(apiUrl('/api/render-journey'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    clearInterval(ticker);
+    setProgress(95);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const cd = res.headers.get('Content-Disposition') || '';
+    const fn = (cd.match(/filename="([^"]+)"/) || [])[1] || `MANTICE_Journey.${currentJourney.format}`;
+    a.download = fn;
+    a.click();
+    URL.revokeObjectURL(url);
+    setProgress(100);
+    setStatus('Journey rendered! ✓');
+    setTimeout(() => setProgress(0), 3000);
+  } catch (e) {
+    clearInterval(ticker);
+    setProgress(0);
+    console.error('[journey render]', e);
+    setStatus('Render failed: ' + e.message);
+  }
 }
 
 // ── Backend connection check (handles cold-start on Render) ──────────────────
