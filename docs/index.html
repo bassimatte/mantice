@@ -7036,7 +7036,6 @@ function init() {
 let currentJourney = {
   steps: [],
   loop: 'none',
-  format: 'mp3',
 };
 
 /** True when morphing has ≥2 configured presets and should override play/render. */
@@ -7277,22 +7276,6 @@ function renderJourneyCard() {
     btn.onclick = () => { currentJourney.loop = val; renderJourneyCard(); };
     ctrlRow.appendChild(btn);
   });
-
-  const fmtLbl = document.createElement('span');
-  fmtLbl.className = 'journey-ctrl-label'; fmtLbl.style.marginLeft = '10px';
-  fmtLbl.textContent = 'Format:';
-  ctrlRow.appendChild(fmtLbl);
-
-  const fmtSel = document.createElement('select');
-  fmtSel.className = 'journey-fmt-select';
-  [['mp3','MP3'],['wav','WAV'],['ogg','OGG'],['flac','FLAC']].forEach(([v,t]) => {
-    const opt = document.createElement('option');
-    opt.value = v; opt.textContent = t;
-    if (currentJourney.format === v) opt.selected = true;
-    fmtSel.appendChild(opt);
-  });
-  fmtSel.onchange = () => { currentJourney.format = fmtSel.value; };
-  ctrlRow.appendChild(fmtSel);
   body.appendChild(ctrlRow);
 
   // ── Total duration display ──
@@ -7312,6 +7295,7 @@ function renderJourneyCard() {
 }
 
 function _journeyPayload(preview) {
+  const fmt = preview ? 'ogg' : ($('format')?.value || 'mp3');
   return {
     steps: currentJourney.steps
       .filter(s => s.presetPath)
@@ -7322,7 +7306,7 @@ function _journeyPayload(preview) {
         morph_s: (parseFloat(s.morphMin) || 0) * 60,
       })),
     loop: currentJourney.loop,
-    format: preview ? 'ogg' : currentJourney.format,
+    format: fmt,
     seed: currentSeed,
     preview: !!preview,
   };
@@ -7398,7 +7382,7 @@ async function doJourneyRender() {
     const a = document.createElement('a');
     a.href = url;
     const cd = res.headers.get('Content-Disposition') || '';
-    const fn = (cd.match(/filename="([^"]+)"/) || [])[1] || `MANTICE_Journey.${currentJourney.format}`;
+    const fn = (cd.match(/filename="([^"]+)"/) || [])[1] || `MANTICE_Journey.${payload.format}`;
     a.download = fn;
     a.click();
     URL.revokeObjectURL(url);
