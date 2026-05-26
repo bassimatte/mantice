@@ -6420,7 +6420,9 @@ const AUTO_TEMPLATES = [
 /** Apply a template to currentParams (merge, don't overwrite existing enabled automations). */
 function applyAutoTemplate(template) {
   if (!currentParams) return;
-  currentParams.automation = currentParams.automation || {};
+  // Clear all existing automation first so templates don't stack
+  currentParams.automation = {};
+  (currentParams.layers || []).forEach(layer => { layer.automation = {}; });
   // Apply global params
   Object.assign(currentParams.automation, template.global);
   // Apply layer params to all non-muted layers
