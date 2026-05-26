@@ -1707,7 +1707,7 @@ async def render_journey_endpoint(request: Request):
                 enc.set_in_sample_rate(sr)
                 enc.set_channels(2)
                 enc.set_quality(2)
-                audio_bytes = enc.encode(pcm.tobytes()) + enc.flush()
+                audio_bytes = bytes(enc.encode(pcm.tobytes())) + bytes(enc.flush())
                 media_type = "audio/mpeg"
             except ImportError:
                 # Fallback to OGG if lameenc unavailable
@@ -1849,6 +1849,156 @@ async def _stream_audio(websocket: WebSocket, engine: StreamingDroneEngine, stre
                 await asyncio.sleep(0.001)
     except Exception:
         pass  # Connection closed or stream stopped
+
+
+@app.websocket("/ws/journey")
+async def ws_journey(websocket: WebSocket):
+    """
+    Stream a Preset Journey in real-time via WebSocket.
+
+    Client sends JSON: {"action": "start", "steps": [...], "loop": "none", "seed": 42}
+    Server sends binary PCM16 frames (interleaved stereo) + text status messages.
+    Client sends JSON: {"action": "stop"} to stop.
+    """
+    await websocket.accept()
+    stream_id = id(websocket)
+    _active_streams[stream_id] = False
+    task = None
+
+    try:
+        while True:
+            msg = await websocket.receive_text()
+            data = json.loads(msg)
+            action = data.get("action")
+
+            if action == "start":
+                _active_streams[stream_id] = False
+                if task:
+                    task.cancel()
+                    await asyncio.sleep(0.05)
+
+                steps = data.get("steps", [])
+                loop  = data.get("loop", "none")
+                seed  = int(data.get("seed", 42))
+
+                if not steps:
+                    await websocket.send_text(json.dumps({"error": "No steps"}))
+                    continue
+
+                await websocket.send_text(json.dumps({
+                    "status": "streaming",
+                    "sample_rate": config.STREAM_SAMPLE_RATE,
+                    "channels": 2,
+                    "format": "pcm16",
+                }))
+                _active_streams[stream_id] = True
+                task = asyncio.create_task(
+                    _stream_journey_audio(websocket, steps, loop, seed, stream_id)
+                )
+
+            elif action == "stop":
+                _active_streams[stream_id] = False
+                if task:
+                    task.cancel()
+                    task = None
+                await websocket.send_text(json.dumps({"status": "stopped"}))
+
+    except WebSocketDisconnect:
+        _active_streams[stream_id] = False
+        if task:
+            task.cancel()
+    except Exception:
+        _active_streams[stream_id] = False
+    finally:
+        _active_streams.pop(stream_id, None)
+
+
+async def _stream_journey_audio(websocket: WebSocket, steps: list, loop: str,
+                                 seed: int, stream_id: str):
+    """Background task: renders and streams journey steps as PCM16 chunks."""
+    from .journey import _expand_steps, _resolve_steps
+
+    SR    = config.STREAM_SAMPLE_RATE
+    CHUNK = 2048
+    ev    = asyncio.get_event_loop()
+
+    try:
+        expanded = _expand_steps(steps, loop)
+        resolved = _resolve_steps(expanded)
+        n        = len(resolved)
+
+        prev_engine_b = None  # engine carried over from previous morph window
+
+        for i, (step, preset) in enumerate(resolved):
+            if not _active_streams.get(stream_id):
+                break
+
+            hold_s  = float(step.get("hold_s", 0.0))
+            morph_s = float(step.get("morph_s", 0.0))
+            is_last = (i == n - 1)
+
+            # Reuse engine_b from previous morph (continuous audio), or start fresh
+            if prev_engine_b is not None:
+                engine_a      = prev_engine_b
+                prev_engine_b = None
+            else:
+                engine_a = StreamingDroneEngine(
+                    dict(preset) | {"duration": max(hold_s, 1.0)},
+                    seed=seed,
+                )
+
+            # ── Hold window ──────────────────────────────────────────────────
+            hold_samples = int(hold_s * SR)
+            sent = 0
+            while sent < hold_samples and _active_streams.get(stream_id):
+                k     = min(CHUNK, hold_samples - sent)
+                chunk = await ev.run_in_executor(None, engine_a.next_chunk, k)
+                pcm16 = (np.clip(chunk, -1.0, 1.0) * 32767).astype(np.int16)
+                await websocket.send_bytes(pcm16.tobytes())
+                sent += k
+
+            # ── Morph window (crossfade to next preset) ──────────────────────
+            if morph_s > 0.0 and not is_last and _active_streams.get(stream_id):
+                _, next_preset    = resolved[i + 1]
+                next_hold_s       = float(resolved[i + 1][0].get("hold_s", 60.0))
+                engine_b = StreamingDroneEngine(
+                    dict(next_preset) | {"duration": max(morph_s + next_hold_s, 1.0)},
+                    seed=seed,
+                )
+
+                morph_samples = int(morph_s * SR)
+                sent_m        = 0
+                while sent_m < morph_samples and _active_streams.get(stream_id):
+                    k   = min(CHUNK, morph_samples - sent_m)
+                    t0  = sent_m / morph_samples
+                    t1  = (sent_m + k) / morph_samples
+
+                    def _blend(ea=engine_a, eb=engine_b, k=k, t0=t0, t1=t1):
+                        ca   = ea.next_chunk(k)
+                        cb   = eb.next_chunk(k)
+                        t    = np.linspace(t0, t1, k, endpoint=False, dtype=np.float32)
+                        fade = (t * t * (3.0 - 2.0 * t))[:, np.newaxis]
+                        return np.clip(ca * (1.0 - fade) + cb * fade, -1.0, 1.0)
+
+                    blended = await ev.run_in_executor(None, _blend)
+                    pcm16   = (blended * 32767).astype(np.int16)
+                    await websocket.send_bytes(pcm16.tobytes())
+                    sent_m += k
+
+                prev_engine_b = engine_b  # hand off for next hold window
+
+        if _active_streams.get(stream_id):
+            await websocket.send_text(json.dumps({"status": "done"}))
+
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        try:
+            await websocket.send_text(json.dumps({"error": str(e)}))
+        except Exception:
+            pass
 
 
 # ── Server launcher ───────────────────────────────────────────────────────────

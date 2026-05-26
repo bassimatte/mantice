@@ -7072,6 +7072,12 @@ function renderJourneyCard() {
   prevBtn.onclick = doJourneyPreview;
   actRow.appendChild(prevBtn);
 
+  const streamBtn = document.createElement('button');
+  streamBtn.className = 'journey-action-btn'; streamBtn.textContent = '📡 Stream';
+  streamBtn.title = 'Stream the full journey in real-time (no waiting)';
+  streamBtn.onclick = doJourneyStream;
+  actRow.appendChild(streamBtn);
+
   const renderBtn = document.createElement('button');
   renderBtn.className = 'journey-action-btn primary'; renderBtn.textContent = '⬇ Render Journey';
   renderBtn.title = 'Render the full journey and download';
@@ -7187,6 +7193,101 @@ async function doJourneyRender() {
     console.error('[journey render]', e);
     setStatus('Render failed: ' + e.message);
   }
+}
+
+async function doJourneyStream() {
+  const steps = _journeyPayload(false).steps;
+  if (!steps.length) { setStatus('Add at least one preset to stream'); return; }
+
+  // Stop any existing journey preview AudioContext
+  if (_journeyPreviewCtx) { try { _journeyPreviewCtx.close(); } catch(_){} _journeyPreviewCtx = null; }
+  stopAudio();
+
+  // Re-use the exact same WS streaming infrastructure as doPreview(),
+  // but connect to /ws/journey and send journey steps instead of preset params.
+  const serverSR = STREAM_SR;
+  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
+  if (streamingCtx.state === 'suspended') await streamingCtx.resume();
+
+  startCtxKeepAlive();
+  startMeterPolling();
+  nextPlayTime  = 0;
+  chunksBuffered = 0;
+
+  const streamAnalyser = startSpectrum(streamingCtx);
+  startupGain = streamingCtx.createGain();
+  startupGain.gain.value = 0;
+  streamAnalyser.connect(startupGain);
+  startupGain.connect(streamingCtx.destination);
+  drawSpectrum();
+  startAurora();
+
+  setStatus('Connecting journey…');
+  ws = new WebSocket(wsUrl('/ws/journey'));
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({
+      action: 'start',
+      steps,
+      loop: currentJourney.loop,
+      seed: currentSeed,
+    }));
+    isStreaming = true;
+    setStatus('Buffering journey…');
+    setLiveIndicator(true);
+  };
+
+  ws.onmessage = (event) => {
+    if (typeof event.data === 'string') {
+      const msg = JSON.parse(event.data);
+      if (msg.status === 'done')    { setStatus('Journey complete'); return; }
+      if (msg.status === 'stopped') { setStatus('Stopped'); return; }
+      if (msg.error) { setStatus('Stream error: ' + msg.error); return; }
+      return;
+    }
+    if (!streamingCtx || streamingCtx.state === 'closed') return;
+    if (streamingCtx.state === 'suspended') streamingCtx.resume().catch(() => {});
+
+    const pcm16      = new Int16Array(event.data);
+    const numSamples = pcm16.length / 2;
+    const left       = new Float32Array(numSamples);
+    const right      = new Float32Array(numSamples);
+    for (let i = 0; i < numSamples; i++) {
+      left[i]  = pcm16[i * 2]     / 32768;
+      right[i] = pcm16[i * 2 + 1] / 32768;
+    }
+    chunksBuffered++;
+
+    const buffer = streamingCtx.createBuffer(2, numSamples, serverSR);
+    buffer.getChannelData(0).set(left);
+    buffer.getChannelData(1).set(right);
+
+    if (chunksBuffered === PRE_BUFFER_CHUNKS) {
+      nextPlayTime = streamingCtx.currentTime + 0.05;
+      setStatus('▶ Streaming journey…');
+      setLiveIndicator(false);
+      stopCtxKeepAlive();
+      if (startupGain) {
+        startupGain.gain.setValueAtTime(0, nextPlayTime);
+        startupGain.gain.linearRampToValueAtTime(1.0, nextPlayTime + 0.08);
+      }
+    }
+    if (chunksBuffered >= PRE_BUFFER_CHUNKS) {
+      const source = streamingCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(spectrumAnalyser || streamingCtx.destination);
+      const now = streamingCtx.currentTime;
+      if (nextPlayTime < now)
+        nextPlayTime = now + PRE_BUFFER_CHUNKS * (CHUNK_SIZE / STREAM_SR) + 0.05;
+      source.start(nextPlayTime);
+      nextPlayTime += buffer.duration;
+      source.onended = () => { try { source.disconnect(); } catch(e) {} };
+    }
+  };
+
+  ws.onerror = () => { setStatus('Journey stream error — tap Stream to retry'); stopAudio(); };
+  ws.onclose = () => { if (isStreaming) { isStreaming = false; setLiveIndicator(false); } };
 }
 
 // ── Backend connection check (handles cold-start on Render) ──────────────────
