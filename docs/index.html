@@ -5941,16 +5941,17 @@ function _drawPlayhead(ctx, x, dotY, H) {
 }
 
 /** Start a looping playhead animation on any auto canvas. Returns a cancel fn. */
-function animateAutoCanvas(canvas, raw, paramDef) {
-  const loopSecs = raw.mode === 'random_walk'
-    ? ({ slow: 14, med: 8, fast: 4 }[raw.speed] || 8)
-    : 10;  // breakpoints always loop in 10 s
+function animateAutoCanvas(canvas, getRaw, paramDef) {
   let start = null;
   let rafId = null;
 
   function frame(ts) {
     if (!canvas.isConnected) return;
     if (!start) start = ts;
+    const raw = getRaw();
+    const loopSecs = raw.mode === 'random_walk'
+      ? ({ slow: 14, med: 8, fast: 4 }[raw.speed] || 8)
+      : 10;
     const t = ((ts - start) / 1000 / loopSecs) % 1.0;
     canvas.width = canvas.offsetWidth || canvas.width;
     drawAutoCanvas(canvas, raw, paramDef, t);
@@ -6165,13 +6166,13 @@ function makeAutoRow(paramDef, autoData, onSave) {
     canvas.height = 14;
     row.appendChild(canvas);
 
-    const currentRaw = mode === 'random_walk'
+    const getLiveRaw = () => mode === 'random_walk'
       ? { mode: 'random_walk', enabled, center: walkCenter, depth: walkDepth, speed: walkSpeed }
       : { enabled, breakpoints: bps.map(b => ({ ...b })) };
 
     requestAnimationFrame(() => {
       canvas.width = canvas.offsetWidth || 200;
-      cancelAnim = animateAutoCanvas(canvas, currentRaw, paramDef);
+      cancelAnim = animateAutoCanvas(canvas, getLiveRaw, paramDef);
     });
   }
 
