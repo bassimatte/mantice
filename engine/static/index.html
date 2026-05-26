@@ -6652,6 +6652,7 @@ async function applyMorphTemplate(tpl) {
   currentJourney.loop = tpl.loop;
   _autoCtx = null;
   renderJourneyCard();
+  if ($('automation-body')) renderAutomationCard();
 }
 
 function applyAutoTemplate(template) {
@@ -7152,9 +7153,8 @@ function renderJourneyCard() {
           const data = await api(`/api/preset/load?path=${encodeURIComponent(sel.value)}`);
           if (data?.ok && data.params) {
             currentJourney.steps[i].presetParams = data.params;
-            // Refresh automation context bar if it's already open
-            const ctxSel = $('auto-ctx-select');
-            if (ctxSel) renderAutomationCard();
+            // Always refresh automation card so the Morphing step: bar appears
+            if ($('automation-body')) renderAutomationCard();
           }
         } catch(e) { console.warn('[morphing] Could not load step params:', e); }
       }
@@ -7231,8 +7231,7 @@ function renderJourneyCard() {
       currentJourney.steps = [];
       _autoCtx = null;
       renderJourneyCard();
-      const ctxSel = $('auto-ctx-select');
-      if (ctxSel) renderAutomationCard();
+      if ($('automation-body')) renderAutomationCard();
     }
   };
   addRow.appendChild(clearAllBtn);
