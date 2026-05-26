@@ -5131,6 +5131,7 @@ async function setupWorklet(ctx) {
 
 async function doPreview() {
   if (isMobile()) { return doPreviewSegmented(); }  // MANT-17: mobile uses segment player
+  if (_morphingActive()) { return doJourneyStream(); }  // morphing overrides normal preview
   if (!_autoReconnect) _wsReconnects = 0;           // MANT-18: manual start resets retry counter
   _autoReconnect = false;
 
@@ -5406,6 +5407,9 @@ async function _fetchAndPlaySegment(isFirst) {
 
 
 async function doRender() {
+  // If morphing is active, route to journey render
+  if (_morphingActive()) { return doJourneyRender(); }
+
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
 
@@ -7035,6 +7039,28 @@ let currentJourney = {
   format: 'mp3',
 };
 
+/** True when morphing has ≥2 configured presets and should override play/render. */
+function _morphingActive() {
+  return currentJourney.steps.filter(s => s.presetPath).length >= 2;
+}
+
+/** Sync the top-bar Duration field with morphing total when morphing is active. */
+function _syncDurationField() {
+  const durInput = $('duration');
+  if (!durInput) return;
+  if (_morphingActive()) {
+    const totalS = Math.round(_journeyTotalSeconds());
+    durInput.value = totalS;
+    durInput.disabled = true;
+    durInput.title = 'Duration is set by the Morphing sequence';
+    durInput.style.opacity = '0.5';
+  } else {
+    durInput.disabled = false;
+    durInput.title = '';
+    durInput.style.opacity = '';
+  }
+}
+
 // ── Automation context: which params are being edited in the Automation card ──
 // null = current preset; integer = morphing step index
 let _autoCtx = null;
@@ -7073,7 +7099,8 @@ function _updateJourneyBadge() {
   const badge = $('journey-duration-badge');
   if (badge) badge.textContent = totalS > 0 ? _journeyFmtDuration(totalS) : '';
   const dur = $('journey-total-dur');
-  if (dur) dur.textContent = 'Total: ' + (totalS > 0 ? _journeyFmtDuration(totalS) : '—');
+  if (dur) dur.textContent = totalS > 0 ? ('Total: ' + _journeyFmtDuration(totalS)) : '—';
+  _syncDurationField();
 }
 
 function renderJourneyCard() {
@@ -7096,6 +7123,20 @@ function renderJourneyCard() {
     btn.onclick = () => applyMorphTemplate(tpl);
     mqsRow.appendChild(btn);
   }
+  // Clear all — same position/style as automation clear all
+  const mqsClearBtn = document.createElement('button');
+  mqsClearBtn.className = 'auto-clear-btn';
+  mqsClearBtn.textContent = '✕ clear all';
+  mqsClearBtn.title = 'Remove all morphing steps';
+  mqsClearBtn.onclick = () => {
+    if (currentJourney.steps.length === 0 || confirm('Clear all morphing steps?')) {
+      currentJourney.steps = [];
+      _autoCtx = null;
+      renderJourneyCard();
+      if ($('automation-body')) renderAutomationCard();
+    }
+  };
+  mqsRow.appendChild(mqsClearBtn);
   body.appendChild(mqsRow);
 
   // ── Steps list ──
@@ -7153,6 +7194,8 @@ function renderJourneyCard() {
           const data = await api(`/api/preset/load?path=${encodeURIComponent(sel.value)}`);
           if (data?.ok && data.params) {
             currentJourney.steps[i].presetParams = data.params;
+            // Auto-select this step in the automation card
+            _autoCtx = i;
             // Always refresh automation card so the Morphing step: bar appears
             if ($('automation-body')) renderAutomationCard();
           }
@@ -7209,33 +7252,15 @@ function renderJourneyCard() {
   });
   body.appendChild(stepsList);
 
-  // ── Add step + Clear all buttons ──
-  const addRow = document.createElement('div');
-  addRow.style.cssText = 'display:flex;gap:6px;margin-bottom:10px;';
-
+  // ── Add step button ──
   const addBtn = document.createElement('button');
-  addBtn.className = 'journey-add-btn'; addBtn.style.flex = '1'; addBtn.style.margin = '0';
+  addBtn.className = 'journey-add-btn';
   addBtn.textContent = '+ Add Preset';
   addBtn.onclick = () => {
     currentJourney.steps.push({ presetPath: '', presetName: '', holdMin: 10, morphMin: 2, presetParams: null });
     renderJourneyCard();
   };
-  addRow.appendChild(addBtn);
-
-  const clearAllBtn = document.createElement('button');
-  clearAllBtn.className = 'journey-del-btn';
-  clearAllBtn.textContent = '✕ clear all';
-  clearAllBtn.title = 'Remove all steps';
-  clearAllBtn.onclick = () => {
-    if (currentJourney.steps.length === 0 || confirm('Clear all morphing steps?')) {
-      currentJourney.steps = [];
-      _autoCtx = null;
-      renderJourneyCard();
-      if ($('automation-body')) renderAutomationCard();
-    }
-  };
-  addRow.appendChild(clearAllBtn);
-  body.appendChild(addRow);
+  body.appendChild(addBtn);
 
   // ── Controls row: loop + format ──
   const ctrlRow = document.createElement('div');
@@ -7270,32 +7295,18 @@ function renderJourneyCard() {
   ctrlRow.appendChild(fmtSel);
   body.appendChild(ctrlRow);
 
-  // ── Actions row: total duration + buttons ──
-  const actRow = document.createElement('div');
-  actRow.className = 'journey-actions-row';
-
+  // ── Total duration display ──
+  const durRow = document.createElement('div');
+  durRow.style.cssText = 'font-size:10px; color:var(--text-dim); margin-top:6px; padding:4px 0;';
   const durSpan = document.createElement('span');
-  durSpan.id = 'journey-total-dur'; durSpan.className = 'journey-total-dur';
-  actRow.appendChild(durSpan);
-
-  const prevBtn = document.createElement('button');
-  prevBtn.className = 'journey-action-btn'; prevBtn.textContent = '📡 Stream';
-  prevBtn.title = 'Stream the full morphing sequence in real-time (no waiting)';
-  prevBtn.onclick = doJourneyStream;
-  actRow.appendChild(prevBtn);
-
-  const renderBtn = document.createElement('button');
-  renderBtn.className = 'journey-action-btn primary'; renderBtn.textContent = '⬇ Render Journey';
-  renderBtn.title = 'Render the full journey and download';
-  renderBtn.onclick = doJourneyRender;
-  actRow.appendChild(renderBtn);
-  body.appendChild(actRow);
-
-  // ── Tip ──
-  const note = document.createElement('p');
-  note.className = 'journey-note';
-  note.textContent = '💡 Tip: open the Automation card, pick a step from "Morphing step:" menu to configure its automation independently. Walk automation runs naturally during hold windows.';
-  body.appendChild(note);
+  durSpan.id = 'journey-total-dur';
+  durRow.appendChild(durSpan);
+  const durNote = document.createElement('span');
+  durNote.style.cssText = 'margin-left:8px; color:var(--accent-dim);';
+  const activeSteps = currentJourney.steps.filter(s => s.presetPath).length;
+  durNote.textContent = activeSteps >= 2 ? '▶ / ⬤ use top-bar controls' : '';
+  durRow.appendChild(durNote);
+  body.appendChild(durRow);
 
   _updateJourneyBadge();
 }
