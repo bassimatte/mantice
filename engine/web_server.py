@@ -981,51 +981,148 @@ async def render_endpoint(request: Request):
             
             # MANT-1: Engine synthesizes at target SR directly (no upsample needed)
             print(f"  [render] Creating engine (hires={hires})...")
-            engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=hires)
             nonlocal render_sr
-            render_sr = engine.SR  # 48k if hires, 22k otherwise
-            total_samples = int(preset["duration"] * render_sr)
-            chunk_size = 4096  # Larger chunks = fewer iterations
             
-            log_memory(f"Engine created (SR={render_sr})")
+            # SEGMENTED RENDERING: Split long renders into chunks to stay under 512MB
+            # Each segment is 20s max, rendered independently and written to disk
+            SEGMENT_DURATION = 20.0  # seconds per segment
+            total_duration = preset["duration"]
             
-            # Stream synthesis directly into numpy array (avoids list of chunks)
-            print(f"  [render] Allocating buffer: {total_samples} samples = {total_samples * 8 / 1024 / 1024:.1f} MB...")
-            raw = np.zeros((total_samples, 2), dtype=np.float32)
-            log_memory("Buffer allocated")
+            # Determine if we need segmented rendering (>25s with hi-res)
+            use_segments = hires and total_duration > 25.0
             
-            print(f"  [render] Synthesizing...")
-            offset = 0
-            remaining = total_samples
-            while remaining > 0:
-                n = min(chunk_size, remaining)
-                raw[offset:offset+n] = engine.next_chunk(n)
-                offset += n
-                remaining -= n
-                # Progress indicator for long renders
-                if offset % (render_sr * 10) == 0:  # Every 10 seconds
-                    progress_pct = (offset / total_samples) * 100
-                    print(f"    [render] {offset / render_sr:.0f}s / {total_samples / render_sr:.0f}s ({progress_pct:.0f}%)")
-                    log_memory(f"Synthesis {progress_pct:.0f}%")
+            if use_segments:
+                print(f"  [render] Using segmented rendering for {total_duration}s @ 48kHz (512MB RAM limit)")
+                import soundfile as sf
+                import tempfile
+                
+                # Create temp directory for segments
+                temp_dir = Path(tempfile.mkdtemp(prefix="mantice_render_"))
+                segment_paths = []
+                
+                num_segments = int(np.ceil(total_duration / SEGMENT_DURATION))
+                crossfade_samples = int(0.002 * 48000) if 48000 else int(0.002 * 22050)  # 2ms crossfade
+                
+                try:
+                    for seg_idx in range(num_segments):
+                        seg_start = seg_idx * SEGMENT_DURATION
+                        seg_duration = min(SEGMENT_DURATION, total_duration - seg_start)
+                        
+                        print(f"  [render] Segment {seg_idx + 1}/{num_segments}: {seg_start:.1f}s - {seg_start + seg_duration:.1f}s")
+                        log_memory(f"Segment {seg_idx + 1} start")
+                        
+                        # Create fresh engine for this segment
+                        seg_preset = {**preset_for_render, "duration": seg_duration}
+                        engine = StreamingDroneEngine(seg_preset, seed=seed + seg_idx, render_mode=hires)
+                        render_sr = engine.SR
+                        
+                        # Render segment
+                        seg_samples = int(seg_duration * render_sr)
+                        chunk_size = 4096
+                        raw = np.zeros((seg_samples, 2), dtype=np.float32)
+                        offset = 0
+                        remaining = seg_samples
+                        
+                        while remaining > 0:
+                            n = min(chunk_size, remaining)
+                            raw[offset:offset+n] = engine.next_chunk(n)
+                            offset += n
+                            remaining -= n
+                        
+                        # Apply effects to segment
+                        if sat > 0.01:
+                            raw = oversampled_saturate(raw, sat)
+                        
+                        if reverb_enabled:
+                            space = reverb_cfg.get("space", "cathedral")
+                            mix = float(reverb_cfg.get("mix", 0.3))
+                            decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
+                            raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
+                        
+                        # Write segment to temp file
+                        seg_path = temp_dir / f"segment_{seg_idx:03d}.wav"
+                        sf.write(str(seg_path), raw, render_sr, subtype="PCM_24")
+                        segment_paths.append(seg_path)
+                        
+                        log_memory(f"Segment {seg_idx + 1} complete")
+                        
+                        # Delete raw buffer to free memory
+                        del raw
+                        del engine
+                    
+                    # Concatenate segments with crossfades
+                    print(f"  [render] Concatenating {len(segment_paths)} segments...")
+                    log_memory("Before concatenation")
+                    
+                    final_audio = []
+                    for i, seg_path in enumerate(segment_paths):
+                        seg_audio, _ = sf.read(str(seg_path))
+                        
+                        if i > 0 and crossfade_samples > 0:
+                            # Crossfade with previous segment's tail
+                            fade_out = np.linspace(1.0, 0.0, crossfade_samples)
+                            fade_in = np.linspace(0.0, 1.0, crossfade_samples)
+                            
+                            # Apply fade to overlap region
+                            final_audio[-1][-crossfade_samples:] *= fade_out[:, np.newaxis]
+                            seg_audio[:crossfade_samples] *= fade_in[:, np.newaxis]
+                            
+                            # Merge overlap
+                            final_audio[-1][-crossfade_samples:] += seg_audio[:crossfade_samples]
+                            final_audio.append(seg_audio[crossfade_samples:])
+                        else:
+                            final_audio.append(seg_audio)
+                    
+                    raw = np.concatenate(final_audio, axis=0)
+                    log_memory("Concatenation complete")
+                    
+                finally:
+                    # Clean up temp files
+                    import shutil
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+            
+            else:
+                # ORIGINAL PATH: Single-pass rendering for short/low-res renders
+                engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=hires)
+                render_sr = engine.SR
+                total_samples = int(preset["duration"] * render_sr)
+                chunk_size = 4096
+                
+                log_memory(f"Engine created (SR={render_sr})")
+                
+                print(f"  [render] Allocating buffer: {total_samples} samples = {total_samples * 8 / 1024 / 1024:.1f} MB...")
+                raw = np.zeros((total_samples, 2), dtype=np.float32)
+                log_memory("Buffer allocated")
+                
+                print(f"  [render] Synthesizing...")
+                offset = 0
+                remaining = total_samples
+                while remaining > 0:
+                    n = min(chunk_size, remaining)
+                    raw[offset:offset+n] = engine.next_chunk(n)
+                    offset += n
+                    remaining -= n
+                    if offset % (render_sr * 10) == 0:
+                        progress_pct = (offset / total_samples) * 100
+                        print(f"    [render] {offset / render_sr:.0f}s / {total_samples / render_sr:.0f}s ({progress_pct:.0f}%)")
+                        log_memory(f"Synthesis {progress_pct:.0f}%")
 
-            log_memory("Synthesis complete")
+                log_memory("Synthesis complete")
 
-            # No upsampling needed — engine already rendered at target SR
+                # Oversampled saturation — apply on full buffer at final SR (no chunk artefacts)
+                if sat > 0.01:
+                    print(f"  [render] Oversampled saturation ×4: drive={1.0 + sat * 3.0:.2f}…")
+                    raw = oversampled_saturate(raw, sat)
+                    log_memory("Saturation complete")
 
-            # Oversampled saturation — apply on full buffer at final SR (no chunk artefacts)
-            if sat > 0.01:
-                print(f"  [render] Oversampled saturation ×4: drive={1.0 + sat * 3.0:.2f}…")
-                raw = oversampled_saturate(raw, sat)
-                log_memory("Saturation complete")
-
-            # Apply convolution reverb against real IR (replaces streaming FDN for renders)
-            if reverb_enabled:
-                space      = reverb_cfg.get("space", "cathedral")
-                mix        = float(reverb_cfg.get("mix", 0.3))
-                decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
-                print(f"  [render] Applying IR convolution reverb: space={space} mix={mix:.2f}…")
-                raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
-                log_memory("Reverb complete")
+                # Apply convolution reverb against real IR (replaces streaming FDN for renders)
+                if reverb_enabled:
+                    space      = reverb_cfg.get("space", "cathedral")
+                    mix        = float(reverb_cfg.get("mix", 0.3))
+                    decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
+                    print(f"  [render] Applying IR convolution reverb: space={space} mix={mix:.2f}…")
+                    raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
+                    log_memory("Reverb complete")
 
             # Full-buffer true-peak normalize — zero attack lag, zero pumping
             print("  [render] True-peak normalize (ceiling −1 dBFS)…")
