@@ -62,6 +62,9 @@ _PITCH_CACHE_FILE = _SAMPLES_DIR / "pitch_cache.json"
 # In-memory pitch cache; populated at startup and on-demand
 _pitch_cache: dict = {}
 
+# Global engine for /api/meters endpoint (used by WebSocket preview)
+engine: Optional[StreamingDroneEngine] = None
+
 
 def oversampled_saturate(audio: np.ndarray, saturation: float, factor: int = 4) -> np.ndarray:
     """
