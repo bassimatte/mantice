@@ -979,17 +979,20 @@ async def render_endpoint(request: Request):
 
             log_memory("Start")
             
+            # Import gc at top of function for all paths
+            import gc
+            
             # MANT-1: Engine synthesizes at target SR directly (no upsample needed)
             print(f"  [render] Creating engine (hires={hires})...")
             nonlocal render_sr
             
             # SEGMENTED RENDERING: Split long renders into chunks to stay under 512MB
-            # Each segment is 15s max (reduced from 20s for extra safety)
-            SEGMENT_DURATION = 15.0  # seconds per segment
+            # Each segment is 10s max (conservative for 512MB limit with all effects)
+            SEGMENT_DURATION = 10.0  # seconds per segment
             total_duration = preset["duration"]
             
-            # Determine if we need segmented rendering (>20s with hi-res)
-            use_segments = hires and total_duration > 20.0
+            # Determine if we need segmented rendering (>15s with hi-res)
+            use_segments = hires and total_duration > 15.0
             
             if use_segments:
                 print(f"  [render] Using segmented rendering for {total_duration}s @ 48kHz (512MB RAM limit)")
@@ -1032,12 +1035,14 @@ async def render_endpoint(request: Request):
                         # Apply effects to segment
                         if sat > 0.01:
                             raw = oversampled_saturate(raw, sat)
+                            gc.collect()  # Free oversampling temp buffers
                         
                         if reverb_enabled:
                             space = reverb_cfg.get("space", "cathedral")
                             mix = float(reverb_cfg.get("mix", 0.3))
                             decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
                             raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
+                            gc.collect()  # Free convolution temp buffers
                         
                         # Write segment to temp file
                         seg_path = temp_dir / f"segment_{seg_idx:03d}.wav"
@@ -1049,7 +1054,6 @@ async def render_endpoint(request: Request):
                         # Force garbage collection to free memory immediately
                         del raw
                         del engine
-                        import gc
                         gc.collect()
                         log_memory(f"Segment {seg_idx + 1} freed")
                     
