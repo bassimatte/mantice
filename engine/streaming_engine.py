@@ -154,7 +154,8 @@ class StreamingLayer:
     for real-time performance with high voice counts.
     """
 
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: dict, sample_rate: int = None):
+        self.SR = sample_rate or SR  # Use passed SR or fallback to module default
         self.cfg = cfg
         n_voices = cfg["voices"]
 
@@ -200,7 +201,7 @@ class StreamingLayer:
         # Precomputed angular frequencies
         self._mod_omega = np.float32(2 * np.pi) * self.mod_freqs
         self._drift_omega = np.float32(2 * np.pi) * self.drift_rates
-        self._two_pi_dt = np.float32(2 * np.pi / SR)
+        self._two_pi_dt = np.float32(2 * np.pi / self.SR)
 
         # Harmonic overtones
         self.harmonics = int(cfg.get("harmonics", 4))
@@ -248,7 +249,7 @@ class StreamingLayer:
         self._setup_filter(cfg.get("band", "mid"))
 
     def _setup_filter(self, band: str) -> None:
-        nyquist = SR * 0.5
+        nyquist = self.SR * 0.5
         order = 4
         if band == "sub":
             self.sos = butter(order, min(140 / nyquist, 0.999), btype="low", output="sos")
@@ -265,7 +266,7 @@ class StreamingLayer:
         self.zi_R = sosfilt_zi(self.sos) * 0.0
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
-        dt = np.float32(1.0 / SR)
+        dt = np.float32(1.0 / self.SR)
         n_voices = len(self.carrier_freqs)
 
         # Precompute sample indices once (float32 for speed)
@@ -1238,10 +1239,11 @@ class StreamingFDNReverb:
     ], dtype=np.float64) / np.sqrt(8)
 
     _N_LINES       = 8
-    _MAX_PRE_DELAY = int(0.150 * SR)   # 3308 samples @ 22050 Hz
-    _LFO_DEPTH_MAX = 5.0               # ±5 samples maximum modulation
+    _BASE_SR       = 22050  # Sample rate the delay tables are tuned for
+    _MAX_PRE_DELAY_MS = 150.0  # Maximum pre-delay in milliseconds
 
-    def __init__(self, reverb_cfg: dict):
+    def __init__(self, reverb_cfg: dict, sample_rate: int = None):
+        self.SR = sample_rate or SR  # Use passed SR or fallback to module default
         self.enabled = bool(reverb_cfg.get("enabled", False))
         self.mix     = float(reverb_cfg.get("mix", 0.3))
 
@@ -1252,17 +1254,21 @@ class StreamingFDNReverb:
 
         # Pre-delay
         self.pre_delay_ms      = float(reverb_cfg.get("pre_delay_ms", 0.0))
+        self._MAX_PRE_DELAY = int(self._MAX_PRE_DELAY_MS * self.SR / 1000.0)
         self._pre_delay_samps  = min(
-            int(self.pre_delay_ms * SR / 1000.0), self._MAX_PRE_DELAY
+            int(self.pre_delay_ms * self.SR / 1000.0), self._MAX_PRE_DELAY
         )
 
         # Modulation depth (0–1 → 0–5 samples swing)
         self.mod_depth = float(reverb_cfg.get("modulation_depth", 0.0))
 
-        # Choose space
+        # Choose space and scale delays for target sample rate
+        # MANT-1: Scale delay tables from base 22050 Hz to target SR
         space = reverb_cfg.get("space", "cathedral")
+        base_delays = self._SPACES.get(space, self._SPACES["cathedral"])
+        scale_factor = self.SR / self._BASE_SR
         self.delays = np.array(
-            self._SPACES.get(space, self._SPACES["cathedral"]), dtype=np.int32
+            [int(d * scale_factor) for d in base_delays], dtype=np.int32
         )
         self.max_d  = int(self.delays.max()) + 1
 
@@ -1325,7 +1331,7 @@ class StreamingFDNReverb:
             fdn_in = mono
 
         # ── LFO: advance phases, compute per-line delay offsets (per chunk) ─
-        dt = n / SR
+        dt = n / self.SR
         self._lfo_phases += 2.0 * np.pi * self._lfo_rates * dt
         lfo_off = (np.sin(self._lfo_phases) * self._lfo_depth_max
                    * self.mod_depth).astype(np.int32)
@@ -1436,6 +1442,9 @@ class StreamingDroneEngine:
     def __init__(self, preset: dict, seed: int = 42, render_mode: bool = False):
         self.chunk_size = 2048
         self.render_mode = render_mode  # disables per-chunk peak scaler for offline renders
+        # MANT-1: Auto-select sample rate based on render_mode
+        # Preview: 22050 Hz (CPU efficient), Render: 48000 Hz (full quality)
+        self.SR = config.SAMPLE_RATE if render_mode else config.STREAM_SAMPLE_RATE
         self._limiter_gain = 1.0        # stateful gain carried across chunks
         # Seed random state for reproducible preview
         random.seed(seed)
@@ -1464,12 +1473,12 @@ class StreamingDroneEngine:
         self.phasers = []
         self._peak_meters = []   # per-layer peak in dBFS, smoothly decaying
         self.saturation = float(preset.get("saturation", 0.3))
-        self._master = MasterProcessor(preset.get("master", {}), SR)
+        self._master = MasterProcessor(preset.get("master", {}), self.SR)
 
         # Reset automation time on preset rebuild
         self._samples_elapsed = 0
         duration_secs = float(preset.get("duration", 0))
-        self._duration_samples = int(duration_secs * SR) if duration_secs > 0 else 0
+        self._duration_samples = int(duration_secs * self.SR) if duration_secs > 0 else 0
 
         # JI tuning: derive each layer's root from a single tonic
         tuning_mode = preset.get("tuning_mode", "free")
@@ -1498,11 +1507,11 @@ class StreamingDroneEngine:
                 resolved_cfg["source"] = _ensure_freesound_sample(
                     layer_cfg.get("source", "singing_bowl.ogg"), samples_dir
                 )
-                layer = StreamingGranularLayer(resolved_cfg, samples_dir, sample_rate=SR)
+                layer = StreamingGranularLayer(resolved_cfg, samples_dir, sample_rate=self.SR)
             elif layer_cfg.get("type") == "subtractive":
-                layer = StreamingSubtractiveLayer(layer_cfg)
+                layer = StreamingSubtractiveLayer(layer_cfg, sample_rate=self.SR)
             else:
-                layer = StreamingLayer(layer_cfg)
+                layer = StreamingLayer(layer_cfg, sample_rate=self.SR)
             panner = StreamingPanner(
                 quadrant         = layer_cfg["quadrant"],
                 trajectory_x    = layer_cfg["trajectory_x"],
@@ -1569,7 +1578,7 @@ class StreamingDroneEngine:
         self._dc_zi_R = sosfilt_zi(self._dc_sos) * 0.0
 
         # Global FDN reverb
-        self._reverb = StreamingFDNReverb(preset.get("reverb") or {})
+        self._reverb = StreamingFDNReverb(preset.get("reverb") or {}, sample_rate=self.SR)
 
         # Global shimmer
         shimmer_cfg = preset.get("shimmer") or {}
@@ -1606,7 +1615,7 @@ class StreamingDroneEngine:
             new_preset, crossfade_secs = self._pending_reload
             self._pending_reload = None
             self._old_engine = _ShallowCopy(self)
-            self._crossfade_total = int(crossfade_secs * SR)
+            self._crossfade_total = int(crossfade_secs * self.SR)
             self._crossfade_remaining = self._crossfade_total
             self._build_from_preset(new_preset)
 
@@ -1969,7 +1978,7 @@ class StreamingDroneEngine:
             return
         beat_hz = float(binaural.get("beat_hz", 6.0))
         method  = binaural.get("method", "detune")
-        t = (self._binaural_t + np.arange(n)) / SR
+        t = (self._binaural_t + np.arange(n)) / self.SR
         self._binaural_t += n
 
         if method == "carrier":
@@ -1986,7 +1995,7 @@ class StreamingDroneEngine:
 
     def _earth_chunk(self, n: int) -> np.ndarray:
         cfg = self.earth_cfg
-        dt = 1.0 / SR
+        dt = 1.0 / self.SR
         freq = float(cfg.get("tectonic_frequency", 18))
         pressure = float(cfg.get("pressure", 0.4))
         movement = float(cfg.get("movement", 0.02))
@@ -1995,7 +2004,7 @@ class StreamingDroneEngine:
 
         # Wobble
         wobble_inc = 2 * np.pi * movement * t
-        wobble_phases = self.earth_wobble_phase + np.cumsum(wobble_inc * dt * SR)
+        wobble_phases = self.earth_wobble_phase + np.cumsum(wobble_inc * dt * self.SR)
         # Simpler: just use time accumulator
         wobble_t = self.earth_wobble_phase + np.arange(n) * dt
         wobble = np.sin(2 * np.pi * movement * wobble_t) * 0.5
@@ -2041,6 +2050,9 @@ class _ShallowCopy:
     """
 
     def __init__(self, engine: StreamingDroneEngine):
+        # MANT-1: Copy sample rate
+        self.SR = engine.SR
+        self.render_mode = engine.render_mode
         self.layers  = engine.layers
         self.panners = engine.panners
         self.choruses = engine.choruses
