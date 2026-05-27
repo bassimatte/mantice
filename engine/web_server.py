@@ -939,7 +939,6 @@ async def render_endpoint(request: Request):
 
         # Determine output quality locally — never mutate global config
         hires = body.get("hires", False)
-        render_sr   = config.STREAM_SAMPLE_RATE          # synthesis always at 22050
         out_sr      = 48_000 if hires else 22_050        # output sample rate
         out_bd      = "PCM_24" if hires else "PCM_16"
         mp3_bitrate = 320 if hires else 192
@@ -962,7 +961,9 @@ async def render_endpoint(request: Request):
             sat = float(preset.get("saturation", 0.3))
             preset_for_render["saturation"] = 0.0
 
-            engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=True)
+            # MANT-1: Engine synthesizes at target SR directly (no upsample needed)
+            engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=hires)
+            render_sr = engine.SR  # 48k if hires, 22k otherwise
             total_samples = int(preset["duration"] * render_sr)
             chunk_size = 2048
             chunks = []
@@ -973,12 +974,7 @@ async def render_endpoint(request: Request):
                 remaining -= n
             raw = np.concatenate(chunks, axis=0)
 
-            # Upsample to target SR if hi-res (polyphase, band-limited, no aliasing)
-            if out_sr != render_sr:
-                from scipy.signal import resample_poly
-                from math import gcd
-                g = gcd(out_sr, render_sr)
-                raw = resample_poly(raw, out_sr // g, render_sr // g, axis=0)
+            # No upsampling needed — engine already rendered at target SR
 
             # Oversampled saturation — apply on full buffer at final SR (no chunk artefacts)
             if sat > 0.01:
@@ -991,7 +987,7 @@ async def render_endpoint(request: Request):
                 mix        = float(reverb_cfg.get("mix", 0.3))
                 decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
                 print(f"  [render] Applying IR convolution reverb: space={space} mix={mix:.2f}…")
-                raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=out_sr)
+                raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
 
             # Full-buffer true-peak normalize — zero attack lag, zero pumping
             print("  [render] True-peak normalize (ceiling −1 dBFS)…")
