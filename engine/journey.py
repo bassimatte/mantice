@@ -42,6 +42,8 @@ def _crossfade(engine_a: StreamingDroneEngine,
                engine_b: StreamingDroneEngine,
                morph_s: float) -> np.ndarray:
     """S-curve crossfade from engine_a to engine_b over morph_s seconds."""
+    # Use engine_a's sample rate (both should match)
+    SR = engine_a.SR
     n = int(morph_s * SR)
     if n <= 0:
         return np.zeros((0, 2), dtype=np.float32)
@@ -137,6 +139,7 @@ def render_journey(
         is_last = (i == n_steps - 1)
 
         engine_a = _make_engine(preset, seed, hold_s + morph_s)
+        SR = engine_a.SR  # Use engine's sample rate (48k for renders, 22k for preview)
 
         # Hold window
         if hold_s > 0.0:
