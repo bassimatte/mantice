@@ -5,6 +5,7 @@ PyYAML
 sounddevice
 lameenc
 librosa
+psutil
 
 # Web UI (optional — only needed for --gui)
 fastapi
