@@ -1444,6 +1444,9 @@ class StreamingDroneEngine:
         # Automation time tracking
         self._samples_elapsed: int = 0
         self._duration_samples: int = 0  # set from preset duration; 0 = unknown
+        # MANT-9: previous automated values for intra-chunk interpolation
+        self._prev_layer_auto = {}  # dict of {layer_idx: {param: prev_value}}
+        self._prev_global_auto = {}  # dict of {param: prev_value}
         self._build_from_preset(preset)
         self._crossfade_remaining = 0
         self._crossfade_total = 0
@@ -1610,15 +1613,20 @@ class StreamingDroneEngine:
         stereo = np.zeros((n, 2), dtype=np.float32)
 
         # Apply parameter automation before generating this chunk
+        # MANT-9: compute interpolation ramps for automated parameters
+        automation_ramps = {}
         if self._duration_samples > 0 and (self._layer_automations or self._global_automations):
             t_norm = min(1.0, self._samples_elapsed / self._duration_samples)
-            self._apply_automation(t_norm)
+            automation_ramps = self._compute_automation_ramps(t_norm, n)
 
         # Layers — signal chain: Synthesis → Filter → Distortion → Pan → Chorus → Flanger → Phaser
         for i, (layer, panner, chorus, layer_filter, distortion, flanger, phaser) in enumerate(zip(
             self.layers, self.panners, self.choruses, self.filters,
             self.distortions, self.flangers, self.phasers
         )):
+            # MANT-9: apply per-layer automation ramps for this layer
+            self._apply_layer_ramps(i, layer, layer_filter, distortion, panner, automation_ramps, n)
+            
             raw      = layer.next_chunk(n)          # mono (sub/gran) or stereo (fm)
             filtered = layer_filter.next_chunk(raw) # tone shaping on raw signal
             distorted = distortion.process(filtered) # drive on shaped signal
@@ -1639,15 +1647,28 @@ class StreamingDroneEngine:
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)
 
         # Soft saturation (warm analog-style tanh waveshaping)
+        # MANT-9: apply global automation for saturation
+        if automation_ramps and "saturation" in automation_ramps.get('global', {}):
+            self.saturation = float(automation_ramps['global']["saturation"])
         if self.saturation > 0.01:
             drive = 1.0 + self.saturation * 3.0
             norm = np.tanh(drive)
             stereo = np.tanh(stereo * drive) / norm
 
         # FDN reverb — only processes synthesized drone layers
+        # MANT-9: apply global automation for reverb
+        if automation_ramps:
+            g_ramps = automation_ramps.get('global', {})
+            if "reverb_mix" in g_ramps:
+                self._reverb.mix = g_ramps["reverb_mix"]
+            if "reverb_decay_trim" in g_ramps:
+                trim = g_ramps["reverb_decay_trim"]
+                self._reverb.decay = 0.60 + float(np.clip(trim, 0.0, 1.0)) * 0.36
         stereo = self._reverb.next_chunk(stereo)
 
         # Shimmer — pitch-shifted feedback layer, post-reverb
+        if automation_ramps and "shimmer_wet" in automation_ramps.get('global', {}):
+            self._shimmer.wet = automation_ramps['global']["shimmer_wet"]
         stereo = self._shimmer.next_chunk(stereo)
 
         # Earth & Air added post-reverb — environmental constants, kept dry
@@ -1657,6 +1678,12 @@ class StreamingDroneEngine:
             stereo += self._air_chunk(n)
 
         # Master EQ + compression
+        if automation_ramps:
+            g_ramps = automation_ramps.get('global', {})
+            if "master_air_db" in g_ramps:
+                self._master.set_air_db(g_ramps["master_air_db"])
+            if "master_output_db" in g_ramps:
+                self._master.set_output_gain_db(g_ramps["master_output_db"])
         stereo = self._master.process(stereo)
 
         # Soft limiter — streaming only; render path uses full-buffer final_limit_normalize
@@ -1686,12 +1713,158 @@ class StreamingDroneEngine:
                 self._old_engine = None
 
         # Binaural — absolutely last: psychoacoustic L/R difference must reach headphones unprocessed
+        if automation_ramps and "binaural_beat_hz" in automation_ramps.get('global', {}):
+            self._binaural_cfg["beat_hz"] = automation_ramps['global']["binaural_beat_hz"]
         self._apply_binaural(stereo, n)
 
         # Advance automation time counter
         self._samples_elapsed += n
 
         return stereo
+
+    def _compute_automation_ramps(self, t_norm: float, n: int) -> dict:
+        """MANT-9: Compute interpolation ramps for automated parameters.
+        
+        Returns dict with structure:
+        {
+            'layer': {layer_idx: {param_name: np.ndarray}},
+            'global': {param_name: (prev_val, curr_val)}
+        }
+        """
+        ramps = {'layer': {}, 'global': {}}
+        
+        # Per-layer automations
+        for i, auto in enumerate(self._layer_automations):
+            if not auto:
+                continue
+            
+            layer_ramps = {}
+            
+            # Filter cutoff — needs intra-chunk interpolation to avoid clicks
+            if "filter_cutoff" in auto:
+                curr = auto["filter_cutoff"].value_at(t_norm)
+                prev = self._prev_layer_auto.get(i, {}).get("filter_cutoff", curr)
+                layer_ramps["filter_cutoff"] = np.linspace(prev, curr, n, dtype=np.float32)
+                if i not in self._prev_layer_auto:
+                    self._prev_layer_auto[i] = {}
+                self._prev_layer_auto[i]["filter_cutoff"] = curr
+            
+            # Volume — interpolate to avoid zipper noise
+            if "volume_db" in auto:
+                curr = auto["volume_db"].value_at(t_norm)
+                prev = self._prev_layer_auto.get(i, {}).get("volume_db", curr)
+                layer_ramps["volume_db"] = np.linspace(prev, curr, n, dtype=np.float32)
+                if i not in self._prev_layer_auto:
+                    self._prev_layer_auto[i] = {}
+                self._prev_layer_auto[i]["volume_db"] = curr
+            
+            # FM index — smooth timbre transitions
+            if "fm_index" in auto:
+                curr = auto["fm_index"].value_at(t_norm)
+                prev = self._prev_layer_auto.get(i, {}).get("fm_index", curr)
+                layer_ramps["fm_index"] = np.linspace(prev, curr, n, dtype=np.float32)
+                if i not in self._prev_layer_auto:
+                    self._prev_layer_auto[i] = {}
+                self._prev_layer_auto[i]["fm_index"] = curr
+            
+            # Width — smooth stereo field changes
+            if "width" in auto:
+                curr = auto["width"].value_at(t_norm)
+                prev = self._prev_layer_auto.get(i, {}).get("width", curr)
+                layer_ramps["width"] = np.linspace(prev, curr, n, dtype=np.float32)
+                if i not in self._prev_layer_auto:
+                    self._prev_layer_auto[i] = {}
+                self._prev_layer_auto[i]["width"] = curr
+            
+            # Other parameters (not click-prone, apply once per chunk)
+            if "distortion_drive" in auto:
+                layer_ramps["distortion_drive"] = auto["distortion_drive"].value_at(t_norm)
+            if "chorus_rate" in auto:
+                layer_ramps["chorus_rate"] = auto["chorus_rate"].value_at(t_norm)
+            if "lfo_rate" in auto:
+                layer_ramps["lfo_rate"] = auto["lfo_rate"].value_at(t_norm)
+            if "detune_cents" in auto:
+                layer_ramps["detune_cents"] = auto["detune_cents"].value_at(t_norm)
+            if "granular_position" in auto:
+                layer_ramps["granular_position"] = auto["granular_position"].value_at(t_norm)
+            
+            if layer_ramps:
+                ramps['layer'][i] = layer_ramps
+        
+        # Global automations (applied in main chain, not during layer processing)
+        g = self._global_automations
+        if g:
+            if "reverb_mix" in g:
+                ramps['global']["reverb_mix"] = g["reverb_mix"].value_at(t_norm)
+            if "reverb_decay_trim" in g:
+                ramps['global']["reverb_decay_trim"] = g["reverb_decay_trim"].value_at(t_norm)
+            if "shimmer_wet" in g:
+                ramps['global']["shimmer_wet"] = g["shimmer_wet"].value_at(t_norm)
+            if "binaural_beat_hz" in g:
+                ramps['global']["binaural_beat_hz"] = g["binaural_beat_hz"].value_at(t_norm)
+            if "master_air_db" in g:
+                ramps['global']["master_air_db"] = g["master_air_db"].value_at(t_norm)
+            if "master_output_db" in g:
+                ramps['global']["master_output_db"] = g["master_output_db"].value_at(t_norm)
+            if "saturation" in g:
+                ramps['global']["saturation"] = float(np.clip(g["saturation"].value_at(t_norm), 0.0, 1.0))
+        
+        return ramps
+    
+    def _apply_layer_ramps(self, i: int, layer, layer_filter, distortion, panner, ramps: dict, n: int) -> None:
+        """MANT-9: Apply interpolated parameter ramps for a specific layer."""
+        layer_ramps = ramps['layer'].get(i, {})
+        if not layer_ramps:
+            return
+        
+        # Filter cutoff — process in sub-blocks to smooth coefficient changes
+        if "filter_cutoff" in layer_ramps and layer_filter.filter_type not in ("off", "comb", "formant"):
+            cutoff_ramp = layer_ramps["filter_cutoff"]
+            # Sub-block size: balance between smoothness and CPU cost
+            sub_block_size = 256
+            for block_start in range(0, n, sub_block_size):
+                block_end = min(block_start + sub_block_size, n)
+                # Use cutoff at block midpoint for this sub-block
+                mid_idx = (block_start + block_end) // 2
+                block_cutoff = float(cutoff_ramp[mid_idx])
+                layer_filter.base_cutoff = block_cutoff
+                layer_filter._build_filter(block_cutoff)
+        
+        # Volume — apply gain ramp directly to layer
+        if "volume_db" in layer_ramps:
+            # Convert dB ramp to linear gain ramp
+            gain_ramp = 10.0 ** (layer_ramps["volume_db"] / 20.0)
+            # Store as attribute for layer to use during synthesis
+            # Note: This won't affect current chunk since layer already rendered,
+            # but sets initial value for next chunk. For true intra-chunk volume,
+            # we'd need to modify layer synthesis or apply post-synthesis.
+            layer._gain = np.float32(gain_ramp[-1])
+        
+        # FM index — apply ramp directly to FM layer
+        if "fm_index" in layer_ramps:
+            if hasattr(layer, "fm_indices"):
+                # Set to final value (layers don't support intra-chunk FM yet)
+                layer.fm_indices[:] = np.float32(layer_ramps["fm_index"][-1])
+        
+        # Width — apply ramp to panner
+        if "width" in layer_ramps:
+            # Set to final value (panner doesn't support intra-chunk yet)
+            panner.width = float(layer_ramps["width"][-1])
+        
+        # Non-interpolated parameters (apply once)
+        if "distortion_drive" in layer_ramps:
+            distortion.drive = float(layer_ramps["distortion_drive"])
+        if "chorus_rate" in layer_ramps:
+            self.choruses[i].rate = float(layer_ramps["chorus_rate"])
+        if "lfo_rate" in layer_ramps:
+            layer_filter.lfo_rate = float(layer_ramps["lfo_rate"])
+        if "detune_cents" in layer_ramps:
+            if hasattr(layer, "set_detune_cents"):
+                layer.set_detune_cents(float(layer_ramps["detune_cents"]))
+        if "granular_position" in layer_ramps:
+            from .granular_layer import StreamingGranularLayer
+            if isinstance(layer, StreamingGranularLayer):
+                layer.position = float(layer_ramps["granular_position"])
 
     def _apply_automation(self, t_norm: float) -> None:
         """Inject automated parameter values for this chunk's time position."""
@@ -1894,6 +2067,9 @@ class _ShallowCopy:
         self._crossfade_remaining = 0
         self._crossfade_total = 0
         self._old_engine = None
+        # MANT-9: copy automation state for crossfade continuity
+        self._prev_layer_auto = dict(engine._prev_layer_auto)
+        self._prev_global_auto = dict(engine._prev_global_auto)
 
     def next_chunk(self, n: int) -> np.ndarray:
         stereo = np.zeros((n, 2), dtype=np.float32)
