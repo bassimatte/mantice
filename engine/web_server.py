@@ -1002,7 +1002,7 @@ async def render_endpoint(request: Request):
 
         audio = await loop.run_in_executor(None, _render)
 
-        print(f"  [render] Done. Encoding {fmt} @ {out_sr} Hz…")
+        print(f"  [render] Done. Encoding {fmt} @ {render_sr} Hz…")
         import soundfile as sf
 
         exports_dir = _ROOT / "exports"
@@ -1032,7 +1032,7 @@ async def render_endpoint(request: Request):
                 media = {"wav": "audio/wav", "flac": "audio/flac", "ogg": "audio/ogg"}
                 return buf.read(), media.get(fmt, "application/octet-stream")
 
-        audio_bytes, media_type = _encode_audio(audio, fmt, out_sr, out_bd)
+        audio_bytes, media_type = _encode_audio(audio, fmt, render_sr, out_bd)
         with open(str(export_path), "wb") as _f:
             _f.write(audio_bytes)
         print(f"  [render] Saved: {export_path} ({len(audio_bytes) // 1024} KB)")
