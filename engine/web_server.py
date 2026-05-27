@@ -45,7 +45,7 @@ from . import config
 from .preset_loader import load_preset, load_preset_from_yaml_string
 from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
-from .generator import generate_preset, mutate_preset, save_generated_preset
+from .generator import generate_preset, mutate_preset, save_generated_preset, _NAME_PARTS_A, _NAME_PARTS_B
 from .convolution_reverb import apply_convolution_reverb
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1706,6 +1706,12 @@ async def render_journey_endpoint(request: Request):
             return render_journey(resolved_steps, loop=loop, seed=seed, max_samples=max_samples)
 
         audio = await ev.run_in_executor(None, _render)
+        
+        # Generate random journey name from preset word lists
+        import random
+        word_a = random.choice(_NAME_PARTS_A)
+        word_b = random.choice(_NAME_PARTS_B)
+        journey_name = f"{word_a} {word_b}"
 
         sr = config.STREAM_SAMPLE_RATE
         import soundfile as sf
@@ -1748,7 +1754,7 @@ async def render_journey_endpoint(request: Request):
             audio_bytes = buf.read()
             media_type = "audio/ogg"
 
-        filename = f"MANTICE_Journey_preview.ogg" if preview else f"MANTICE_Journey.{fmt_out}"
+        filename = f"MANTICE Journey {journey_name} (preview).ogg" if preview else f"MANTICE Journey {journey_name}.{fmt_out}"
         return Response(
             content=audio_bytes,
             media_type=media_type,

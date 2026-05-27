@@ -6620,6 +6620,9 @@ const MORPH_TEMPLATES = [
  * If fewer than 2 matches, applies timing to existing steps without replacing them.
  */
 async function applyMorphTemplate(tpl) {
+  // Stop any playing audio first
+  stopAudio();
+  
   // Find matching presets from the library
   const found = [];
   if (allPresets && allPresets.length > 0) {

@@ -165,7 +165,14 @@ def render_journey(
 
     if not chunks:
         return np.zeros((0, 2), dtype=np.float32)
-    return np.concatenate(chunks, axis=0).astype(np.float32)
+    audio = np.concatenate(chunks, axis=0).astype(np.float32)
+    
+    # Peak normalization to prevent clipping
+    peak = np.abs(audio).max()
+    if peak > 0.0:
+        audio = audio / peak * 0.98  # slight headroom
+    
+    return audio
 
 
 def journey_total_seconds(steps: list[dict], loop: str = "none") -> float:
