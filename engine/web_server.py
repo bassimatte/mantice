@@ -984,12 +984,12 @@ async def render_endpoint(request: Request):
             nonlocal render_sr
             
             # SEGMENTED RENDERING: Split long renders into chunks to stay under 512MB
-            # Each segment is 20s max, rendered independently and written to disk
-            SEGMENT_DURATION = 20.0  # seconds per segment
+            # Each segment is 15s max (reduced from 20s for extra safety)
+            SEGMENT_DURATION = 15.0  # seconds per segment
             total_duration = preset["duration"]
             
-            # Determine if we need segmented rendering (>25s with hi-res)
-            use_segments = hires and total_duration > 25.0
+            # Determine if we need segmented rendering (>20s with hi-res)
+            use_segments = hires and total_duration > 20.0
             
             if use_segments:
                 print(f"  [render] Using segmented rendering for {total_duration}s @ 48kHz (512MB RAM limit)")
@@ -1046,34 +1046,56 @@ async def render_endpoint(request: Request):
                         
                         log_memory(f"Segment {seg_idx + 1} complete")
                         
-                        # Delete raw buffer to free memory
+                        # Force garbage collection to free memory immediately
                         del raw
                         del engine
+                        import gc
+                        gc.collect()
+                        log_memory(f"Segment {seg_idx + 1} freed")
                     
-                    # Concatenate segments with crossfades
+                    # Concatenate segments with crossfades - STREAMING approach
+                    # Write directly to final file instead of loading all into memory
                     print(f"  [render] Concatenating {len(segment_paths)} segments...")
                     log_memory("Before concatenation")
                     
-                    final_audio = []
-                    for i, seg_path in enumerate(segment_paths):
-                        seg_audio, _ = sf.read(str(seg_path))
-                        
-                        if i > 0 and crossfade_samples > 0:
-                            # Crossfade with previous segment's tail
-                            fade_out = np.linspace(1.0, 0.0, crossfade_samples)
-                            fade_in = np.linspace(0.0, 1.0, crossfade_samples)
-                            
-                            # Apply fade to overlap region
-                            final_audio[-1][-crossfade_samples:] *= fade_out[:, np.newaxis]
-                            seg_audio[:crossfade_samples] *= fade_in[:, np.newaxis]
-                            
-                            # Merge overlap
-                            final_audio[-1][-crossfade_samples:] += seg_audio[:crossfade_samples]
-                            final_audio.append(seg_audio[crossfade_samples:])
-                        else:
-                            final_audio.append(seg_audio)
+                    # Create final output file path
+                    final_temp_path = temp_dir / "final_concatenated.wav"
                     
-                    raw = np.concatenate(final_audio, axis=0)
+                    # Open output file in append mode
+                    with sf.SoundFile(str(final_temp_path), 'w', render_sr, 2, subtype='PCM_24') as out_file:
+                        prev_tail = None
+                        
+                        for i, seg_path in enumerate(segment_paths):
+                            # Load segment
+                            seg_audio, _ = sf.read(str(seg_path))
+                            
+                            if i > 0 and crossfade_samples > 0 and prev_tail is not None:
+                                # Crossfade with previous segment's tail
+                                fade_out = np.linspace(1.0, 0.0, crossfade_samples)
+                                fade_in = np.linspace(0.0, 1.0, crossfade_samples)
+                                
+                                # Mix overlap region
+                                overlap = prev_tail * fade_out[:, np.newaxis] + seg_audio[:crossfade_samples] * fade_in[:, np.newaxis]
+                                
+                                # Write overlap
+                                out_file.write(overlap)
+                                
+                                # Write rest of segment (after crossfade)
+                                out_file.write(seg_audio[crossfade_samples:])
+                            else:
+                                # First segment or no crossfade - write as-is
+                                out_file.write(seg_audio[:-crossfade_samples] if i < len(segment_paths) - 1 else seg_audio)
+                            
+                            # Save tail for next crossfade (if not last segment)
+                            if i < len(segment_paths) - 1:
+                                prev_tail = seg_audio[-crossfade_samples:].copy()
+                            
+                            # Free segment memory immediately
+                            del seg_audio
+                            gc.collect()
+                    
+                    # Now read the final file (once, fully concatenated)
+                    raw, _ = sf.read(str(final_temp_path))
                     log_memory("Concatenation complete")
                     
                 finally:
