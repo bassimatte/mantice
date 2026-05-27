@@ -947,6 +947,7 @@ async def render_endpoint(request: Request):
 
         loop = asyncio.get_event_loop()
         seed = int(body.get("seed", 42))
+        render_sr = out_sr  # Declare in outer scope for _encode_audio access
 
         def _render():
             # Disable FDN reverb in the engine — convolution IR replaces it for renders
@@ -963,6 +964,7 @@ async def render_endpoint(request: Request):
 
             # MANT-1: Engine synthesizes at target SR directly (no upsample needed)
             engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=hires)
+            nonlocal render_sr
             render_sr = engine.SR  # 48k if hires, 22k otherwise
             total_samples = int(preset["duration"] * render_sr)
             chunk_size = 2048
