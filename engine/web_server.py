@@ -967,14 +967,20 @@ async def render_endpoint(request: Request):
             nonlocal render_sr
             render_sr = engine.SR  # 48k if hires, 22k otherwise
             total_samples = int(preset["duration"] * render_sr)
-            chunk_size = 2048
-            chunks = []
+            chunk_size = 4096  # Larger chunks = fewer iterations
+            
+            # Stream synthesis directly into numpy array (avoids list of chunks)
+            raw = np.zeros((total_samples, 2), dtype=np.float32)
+            offset = 0
             remaining = total_samples
             while remaining > 0:
                 n = min(chunk_size, remaining)
-                chunks.append(engine.next_chunk(n))
+                raw[offset:offset+n] = engine.next_chunk(n)
+                offset += n
                 remaining -= n
-            raw = np.concatenate(chunks, axis=0)
+                # Progress indicator for long renders
+                if offset % (render_sr * 10) == 0:  # Every 10 seconds
+                    print(f"    [render] {offset / render_sr:.0f}s / {total_samples / render_sr:.0f}s")
 
             # No upsampling needed — engine already rendered at target SR
 
@@ -1043,18 +1049,22 @@ async def render_endpoint(request: Request):
         print(f"  [render] Saved: {export_path} ({file_size_kb} KB)")
 
         # Stream from disk instead of loading into memory
+        # Use Content-Disposition header manually to avoid FileResponse encoding issues
+        from urllib.parse import quote
+        
         return FileResponse(
             path=str(export_path),
             media_type=media_type,
-            filename=filename,
             headers={
+                "Content-Disposition": f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}',
                 "X-Export-Path": str(export_path),
             }
         )
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        error_detail = traceback.format_exc()
+        print(f"  [render] ERROR: {error_detail}")
+        return JSONResponse({"ok": False, "error": str(e), "traceback": error_detail}, status_code=500)
 
 
 @app.post("/api/preview-audio")
@@ -1758,19 +1768,22 @@ async def render_journey_endpoint(request: Request):
         print(f"  [journey] Saved: {export_path} ({file_size_kb} KB)")
 
         # Stream from disk instead of loading into memory
+        from urllib.parse import quote
+        
         return FileResponse(
             path=str(export_path),
             media_type=media_type,
-            filename=filename,
             headers={
+                "Content-Disposition": f'attachment; filename="{filename}"; filename*=UTF-8\'\'{quote(filename)}',
                 "X-Journey-Duration": str(round(total_s, 1)),
                 "X-Export-Path": str(export_path),
             },
         )
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        error_detail = traceback.format_exc()
+        print(f"  [journey] ERROR: {error_detail}")
+        return JSONResponse({"ok": False, "error": str(e), "traceback": error_detail}, status_code=500)
 
 
 @app.websocket("/ws/preview")
