@@ -950,6 +950,18 @@ async def render_endpoint(request: Request):
         render_sr = out_sr  # Declare in outer scope for _encode_audio access
 
         def _render():
+            # Optional memory tracking
+            try:
+                import psutil
+                import os
+                process = psutil.Process(os.getpid())
+                def log_memory(stage):
+                    mem_mb = process.memory_info().rss / 1024 / 1024
+                    print(f"  [render] {stage}: {mem_mb:.1f} MB used")
+            except ImportError:
+                def log_memory(stage):
+                    pass  # psutil not available
+            
             # Disable FDN reverb in the engine — convolution IR replaces it for renders
             preset_for_render = {**preset}
             reverb_cfg = dict(preset.get("reverb") or {})
@@ -962,15 +974,24 @@ async def render_endpoint(request: Request):
             sat = float(preset.get("saturation", 0.3))
             preset_for_render["saturation"] = 0.0
 
+            log_memory("Start")
+            
             # MANT-1: Engine synthesizes at target SR directly (no upsample needed)
+            print(f"  [render] Creating engine (hires={hires})...")
             engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=hires)
             nonlocal render_sr
             render_sr = engine.SR  # 48k if hires, 22k otherwise
             total_samples = int(preset["duration"] * render_sr)
             chunk_size = 4096  # Larger chunks = fewer iterations
             
+            log_memory(f"Engine created (SR={render_sr})")
+            
             # Stream synthesis directly into numpy array (avoids list of chunks)
+            print(f"  [render] Allocating buffer: {total_samples} samples = {total_samples * 8 / 1024 / 1024:.1f} MB...")
             raw = np.zeros((total_samples, 2), dtype=np.float32)
+            log_memory("Buffer allocated")
+            
+            print(f"  [render] Synthesizing...")
             offset = 0
             remaining = total_samples
             while remaining > 0:
@@ -980,7 +1001,11 @@ async def render_endpoint(request: Request):
                 remaining -= n
                 # Progress indicator for long renders
                 if offset % (render_sr * 10) == 0:  # Every 10 seconds
-                    print(f"    [render] {offset / render_sr:.0f}s / {total_samples / render_sr:.0f}s")
+                    progress_pct = (offset / total_samples) * 100
+                    print(f"    [render] {offset / render_sr:.0f}s / {total_samples / render_sr:.0f}s ({progress_pct:.0f}%)")
+                    log_memory(f"Synthesis {progress_pct:.0f}%")
+
+            log_memory("Synthesis complete")
 
             # No upsampling needed — engine already rendered at target SR
 
@@ -988,6 +1013,7 @@ async def render_endpoint(request: Request):
             if sat > 0.01:
                 print(f"  [render] Oversampled saturation ×4: drive={1.0 + sat * 3.0:.2f}…")
                 raw = oversampled_saturate(raw, sat)
+                log_memory("Saturation complete")
 
             # Apply convolution reverb against real IR (replaces streaming FDN for renders)
             if reverb_enabled:
@@ -996,10 +1022,12 @@ async def render_endpoint(request: Request):
                 decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
                 print(f"  [render] Applying IR convolution reverb: space={space} mix={mix:.2f}…")
                 raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
+                log_memory("Reverb complete")
 
             # Full-buffer true-peak normalize — zero attack lag, zero pumping
             print("  [render] True-peak normalize (ceiling −1 dBFS)…")
             raw = final_limit_normalize(raw, ceiling=0.97)
+            log_memory("Normalize complete")
 
             # TPDF dither before quantisation (adds 1 LSB of shaped noise, eliminates truncation distortion)
             if out_bd == "PCM_24":
