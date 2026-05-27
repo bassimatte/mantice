@@ -31,7 +31,7 @@ import numpy as np
 
 try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
-    from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Response
+    from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Response, FileResponse
     from fastapi.staticfiles import StaticFiles
     from fastapi.middleware.cors import CORSMiddleware
     import uvicorn
@@ -1014,8 +1014,8 @@ async def render_endpoint(request: Request):
         filename = f"{safe_name}.{fmt}"
         export_path = exports_dir / filename
 
-        def _encode_audio(audio_arr, fmt, sr, bd):
-            """Encode audio array to bytes. Returns (bytes, media_type)."""
+        def _encode_to_file(audio_arr, path, fmt, sr, bd):
+            """Encode audio array directly to disk file. Returns media_type."""
             if fmt == "mp3":
                 import lameenc
                 pcm = (audio_arr * 32767).clip(-32768, 32767).astype(np.int16)
@@ -1025,27 +1025,29 @@ async def render_endpoint(request: Request):
                 encoder.set_channels(2)
                 encoder.set_quality(2)
                 data = encoder.encode(pcm.tobytes()) + encoder.flush()
-                return data, "audio/mpeg"
+                # Convert bytearray to bytes for write
+                if isinstance(data, bytearray):
+                    data = bytes(data)
+                with open(str(path), "wb") as f:
+                    f.write(data)
+                return "audio/mpeg"
             else:
                 subtypes = {"wav": bd, "flac": bd, "ogg": "VORBIS"}
-                buf = io.BytesIO()
-                sf.write(buf, audio_arr, sr, format=fmt.upper(), subtype=subtypes.get(fmt, bd))
-                buf.seek(0)
+                sf.write(str(path), audio_arr, sr, format=fmt.upper(), subtype=subtypes.get(fmt, bd))
                 media = {"wav": "audio/wav", "flac": "audio/flac", "ogg": "audio/ogg"}
-                return buf.read(), media.get(fmt, "application/octet-stream")
+                return media.get(fmt, "application/octet-stream")
 
-        audio_bytes, media_type = _encode_audio(audio, fmt, render_sr, out_bd)
-        with open(str(export_path), "wb") as _f:
-            _f.write(audio_bytes)
-        print(f"  [render] Saved: {export_path} ({len(audio_bytes) // 1024} KB)")
+        media_type = await loop.run_in_executor(None, _encode_to_file, audio, export_path, fmt, render_sr, out_bd)
+        
+        file_size_kb = export_path.stat().st_size // 1024
+        print(f"  [render] Saved: {export_path} ({file_size_kb} KB)")
 
-        buf = io.BytesIO(audio_bytes)
-        return StreamingResponse(
-            buf,
+        # Stream from disk instead of loading into memory
+        return FileResponse(
+            path=str(export_path),
             media_type=media_type,
+            filename=filename,
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Length": str(len(audio_bytes)),
                 "X-Export-Path": str(export_path),
             }
         )
@@ -1711,55 +1713,58 @@ async def render_journey_endpoint(request: Request):
         word_b = random.choice(_NAME_PARTS_B)
         journey_name = f"{word_a} {word_b}"
 
-        sr = config.STREAM_SAMPLE_RATE
+        # Use engine SR instead of module constant (48k for journeys due to render_mode=True)
+        sr = 48_000  # Journeys always use render_mode=True, so always 48kHz
         import soundfile as sf
 
-        if fmt_out == "mp3":
-            try:
-                import lameenc
-                pcm = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
-                enc = lameenc.Encoder()
-                enc.set_bit_rate(192)
-                enc.set_in_sample_rate(sr)
-                enc.set_channels(2)
-                enc.set_quality(2)
-                audio_bytes = bytes(enc.encode(pcm.tobytes())) + bytes(enc.flush())
-                media_type = "audio/mpeg"
-            except ImportError:
-                # Fallback to OGG if lameenc unavailable
-                buf = io.BytesIO()
-                sf.write(buf, audio, sr, format="OGG", subtype="VORBIS")
-                buf.seek(0)
-                audio_bytes = buf.read()
-                media_type = "audio/ogg"
-                fmt_out = "ogg"
-        elif fmt_out == "flac":
-            buf = io.BytesIO()
-            sf.write(buf, audio, sr, format="FLAC")
-            buf.seek(0)
-            audio_bytes = buf.read()
-            media_type = "audio/flac"
-        elif fmt_out == "wav":
-            buf = io.BytesIO()
-            sf.write(buf, audio, sr, format="WAV", subtype="PCM_16")
-            buf.seek(0)
-            audio_bytes = buf.read()
-            media_type = "audio/wav"
-        else:  # ogg (default for preview)
-            buf = io.BytesIO()
-            sf.write(buf, audio, sr, format="OGG", subtype="VORBIS")
-            buf.seek(0)
-            audio_bytes = buf.read()
-            media_type = "audio/ogg"
-
+        # Create temp file path
+        exports_dir = _ROOT / "exports"
+        exports_dir.mkdir(exist_ok=True)
         filename = f"MANTICE Journey {journey_name} (preview).ogg" if preview else f"MANTICE Journey {journey_name}.{fmt_out}"
-        return Response(
-            content=audio_bytes,
+        export_path = exports_dir / filename
+
+        def _encode_journey_to_file(audio_arr, path, fmt):
+            """Encode journey audio directly to disk file. Returns media_type."""
+            if fmt == "mp3":
+                try:
+                    import lameenc
+                    pcm = (np.clip(audio_arr, -1.0, 1.0) * 32767).astype(np.int16)
+                    enc = lameenc.Encoder()
+                    enc.set_bit_rate(192)
+                    enc.set_in_sample_rate(sr)
+                    enc.set_channels(2)
+                    enc.set_quality(2)
+                    data = bytes(enc.encode(pcm.tobytes())) + bytes(enc.flush())
+                    with open(str(path), "wb") as f:
+                        f.write(data)
+                    return "audio/mpeg"
+                except ImportError:
+                    # Fallback to OGG if lameenc unavailable
+                    sf.write(str(path), audio_arr, sr, format="OGG", subtype="VORBIS")
+                    return "audio/ogg"
+            elif fmt == "flac":
+                sf.write(str(path), audio_arr, sr, format="FLAC")
+                return "audio/flac"
+            elif fmt == "wav":
+                sf.write(str(path), audio_arr, sr, format="WAV", subtype="PCM_16")
+                return "audio/wav"
+            else:  # ogg (default for preview)
+                sf.write(str(path), audio_arr, sr, format="OGG", subtype="VORBIS")
+                return "audio/ogg"
+
+        media_type = await ev.run_in_executor(None, _encode_journey_to_file, audio, export_path, fmt_out)
+        
+        file_size_kb = export_path.stat().st_size // 1024
+        print(f"  [journey] Saved: {export_path} ({file_size_kb} KB)")
+
+        # Stream from disk instead of loading into memory
+        return FileResponse(
+            path=str(export_path),
             media_type=media_type,
+            filename=filename,
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Length": str(len(audio_bytes)),
                 "X-Journey-Duration": str(round(total_s, 1)),
+                "X-Export-Path": str(export_path),
             },
         )
     except Exception as e:
