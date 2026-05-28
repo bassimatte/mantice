@@ -1261,6 +1261,7 @@ class StreamingFDNReverb:
 
         # Modulation depth (0–1 → 0–5 samples swing)
         self.mod_depth = float(reverb_cfg.get("modulation_depth", 0.0))
+        self._LFO_DEPTH_MAX = 5.0  # Maximum LFO swing in samples
 
         # Choose space and scale delays for target sample rate
         # MANT-1: Scale delay tables from base 22050 Hz to target SR
