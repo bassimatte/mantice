@@ -213,6 +213,25 @@ class MasterProcessor:
         self._comp_cfg = deepcopy((self.master_cfg or {}).get("comp", {}) or {})
         self._comp_env = 0.0
         self._output_gain = 10 ** (float(self.master_cfg.get("output_gain_db", 0.0)) / 20.0)
+        
+        # Pre-compute compression parameters (optimization: avoid recomputing every chunk)
+        if self._comp_cfg:
+            threshold_db = float(self._comp_cfg.get("threshold_db", 0.0))
+            ratio        = float(self._comp_cfg.get("ratio", 2.0))
+            makeup_db    = float(self._comp_cfg.get("makeup_db", 0.0))
+            attack_ms    = float(self._comp_cfg.get("attack_ms",  _DEFAULT_ATTACK_MS))
+            release_ms   = float(self._comp_cfg.get("release_ms", _DEFAULT_RELEASE_MS))
+            knee_db      = float(self._comp_cfg.get("knee_db",    _DEFAULT_KNEE_DB))
+            
+            self._comp_threshold = 10 ** (threshold_db / 20.0)
+            self._comp_makeup    = 10 ** (makeup_db / 20.0)
+            self._comp_ratio     = ratio
+            self._comp_knee_db   = knee_db
+            self._comp_attack_coef  = exp(-1.0 / (max(attack_ms,  0.1) * 0.001 * self.sr))
+            self._comp_release_coef = exp(-1.0 / (max(release_ms, 1.0) * 0.001 * self.sr))
+            self._comp_enabled = ratio > 1.01 or abs(makeup_db) >= 0.1
+        else:
+            self._comp_enabled = False
 
     def process(self, chunk: np.ndarray) -> np.ndarray:
         processed, out_dtype = _as_stereo(chunk)
@@ -221,7 +240,42 @@ class MasterProcessor:
             processed[:, 0], stage["zi_l"] = sosfilt(stage["sos"], processed[:, 0], zi=stage["zi_l"])
             processed[:, 1], stage["zi_r"] = sosfilt(stage["sos"], processed[:, 1], zi=stage["zi_r"])
 
-        processed, self._comp_env = _compress_stereo(processed, self.sr, self._comp_cfg, self._comp_env)
+        # Optimized compression: use pre-computed parameters
+        if self._comp_enabled:
+            level = np.max(np.abs(processed), axis=1)
+            env = np.empty_like(level)
+            current = float(self._comp_env)
+            
+            # Envelope follower (unavoidably sequential)
+            for i in range(len(level)):
+                sample_level = level[i]
+                coef = self._comp_attack_coef if sample_level > current else self._comp_release_coef
+                current = coef * current + (1.0 - coef) * sample_level
+                env[i] = current
+            
+            self._comp_env = current
+            
+            # Compute gain reduction (vectorized)
+            gain = np.ones_like(env)
+            if self._comp_ratio > 1.01:
+                if self._comp_knee_db > 0.1:
+                    half_knee = self._comp_knee_db / 2.0
+                    knee_lo = self._comp_threshold * (10 ** (-half_knee / 20.0))
+                    knee_hi = self._comp_threshold * (10 ** ( half_knee / 20.0))
+                    above   = env > self._comp_threshold
+                    in_knee = (env >= knee_lo) & ~above
+                    if np.any(above):
+                        gain[above] = (self._comp_threshold / np.maximum(env[above], 1e-12)) ** (1.0 - 1.0 / self._comp_ratio)
+                    if np.any(in_knee):
+                        t = (env[in_knee] - knee_lo) / np.maximum(knee_hi - knee_lo, 1e-12)
+                        soft_ratio = 1.0 + (self._comp_ratio - 1.0) * t
+                        gain[in_knee] = (self._comp_threshold / np.maximum(env[in_knee], 1e-12)) ** (1.0 - 1.0 / soft_ratio)
+                else:
+                    mask = env > self._comp_threshold
+                    if np.any(mask):
+                        gain[mask] = (self._comp_threshold / np.maximum(env[mask], 1e-12)) ** (1.0 - 1.0 / self._comp_ratio)
+            
+            processed *= gain[:, None] * self._comp_makeup
 
         # Output gain boost (user-controlled) + hard clip at 0.99 to prevent distortion
         if self._output_gain != 1.0:
