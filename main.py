@@ -509,22 +509,16 @@ def main() -> None:
         )
         
         # Export to file
-        from engine.exporter import export_audio
-        
         export_filename = f"MANTICE_Journey_{args.journey_template.capitalize()}"
         if args.seed is not None:
             export_filename += f"_seed{args.seed}"
         
-        output_path = export_audio(
-            audio_data=audio,
-            output_name=export_filename,
-            format=args.format,
-            sample_rate=_engine_config.SAMPLE_RATE
-        )
+        out_path = EXPORT_DIR / f"{export_filename}.{args.format}"
+        export_audio(out_path, audio, fmt=args.format)
         
-        sizeMB = output_path.stat().st_size / (1024 * 1024)
-        print(f"\n✓ Journey rendered: {output_path.name} ({sizeMB:.1f} MB)")
-        print(f"   → {output_path}")
+        sizeMB = out_path.stat().st_size / (1024 * 1024)
+        print(f"\n✓ Journey rendered: {out_path.name} ({sizeMB:.1f} MB)")
+        print(f"   → {out_path}")
         return
 
     generated_dir = PRESET_DIR / "generated"
