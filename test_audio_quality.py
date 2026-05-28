@@ -183,8 +183,8 @@ def _gran(source="singing_bowl.ogg", **kw) -> dict:
         "ratios": [1.0],
         "fm_ratios": [1.0],
         "fm_index": 0.0,
-        "amp_min": 0.005,
-        "amp_max": 0.04,
+        "amp_min": 0.002,  # Reduced for journey morph headroom (0.005 → 0.002)
+        "amp_max": 0.02,   # Reduced for journey morph headroom (0.04 → 0.02)
         "drift": 0.01,
         "band": "mid",
         **kw,
