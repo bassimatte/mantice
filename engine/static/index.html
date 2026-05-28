@@ -7587,11 +7587,13 @@ async function checkBackendConnection() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const isRenderCom = location.hostname.includes('onrender.com');
+  
   if (MANTICE_API_BASE) {
-    // Configured backend URL (e.g. Render.com) — do health check
+    // Configured backend URL (remote backend, different origin) — do health check
     const ok = await checkBackendConnection();
     if (!ok) return;
-  } else if (!isLocal) {
+  } else if (!isLocal && !isRenderCom) {
     // Deployed to GitHub Pages or similar static host, no backend configured
     const overlay = $('connection-overlay');
     const msg = $('connection-msg');
@@ -7601,7 +7603,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     overlay.classList.add('hidden');
     setTimeout(() => overlay.style.display = 'none', 0);
   } else {
-    // Local mode — hide overlay immediately
+    // Local mode or Render.com (same origin) — hide overlay immediately
     const overlay = $('connection-overlay');
     overlay.classList.add('hidden');
     overlay.style.display = 'none';
