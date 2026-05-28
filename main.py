@@ -499,16 +499,27 @@ def main() -> None:
             print(f"Total duration: {total_duration:.0f}s (use --duration to override)\n")
         
         # Render the journey
+        print(f"Rendering journey... (total: {total_duration:.0f}s)\n")
+        
+        audio = render_journey(
+            steps=steps,
+            loop=template['loop'],
+            seed=args.seed or 42,
+            max_samples=None
+        )
+        
+        # Export to file
+        from engine.exporter import export_audio
+        
         export_filename = f"MANTICE_Journey_{args.journey_template.capitalize()}"
         if args.seed is not None:
             export_filename += f"_seed{args.seed}"
         
-        output_path = render_journey(
-            steps=steps,
-            loop_mode=template['loop'],
+        output_path = export_audio(
+            audio_data=audio,
+            output_name=export_filename,
             format=args.format,
-            seed=args.seed or 42,
-            output_filename=export_filename
+            sample_rate=config.SAMPLE_RATE
         )
         
         sizeMB = output_path.stat().st_size / (1024 * 1024)
