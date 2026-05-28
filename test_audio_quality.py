@@ -12,13 +12,14 @@ Renders short clips of every configuration and detects:
   - DC offset
 
 Usage:
-    py -3 test_audio_quality.py                 # full suite (~300 tests, ~8 min)
-    py -3 test_audio_quality.py --quick         # fast subset (~60 tests, ~2 min)
+    py -3 test_audio_quality.py                 # full suite (~350 tests, ~10 min)
+    py -3 test_audio_quality.py --quick         # fast subset (~70 tests, ~2 min)
     py -3 test_audio_quality.py --section gran  # one section only
     py -3 test_audio_quality.py --save-flagged  # write failed renders to test_flagged/
     py -3 test_audio_quality.py --verbose       # print metrics for passing tests too
 
-Sections: fm | sub | gran | fx | binaural | master | spatial | unison | layer_fx | transition | stability | presets
+Sections: fm | sub | gran | fx | binaural | master | spatial | unison | layer_fx | 
+          transition | stability | presets | automation | journey
 """
 
 import argparse
@@ -1738,6 +1739,8 @@ _SECTION_LABELS = {
     "transition": "Transitions / Hot-Reload",
     "stability":  "Long-Render Stability",
     "presets":    "Preset Library",
+    "automation": "Parameter Automation (MANT-9)",
+    "journey":    "Preset Morphing / Journeys",
     "combo":      "Combinatorial",
 }
 
@@ -1786,6 +1789,136 @@ def save_flagged_renders(results: list[Result]) -> int:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Section: Automation
+# ═════════════════════════════════════════════════════════════════════════════
+
+def suite_automation(quick: bool) -> list[tuple]:
+    """
+    Test automation parameter sweeps for clicks and discontinuities.
+    Ensures smooth parameter interpolation (MANT-9).
+    """
+    tests = []
+    
+    # Base presets for automation testing
+    fm_preset = _preset([_fm(root=220)])
+    sub_preset = _preset([_sub(waveform="saw")])
+    gran_preset = _preset([_gran("singing_bowl.ogg")])
+    
+    # Test layer automation (volume sweep)
+    for pname, p in [("fm", fm_preset), ("sub", sub_preset)]:
+        p_copy = dict(p)
+        p_copy["layers"] = [dict(p["layers"][0])]
+        p_copy["layers"][0]["automation"] = [
+            {"time": 0.0, "gain": 0.0},
+            {"time": 2.0, "gain": 1.0},
+            {"time": 4.0, "gain": 0.0},
+            {"time": 6.0, "gain": 1.0}
+        ]
+        tests.append((f"{pname}_layer_vol_sweep",
+                      f"Layer volume automation ({pname})",
+                      lambda _p=p_copy: render(_p)))
+    
+    # Test global automation (master volume sweep)
+    for pname, p in [("fm", fm_preset), ("gran", gran_preset)] if quick else [("fm", fm_preset), ("sub", sub_preset), ("gran", gran_preset)]:
+        p_copy = dict(p)
+        p_copy["layers"] = [dict(l) for l in p["layers"]]
+        p_copy["global_automation"] = [
+            {"time": 0.0, "master_gain": 1.0},
+            {"time": 3.0, "master_gain": 0.3},
+            {"time": 6.0, "master_gain": 1.0}
+        ]
+        tests.append((f"{pname}_global_vol_sweep",
+                      f"Global volume automation ({pname})",
+                      lambda _p=p_copy: render(_p)))
+    
+    # Test filter cutoff sweep (layer automation)
+    sub_filter = dict(sub_preset)
+    sub_filter["layers"] = [dict(sub_preset["layers"][0])]
+    sub_filter["layers"][0]["filter_type"] = "lp"
+    sub_filter["layers"][0]["filter_cutoff"] = 500.0
+    sub_filter["layers"][0]["automation"] = [
+        {"time": 0.0, "filter_cutoff": 200.0},
+        {"time": 3.0, "filter_cutoff": 3000.0},
+        {"time": 6.0, "filter_cutoff": 200.0}
+    ]
+    tests.append(("sub_filter_sweep",
+                  "Filter cutoff automation (subtractive)",
+                  lambda: render(sub_filter)))
+    
+    # Test pan automation
+    fm_pan = dict(fm_preset)
+    fm_pan["layers"] = [dict(fm_preset["layers"][0])]
+    fm_pan["layers"][0]["automation"] = [
+        {"time": 0.0, "pan": -1.0},
+        {"time": 3.0, "pan": 1.0},
+        {"time": 6.0, "pan": 0.0}
+    ]
+    tests.append(("fm_pan_sweep",
+                  "Pan automation (FM)",
+                  lambda: render(fm_pan)))
+    
+    return tests
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Section: Journey (Morphing)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def suite_journey(quick: bool) -> list[tuple]:
+    """
+    Test preset morphing (journey feature) for seamless crossfades.
+    Validates s-curve morphing and multi-preset sequences.
+    """
+    tests = []
+    
+    # Simple 2-preset morphs
+    combos = [
+        ("fm_to_fm",     _preset([_fm(root=220)]),       _preset([_fm(root=440)])),
+        ("fm_to_sub",    _preset([_fm(root=220)]),       _preset([_sub(waveform="saw")])),
+        ("sub_to_gran",  _preset([_sub(waveform="saw")]), _preset([_gran("singing_bowl.ogg")])),
+    ]
+    
+    if not quick:
+        combos.extend([
+            ("fm_to_gran",   _preset([_fm(root=220)]),       _preset([_gran("gong.ogg")])),
+            ("gran_to_gran", _preset([_gran("singing_bowl.ogg")]), _preset([_gran("metal_resonance.ogg")])),
+        ])
+    
+    # Test morphing with different crossfade times
+    for name, p_a, p_b in combos:
+        for morph_time in ([1.0, 3.0] if quick else [0.5, 1.0, 3.0, 5.0]):
+            # Create a simple journey: hold A for 2s, morph for morph_time, hold B for 2s
+            def _render_morph(_pa=p_a, _pb=p_b, _mt=morph_time):
+                from engine.journey import render_journey
+                steps = [
+                    {"preset": _pa, "hold_s": 2.0, "morph_s": _mt},
+                    {"preset": _pb, "hold_s": 2.0, "morph_s": 0.0}
+                ]
+                return render_journey(steps, loop="none", seed=42)
+            
+            tests.append((f"morph_{name}_{morph_time}s",
+                          f"Morph {name} ({morph_time}s crossfade)",
+                          _render_morph))
+    
+    # Test 3-preset journey sequence (only if not quick)
+    if not quick:
+        def _render_3step():
+            from engine.journey import render_journey
+            steps = [
+                {"preset": _preset([_fm(root=220)]), "hold_s": 1.5, "morph_s": 1.0},
+                {"preset": _preset([_sub(waveform="saw")]), "hold_s": 1.5, "morph_s": 1.0},
+                {"preset": _preset([_gran("singing_bowl.ogg")]), "hold_s": 1.5, "morph_s": 0.0}
+            ]
+            return render_journey(steps, loop="none", seed=42)
+        
+        tests.append(("journey_3step",
+                      "3-preset journey (FM→Sub→Gran)",
+                      _render_3step))
+    
+    return tests
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Main
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -1802,6 +1935,8 @@ SUITES = {
     "transition": suite_transition,
     "stability":  suite_stability,
     "presets":    suite_presets,
+    "automation": suite_automation,
+    "journey":    suite_journey,
 }
 
 
@@ -1860,11 +1995,11 @@ def main() -> int:
     mode  = "QUICK" if args.quick else "FULL"
     combo_tag = f"  +{combo_count} combo" if combo_count > 0 else ""
 
-    print(f"\n{B}{'━'*65}")
+    print(f"\n{B}{'='*65}")
     print(f"  Mantice Audio Quality Test Suite  [{mode}{combo_tag}]")
     print(f"  SR={SR}Hz  chunk={CHUNK_SIZE}  duration={TEST_DURATION}s/test")
     print(f"  {total} tests across {len(set(t[0] for t in all_tests))} section(s)")
-    print(f"{'━'*65}{R}\n")
+    print(f"{'='*65}{R}\n")
 
     results: list[Result] = []
     current_sec = None
@@ -1874,7 +2009,7 @@ def main() -> int:
         if sec != current_sec:
             current_sec = sec
             label = _SECTION_LABELS.get(sec, sec)
-            print(f"\n  {B}{C}── {label} {'─'*(48 - len(label))}{R}")
+            print(f"\n  {B}{C}== {label} {'='*(48 - len(label))}{R}")
 
         r = run_test(sec, name, desc, fn, keep_audio=args.save_flagged, judge_fn=jfn)
         results.append(r)
