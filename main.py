@@ -519,7 +519,7 @@ def main() -> None:
             audio_data=audio,
             output_name=export_filename,
             format=args.format,
-            sample_rate=config.SAMPLE_RATE
+            sample_rate=_engine_config.SAMPLE_RATE
         )
         
         sizeMB = output_path.stat().st_size / (1024 * 1024)
