@@ -1746,12 +1746,12 @@ _SECTION_LABELS = {
 
 
 def print_result(r: Result, verbose: bool):
-    status = f"{G}✓{R}" if r.passed else f"{RE}✗{R}"
+    status = f"{G}OK{R}" if r.passed else f"{RE}X{R}"
     t_str  = f"{D}{r.elapsed:.1f}s{R}"
     print(f"  {status}  {r.name:<50} {t_str}")
     if not r.passed:
         for issue in r.issues:
-            print(f"       {Y}⚠  {issue}{R}")
+            print(f"       {Y}!  {issue}{R}")
         if r.error:
             for line in r.error.strip().split("\n")[-5:]:
                 print(f"       {D}{line}{R}")
@@ -2029,7 +2029,7 @@ def main() -> int:
         for r in results:
             if not r.passed:
                 iss = " | ".join(r.issues[:2])
-                print(f"    {RE}✗{R}  {r.section}/{r.name}  {D}{iss}{R}")
+                print(f"    {RE}X{R}  {r.section}/{r.name}  {D}{iss}{R}")
 
     if args.save_flagged:
         n_saved = save_flagged_renders(results)
