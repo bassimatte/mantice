@@ -173,7 +173,7 @@ def render_journey(
     # Peak normalization to prevent clipping
     peak = np.abs(audio).max()
     if peak > 0.0:
-        audio = audio / peak * 0.98  # slight headroom
+        audio = audio / peak * 0.95  # headroom for test threshold (0.98)
     
     return audio
 
