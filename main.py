@@ -11,6 +11,7 @@ Usage:
     python main.py --format flac               # export as FLAC (wav, flac, ogg, mp3)
     python main.py --seed 42                    # global reproducibility seed
     python main.py --auto-template journey      # apply automation template (journey/arc/breathe/meditate/sunrise/wander/trance/shimmer)
+    python main.py --journey-template drift     # render journey quick-set (drift/flow/pulse/ceremony/dawn/shimmer)
     python main.py --no-automation              # strip all automation (static render)
     python main.py --preview --name "Cavern"   # real-time preview to speakers
     python main.py --preview --infinite        # infinite drone, Ctrl+C to stop
@@ -377,6 +378,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--journey-template", type=str, default=None, metavar="TEMPLATE",
+        choices=["drift", "flow", "pulse", "ceremony", "dawn", "shimmer"],
+        help=(
+            "Render a journey quick-set: multi-preset sequence with timed morphs. "
+            "Options: drift (30s holds), flow (15s pingpong), pulse (8s rhythmic), "
+            "ceremony (60s sacred), dawn (20s one-shot), shimmer (4s fast). "
+            "Presets are auto-selected by keywords. Use with --duration for total length."
+        ),
+    )
+    parser.add_argument(
         "--no-automation", action="store_true",
         help="Strip all automation from the preset before rendering (render a static snapshot).",
     )
@@ -398,6 +409,111 @@ def main() -> None:
                 f"Error: {e}"
             )
         launch_gui()
+        return
+
+    # ── Journey Template mode ─────────────────────────────────────────────
+    if args.journey_template:
+        from engine.journey import render_journey
+        
+        # Journey template definitions
+        JOURNEY_TEMPLATES = {
+            "drift": {
+                "holdMin": 30, "morphMin": 12, "loop": "loop",
+                "keywords": ["forest", "rain", "ocean", "river", "wind", "nature", "ambient"],
+                "desc": "Very slow evolution — long holds, gradual morphs"
+            },
+            "flow": {
+                "holdMin": 15, "morphMin": 6, "loop": "pingpong",
+                "keywords": ["bowl", "bell", "gong", "singing", "crystal", "harmonic", "resonan"],
+                "desc": "Smooth back-and-forth ping-pong"
+            },
+            "pulse": {
+                "holdMin": 8, "morphMin": 2, "loop": "loop",
+                "keywords": ["drone", "bass", "low", "deep", "earth", "ground", "root"],
+                "desc": "Rhythmic cycling — shorter holds with crisp morphs"
+            },
+            "ceremony": {
+                "holdMin": 60, "morphMin": 20, "loop": "loop",
+                "keywords": ["sacred", "tibetan", "temple", "ritual", "ancient", "om", "mantra"],
+                "desc": "Monumental pace — very long holds, slow ceremonial transitions"
+            },
+            "dawn": {
+                "holdMin": 20, "morphMin": 8, "loop": "none",
+                "keywords": ["light", "morning", "dawn", "space", "celestial", "air", "rise"],
+                "desc": "One-time journey — plays through presets once"
+            },
+            "shimmer": {
+                "holdMin": 4, "morphMin": 1, "loop": "pingpong",
+                "keywords": ["shimmer", "bright", "crystal", "high", "sky", "glitter", "spark"],
+                "desc": "Fast ping-pong shimmer — short holds, quick morphs"
+            },
+        }
+        
+        template = JOURNEY_TEMPLATES[args.journey_template]
+        print(f"\n✨ Journey Template: {args.journey_template.upper()}")
+        print(f"   {template['desc']}")
+        print(f"   Hold: {template['holdMin']}s, Morph: {template['morphMin']}s, Loop: {template['loop']}\n")
+        
+        # Find presets matching keywords
+        all_presets = discover_presets()
+        if not all_presets:
+            sys.exit(f"No presets found in {PRESET_DIR}/")
+        
+        matched_presets = []
+        for keyword in template['keywords']:
+            for preset_path in all_presets:
+                if keyword.lower() in preset_path.stem.lower():
+                    if preset_path not in matched_presets:
+                        matched_presets.append(preset_path)
+                        if len(matched_presets) >= 4:  # Limit to 4 presets
+                            break
+            if len(matched_presets) >= 4:
+                break
+        
+        if len(matched_presets) < 2:
+            sys.exit(f"Could not find enough matching presets for template '{args.journey_template}'. "
+                    f"Keywords: {', '.join(template['keywords'])}")
+        
+        print(f"Selected {len(matched_presets)} presets:")
+        for i, p in enumerate(matched_presets, 1):
+            print(f"  {i}. {p.stem}")
+        print()
+        
+        # Build journey steps
+        steps = []
+        for preset_path in matched_presets:
+            steps.append({
+                "preset_path": str(preset_path),
+                "hold_s": template['holdMin'],
+                "morph_s": template['morphMin']
+            })
+        
+        # Calculate total duration if not specified
+        total_duration = args.duration
+        if total_duration is None:
+            step_duration = template['holdMin'] + template['morphMin']
+            if template['loop'] == 'none':
+                total_duration = step_duration * len(steps)
+            else:
+                total_duration = 300.0  # Default 5 minutes for loops
+            print(f"Total duration: {total_duration:.0f}s (use --duration to override)\n")
+        
+        # Render the journey
+        export_filename = f"MANTICE_Journey_{args.journey_template.capitalize()}"
+        if args.seed is not None:
+            export_filename += f"_seed{args.seed}"
+        
+        output_path = render_journey(
+            steps=steps,
+            loop_mode=template['loop'],
+            format=args.format,
+            seed=args.seed or 42,
+            output_filename=export_filename
+        )
+        
+        sizeMB = output_path.stat().st_size / (1024 * 1024)
+        print(f"\n✓ Journey rendered: {output_path.name} ({sizeMB:.1f} MB)")
+        print(f"   → {output_path}")
         return
 
     generated_dir = PRESET_DIR / "generated"
