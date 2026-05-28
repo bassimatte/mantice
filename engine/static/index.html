@@ -1584,6 +1584,30 @@ python batch_render_freesound.py
 # Regenerate metadata XLSX only (skip rendering)
 python batch_render_freesound.py --metadata-only</pre>
           <p style="font-size:11px;color:var(--text-dim);">Output goes to <code>exports/freesound/</code></p>
+          
+          <h4 style="margin-top:24px;">▸ Automation Templates</h4>
+          <p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Apply parameter automation curves to any preset:</p>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# Available: journey, arc, breathe, meditate, sunrise, wander, trance, shimmer
+python main.py --name "Om" --auto-template journey --duration 300
+python main.py --name "Crystal Bowl" --auto-template breathe --hires</pre>
+          <p style="font-size:11px;color:var(--text-dim);"><strong>journey:</strong> Fade-in, filter opens, reverb builds, binaural drifts alpha→delta<br>
+          <strong>arc:</strong> Sweeping rise and fall, full frequency journey<br>
+          <strong>breathe:</strong> Gentle pulsing, in-out cycles<br>
+          <strong>meditate:</strong> Ultra-slow drift, minimal movement</p>
+          
+          <h4 style="margin-top:24px;">▸ Journey Quick-Sets</h4>
+          <p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Render multi-preset sequences with auto-selected presets and timed crossfades:</p>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# Available: drift, flow, pulse, ceremony, dawn, shimmer
+python main.py --journey-template drift --duration 600 --hires
+python main.py --journey-template ceremony --format flac --seed 42</pre>
+          <p style="font-size:11px;color:var(--text-dim);"><strong>drift:</strong> 30s holds, 12s morphs — very slow evolution (forest/nature)<br>
+          <strong>flow:</strong> 15s holds, 6s morphs — smooth pingpong (singing bowls)<br>
+          <strong>pulse:</strong> 8s holds, 2s morphs — rhythmic cycling (drone/bass)<br>
+          <strong>ceremony:</strong> 60s holds, 20s morphs — monumental pace (sacred)<br>
+          <strong>dawn:</strong> 20s holds, 8s morphs — one-shot journey (light/celestial)<br>
+          <strong>shimmer:</strong> 4s holds, 1s morphs — fast shifting (bright/crystal)</p>
         </div>
 
         <p style="font-size:11px;color:var(--text-dim);margin-top:16px;text-align:center;">

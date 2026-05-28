@@ -851,6 +851,15 @@ python main.py --name "Breathing Cathedral"
 # Custom duration
 python main.py --name "Solar Choir" --duration 120
 
+# High-resolution (48kHz/24-bit)
+python main.py --name "Om" --hires --duration 120
+
+# Apply automation template
+python main.py --name "Crystal Bowl" --auto-template journey --duration 300
+
+# Render journey quick-set (multi-preset morphing)
+python main.py --journey-template drift --duration 600 --hires
+
 # Preview (real-time playback)
 python main.py --preview --name "Cathedral Ascension"
 
@@ -868,6 +877,39 @@ python main.py --name "Cavern" --format flac
 
 # Reproducible output
 python main.py --seed 42
+```
+
+### Automation Templates
+
+Apply pre-defined parameter automation curves to any preset:
+
+- `journey` — Fade-in, filter opens, reverb builds, binaural drifts alpha→delta
+- `arc` — Sweeping rise and fall, full frequency journey
+- `breathe` — Gentle pulsing, in-out cycles
+- `meditate` — Ultra-slow drift, minimal movement
+- `sunrise` — Gradual brightening, low→high frequency shift
+- `wander` — Random walk, seeded smooth chaos
+- `trance` — Rhythmic cycling, hypnotic patterns
+- `shimmer` — Fast high-frequency modulation
+
+### Journey Templates
+
+Render multi-preset sequences with auto-selected presets and timed crossfades:
+
+- `drift` (30s holds, 12s morphs, loop) — Very slow evolution for meditation/sleep
+- `flow` (15s holds, 6s morphs, pingpong) — Smooth back-and-forth breathing texture
+- `pulse` (8s holds, 2s morphs, loop) — Rhythmic cycling with crisp morphs
+- `ceremony` (60s holds, 20s morphs, loop) — Monumental pace, very long holds
+- `dawn` (20s holds, 8s morphs, one-shot) — One-time journey, no loop
+- `shimmer` (4s holds, 1s morphs, pingpong) — Fast shifting, constantly morphing
+
+Each template auto-selects 2-4 presets matching its keywords (e.g., "forest", "rain" for drift).
+
+```bash
+# Examples
+python main.py --journey-template drift --duration 600 --hires
+python main.py --journey-template ceremony --format flac --seed 42
+python main.py --journey-template shimmer --duration 300
 ```
 
 ## Requirements
