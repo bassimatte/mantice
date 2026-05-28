@@ -12,14 +12,14 @@ Renders short clips of every configuration and detects:
   - DC offset
 
 Usage:
-    py -3 test_audio_quality.py                 # full suite (~350 tests, ~10 min)
-    py -3 test_audio_quality.py --quick         # fast subset (~70 tests, ~2 min)
+    py -3 test_audio_quality.py                 # full suite (~380 tests, ~10 min)
+    py -3 test_audio_quality.py --quick         # fast subset (~80 tests, ~2 min)
     py -3 test_audio_quality.py --section gran  # one section only
     py -3 test_audio_quality.py --save-flagged  # write failed renders to test_flagged/
     py -3 test_audio_quality.py --verbose       # print metrics for passing tests too
 
 Sections: fm | sub | gran | fx | binaural | master | spatial | unison | layer_fx | 
-          transition | stability | presets | automation | journey
+          transition | stability | presets | automation | journey | edge_cases
 """
 
 import argparse
@@ -774,6 +774,38 @@ def suite_sub(quick: bool) -> list[tuple]:
     tests.append(("square_high_detune", "Sub square waveform + 50ct detune (beating)",
                    lambda _p=p: render(_p)))
 
+    # ── Extended coverage: voice counts ──────────────────────────────────────
+    for voices in ([1, 2, 4, 8] if not quick else [1, 4]):
+        p = _preset([_sub(voices=voices, waveform="saw")])
+        tests.append((f"voices_{voices}", f"Sub voices={voices}",
+                       lambda _p=p: render(_p)))
+
+    # ── Extended coverage: drift extremes ────────────────────────────────────
+    for drift in ([0.0, 0.001, 0.01, 0.05, 0.2] if not quick else [0.0, 0.05]):
+        p = _preset([_sub(drift=drift, waveform="saw")])
+        tests.append((f"drift_{drift}", f"Sub drift={drift}",
+                       lambda _p=p: render(_p)))
+
+    # ── Extended coverage: band selection ────────────────────────────────────
+    for band in (["sub", "mid", "high"] if not quick else ["sub", "high"]):
+        root = 55 if band == "sub" else (220 if band == "mid" else 880)
+        p = _preset([_sub(band=band, root=root, waveform="square")])
+        tests.append((f"band_{band}", f"Sub band={band} root={root}Hz",
+                       lambda _p=p: render(_p)))
+
+    # ── Extended coverage: root frequency extremes ───────────────────────────
+    for root in ([27.5, 55, 110, 440, 880] if not quick else [27.5, 880]):
+        p = _preset([_sub(root=root, waveform="saw")])
+        tests.append((f"root_{root}Hz", f"Sub root={root}Hz",
+                       lambda _p=p: render(_p)))
+
+    # ── Extended coverage: formant filters ───────────────────────────────────
+    if not quick:
+        for vowel in ["a", "e", "i", "o", "u"]:
+            p = _preset([_sub(filter_type="formant", filter_vowel=vowel)])
+            tests.append((f"formant_{vowel}", f"Sub formant vowel={vowel}",
+                           lambda _p=p: render(_p)))
+
     return tests
 
 
@@ -897,6 +929,27 @@ def suite_gran(quick: bool) -> list[tuple]:
                             pitch_semitones=0)])
         tests.append((f"sample_root_{root_hz:.0f}hz",
                        f"Gran sample_root_hz={root_hz:.0f}Hz",
+                       lambda _p=p: render(_p)))
+
+    # ── Extended coverage: multiple voices with ratios ──────────────────────
+    if not quick:
+        p = _preset([_gran(voices=4, ratios=[1.0, 1.5, 2.0, 3.0], source="throat_singing.ogg")])
+        tests.append(("gran_4voice_ratios", "Gran 4 voices with harmonic ratios",
+                       lambda _p=p: render(_p)))
+
+        p = _preset([_gran(voices=8, ratios=[1.0, 2.0], pitch_spread=0.8)])
+        tests.append(("gran_8voice_spread", "Gran 8 voices with pitch spread",
+                       lambda _p=p: render(_p)))
+
+    # ── Extended coverage: mix parameter ─────────────────────────────────────
+    # mix=0 means no granular output (silence expected)
+    p = _preset([_gran(mix=0.0, source="metal_resonance.ogg")])
+    tests.append(("mix_0.0", "Gran mix=0 (silence expected)",
+                   lambda _p=p: render(_p), judge_expect_silence))
+    
+    for mix in ([0.5, 1.0] if not quick else [1.0]):
+        p = _preset([_gran(mix=mix, source="metal_resonance.ogg")])
+        tests.append((f"mix_{mix}", f"Gran mix={mix}",
                        lambda _p=p: render(_p)))
 
     return tests
@@ -1954,6 +2007,96 @@ def suite_journey(quick: bool) -> list[tuple]:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Section: Edge Cases
+# ═════════════════════════════════════════════════════════════════════════════
+
+def suite_edge_cases(quick: bool) -> list[tuple]:
+    """
+    Edge case tests: extreme parameters, boundary conditions, duration extremes.
+    Tests unusual but valid configurations to ensure robustness.
+    """
+    tests = []
+    
+    # ── Duration extremes ─────────────────────────────────────────────────────
+    if not quick:
+        # Very short duration (0.5s)
+        p = _preset([_fm(root=220)])
+        tests.append(("duration_short_0.5s", "FM 0.5s duration",
+                       lambda _p=p: render(_p, duration=0.5)))
+        
+        # Medium duration (1s)
+        p = _preset([_sub(waveform="saw")])
+        tests.append(("duration_medium_1s", "Sub 1s duration",
+                       lambda _p=p: render(_p, duration=1.0)))
+        
+        # Long duration (30s)
+        p = _preset([_gran("singing_bowl.ogg")])
+        tests.append(("duration_long_30s", "Gran 30s duration",
+                       lambda _p=p: render(_p, duration=30.0)))
+    
+    # ── Extreme parameter values ──────────────────────────────────────────────
+    # Extreme FM index (normally 0-5, test 20)
+    p = _preset([_fm(fm_index=20.0, root=110)])
+    tests.append(("fm_index_extreme_20", "FM extreme fm_index=20",
+                   lambda _p=p: render(_p)))
+    
+    # Extreme filter resonance (normally 1-8, test 15)
+    p = _preset([_sub(filter_type="bp", filter_cutoff=1000, filter_resonance=15.0)])
+    tests.append(("filter_q_extreme_15", "Sub extreme resonance=15",
+                   lambda _p=p: render(_p)))
+    
+    # Very high voice count (32 voices)
+    if not quick:
+        p = _preset([_fm(voices=32, root=220)])
+        tests.append(("voices_extreme_32", "FM 32 voices",
+                       lambda _p=p: render(_p)))
+        
+        p = _preset([_sub(voices=16, waveform="square")])
+        tests.append(("sub_voices_16", "Sub 16 voices",
+                       lambda _p=p: render(_p)))
+    
+    # Extreme drift (normally 0.001-0.05, test 0.5)
+    p = _preset([_fm(drift=0.5, root=220)])
+    tests.append(("drift_extreme_0.5", "FM extreme drift=0.5",
+                   lambda _p=p: render(_p)))
+    
+    # ── Zero and null edge cases ──────────────────────────────────────────────
+    # Zero FM index (should behave like sine wave)
+    p = _preset([_fm(fm_index=0.0, root=220)])
+    tests.append(("fm_index_zero", "FM fm_index=0 (sine wave)",
+                   lambda _p=p: render(_p)))
+    
+    # Zero drift (locked oscillators)
+    p = _preset([_fm(drift=0.0, voices=4)])
+    tests.append(("drift_zero", "FM drift=0 (locked)",
+                   lambda _p=p: render(_p)))
+    
+    # Zero detune on subtractive (both oscillators same freq)
+    p = _preset([_sub(detune_cents=0, waveform="saw")])
+    tests.append(("detune_zero", "Sub detune=0 (unison)",
+                   lambda _p=p: render(_p)))
+    
+    # Zero sub_mix (no sub-oscillator)
+    p = _preset([_sub(sub_mix=0.0, waveform="square")])
+    tests.append(("sub_mix_zero", "Sub sub_mix=0 (no sub-osc)",
+                   lambda _p=p: render(_p)))
+    
+    # ── Extreme combinations ──────────────────────────────────────────────────
+    # High voices + high FM index + high drift
+    p = _preset([_fm(voices=16, fm_index=10.0, drift=0.1, root=110)])
+    tests.append(("combo_extreme_fm", "FM extreme combo (16v + idx10 + drift0.1)",
+                   lambda _p=p: render(_p)))
+    
+    # Granular: tiny grain + very high density
+    if not quick:
+        p = _preset([_gran(grain_size=3, density=100, source="singing_bowl.ogg")])
+        tests.append(("gran_extreme_density", "Gran extreme (3ms grain, 100/s density)",
+                       lambda _p=p: render(_p)))
+    
+    return tests
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Main
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -1972,6 +2115,7 @@ SUITES = {
     "presets":    suite_presets,
     "automation": suite_automation,
     "journey":    suite_journey,
+    "edge_cases": suite_edge_cases,
 }
 
 
