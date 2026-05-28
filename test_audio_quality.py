@@ -2020,7 +2020,7 @@ def main() -> int:
     passed = sum(1 for r in results if r.passed)
     failed = total - passed
 
-    print(f"\n{B}{'━'*65}")
+    print(f"\n{B}{'='*65}")
     print(f"  {G}{passed} passed{R}  {(RE+str(failed)+' failed'+R) if failed else str(failed)+' failed'}  "
           f"/ {total} total  ({total_time:.0f}s)")
 
@@ -2034,9 +2034,9 @@ def main() -> int:
     if args.save_flagged:
         n_saved = save_flagged_renders(results)
         if n_saved:
-            print(f"\n  {Y}⬇  Saved {n_saved} flagged render(s) → {FLAGGED_DIR}{R}")
+            print(f"\n  {Y}->  Saved {n_saved} flagged render(s) -> {FLAGGED_DIR}{R}")
 
-    print(f"{'━'*65}{R}\n")
+    print(f"{'='*65}{R}\n")
     return 0 if failed == 0 else 1
 
 
