@@ -652,6 +652,20 @@ async def index():
     return html_path.read_text(encoding="utf-8")
 
 
+@app.get("/favicon.ico")
+async def favicon_ico():
+    """Serve favicon.ico to avoid 404 errors in browser console."""
+    favicon_path = _STATIC_DIR / "favicon.ico"
+    return FileResponse(favicon_path, media_type="image/x-icon")
+
+
+@app.get("/favicon.png")
+async def favicon_png():
+    """Serve PNG favicon for modern browsers."""
+    favicon_path = _STATIC_DIR / "favicon.png"
+    return FileResponse(favicon_path, media_type="image/png")
+
+
 @app.get("/api/presets")
 async def list_presets():
     loop = asyncio.get_event_loop()
