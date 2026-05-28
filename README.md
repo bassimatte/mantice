@@ -78,6 +78,44 @@ Global (after all layers are mixed):
 
 ---
 
+## ⚡ Performance
+
+MANTICE renders **2-3x faster than realtime** across all synthesis modes, with excellent memory efficiency.
+
+### Rendering Speed (6s renders @ 48kHz)
+
+| Mode | Realtime Factor | Render Time | Description |
+|------|-----------------|-------------|-------------|
+| **FM** | **75x** realtime | 0.08s | Fastest — pure FM synthesis |
+| **Granular** | **59x** realtime | 0.10s | Excellent — sample-based |
+| **Subtractive** | **52x** realtime | 0.12s | Great — saw/square waveforms |
+| **Multi-layer** | **24x** realtime | 0.25s | Fast — 3 layers combined |
+
+**All modes exceed realtime by a wide margin** — you can render hours of audio in seconds.
+
+### Memory Usage (30s renders @ 48kHz)
+
+| Mode | Peak Memory | Init Memory | Notes |
+|------|-------------|-------------|-------|
+| FM / Sub | ~45 MB | ~660 KB | Minimal footprint |
+| Gran / Multi | ~49 MB | ~5 MB | Includes sample loading |
+
+- ✅ **No memory leaks** — Linear scaling, predictable behavior
+- ✅ **Efficient** — Only 2x audio size overhead
+- ✅ **Segmented rendering available** — For very long renders (>60s)
+
+### Optimization Details
+
+See [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) and [MEMORY_REPORT.md](MEMORY_REPORT.md) for detailed profiling data.
+
+**Key Optimizations:**
+- Pre-computed compression parameters (2-3x speedup)
+- Stateful filter processing (zero-copy streaming)
+- NumPy vectorization throughout
+- Efficient chunk-based rendering
+
+---
+
 ## 🎛 Features
 
 - **FM Synthesis** — up to 12 detuned voices per layer with configurable harmonics and harmonic decay
