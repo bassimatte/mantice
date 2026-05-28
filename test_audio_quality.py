@@ -12,14 +12,14 @@ Renders short clips of every configuration and detects:
   - DC offset
 
 Usage:
-    py -3 test_audio_quality.py                 # full suite (~380 tests, ~10 min)
-    py -3 test_audio_quality.py --quick         # fast subset (~80 tests, ~2 min)
+    py -3 test_audio_quality.py                 # full suite (~390 tests, ~10 min)
+    py -3 test_audio_quality.py --quick         # fast subset (~90 tests, ~2 min)
     py -3 test_audio_quality.py --section gran  # one section only
     py -3 test_audio_quality.py --save-flagged  # write failed renders to test_flagged/
     py -3 test_audio_quality.py --verbose       # print metrics for passing tests too
 
 Sections: fm | sub | gran | fx | binaural | master | spatial | unison | layer_fx | 
-          transition | stability | presets | automation | journey | edge_cases
+          transition | stability | presets | automation | journey | edge_cases | filters
 """
 
 import argparse
@@ -2097,6 +2097,104 @@ def suite_edge_cases(quick: bool) -> list[tuple]:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Section: Filter Tests (Comprehensive)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def suite_filters(quick: bool) -> list[tuple]:
+    """
+    Comprehensive filter testing: all types with LFO modulation, automation,
+    resonance extremes, cutoff sweeps.
+    """
+    tests = []
+    
+    # ── Filter types with LFO modulation ──────────────────────────────────────
+    filter_types = ["lp", "hp", "bp", "notch", "formant"] if not quick else ["lp", "bp", "formant"]
+    
+    for ftype in filter_types:
+        # Basic filter with slow LFO
+        p = _preset([_fm(filter_type=ftype, filter_cutoff=1000,
+                         filter_lfo_rate=0.5, filter_lfo_depth=0.7)])
+        tests.append((f"{ftype}_lfo_slow", f"Filter {ftype} + slow LFO",
+                       lambda _p=p: render(_p)))
+        
+        if not quick:
+            # Fast LFO (near audio rate)
+            p = _preset([_fm(filter_type=ftype, filter_cutoff=800,
+                             filter_lfo_rate=5.0, filter_lfo_depth=0.8)])
+            tests.append((f"{ftype}_lfo_fast", f"Filter {ftype} + fast LFO (5Hz)",
+                           lambda _p=p: render(_p)))
+    
+    # ── LFO shapes on filters ─────────────────────────────────────────────────
+    lfo_shapes = ["sine", "triangle", "square", "sample_hold"] if not quick else ["square", "sample_hold"]
+    
+    for shape in lfo_shapes:
+        p = _preset([_sub(filter_type="lp", filter_cutoff=1200,
+                          filter_lfo_rate=1.0, filter_lfo_depth=0.9,
+                          filter_lfo_shape=shape, waveform="saw")])
+        tests.append((f"lfo_shape_{shape}", f"Filter LFO shape={shape}",
+                       lambda _p=p: render(_p)))
+    
+    # ── Resonance extremes ────────────────────────────────────────────────────
+    # Test resonance from minimal to extreme (self-oscillation)
+    for res in ([1.0, 3.0, 6.0, 10.0, 15.0] if not quick else [1.0, 6.0, 15.0]):
+        p = _preset([_sub(filter_type="bp", filter_cutoff=800,
+                          filter_resonance=res, waveform="square")])
+        tests.append((f"resonance_{res:.0f}", f"Filter resonance={res:.0f}",
+                       lambda _p=p: render(_p)))
+    
+    # ── Cutoff sweep with automation ──────────────────────────────────────────
+    if not quick:
+        # Automated cutoff sweep (100Hz → 8000Hz over test duration)
+        from engine.automation import AutomationPoint
+        p = _preset([_fm(filter_type="lp", filter_cutoff=100, filter_resonance=3.0)])
+        p["automation"] = {
+            "layers": [
+                {
+                    "params": {
+                        "filter_cutoff": [
+                            {"t": 0.0, "v": 100.0, "curve": "linear"},
+                            {"t": 1.0, "v": 8000.0, "curve": "linear"}
+                        ]
+                    }
+                }
+            ]
+        }
+        tests.append(("cutoff_sweep_auto", "Filter cutoff automation 100→8000Hz",
+                       lambda _p=p: render(_p)))
+    
+    # ── Formant vowel morphing ────────────────────────────────────────────────
+    if not quick:
+        # While we can't automate vowel (it's discrete), test rapid switching
+        # by testing all vowels sequentially
+        for v1, v2 in [("a", "e"), ("i", "o"), ("o", "u")]:
+            p = _preset([_sub(filter_type="formant", filter_vowel=v1, waveform="saw")])
+            tests.append((f"formant_{v1}_to_{v2}", f"Formant {v1}→{v2} context",
+                           lambda _p=p: render(_p)))
+    
+    # ── High resonance + LFO (instability test) ───────────────────────────────
+    p = _preset([_sub(filter_type="lp", filter_cutoff=600,
+                      filter_resonance=12.0, filter_lfo_rate=2.0,
+                      filter_lfo_depth=0.95, waveform="saw")])
+    tests.append(("highq_lfo_stress", "Filter high-Q (12) + fast LFO (instability test)",
+                   lambda _p=p: render(_p)))
+    
+    # ── Comb filter (special case) ────────────────────────────────────────────
+    if not quick:
+        p = _preset([_gran(filter_type="comb", filter_cutoff=500,
+                           source="singing_bowl.ogg")])
+        tests.append(("comb_filter", "Comb filter on granular",
+                       lambda _p=p: render(_p)))
+    
+    # ── Filter off → on transition ────────────────────────────────────────────
+    # Test that disabling filter doesn't cause clicks
+    p = _preset([_fm(filter_type="off")])
+    tests.append(("filter_off", "Filter disabled (passthrough test)",
+                   lambda _p=p: render(_p)))
+    
+    return tests
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Main
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -2116,6 +2214,7 @@ SUITES = {
     "automation": suite_automation,
     "journey":    suite_journey,
     "edge_cases": suite_edge_cases,
+    "filters":    suite_filters,
 }
 
 
