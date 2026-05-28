@@ -382,7 +382,8 @@ class StreamingSubtractiveLayer:
     Classic Reese bass and other filter-based drone textures.
     """
 
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: dict, sample_rate: int = None):
+        self.SR = sample_rate or SR  # Use passed SR or fallback to module default
         self.cfg = cfg
         n_voices = max(1, int(cfg.get("voices", 2)))
         self.waveform = cfg.get("waveform", "saw")
@@ -456,8 +457,8 @@ class StreamingSubtractiveLayer:
                 - np.float32(1.0)
             ).astype(np.float32)
 
-        t  = p / (2 * np.pi)                              # (n_voices, n_samples)
-        dt = np.clip(freqs_hz / SR, 1e-6, 0.5)[:, None]  # (n_voices, 1)
+        t  = p / (2 * np.pi)                                  # (n_voices, n_samples)
+        dt = np.clip(freqs_hz / self.SR, 1e-6, 0.5)[:, None]  # (n_voices, 1)
 
         def _polyblep(t_arr):
             """2nd-order PolyBLEP correction at t=0 transition."""
@@ -489,7 +490,7 @@ class StreamingSubtractiveLayer:
         return (saw - correction).astype(np.float32)
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
-        dt = np.float32(1.0 / SR)
+        dt = np.float32(1.0 / self.SR)
         t = np.arange(n_samples, dtype=np.float32) * dt
 
         drift_phases = self.drift_phases[:, None] + (2 * np.pi * self.drift_rates[:, None] * t[None, :])
