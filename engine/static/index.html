@@ -5471,7 +5471,7 @@ async function doRender() {
   }, 1000);
 
   const fmt = $('format').value;
-  const hires = $('hires-toggle').dataset.state === '1';
+  // hires already declared above for validation
   try {
     const controller = new AbortController();
     // No timeout — render can take minutes for long durations
