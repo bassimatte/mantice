@@ -1287,7 +1287,7 @@ main {
       </div>
       <div class="settings-row">
         <span class="settings-label">Hi-Res</span>
-        <div class="toggle" id="hires-toggle" title="48kHz / 24-bit"></div>
+        <div class="toggle" id="hires-toggle" title="48kHz / 24-bit (web UI limited to 30s; use python main.py --hires for longer renders)"></div>
         <span style="font-size:10px; color:var(--text-dim)">48k / 24b</span>
       </div>
       <div class="settings-row" style="margin-top:4px">
@@ -5424,6 +5424,15 @@ async function doRender() {
   stopAudio();
 
   const duration = parseFloat($('duration').value);
+  const hires = $('hires-toggle').dataset.state === '1';
+  
+  // Limit hi-res renders to 30 seconds (memory constraint on Render.com)
+  if (hires && duration > 30) {
+    setStatus('Hi-Res limited to 30s (use CLI for longer renders)');
+    setTimeout(() => setStatus(''), 3000);
+    return;
+  }
+  
   setStatus(`RENDERING ${duration}s…`);
   setProgress(0);
 
@@ -5512,7 +5521,7 @@ async function doRender() {
     decodeCtx.close();
     drawStaticAurora(renderedBuffer);
     showRenderedSpectrum(renderedBuffer);
-    doPreview(); // resume streaming after render download
+    // Don't auto-start streaming after render - let user click Play manually
 
     const sizeMB = (blob.size / (1024*1024)).toFixed(1);
     setStatus(`✓ Downloaded: ${filename} (${sizeMB} MB)`);
