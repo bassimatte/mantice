@@ -41,12 +41,26 @@ def _scurve(n: int) -> np.ndarray:
 def _crossfade(engine_a: StreamingDroneEngine,
                engine_b: StreamingDroneEngine,
                morph_s: float) -> np.ndarray:
-    """S-curve crossfade from engine_a to engine_b over morph_s seconds."""
+    """S-curve crossfade from engine_a to engine_b over morph_s seconds.
+    
+    Enforces minimum morph duration and warm-up period to eliminate clicks.
+    """
     # Use engine_a's sample rate (both should match)
     SR = engine_a.SR
+    
+    # Enforce minimum morph duration for smooth transitions (prevent clicks)
+    MIN_MORPH_S = 3.0  # 3 seconds minimum
+    morph_s = max(morph_s, MIN_MORPH_S)
+    
     n = int(morph_s * SR)
     if n <= 0:
         return np.zeros((0, 2), dtype=np.float32)
+    
+    # Warm up engine_b: render and discard 500ms to fill reverb + stabilize filters
+    # This eliminates cold-start clicks and "empty" reverb artifacts
+    warmup_samples = int(0.5 * SR)  # 500ms warmup
+    _ = _render_n_samples(engine_b, warmup_samples)  # discard
+    
     fade  = _scurve(n)
     audio_a = np.clip(_render_n_samples(engine_a, n), -1.0, 1.0)
     audio_b = np.clip(_render_n_samples(engine_b, n), -1.0, 1.0)
