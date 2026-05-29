@@ -1483,8 +1483,8 @@ class LayerDistortion:
             else:  # soft (tanh)
                 return np.tanh(x * d) / np.tanh(d)
         
-        # Apply oversampling (2× for memory efficiency on cloud deployments)
-        out = _oversample_waveshaper(stereo, waveshaper, factor=2)
+        # Apply waveshaper directly (oversampling removed - caused clicks at chunk boundaries)
+        out = waveshaper(stereo)
         
         # Post-waveshaper anti-aliasing filter (still useful for PolyBLEP residuals)
         if self._aa_sos is not None:
@@ -1735,11 +1735,8 @@ class StreamingDroneEngine:
             drive = 1.0 + self.saturation * 3.0
             norm = np.tanh(drive)
             
-            # R3: Use oversampling for global saturation (2× for memory efficiency)
-            def saturation_fn(x):
-                return np.tanh(x * drive) / norm
-            
-            stereo = _oversample_waveshaper(stereo, saturation_fn, factor=2)
+            # Apply global saturation (oversampling removed - caused clicks at chunk boundaries)
+            stereo = np.tanh(stereo * drive) / norm
 
         # FDN reverb — only processes synthesized drone layers
         # MANT-9: apply global automation for reverb
@@ -2190,10 +2187,8 @@ class _ShallowCopy:
             norm = np.tanh(drive)
             
             # R3: Use oversampling for global saturation (2× for memory efficiency)
-            def saturation_fn(x):
-                return np.tanh(x * drive) / norm
-            
-            stereo = _oversample_waveshaper(stereo, saturation_fn, factor=2)
+            # Apply global saturation (oversampling removed - caused clicks at chunk boundaries)
+            stereo = np.tanh(stereo * drive) / norm
 
         stereo = self._reverb.next_chunk(stereo)
         stereo = self._shimmer.next_chunk(stereo)
