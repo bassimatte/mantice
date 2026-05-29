@@ -131,15 +131,25 @@ def build_tags(preset: dict) -> str:
         tags.extend(["granular", "sample-based"])
     
     # Effect tags (check what's enabled)
-    if preset.get("binaural", {}).get("enabled"):
+    # Handle both dict and None values for effects
+    binaural = preset.get("binaural")
+    if binaural and isinstance(binaural, dict) and binaural.get("enabled"):
         tags.extend(["binaural", "brainwave"])
-    if preset.get("reverb", {}).get("enabled"):
+    
+    reverb = preset.get("reverb")
+    if reverb and isinstance(reverb, dict) and reverb.get("enabled"):
         tags.append("reverb")
-    if preset.get("earth", {}).get("enabled"):
+    
+    earth = preset.get("earth")
+    if earth and isinstance(earth, dict) and earth.get("enabled"):
         tags.append("sub-bass")
-    if preset.get("air", {}).get("enabled"):
+    
+    air = preset.get("air")
+    if air and isinstance(air, dict) and air.get("enabled"):
         tags.append("shimmer")
-    if preset.get("phaser", {}).get("enabled"):
+    
+    phaser = preset.get("phaser")
+    if phaser and isinstance(phaser, dict) and phaser.get("enabled"):
         tags.append("phaser")
     
     # Spatial tags
