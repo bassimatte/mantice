@@ -2510,6 +2510,11 @@ function renderPresetList() {
         document.querySelectorAll('.preset-item').forEach(e => e.classList.remove('active'));
         el.classList.add('active');
         currentParams = sharedPresetEntry.params;
+        
+        // Clear journey state when loading a single preset
+        currentJourney = { steps: [], loop: 'none' };
+        _currentMorphingStep = -1;
+        
         applyParamsToUI(currentParams);
         markClean();
         updateNowPlaying();
@@ -2538,6 +2543,11 @@ function renderPresetList() {
       currentParams = entry.params;
       currentPresetPath = null;
       currentSharedId = null;
+      
+      // Clear journey state when loading a single preset
+      currentJourney = { steps: [], loop: 'none' };
+      _currentMorphingStep = -1;
+      
       applyParamsToUI(currentParams);
       markClean();
       updateNowPlaying(entry.name);
@@ -2559,6 +2569,11 @@ async function loadPreset(path, el) {
   currentSharedId = null; // loading an official preset clears shared context
   renderedBuffer = null; // clear so Play does preview, not old render
   _autoCtx = null;        // reset automation context to current preset
+  
+  // Clear journey state when loading a single preset
+  currentJourney = { steps: [], loop: 'none' };
+  _currentMorphingStep = -1;
+  
   applyParamsToUI(currentParams);
   if (!isStreaming) stopAurora();  // don't kill waveform if audio is still playing
   markClean();
@@ -2582,6 +2597,11 @@ async function loadCommunityPreset(id, el) {
   currentPresetPath = null;
   currentSharedId = id;
   renderedBuffer = null;
+  
+  // Clear journey state when loading a single preset
+  currentJourney = { steps: [], loop: 'none' };
+  _currentMorphingStep = -1;
+  
   applyParamsToUI(currentParams);
   if (!isStreaming) stopAurora();
   markClean();
