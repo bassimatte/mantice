@@ -1,0 +1,21 @@
+# Test for FM phase coherence (no timbre changes at boundaries)
+duration: 90
+
+layers:
+  - type: fm
+    enabled: true
+    voices: 12
+    fc: 110.0
+    index: 3.0
+    ratio: 2.01
+    detune: 0.05
+    drift: 0.3
+    amp: 0.6
+    stereo_width: 0.9
+
+reverb:
+  enabled: true
+  space: plate
+  mix: 0.4
+
+saturation: 0.3
