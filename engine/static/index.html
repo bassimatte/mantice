@@ -5777,11 +5777,14 @@ async function doSharePreset() {
     currentSharedId = data.id;
     savedParamsSnapshot = JSON.stringify(collectParams()); // now "clean" relative to this share
     // Immediately inject into allPresets so it appears in Community sidebar without reload
-    const displayName = data.id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ').trim();
+    // Use the preset name from the manifest, not derived from ID
+    const displayName = data.name || data.id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ').trim();
     if (!allPresets.find(p => p.id === data.id)) {
       allPresets.push({ name: displayName, id: data.id, source: 'community', category: 'community', tags: [], path: `shared/${data.id}.yaml`, filename: `${data.id}.yaml` });
       renderPresetList();
     }
+    // Invalidate gallery cache so newly shared preset appears immediately
+    galleryPresets = [];
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + data.id;
     await navigator.clipboard.writeText(shareUrl);
     setStatus('🔗 Link copied! — #shared=' + data.id);

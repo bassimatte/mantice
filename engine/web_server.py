@@ -1459,11 +1459,27 @@ async def share_preset_endpoint(request: Request):
                 existing_names.add(v.lower())  # old format: "Preset Name"
             elif isinstance(v, dict):
                 existing_names.add(v.get("name", "").lower())  # new format: {"name": "...", "author": "..."}
-        # Pick a name not already in use (up to 20 attempts)
-        for _ in range(20):
-            preset_name = _random_name()
-            if preset_name.lower() not in existing_names:
-                break
+        
+        # Use the user's preset name if it exists and is meaningful, otherwise generate one
+        user_name = params.get("name", "").strip()
+        generic_names = ['MANTICE', 'Untitled', 'untitled', '']
+        if user_name and user_name not in generic_names:
+            # User has a meaningful name, use it (add suffix if duplicate)
+            preset_name = user_name
+            if preset_name.lower() in existing_names:
+                # Add a numeric suffix to avoid collision
+                for i in range(2, 100):
+                    candidate = f"{preset_name} ({i})"
+                    if candidate.lower() not in existing_names:
+                        preset_name = candidate
+                        break
+        else:
+            # No meaningful name, generate a random one (up to 20 attempts)
+            for _ in range(20):
+                preset_name = _random_name()
+                if preset_name.lower() not in existing_names:
+                    break
+        
         preset_data["meta"]["name"] = preset_name
         preset_data["meta"]["author"] = author  # NEW: Store author in YAML metadata
         safe_name = "".join(c for c in preset_name if c.isalnum() or c in " -_").strip().replace(" ", "_")
@@ -1522,7 +1538,7 @@ async def share_preset_endpoint(request: Request):
             await loop.run_in_executor(None, lambda: _update_shared_manifest({file_id: manifest_entry}))
         except Exception:
             pass
-        return JSONResponse({"ok": True, "id": file_id})
+        return JSONResponse({"ok": True, "id": file_id, "name": preset_name})
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()
         return JSONResponse({"ok": False, "error": f"GitHub API error {e.code}: {err_body}"}, status_code=500)
