@@ -45,6 +45,7 @@ from engine.automation       import apply_auto_template, strip_automation, TEMPL
 from engine                  import config as _engine_config
 
 PRESET_DIR = Path("presets")
+SHARED_DIR = Path("shared")
 EXPORT_DIR = Path("exports")
 
 EXPORT_DIR.mkdir(exist_ok=True)
@@ -58,9 +59,18 @@ CSV_COLUMNS = [
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def discover_presets() -> List[Path]:
-    if not PRESET_DIR.exists():
-        return []
-    return sorted(PRESET_DIR.rglob("*.yaml"))
+    """Discover all presets from both official (presets/) and community (shared/) folders."""
+    presets = []
+    
+    # Official presets
+    if PRESET_DIR.exists():
+        presets.extend(PRESET_DIR.rglob("*.yaml"))
+    
+    # Community presets
+    if SHARED_DIR.exists():
+        presets.extend(SHARED_DIR.glob("*.yaml"))  # Non-recursive for shared/
+    
+    return sorted(presets)
 
 
 def apply_seed(preset: dict, cli_seed: Optional[int]) -> None:
@@ -258,8 +268,8 @@ def run(
 
 def list_presets(preset_paths: List[Path]) -> None:
     """Print available presets in a readable table."""
-    print(f"{'#':<4} {'Name':<30} {'Category':<14} {'Duration':<10} Path")
-    print("─" * 90)
+    print(f"{'#':<4} {'Name':<30} {'Source':<12} {'Category':<14} {'Duration':<8} Path")
+    print("─" * 110)
     for i, p in enumerate(preset_paths, 1):
         try:
             with warnings.catch_warnings(record=True):
@@ -269,10 +279,22 @@ def list_presets(preset_paths: List[Path]) -> None:
             name = meta.get("name", p.stem)
             cat  = meta.get("category", "—")
             dur  = f"{preset['duration']:.0f}s"
+            # Check if community preset
+            source = "Community" if p.parts[0] == "shared" else "Official"
+            # Add author for community presets
+            if source == "Community":
+                author = meta.get("author", "")
+                if author:
+                    name = f"{name} (by {author})"
         except Exception:
             name, cat, dur = p.stem, "?", "?"
-        print(f"{i:<4} {name:<30} {cat:<14} {dur:<10} {p}")
-    print(f"\n{len(preset_paths)} preset(s) found.")
+            source = "Community" if p.parts[0] == "shared" else "Official"
+        print(f"{i:<4} {name:<30} {source:<12} {cat:<14} {dur:<8} {p}")
+    
+    # Summary
+    official_count = sum(1 for p in preset_paths if p.parts[0] != "shared")
+    community_count = sum(1 for p in preset_paths if p.parts[0] == "shared")
+    print(f"\n{len(preset_paths)} preset(s) found: {official_count} official, {community_count} community.")
 
 
 def find_preset_by_name(preset_paths: List[Path], name: str) -> List[Path]:
