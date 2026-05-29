@@ -1001,120 +1001,80 @@ async def render_endpoint(request: Request):
             nonlocal render_sr
             
             # SEGMENTED RENDERING: Split long renders into chunks to stay under 512MB
-            # Each segment is 10s max (conservative for 512MB limit with all effects)
-            SEGMENT_DURATION = 10.0  # seconds per segment
+            # FIXED: Keep ONE engine alive and stream chunks to file instead of creating
+            # fresh engines per segment. This preserves automation continuity, reverb tails,
+            # FM phase continuity, and limiter state.
+            SEGMENT_DURATION = 60.0  # seconds per segment write (memory management)
             total_duration = preset["duration"]
             
             # Determine if we need segmented rendering (>15s with hi-res)
             use_segments = hires and total_duration > 15.0
             
             if use_segments:
-                print(f"  [render] Using segmented rendering for {total_duration}s @ 48kHz (512MB RAM limit)")
+                print(f"  [render] Using streaming render for {total_duration}s @ 48kHz (preserves continuity)")
                 import soundfile as sf
                 import tempfile
                 
-                # Create temp directory for segments
-                temp_dir = Path(tempfile.mkdtemp(prefix="mantice_render_"))
-                segment_paths = []
+                # Create ONE engine for the entire render (preserves all state)
+                engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=hires)
+                render_sr = engine.SR
+                total_samples = int(total_duration * render_sr)
+                chunk_size = 4096
                 
-                num_segments = int(np.ceil(total_duration / SEGMENT_DURATION))
-                crossfade_samples = int(0.002 * 48000) if 48000 else int(0.002 * 22050)  # 2ms crossfade
+                log_memory(f"Engine created (SR={render_sr})")
+                
+                # Create temp file for streaming render
+                temp_dir = Path(tempfile.mkdtemp(prefix="mantice_render_"))
+                temp_path = temp_dir / "render_stream.wav"
                 
                 try:
-                    for seg_idx in range(num_segments):
-                        seg_start = seg_idx * SEGMENT_DURATION
-                        seg_duration = min(SEGMENT_DURATION, total_duration - seg_start)
-                        
-                        print(f"  [render] Segment {seg_idx + 1}/{num_segments}: {seg_start:.1f}s - {seg_start + seg_duration:.1f}s")
-                        log_memory(f"Segment {seg_idx + 1} start")
-                        
-                        # Create fresh engine for this segment
-                        seg_preset = {**preset_for_render, "duration": seg_duration}
-                        engine = StreamingDroneEngine(seg_preset, seed=seed + seg_idx, render_mode=hires)
-                        render_sr = engine.SR
-                        
-                        # Render segment
-                        seg_samples = int(seg_duration * render_sr)
-                        chunk_size = 4096
-                        raw = np.zeros((seg_samples, 2), dtype=np.float32)
+                    # Open soundfile for streaming write
+                    print(f"  [render] Streaming synthesis to disk (continuous engine)...")
+                    with sf.SoundFile(str(temp_path), 'w', render_sr, 2, subtype='PCM_24') as out_file:
                         offset = 0
-                        remaining = seg_samples
+                        remaining = total_samples
+                        segment_samples = int(SEGMENT_DURATION * render_sr)
                         
                         while remaining > 0:
+                            # Render one chunk at a time
                             n = min(chunk_size, remaining)
-                            raw[offset:offset+n] = engine.next_chunk(n)
+                            chunk = engine.next_chunk(n)
+                            
+                            # Write immediately to disk (memory efficient)
+                            out_file.write(chunk)
+                            
                             offset += n
                             remaining -= n
-                        
-                        # Apply effects to segment
-                        if sat > 0.01:
-                            raw = oversampled_saturate(raw, sat)
-                            gc.collect()  # Free oversampling temp buffers
-                        
-                        if reverb_enabled:
-                            space = reverb_cfg.get("space", "cathedral")
-                            mix = float(reverb_cfg.get("mix", 0.3))
-                            decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
-                            raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
-                            gc.collect()  # Free convolution temp buffers
-                        
-                        # Write segment to temp file
-                        seg_path = temp_dir / f"segment_{seg_idx:03d}.wav"
-                        sf.write(str(seg_path), raw, render_sr, subtype="PCM_24")
-                        segment_paths.append(seg_path)
-                        
-                        log_memory(f"Segment {seg_idx + 1} complete")
-                        
-                        # Force garbage collection to free memory immediately
-                        del raw
-                        del engine
+                            
+                            # Progress logging every segment
+                            if offset % segment_samples < chunk_size:
+                                progress_pct = (offset / total_samples) * 100
+                                print(f"    [render] {offset / render_sr:.0f}s / {total_samples / render_sr:.0f}s ({progress_pct:.0f}%)")
+                                log_memory(f"Synthesis {progress_pct:.0f}%")
+                                gc.collect()  # Periodic GC during long renders
+                    
+                    log_memory("Synthesis complete")
+                    
+                    # Now read the fully-synthesized file and apply post-effects
+                    print(f"  [render] Loading synthesized audio for post-processing...")
+                    raw, _ = sf.read(str(temp_path))
+                    log_memory("Audio loaded")
+                    
+                    # Apply post-effects to full buffer
+                    if sat > 0.01:
+                        print(f"  [render] Oversampled saturation ×4: drive={1.0 + sat * 3.0:.2f}…")
+                        raw = oversampled_saturate(raw, sat)
+                        log_memory("Saturation complete")
                         gc.collect()
-                        log_memory(f"Segment {seg_idx + 1} freed")
                     
-                    # Concatenate segments with crossfades - STREAMING approach
-                    # Write directly to final file instead of loading all into memory
-                    print(f"  [render] Concatenating {len(segment_paths)} segments...")
-                    log_memory("Before concatenation")
-                    
-                    # Create final output file path
-                    final_temp_path = temp_dir / "final_concatenated.wav"
-                    
-                    # Open output file in append mode
-                    with sf.SoundFile(str(final_temp_path), 'w', render_sr, 2, subtype='PCM_24') as out_file:
-                        prev_tail = None
-                        
-                        for i, seg_path in enumerate(segment_paths):
-                            # Load segment
-                            seg_audio, _ = sf.read(str(seg_path))
-                            
-                            if i > 0 and crossfade_samples > 0 and prev_tail is not None:
-                                # Crossfade with previous segment's tail
-                                fade_out = np.linspace(1.0, 0.0, crossfade_samples)
-                                fade_in = np.linspace(0.0, 1.0, crossfade_samples)
-                                
-                                # Mix overlap region
-                                overlap = prev_tail * fade_out[:, np.newaxis] + seg_audio[:crossfade_samples] * fade_in[:, np.newaxis]
-                                
-                                # Write overlap
-                                out_file.write(overlap)
-                                
-                                # Write rest of segment (after crossfade)
-                                out_file.write(seg_audio[crossfade_samples:])
-                            else:
-                                # First segment or no crossfade - write as-is
-                                out_file.write(seg_audio[:-crossfade_samples] if i < len(segment_paths) - 1 else seg_audio)
-                            
-                            # Save tail for next crossfade (if not last segment)
-                            if i < len(segment_paths) - 1:
-                                prev_tail = seg_audio[-crossfade_samples:].copy()
-                            
-                            # Free segment memory immediately
-                            del seg_audio
-                            gc.collect()
-                    
-                    # Now read the final file (once, fully concatenated)
-                    raw, _ = sf.read(str(final_temp_path))
-                    log_memory("Concatenation complete")
+                    if reverb_enabled:
+                        space = reverb_cfg.get("space", "cathedral")
+                        mix = float(reverb_cfg.get("mix", 0.3))
+                        decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
+                        print(f"  [render] Convolution reverb: {space} (mix={mix:.2f})…")
+                        raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
+                        log_memory("Reverb complete")
+                        gc.collect()
                     
                 finally:
                     # Clean up temp files
