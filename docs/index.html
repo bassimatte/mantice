@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mantice — The Breath Behind the Drone</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" href="favicon.png">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
@@ -398,6 +400,72 @@ aside h3 {
   padding: 3px 7px;
   font-size: 8px;
 }
+
+/* Generation History */
+#gen-history-details[open] summary {
+  margin-bottom: 4px;
+}
+.history-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-lcd);
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  text-align: left;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+.history-btn:hover {
+  background: var(--bg-light);
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(0, 200, 255, 0.2);
+}
+.history-btn-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.history-name {
+  font-weight: 500;
+  color: var(--text-lcd);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-mood-badge {
+  background: var(--accent);
+  color: var(--bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.history-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7px;
+  color: var(--muted);
+  gap: 6px;
+}
+.history-timestamp {
+  opacity: 0.7;
+}
+.history-details {
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
 .btn {
   display: block;
   width: 100%;
@@ -1116,6 +1184,50 @@ main {
 .docs-table tr:hover td { background: rgba(255,255,255,0.02); }
 .docs-note { color: var(--muted); font-style: italic; margin: 4px 0 16px; font-size: 11px; }
 
+/* ── Gallery Modal ──────────────────────────── */
+.gallery-controls {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+}
+#gallery-search {
+  width: 100%; padding: 10px 14px; font-size: 13px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; font-family: 'Space Mono', monospace;
+}
+#gallery-search:focus {
+  outline: none; border-color: var(--accent); background: var(--surface);
+}
+.gallery-grid {
+  padding: 20px; overflow-y: auto; max-height: calc(85vh - 160px);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.gallery-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; cursor: pointer;
+  transition: all 0.2s;
+}
+.gallery-card:hover {
+  border-color: var(--accent); background: var(--surface);
+  transform: translateY(-2px);
+}
+.gallery-card-name {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  margin-bottom: 6px;
+}
+.gallery-card-author {
+  font-size: 11px; color: var(--muted); margin-bottom: 10px;
+}
+.gallery-card-date {
+  font-size: 10px; color: var(--text-dim);
+}
+.gallery-loading {
+  color: var(--text-dim); text-align: center; padding: 40px;
+}
+.gallery-empty {
+  color: var(--text-dim); text-align: center; padding: 40px;
+  font-style: italic;
+}
+
 /* ── Connection overlay ─────────────────────── */
 #connection-overlay {
   position: fixed; inset: 0; z-index: 99999;
@@ -1266,6 +1378,7 @@ main {
       <div class="dropdown-section-label">Presets</div>
       <div class="file-menu-item" id="btn-restore">↺ Default</div>
       <div class="file-menu-item" id="btn-share">🔗 Share</div>
+      <div class="file-menu-item" id="btn-gallery">🎨 Gallery</div>
       <div class="file-menu-item" id="btn-export">⬇ Download</div>
       <div class="file-menu-item" id="btn-import-file">📂 Load</div>
       <input type="file" id="import-preset-input" accept=".yaml,.yml" style="display:none">
@@ -1287,7 +1400,7 @@ main {
       </div>
       <div class="settings-row">
         <span class="settings-label">Hi-Res</span>
-        <div class="toggle" id="hires-toggle" title="48kHz / 24-bit"></div>
+        <div class="toggle" id="hires-toggle" title="48kHz / 24-bit (web UI limited to 30s; use python main.py --hires for longer renders)"></div>
         <span style="font-size:10px; color:var(--text-dim)">48k / 24b</span>
       </div>
       <div class="settings-row" style="margin-top:4px">
@@ -1584,6 +1697,34 @@ python batch_render_freesound.py
 # Regenerate metadata XLSX only (skip rendering)
 python batch_render_freesound.py --metadata-only</pre>
           <p style="font-size:11px;color:var(--text-dim);">Output goes to <code>exports/freesound/</code></p>
+          
+          <h4 style="margin-top:24px;">▸ Automation Templates</h4>
+          <p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Apply parameter automation curves to any preset:</p>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# Available: journey, arc, breathe, meditate, sunrise, wander, trance, shimmer, sustain, drift, pulse
+python main.py --name "Om" --auto-template journey --duration 300
+python main.py --name "Crystal Bowl" --auto-template breathe --hires
+python main.py --name "Simple Drone" --auto-template sustain --duration 600</pre>
+          <p style="font-size:11px;color:var(--text-dim);"><strong>journey:</strong> Fade-in, filter opens, reverb builds, binaural drifts alpha→delta<br>
+          <strong>arc:</strong> Sweeping rise and fall, full frequency journey<br>
+          <strong>breathe:</strong> Gentle pulsing, in-out cycles<br>
+          <strong>meditate:</strong> Ultra-slow drift, minimal movement<br>
+          <strong>sustain:</strong> Pure static drone, no automation (La Monte Young style)<br>
+          <strong>drift:</strong> Ultra-slow filter evolution (barely perceptible)<br>
+          <strong>pulse:</strong> Slow breathing envelope (classic drone technique)</p>
+          
+          <h4 style="margin-top:24px;">▸ Journey Quick-Sets</h4>
+          <p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Render multi-preset sequences with auto-selected presets and timed crossfades:</p>
+          <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
+# Available: drift, flow, pulse, ceremony, dawn, shimmer
+python main.py --journey-template drift --duration 600 --hires
+python main.py --journey-template ceremony --format flac --seed 42</pre>
+          <p style="font-size:11px;color:var(--text-dim);"><strong>drift:</strong> 30s holds, 12s morphs — very slow evolution (forest/nature)<br>
+          <strong>flow:</strong> 15s holds, 6s morphs — smooth pingpong (singing bowls)<br>
+          <strong>pulse:</strong> 8s holds, 2s morphs — rhythmic cycling (drone/bass)<br>
+          <strong>ceremony:</strong> 60s holds, 20s morphs — monumental pace (sacred)<br>
+          <strong>dawn:</strong> 20s holds, 8s morphs — one-shot journey (light/celestial)<br>
+          <strong>shimmer:</strong> 4s holds, 1s morphs — fast shifting (bright/crystal)</p>
         </div>
 
         <p style="font-size:11px;color:var(--text-dim);margin-top:16px;text-align:center;">
@@ -1892,6 +2033,7 @@ python batch_render_freesound.py --metadata-only</pre>
     <div class="gen-type-row">
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
+      <label><input type="checkbox" id="gen-type-granular"> Granular</label>
     </div>
     <div style="display:flex; gap:5px; justify-content:center; align-items:center; margin-bottom:5px;">
       <label style="display:flex;align-items:center;gap:3px;font-size:8px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="gen-harmonic-mode" style="accent-color:var(--accent);width:11px;height:11px;cursor:pointer;"> Harm</label>
@@ -1929,6 +2071,14 @@ python batch_render_freesound.py --metadata-only</pre>
       <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3" style="flex:1; min-width:0;">
       <span id="mutate-amount-val" style="font-size:8px; color:var(--muted); white-space:nowrap; min-width:22px;">0.30</span>
     </div>
+    <details id="gen-history-details" style="margin-top:8px; border-top:1px solid var(--border); padding-top:6px;">
+      <summary style="font-size:8px; color:var(--text-dim); cursor:pointer; user-select:none; text-transform:uppercase; letter-spacing:0.05em;">
+        History (<span id="gen-history-count">0</span>)
+      </summary>
+      <div id="gen-history" style="display:flex; flex-direction:column; gap:3px; padding:4px 0; max-height:200px; overflow-y:auto;">
+        <!-- Dynamically rendered history buttons -->
+      </div>
+    </details>
   </div>
 
   <h3>Presets</h3>
@@ -1936,7 +2086,14 @@ python batch_render_freesound.py --metadata-only</pre>
     <summary>Filter by tag</summary>
     <div class="tag-filter" id="tag-filter"></div>
   </details>
-  <div id="preset-list"></div>
+  <div id="preset-list">
+    <!-- Loading skeleton shown until presets load -->
+    <div class="preset-loading" id="preset-loading">
+      <div style="padding: 12px; color: var(--text-dim); font-size: 11px; text-align: center;">
+        Loading presets...
+      </div>
+    </div>
+  </div>
 </aside>
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
@@ -2222,11 +2379,27 @@ python batch_render_freesound.py --metadata-only</pre>
   </div>
 
   <!-- Morphing (Preset Journey) -->
-  <div class="card card-collapsible collapsed" id="journey-card" style="display:none">
+  <div class="card card-collapsible collapsed" id="journey-card">
     <h2>Morphing <span id="journey-duration-badge" style="font-size:10px;color:var(--accent);font-weight:normal;margin-left:4px"></span></h2>
     <div id="journey-body"></div>
   </div>
 </main>
+
+<!-- Gallery Modal -->
+<div class="docs-overlay" id="gallery-overlay">
+  <div class="docs-modal">
+    <div class="docs-header">
+      <h2>🎨 Community Gallery</h2>
+      <button class="docs-close" id="gallery-close">✕</button>
+    </div>
+    <div class="gallery-controls">
+      <input type="text" id="gallery-search" placeholder="🔍 Search presets..." />
+    </div>
+    <div class="gallery-grid" id="gallery-grid">
+      <p class="gallery-loading">Loading presets...</p>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── Zoom ────────────────────────────────────────────────────────────────────
@@ -2277,12 +2450,21 @@ let currentParams = null;
 let currentPresetPath = null;
 let selectedMood = null;
 
+// Generation History
+const generationHistory = [];
+const MAX_HISTORY = 5;
+
 const $ = id => document.getElementById(id);
 
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
 // When null/empty, uses same origin (local mode)
-const MANTICE_API_BASE = window.MANTICE_API_BASE || 'https://mantice.onrender.com';
+// Auto-detect GitHub Pages and point to production backend
+const MANTICE_API_BASE = window.MANTICE_API_BASE || (
+  (location.hostname.includes('github.io') || location.hostname.includes('githubusercontent.com'))
+    ? 'https://mantice.onrender.com'
+    : ''
+);
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -2321,19 +2503,37 @@ async function loadPresetList() {
   const result = await api('/api/presets');
   allPresets = Array.isArray(result) ? result : [];
   backendOffline = !Array.isArray(result);
-  // Apply manifest names to community presets (client-side override, works even before backend redeploy)
-  try {
-    const manifestUrl = 'https://raw.githubusercontent.com/bassimatte/mantice/main/shared/manifest.json';
-    const mRes = await fetch(manifestUrl);
-    if (mRes.ok) {
-      const manifest = await mRes.json();
-      allPresets = allPresets.map(p =>
-        p.source === 'community' && manifest[p.id] ? { ...p, name: manifest[p.id] } : p
-      );
-    }
-  } catch (_) {}
+  
+  // Render presets immediately with paths/IDs, don't wait for manifest
   buildTagFilter();
   renderPresetList();
+  
+  // Apply manifest names to community presets (non-blocking, updates in background)
+  (async () => {
+    try {
+      const manifestUrl = 'https://raw.githubusercontent.com/bassimatte/mantice/main/shared/manifest.json';
+      const mRes = await fetch(manifestUrl);
+      if (mRes.ok) {
+        const manifest = await mRes.json();
+        const updated = allPresets.map(p => {
+          if (p.source === 'community' && manifest[p.id]) {
+            const manifestEntry = manifest[p.id];
+            // Handle both old (string) and new (object) manifest formats
+            const displayName = typeof manifestEntry === 'string' 
+              ? manifestEntry 
+              : manifestEntry.name || p.name;
+            return { ...p, name: displayName };
+          }
+          return p;
+        });
+        // Only re-render if names actually changed
+        if (JSON.stringify(updated) !== JSON.stringify(allPresets)) {
+          allPresets = updated;
+          renderPresetList();
+        }
+      }
+    } catch (_) {}
+  })();
 
   // #shared=<id> — community shared preset
   const sharedMatch = window.location.hash.match(/[#&]shared=([^&]+)/);
@@ -2403,6 +2603,11 @@ function buildTagFilter() {
 
 function renderPresetList() {
   const container = $('preset-list');
+  
+  // Remove loading skeleton
+  const loadingSkeleton = $('preset-loading');
+  if (loadingSkeleton) loadingSkeleton.remove();
+  
   const filtered = activeTagFilter
     ? allPresets.filter(p => (p.tags || []).includes(activeTagFilter))
     : allPresets;
@@ -2484,6 +2689,11 @@ function renderPresetList() {
         document.querySelectorAll('.preset-item').forEach(e => e.classList.remove('active'));
         el.classList.add('active');
         currentParams = sharedPresetEntry.params;
+        
+        // Clear journey state when loading a single preset
+        currentJourney = { steps: [], loop: 'none' };
+        _currentMorphingStep = -1;
+        
         applyParamsToUI(currentParams);
         markClean();
         updateNowPlaying();
@@ -2512,6 +2722,11 @@ function renderPresetList() {
       currentParams = entry.params;
       currentPresetPath = null;
       currentSharedId = null;
+      
+      // Clear journey state when loading a single preset
+      currentJourney = { steps: [], loop: 'none' };
+      _currentMorphingStep = -1;
+      
       applyParamsToUI(currentParams);
       markClean();
       updateNowPlaying(entry.name);
@@ -2533,6 +2748,11 @@ async function loadPreset(path, el) {
   currentSharedId = null; // loading an official preset clears shared context
   renderedBuffer = null; // clear so Play does preview, not old render
   _autoCtx = null;        // reset automation context to current preset
+  
+  // Clear journey state when loading a single preset
+  currentJourney = { steps: [], loop: 'none' };
+  _currentMorphingStep = -1;
+  
   applyParamsToUI(currentParams);
   if (!isStreaming) stopAurora();  // don't kill waveform if audio is still playing
   markClean();
@@ -2556,6 +2776,11 @@ async function loadCommunityPreset(id, el) {
   currentPresetPath = null;
   currentSharedId = id;
   renderedBuffer = null;
+  
+  // Clear journey state when loading a single preset
+  currentJourney = { steps: [], loop: 'none' };
+  _currentMorphingStep = -1;
+  
   applyParamsToUI(currentParams);
   if (!isStreaming) stopAurora();
   markClean();
@@ -5424,6 +5649,15 @@ async function doRender() {
   stopAudio();
 
   const duration = parseFloat($('duration').value);
+  const hires = $('hires-toggle').dataset.state === '1';
+  
+  // Limit hi-res renders to 30 seconds (memory constraint on Render.com)
+  if (hires && duration > 30) {
+    setStatus('Hi-Res limited to 30s (use CLI for longer renders)');
+    setTimeout(() => setStatus(''), 3000);
+    return;
+  }
+  
   setStatus(`RENDERING ${duration}s…`);
   setProgress(0);
 
@@ -5438,7 +5672,7 @@ async function doRender() {
   }, 1000);
 
   const fmt = $('format').value;
-  const hires = $('hires-toggle').dataset.state === '1';
+  // hires already declared above for validation
   try {
     const controller = new AbortController();
     // No timeout — render can take minutes for long durations
@@ -5512,7 +5746,7 @@ async function doRender() {
     decodeCtx.close();
     drawStaticAurora(renderedBuffer);
     showRenderedSpectrum(renderedBuffer);
-    doPreview(); // resume streaming after render download
+    // Don't auto-start streaming after render - let user click Play manually
 
     const sizeMB = (blob.size / (1024*1024)).toFixed(1);
     setStatus(`✓ Downloaded: ${filename} (${sizeMB} MB)`);
@@ -5524,12 +5758,136 @@ async function doRender() {
   }
 }
 
+// ── Generation History ──────────────────────────────────────────────────────
+function initGenerationHistory() {
+  const stored = localStorage.getItem("mantice_generation_history");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      generationHistory.push(...parsed.slice(0, MAX_HISTORY));
+    } catch (e) {
+      console.warn("Failed to parse generation history:", e);
+    }
+  }
+  renderGenerationHistory();
+}
+
+function addToGenerationHistory(entry) {
+  generationHistory.unshift(entry);
+  if (generationHistory.length > MAX_HISTORY) {
+    generationHistory.splice(MAX_HISTORY);
+  }
+  try {
+    localStorage.setItem("mantice_generation_history", JSON.stringify(generationHistory));
+  } catch (e) {
+    console.warn("Failed to save generation history:", e);
+  }
+  renderGenerationHistory();
+}
+
+function renderGenerationHistory() {
+  const container = $('gen-history');
+  const countSpan = $('gen-history-count');
+  if (!container || !countSpan) return;
+  
+  countSpan.textContent = generationHistory.length;
+  
+  if (generationHistory.length === 0) {
+    container.innerHTML = '<div style="font-size:8px; color:var(--muted); padding:6px; text-align:center;">No history yet</div>';
+    return;
+  }
+  
+  container.innerHTML = generationHistory.map(entry => {
+    const timeAgo = formatTimeAgo(entry.timestamp);
+    const details = buildHistoryDetails(entry);
+    
+    return `
+      <button class="history-btn" data-hist-id="${entry.id}">
+        <div class="history-btn-header">
+          <span class="history-name">${escapeHtml(entry.displayName)}</span>
+          <span class="history-mood-badge">${entry.mood}</span>
+        </div>
+        <div class="history-meta">
+          <span class="history-timestamp">${timeAgo}</span>
+          <span class="history-details">${details}</span>
+        </div>
+      </button>
+    `;
+  }).join('');
+  
+  container.querySelectorAll('.history-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const histId = btn.dataset.histId;
+      loadHistoryEntry(histId);
+    });
+  });
+}
+
+function buildHistoryDetails(entry) {
+  const parts = [];
+  const types = new Set();
+  if (entry.params.layers) {
+    entry.params.layers.forEach(l => types.add(l.type));
+  }
+  if (types.size > 0) {
+    const typeLabels = Array.from(types).map(t => {
+      if (t === 'fm') return 'FM';
+      if (t === 'subtractive') return 'Sub';
+      if (t === 'granular') return 'Gran';
+      return t;
+    });
+    parts.push(typeLabels.join('+'));
+  }
+  if (entry.harmonicMode) {
+    const scaleShort = entry.harmonicScale === 'major' ? 'Maj' : 
+                       entry.harmonicScale === 'minor' ? 'Min' : 
+                       entry.harmonicScale.slice(0, 4);
+    parts.push(`Harm:${entry.harmonicKey} ${scaleShort}`);
+  }
+  return parts.join(' • ') || 'Random';
+}
+
+function formatTimeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function loadHistoryEntry(histId) {
+  const entry = generationHistory.find(e => e.id === histId);
+  if (!entry) {
+    setStatus('History entry not found.');
+    return;
+  }
+  currentParams = JSON.parse(JSON.stringify(entry.params));
+  currentPresetPath = null;
+  currentSharedId = null;
+  applyParamsToUI(currentParams);
+  markClean();
+  updateNowPlaying();
+  setStatus(`Loaded: ${entry.displayName}`);
+  stopAudio();
+  doPreview();
+}
+
 // ── Waveform drawing ────────────────────────────────────────────────────────
 // ── Generator ───────────────────────────────────────────────────────────────
 async function doGenerate() {
   const allowedTypes = [];
   if (document.getElementById('gen-type-fm').checked) allowedTypes.push('fm');
   if (document.getElementById('gen-type-subtractive').checked) allowedTypes.push('subtractive');
+  if (document.getElementById('gen-type-granular').checked) allowedTypes.push('granular');
   if (allowedTypes.length === 0) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
@@ -5548,6 +5906,19 @@ async function doGenerate() {
     currentSharedId = null;
     const activeTuning = $('tuning-system').value;
     if (activeTuning !== '12-TET') _applyTuningOffsets(currentParams, activeTuning);
+    
+    // Add to generation history
+    addToGenerationHistory({
+      params: JSON.parse(JSON.stringify(currentParams)),
+      timestamp: Date.now(),
+      mood: selectedMood,
+      harmonicMode: harmonicMode,
+      harmonicKey: harmonicKey,
+      harmonicScale: harmonicScale,
+      displayName: currentParams.name || "Unnamed Preset",
+      id: `hist_${Date.now()}`
+    });
+    
     applyParamsToUI(currentParams);
     markClean(); // treat generated params as new baseline — prevents spurious liveReload
     updateNowPlaying();
@@ -5611,29 +5982,119 @@ async function doSharePreset() {
   }
 
   // Modified or generated preset → upload as new shared preset
+  // Get or prompt for username
+  let username = localStorage.getItem('mantice_username');
+  if (!username) {
+    username = prompt('Enter your creator name (optional, will be shown in gallery):', '');
+    if (username && username.trim()) {
+      localStorage.setItem('mantice_username', username.trim());
+      username = username.trim();
+    } else {
+      username = 'Anonymous';
+    }
+  }
+  
   setStatus('Sharing…');
   try {
     const params = collectParams();
     const data = await api('/api/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params })
+      body: JSON.stringify({ params, author: username })  // Include author
     });
     if (!data.ok) { setStatus('Share failed: ' + data.error); return; }
     currentSharedId = data.id;
     savedParamsSnapshot = JSON.stringify(collectParams()); // now "clean" relative to this share
     // Immediately inject into allPresets so it appears in Community sidebar without reload
-    const displayName = data.id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ').trim();
+    // Use the preset name from the manifest, not derived from ID
+    const displayName = data.name || data.id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ').trim();
     if (!allPresets.find(p => p.id === data.id)) {
       allPresets.push({ name: displayName, id: data.id, source: 'community', category: 'community', tags: [], path: `shared/${data.id}.yaml`, filename: `${data.id}.yaml` });
       renderPresetList();
     }
+    // Invalidate gallery cache so newly shared preset appears immediately
+    galleryPresets = [];
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + data.id;
     await navigator.clipboard.writeText(shareUrl);
     setStatus('🔗 Link copied! — #shared=' + data.id);
   } catch (e) {
     setStatus('Share error: ' + e.message);
   }
+}
+
+// ── Gallery ──────────────────────────────────────────────────────────────────
+let galleryPresets = [];
+
+async function openGallery() {
+  $('gallery-overlay').classList.add('open');
+  $('files-dropdown').classList.remove('open');
+  
+  // Fetch gallery data if not already loaded
+  if (galleryPresets.length === 0) {
+    try {
+      const data = await api('/api/gallery');
+      if (data.ok && Array.isArray(data.presets)) {
+        galleryPresets = data.presets;
+        renderGallery(galleryPresets);
+      } else {
+        $('gallery-grid').innerHTML = '<p class="gallery-empty">Could not load gallery: ' + (data.error || 'Unknown error') + '</p>';
+      }
+    } catch (e) {
+      $('gallery-grid').innerHTML = '<p class="gallery-empty">Gallery unavailable</p>';
+    }
+  } else {
+    renderGallery(galleryPresets);
+  }
+}
+
+function renderGallery(presets) {
+  const grid = $('gallery-grid');
+  if (!presets || presets.length === 0) {
+    grid.innerHTML = '<p class="gallery-empty">No presets in gallery yet. Share yours to get started!</p>';
+    return;
+  }
+  
+  grid.innerHTML = presets.map(p => `
+    <div class="gallery-card" data-id="${p.id}">
+      <div class="gallery-card-name">${p.name || 'Untitled'}</div>
+      <div class="gallery-card-author">by ${p.author || 'Anonymous'}</div>
+      ${p.created ? `<div class="gallery-card-date">${new Date(p.created).toLocaleDateString()}</div>` : ''}
+    </div>
+  `).join('');
+  
+  // Add click handlers to each card
+  document.querySelectorAll('.gallery-card').forEach(card => {
+    card.addEventListener('click', async () => {
+      const id = card.dataset.id;
+      $('gallery-overlay').classList.remove('open');
+      window.location.hash = 'shared=' + id;
+      // Load the preset
+      const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
+      if (data.ok && data.params) {
+        currentParams = data.params;
+        currentSharedId = id;
+        renderAllControls();
+        markClean();
+        setStatus('Loaded: ' + (data.params.name || id));
+      }
+    });
+  });
+}
+
+function filterGallery() {
+  const query = $('gallery-search').value.toLowerCase().trim();
+  if (!query) {
+    renderGallery(galleryPresets);
+    return;
+  }
+  
+  const filtered = galleryPresets.filter(p => {
+    const name = (p.name || '').toLowerCase();
+    const author = (p.author || '').toLowerCase();
+    return name.includes(query) || author.includes(query);
+  });
+  
+  renderGallery(filtered);
 }
 
 // ── Import preset from local YAML file ──────────────────────────────────────
@@ -6572,6 +7033,28 @@ const AUTO_TEMPLATES = [
     },
     layer: {},
   },
+  {
+    name: 'Sustain',
+    desc: 'Pure static drone — no automation at all (La Monte Young style)',
+    global: {},
+    layer: {},
+  },
+  {
+    name: 'Drift',
+    desc: 'Ultra-slow filter drift — barely perceptible evolution over the full duration',
+    global: {},
+    layer: {
+      filter_cutoff: { enabled:true, breakpoints:[{t:0,value:500,shape:'linear'},{t:1,value:2000,shape:'linear'}] },
+    },
+  },
+  {
+    name: 'Pulse',
+    desc: 'Slow breathing envelope — gentle amplitude pulse (classic drone technique)',
+    global: {
+      master_output_db: { enabled:true, breakpoints:[{t:0,value:-3,shape:'linear'},{t:0.35,value:0,shape:'scurve'},{t:0.65,value:0,shape:'scurve'},{t:1,value:-3,shape:'scurve'}] },
+    },
+    layer: {},
+  },
 ];
 
 // ── Morphing quick-set templates ─────────────────────────────────────────────
@@ -6620,6 +7103,9 @@ const MORPH_TEMPLATES = [
  * If fewer than 2 matches, applies timing to existing steps without replacing them.
  */
 async function applyMorphTemplate(tpl) {
+  // Stop any playing audio first
+  stopAudio();
+  
   // Find matching presets from the library
   const found = [];
   if (allPresets && allPresets.length > 0) {
@@ -6791,6 +7277,7 @@ function renderAutomationCard() {
 
 function init() {
   loadPresetList();
+  initGenerationHistory();
 
   // Fetch running commit SHA and update the version link in settings.
   // Primary: /api/version from the backend (exact deployed SHA).
@@ -6865,9 +7352,17 @@ function init() {
   // Export
   $('btn-export').addEventListener('click', doExportPreset);
   $('btn-share').addEventListener('click', doSharePreset);
+  $('btn-gallery').addEventListener('click', openGallery);
   $('btn-restore').addEventListener('click', doRestore);
   $('btn-import-file').addEventListener('click', () => { $('files-dropdown').classList.remove('open'); doImportPresetFile(); });
   $('import-preset-input').addEventListener('change', handleImportPresetFile);
+
+  // Gallery modal
+  $('gallery-close').addEventListener('click', () => $('gallery-overlay').classList.remove('open'));
+  $('gallery-overlay').addEventListener('click', (e) => {
+    if (e.target === $('gallery-overlay')) $('gallery-overlay').classList.remove('open');
+  });
+  $('gallery-search').addEventListener('input', filterGallery);
 
   // Mood buttons
   document.querySelectorAll('.mood-btn').forEach(btn => {
@@ -7050,6 +7545,20 @@ let _currentMorphingStep = -1;  // currently playing step index (-1 = none)
 /** True when morphing has ≥2 configured presets and should override play/render. */
 function _morphingActive() {
   return currentJourney.steps.filter(s => s.presetPath).length >= 2;
+}
+
+/** Update the active step indicator without re-rendering the entire card. */
+function _updateMorphingStepHighlight() {
+  const body = $('journey-body');
+  if (!body) return;
+  const nums = body.querySelectorAll('.journey-step-num');
+  nums.forEach((num, i) => {
+    if (_currentMorphingStep === i) {
+      num.classList.add('active');
+    } else {
+      num.classList.remove('active');
+    }
+  });
 }
 
 /** Sync the top-bar Duration field with morphing total when morphing is active. */
@@ -7254,9 +7763,9 @@ function renderJourneyCard() {
 
     const morphIn = document.createElement('input');
     morphIn.type = 'number'; morphIn.className = 'journey-dur-input';
-    morphIn.min = 0; morphIn.max = 30; morphIn.step = 0.5;
+    morphIn.min = 0.05; morphIn.max = 30; morphIn.step = 0.1;
     morphIn.value = step.morphMin ?? 2;
-    morphIn.title = 'Crossfade into next preset (minutes)';
+    morphIn.title = 'Crossfade into next preset (minutes). Min 3s enforced for smooth transitions.';
     const isLastNoLoop = (i === currentJourney.steps.length - 1) && currentJourney.loop === 'none';
     if (isLastNoLoop) { morphIn.disabled = true; morphIn.style.opacity = '0.3'; }
     morphIn.oninput = () => { currentJourney.steps[i].morphMin = morphIn.value; _updateJourneyBadge(); };
@@ -7471,12 +7980,12 @@ async function doJourneyStream() {
       const msg = JSON.parse(event.data);
       if (msg.step_index !== undefined) {
         _currentMorphingStep = msg.step_index;
-        renderJourneyCard();  // re-render to highlight active step
+        _updateMorphingStepHighlight();  // efficient update without full re-render
         return;
       }
-      if (msg.status === 'done')    { setStatus('Journey complete'); _currentMorphingStep = -1; renderJourneyCard(); return; }
-      if (msg.status === 'stopped') { setStatus('Stopped'); _currentMorphingStep = -1; renderJourneyCard(); return; }
-      if (msg.error) { setStatus('Stream error: ' + msg.error); _currentMorphingStep = -1; renderJourneyCard(); return; }
+      if (msg.status === 'done')    { setStatus('Journey complete'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
+      if (msg.status === 'stopped') { setStatus('Stopped'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
+      if (msg.error) { setStatus('Stream error: ' + msg.error); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
       return;
     }
     if (!streamingCtx || streamingCtx.state === 'closed') return;
@@ -7551,11 +8060,13 @@ async function checkBackendConnection() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const isRenderCom = location.hostname.includes('onrender.com');
+  
   if (MANTICE_API_BASE) {
-    // Configured backend URL (e.g. Render.com) — do health check
+    // Configured backend URL (remote backend, different origin) — do health check
     const ok = await checkBackendConnection();
     if (!ok) return;
-  } else if (!isLocal) {
+  } else if (!isLocal && !isRenderCom) {
     // Deployed to GitHub Pages or similar static host, no backend configured
     const overlay = $('connection-overlay');
     const msg = $('connection-msg');
@@ -7565,7 +8076,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     overlay.classList.add('hidden');
     setTimeout(() => overlay.style.display = 'none', 0);
   } else {
-    // Local mode — hide overlay immediately
+    // Local mode or Render.com (same origin) — hide overlay immediately
     const overlay = $('connection-overlay');
     overlay.classList.add('hidden');
     overlay.style.display = 'none';
