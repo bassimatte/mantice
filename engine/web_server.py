@@ -310,7 +310,14 @@ def _find_all_presets() -> list[dict]:
             stem = fname[:-5]
             # Manifest name takes priority; fall back to filename-derived name
             if stem in manifest:
-                display_name = manifest[stem]
+                manifest_entry = manifest[stem]
+                # Handle both old (string) and new (object) manifest formats
+                if isinstance(manifest_entry, str):
+                    display_name = manifest_entry
+                elif isinstance(manifest_entry, dict):
+                    display_name = manifest_entry.get("name", stem)
+                else:
+                    display_name = str(manifest_entry)  # Fallback for unexpected types
             else:
                 m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
                 short_id = m.group(1)[-6:] if m else None
