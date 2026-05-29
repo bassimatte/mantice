@@ -400,6 +400,72 @@ aside h3 {
   padding: 3px 7px;
   font-size: 8px;
 }
+
+/* Generation History */
+#gen-history-details[open] summary {
+  margin-bottom: 4px;
+}
+.history-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-lcd);
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  text-align: left;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+.history-btn:hover {
+  background: var(--bg-light);
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(0, 200, 255, 0.2);
+}
+.history-btn-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.history-name {
+  font-weight: 500;
+  color: var(--text-lcd);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-mood-badge {
+  background: var(--accent);
+  color: var(--bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.history-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7px;
+  color: var(--muted);
+  gap: 6px;
+}
+.history-timestamp {
+  opacity: 0.7;
+}
+.history-details {
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
 .btn {
   display: block;
   width: 100%;
@@ -1967,6 +2033,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
     <div class="gen-type-row">
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
+      <label><input type="checkbox" id="gen-type-granular"> Granular</label>
     </div>
     <div style="display:flex; gap:5px; justify-content:center; align-items:center; margin-bottom:5px;">
       <label style="display:flex;align-items:center;gap:3px;font-size:8px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="gen-harmonic-mode" style="accent-color:var(--accent);width:11px;height:11px;cursor:pointer;"> Harm</label>
@@ -2004,6 +2071,14 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3" style="flex:1; min-width:0;">
       <span id="mutate-amount-val" style="font-size:8px; color:var(--muted); white-space:nowrap; min-width:22px;">0.30</span>
     </div>
+    <details id="gen-history-details" style="margin-top:8px; border-top:1px solid var(--border); padding-top:6px;">
+      <summary style="font-size:8px; color:var(--text-dim); cursor:pointer; user-select:none; text-transform:uppercase; letter-spacing:0.05em;">
+        History (<span id="gen-history-count">0</span>)
+      </summary>
+      <div id="gen-history" style="display:flex; flex-direction:column; gap:3px; padding:4px 0; max-height:200px; overflow-y:auto;">
+        <!-- Dynamically rendered history buttons -->
+      </div>
+    </details>
   </div>
 
   <h3>Presets</h3>
@@ -2374,6 +2449,10 @@ let auroraTime = 0;
 let currentParams = null;
 let currentPresetPath = null;
 let selectedMood = null;
+
+// Generation History
+const generationHistory = [];
+const MAX_HISTORY = 5;
 
 const $ = id => document.getElementById(id);
 
@@ -5674,12 +5753,136 @@ async function doRender() {
   }
 }
 
+// ── Generation History ──────────────────────────────────────────────────────
+function initGenerationHistory() {
+  const stored = localStorage.getItem("mantice_generation_history");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      generationHistory.push(...parsed.slice(0, MAX_HISTORY));
+    } catch (e) {
+      console.warn("Failed to parse generation history:", e);
+    }
+  }
+  renderGenerationHistory();
+}
+
+function addToGenerationHistory(entry) {
+  generationHistory.unshift(entry);
+  if (generationHistory.length > MAX_HISTORY) {
+    generationHistory.splice(MAX_HISTORY);
+  }
+  try {
+    localStorage.setItem("mantice_generation_history", JSON.stringify(generationHistory));
+  } catch (e) {
+    console.warn("Failed to save generation history:", e);
+  }
+  renderGenerationHistory();
+}
+
+function renderGenerationHistory() {
+  const container = $('gen-history');
+  const countSpan = $('gen-history-count');
+  if (!container || !countSpan) return;
+  
+  countSpan.textContent = generationHistory.length;
+  
+  if (generationHistory.length === 0) {
+    container.innerHTML = '<div style="font-size:8px; color:var(--muted); padding:6px; text-align:center;">No history yet</div>';
+    return;
+  }
+  
+  container.innerHTML = generationHistory.map(entry => {
+    const timeAgo = formatTimeAgo(entry.timestamp);
+    const details = buildHistoryDetails(entry);
+    
+    return `
+      <button class="history-btn" data-hist-id="${entry.id}">
+        <div class="history-btn-header">
+          <span class="history-name">${escapeHtml(entry.displayName)}</span>
+          <span class="history-mood-badge">${entry.mood}</span>
+        </div>
+        <div class="history-meta">
+          <span class="history-timestamp">${timeAgo}</span>
+          <span class="history-details">${details}</span>
+        </div>
+      </button>
+    `;
+  }).join('');
+  
+  container.querySelectorAll('.history-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const histId = btn.dataset.histId;
+      loadHistoryEntry(histId);
+    });
+  });
+}
+
+function buildHistoryDetails(entry) {
+  const parts = [];
+  const types = new Set();
+  if (entry.params.layers) {
+    entry.params.layers.forEach(l => types.add(l.type));
+  }
+  if (types.size > 0) {
+    const typeLabels = Array.from(types).map(t => {
+      if (t === 'fm') return 'FM';
+      if (t === 'subtractive') return 'Sub';
+      if (t === 'granular') return 'Gran';
+      return t;
+    });
+    parts.push(typeLabels.join('+'));
+  }
+  if (entry.harmonicMode) {
+    const scaleShort = entry.harmonicScale === 'major' ? 'Maj' : 
+                       entry.harmonicScale === 'minor' ? 'Min' : 
+                       entry.harmonicScale.slice(0, 4);
+    parts.push(`Harm:${entry.harmonicKey} ${scaleShort}`);
+  }
+  return parts.join(' • ') || 'Random';
+}
+
+function formatTimeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function loadHistoryEntry(histId) {
+  const entry = generationHistory.find(e => e.id === histId);
+  if (!entry) {
+    setStatus('History entry not found.');
+    return;
+  }
+  currentParams = JSON.parse(JSON.stringify(entry.params));
+  currentPresetPath = null;
+  currentSharedId = null;
+  applyParamsToUI(currentParams);
+  markClean();
+  updateNowPlaying();
+  setStatus(`Loaded: ${entry.displayName}`);
+  stopAudio();
+  doPreview();
+}
+
 // ── Waveform drawing ────────────────────────────────────────────────────────
 // ── Generator ───────────────────────────────────────────────────────────────
 async function doGenerate() {
   const allowedTypes = [];
   if (document.getElementById('gen-type-fm').checked) allowedTypes.push('fm');
   if (document.getElementById('gen-type-subtractive').checked) allowedTypes.push('subtractive');
+  if (document.getElementById('gen-type-granular').checked) allowedTypes.push('granular');
   if (allowedTypes.length === 0) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
@@ -5698,6 +5901,19 @@ async function doGenerate() {
     currentSharedId = null;
     const activeTuning = $('tuning-system').value;
     if (activeTuning !== '12-TET') _applyTuningOffsets(currentParams, activeTuning);
+    
+    // Add to generation history
+    addToGenerationHistory({
+      params: JSON.parse(JSON.stringify(currentParams)),
+      timestamp: Date.now(),
+      mood: selectedMood,
+      harmonicMode: harmonicMode,
+      harmonicKey: harmonicKey,
+      harmonicScale: harmonicScale,
+      displayName: currentParams.meta?.name || "Unnamed Preset",
+      id: `hist_${Date.now()}`
+    });
+    
     applyParamsToUI(currentParams);
     markClean(); // treat generated params as new baseline — prevents spurious liveReload
     updateNowPlaying();
@@ -7056,6 +7272,7 @@ function renderAutomationCard() {
 
 function init() {
   loadPresetList();
+  initGenerationHistory();
 
   // Fetch running commit SHA and update the version link in settings.
   // Primary: /api/version from the backend (exact deployed SHA).
