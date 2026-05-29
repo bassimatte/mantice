@@ -2020,11 +2020,24 @@ async def ws_preview(websocket: WebSocket):
                     new_preset = _ui_params_to_preset(params)
                     crossfade_secs = float(data.get("crossfade_secs", 1.0))
                     engine.reload(new_preset, crossfade_secs=crossfade_secs)
+                    await websocket.send_text(json.dumps({
+                        "status": "reloaded",
+                        "crossfade_secs": crossfade_secs
+                    }))
+                elif not engine:
+                    await websocket.send_text(json.dumps({
+                        "error": "No active stream to reload"
+                    }))
 
     except WebSocketDisconnect:
         _active_streams[stream_id] = False
-    except Exception:
+    except Exception as e:
+        logger.error(f"WebSocket error in stream {stream_id}: {e}")
         _active_streams[stream_id] = False
+        try:
+            await websocket.send_text(json.dumps({"error": str(e)}))
+        except:
+            pass
 
 
 async def _stream_audio(websocket: WebSocket, engine: StreamingDroneEngine, stream_id: str):
