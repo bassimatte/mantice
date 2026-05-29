@@ -2043,9 +2043,9 @@ class StreamingDroneEngine:
         carrier mode: adds independent L/R sine tones (carrier ± beat_hz/2),
                       producing a true binaural beat on headphones.
 
-        detune mode:  energy-preserving L/R intensity alternation at beat_hz
-                      using quadrature cos²/sin² envelopes — L and R cross-fade
-                      at beat_hz so the total power stays constant.
+        detune mode:  applies synchronized tremolo (amplitude modulation) to both
+                      channels at beat_hz, creating a gentle pulsing/breathing
+                      sensation. Stays centered in stereo field.
         """
         binaural = self._binaural_cfg
         if not binaural or not binaural.get("enabled", False):
@@ -2063,9 +2063,12 @@ class StreamingDroneEngine:
             stereo[:, 0] += (np.sin(2 * np.pi * freq_l * t) * carrier_amp).astype(np.float32)
             stereo[:, 1] += (np.sin(2 * np.pi * freq_r * t) * carrier_amp).astype(np.float32)
         else:  # detune
-            theta = (2 * np.pi * (beat_hz / 2.0) * t).astype(np.float32)
-            stereo[:, 0] *= np.cos(theta) ** 2  # L intensity: 1→0→1 at beat_hz
-            stereo[:, 1] *= np.sin(theta) ** 2  # R intensity: 90° offset; L²+R²=1
+            # Gentle tremolo: oscillates 0.7 → 1.0 → 0.7 at beat_hz
+            # Shallow depth (0.3) creates subtle pulse without aggressive pumping
+            theta = (2 * np.pi * beat_hz * t).astype(np.float32)
+            tremolo = 0.85 + 0.15 * np.cos(theta)  # 0.7 → 1.0 → 0.7
+            stereo[:, 0] *= tremolo
+            stereo[:, 1] *= tremolo
 
     def _earth_chunk(self, n: int) -> np.ndarray:
         cfg = self.earth_cfg
