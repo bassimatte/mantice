@@ -102,6 +102,9 @@ class StreamingGranularLayer:
         self.envelope = cfg.get("envelope", "hann")
         self.position_mode = cfg.get("position_mode", "linear")
         self.position_chaos = float(cfg.get("position_chaos", 0.3))
+        
+        # R2: Stereo width control (0.0 = mono, 1.0 = full pan range)
+        self.stereo_width = float(cfg.get("stereo_width", 0.8))
 
         # ── New pitch params ──────────────────────────────────────────────────
         self.pitch_mode = cfg.get("pitch_mode", "resample")  # resample | stretch | energetic
@@ -198,15 +201,21 @@ class StreamingGranularLayer:
         grain = grain[:grain_samples]  # safety clip
         grain *= env * np.random.uniform(0.6, 1.0)
 
+        # R2: Assign random pan position for stereo width
+        pan = np.random.uniform(-0.9, 0.9) * self.stereo_width
+
         self._active_grains.append({
             'data': grain,
             'pos': 0,
             'length': grain_samples,
             'start_in_chunk': max(0, start_in_chunk),
+            'pan': pan,  # R2: Per-grain panning
         })
 
     def next_chunk(self, n_samples: int) -> np.ndarray:
-        output = np.zeros(n_samples, dtype=np.float64)
+        # R2: Stereo output with per-grain panning
+        output_L = np.zeros(n_samples, dtype=np.float64)
+        output_R = np.zeros(n_samples, dtype=np.float64)
         chunk_end = self._sample_counter + n_samples
         while self._next_grain_at < chunk_end:
             start_offset = self._next_grain_at - self._sample_counter
@@ -217,11 +226,20 @@ class StreamingGranularLayer:
         for grain in self._active_grains:
             data = grain['data']
             pos = grain['pos']
+            pan = grain['pan']  # R2: Get pan value
             start_in_chunk = grain.get('start_in_chunk', 0)
             remaining = grain['length'] - pos
             available = min(remaining, n_samples - start_in_chunk)
             if available > 0:
-                output[start_in_chunk: start_in_chunk + available] += data[pos: pos + available]
+                # R2: Equal-power pan law (constant-power: L² + R² = 1)
+                pan_angle = (pan + 1.0) * 0.25 * np.pi  # Map [-1,1] → [0, π/2]
+                gain_L = np.cos(pan_angle)
+                gain_R = np.sin(pan_angle)
+                
+                grain_chunk = data[pos: pos + available]
+                output_L[start_in_chunk: start_in_chunk + available] += grain_chunk * gain_L
+                output_R[start_in_chunk: start_in_chunk + available] += grain_chunk * gain_R
+                
                 grain['pos'] = pos + available
                 grain['start_in_chunk'] = 0
 
@@ -230,4 +248,7 @@ class StreamingGranularLayer:
 
         self._active_grains = new_active
         self._sample_counter = chunk_end
-        return output * self.mix
+        
+        # R2: Return stereo output
+        stereo = np.column_stack([output_L, output_R]) * self.mix
+        return stereo.astype(np.float32)

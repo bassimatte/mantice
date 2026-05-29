@@ -1,0 +1,26 @@
+# Test for continuous automation (no resets at segment boundaries)
+duration: 90
+
+layers:
+  - type: fm
+    enabled: true
+    voices: 1
+    fc: 300.0
+    index: 2.0
+    ratio: 1.0
+    detune: 0.0
+    amp: 0.8
+    stereo_width: 0.5
+
+reverb:
+  enabled: false
+
+saturation: 0.0
+
+automation:
+  global:
+    - param: layers[0].fc
+      breakpoints:
+        - {t: 0, v: 300, shape: linear}
+        - {t: 100, v: 7000}
+  per_layer: []

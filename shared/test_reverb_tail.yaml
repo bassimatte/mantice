@@ -1,0 +1,21 @@
+# Test for preserved reverb tails (no cuts at boundaries)
+duration: 90
+
+layers:
+  - type: fm
+    enabled: true
+    voices: 4
+    fc: 220.0
+    index: 1.5
+    ratio: 2.0
+    detune: 0.02
+    amp: 0.6
+    stereo_width: 0.8
+
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.8
+  decay_trim: 1.0
+
+saturation: 0.2

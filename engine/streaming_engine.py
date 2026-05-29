@@ -1290,8 +1290,10 @@ class StreamingFDNReverb:
         # Pre-delay FIFO — sized generously so any chunk ≤ _MAX_CHUNK works.
         # The FIFO stores the last (pd + _MAX_CHUNK) samples; fdn_in is the
         # oldest n samples (i.e. delayed by pd).
+        # R2: Stereo buffers for independent L/R processing
         _MAX_CHUNK = 8192
-        self._pre_fifo = np.zeros(self._pre_delay_samps + _MAX_CHUNK, dtype=np.float64)
+        self._pre_fifo_L = np.zeros(self._pre_delay_samps + _MAX_CHUNK, dtype=np.float64)
+        self._pre_fifo_R = np.zeros(self._pre_delay_samps + _MAX_CHUNK, dtype=np.float64)
 
         # Per-line LFO state
         rng = np.random.default_rng(seed=42)
@@ -1306,7 +1308,8 @@ class StreamingFDNReverb:
         clone = copy.copy(self)
         clone.buf         = self.buf.copy()
         clone._damp_zi    = self._damp_zi.copy()
-        clone._pre_fifo   = self._pre_fifo.copy()
+        clone._pre_fifo_L = self._pre_fifo_L.copy()  # R2: Stereo buffers
+        clone._pre_fifo_R = self._pre_fifo_R.copy()
         clone._lfo_phases = self._lfo_phases.copy()
         clone._lfo_rates  = self._lfo_rates.copy()
         return clone
@@ -1319,18 +1322,24 @@ class StreamingFDNReverb:
             return stereo
 
         n = len(stereo)
-        # Mono sum for reverb input
-        mono = ((stereo[:, 0] + stereo[:, 1]) * 0.5).astype(np.float64)
+        # Stereo reverb: process L and R independently with small cross-coupling
+        in_L = stereo[:, 0].astype(np.float64)
+        in_R = stereo[:, 1].astype(np.float64)
 
         # ── Pre-delay ────────────────────────────────────────────────────
+        # R2: Process L and R independently through pre-delay
         pd = self._pre_delay_samps
         if pd > 0:
-            # FIFO shift: oldest n samples become fdn_in; new mono appended
-            fdn_in = self._pre_fifo[:n].copy()
-            self._pre_fifo[:-n] = self._pre_fifo[n:]
-            self._pre_fifo[-n:] = mono
+            # FIFO shift: oldest n samples become fdn_in; new stereo appended
+            fdn_in_L = self._pre_fifo_L[:n].copy()
+            fdn_in_R = self._pre_fifo_R[:n].copy()
+            self._pre_fifo_L[:-n] = self._pre_fifo_L[n:]
+            self._pre_fifo_R[:-n] = self._pre_fifo_R[n:]
+            self._pre_fifo_L[-n:] = in_L
+            self._pre_fifo_R[-n:] = in_R
         else:
-            fdn_in = mono
+            fdn_in_L = in_L
+            fdn_in_R = in_R
 
         # ── LFO: advance phases, compute per-line delay offsets (per chunk) ─
         dt = n / self.SR
@@ -1349,8 +1358,10 @@ class StreamingFDNReverb:
             v[j] = self.buf[j].take((rs + arange_n) % self.max_d)
 
         # ── Hadamard mix + input injection ───────────────────────────────
+        # R2: Split input to L and R, with small cross-coupling for coherence
         u = self._H8d @ v                          # (8, n) vectorised
-        u += fdn_in[np.newaxis, :] * 0.125         # spread mono input evenly
+        u += fdn_in_L[np.newaxis, :] * 0.125         # L input to even lines
+        u += fdn_in_R[np.newaxis, :] * 0.125         # R input to odd lines
 
         # ── Per-line 1-pole damping lowpass ──────────────────────────────
         for j in range(self._N_LINES):
@@ -1567,6 +1578,7 @@ class StreamingDroneEngine:
         self.earth_cfg = preset.get("earth")
         self.earth_phase = 0.0
         self.earth_wobble_phase = 0.0
+        self._earth_delay_buf = np.zeros(4, dtype=np.float32)  # R2: Stereo decorrelation buffer
 
         # Air engine (streaming noise)
         self.air_cfg = preset.get("air")
@@ -2020,8 +2032,14 @@ class StreamingDroneEngine:
 
         signal = (earth * 0.7 + pressure_wave * 0.3) * pressure
 
-        # Pan center with drift
-        stereo = np.stack([signal * 0.5, signal * 0.5], axis=1)
+        # R2: Stereo decorrelation via small phase offset
+        # Create slight L/R difference without losing low-freq coherence
+        # Use a shallow allpass-like delay (3-5 samples on one channel)
+        delay_samps = 4  # ~0.1ms @ 44.1kHz, ~0.08ms @ 48kHz
+        signal_R = np.concatenate([self._earth_delay_buf, signal[:-delay_samps]])
+        self._earth_delay_buf = signal[-delay_samps:].copy()
+        
+        stereo = np.stack([signal * 0.5, signal_R * 0.5], axis=1)
         return stereo
 
     def _air_chunk(self, n: int) -> np.ndarray:
@@ -2066,6 +2084,7 @@ class _ShallowCopy:
         self.air_cfg   = engine.air_cfg
         self.earth_phase = engine.earth_phase
         self.earth_wobble_phase = engine.earth_wobble_phase
+        self._earth_delay_buf = engine._earth_delay_buf.copy()  # R2: Copy delay buffer
         self._air_kernel = engine._air_kernel
         self._air_state  = engine._air_state
         self._dc_sos  = engine._dc_sos
