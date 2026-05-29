@@ -960,7 +960,31 @@ async def render_endpoint(request: Request):
         out_bd      = "PCM_24" if hires else "PCM_16"
         mp3_bitrate = 320 if hires else 192
 
-        print(f"  [render] Starting {duration}s render ({fmt}, {'hi-res 48k/24b' if hires else '22k/16b'})…")
+        # Memory limit check: Estimate memory needed for post-processing
+        # Post-processing loads full audio buffer: duration * sample_rate * 2 channels * 4 bytes (float32)
+        # Plus overhead for convolution reverb (~2-3× audio size) and oversampling (2× temp buffers)
+        estimated_audio_mb = (duration * out_sr * 2 * 4) / (1024 * 1024)
+        estimated_total_mb = estimated_audio_mb * 4  # Conservative: 4× for reverb + oversampling
+        
+        # Render.com free tier: 512MB limit, keep render under ~200MB to be safe
+        MAX_MEMORY_MB = 200
+        
+        if estimated_total_mb > MAX_MEMORY_MB:
+            max_duration = int((MAX_MEMORY_MB / estimated_total_mb) * duration)
+            error_msg = (
+                f"Render too long: {duration}s would use ~{estimated_total_mb:.0f}MB (limit: {MAX_MEMORY_MB}MB). "
+                f"Maximum duration: {max_duration}s {'(hi-res)' if hires else '(standard)'}. "
+                f"For longer renders, use the Python CLI: python main.py --preset your_preset.yaml --duration {duration}"
+            )
+            print(f"  [render] MEMORY ERROR: {error_msg}")
+            return JSONResponse({
+                "ok": False, 
+                "error": error_msg,
+                "max_duration": max_duration,
+                "estimated_memory_mb": int(estimated_total_mb)
+            }, status_code=413)  # 413 Payload Too Large
+
+        print(f"  [render] Starting {duration}s render ({fmt}, {'hi-res 48k/24b' if hires else '22k/16b'}, ~{estimated_total_mb:.0f}MB)…")
 
         loop = asyncio.get_event_loop()
         seed = int(body.get("seed", 42))
