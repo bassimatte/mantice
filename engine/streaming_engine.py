@@ -95,6 +95,55 @@ def _ensure_freesound_sample(source_file: str, samples_dir: str) -> str:
 SR = config.STREAM_SAMPLE_RATE
 
 
+# ── R3: Oversampling Utilities ───────────────────────────────────────────────
+
+def _oversample_waveshaper(audio: np.ndarray, waveshaper_fn, factor: int = 4) -> np.ndarray:
+    """
+    Apply waveshaper with oversampling to reduce aliasing.
+    
+    R3: Implements anti-aliasing for nonlinear waveshapers (tanh, clip, etc).
+    Process: upsample → waveshape → downsample (with anti-aliasing filters).
+    
+    Args:
+        audio: Input audio (mono or stereo)
+        waveshaper_fn: Function that applies waveshaping (takes and returns same shape)
+        factor: Oversampling factor (2, 4, or 8). Higher = less aliasing, more CPU.
+    
+    Returns:
+        Processed audio with same shape as input
+    """
+    from scipy.signal import resample_poly
+    
+    is_mono = (audio.ndim == 1)
+    stereo = np.column_stack([audio, audio]) if is_mono else audio
+    
+    # Upsample with anti-aliasing filter
+    upsampled_L = resample_poly(stereo[:, 0], factor, 1)
+    upsampled_R = resample_poly(stereo[:, 1], factor, 1)
+    upsampled = np.column_stack([upsampled_L, upsampled_R])
+    
+    # Apply waveshaper at higher sample rate
+    shaped = waveshaper_fn(upsampled)
+    
+    # Downsample with anti-aliasing filter
+    downsampled_L = resample_poly(shaped[:, 0], 1, factor)
+    downsampled_R = resample_poly(shaped[:, 1], 1, factor)
+    
+    # Match original length (resampling may add/remove 1-2 samples)
+    target_len = len(audio)
+    downsampled_L = downsampled_L[:target_len]
+    downsampled_R = downsampled_R[:target_len]
+    
+    # Pad if needed (rare edge case)
+    if len(downsampled_L) < target_len:
+        pad_len = target_len - len(downsampled_L)
+        downsampled_L = np.concatenate([downsampled_L, np.zeros(pad_len)])
+        downsampled_R = np.concatenate([downsampled_R, np.zeros(pad_len)])
+    
+    result = np.column_stack([downsampled_L, downsampled_R])
+    return result[:, 0] if is_mono else result
+
+
 # ── Stateful voice ────────────────────────────────────────────────────────────
 
 class StreamingVoice:
@@ -1424,15 +1473,24 @@ class LayerDistortion:
         stereo = np.column_stack([audio, audio]) if is_mono else audio
         if self.drive < 0.01:
             return audio
+        
         d = 1.0 + self.drive * 4.0
-        if self.dist_type == "hard":
-            out = np.clip(stereo * d, -1.0, 1.0) / d
-        else:  # soft (tanh)
-            out = np.tanh(stereo * d) / np.tanh(d)
-        # Anti-aliasing: attenuate wideband artefacts from PolyBLEP residuals
+        
+        # R3: Use oversampling for waveshapers to reduce aliasing
+        def waveshaper(x):
+            if self.dist_type == "hard":
+                return np.clip(x * d, -1.0, 1.0) / d
+            else:  # soft (tanh)
+                return np.tanh(x * d) / np.tanh(d)
+        
+        # Apply oversampling (4× for good aliasing reduction)
+        out = _oversample_waveshaper(stereo, waveshaper, factor=4)
+        
+        # Post-waveshaper anti-aliasing filter (still useful for PolyBLEP residuals)
         if self._aa_sos is not None:
             out[:, 0], self._aa_zi_l = sosfilt(self._aa_sos, out[:, 0], zi=self._aa_zi_l)
             out[:, 1], self._aa_zi_r = sosfilt(self._aa_sos, out[:, 1], zi=self._aa_zi_r)
+        
         return out[:, 0] if is_mono else out
 
 
@@ -1676,7 +1734,12 @@ class StreamingDroneEngine:
         if self.saturation > 0.01:
             drive = 1.0 + self.saturation * 3.0
             norm = np.tanh(drive)
-            stereo = np.tanh(stereo * drive) / norm
+            
+            # R3: Use oversampling for global saturation
+            def saturation_fn(x):
+                return np.tanh(x * drive) / norm
+            
+            stereo = _oversample_waveshaper(stereo, saturation_fn, factor=4)
 
         # FDN reverb — only processes synthesized drone layers
         # MANT-9: apply global automation for reverb
@@ -2125,7 +2188,12 @@ class _ShallowCopy:
         if self.saturation > 0.01:
             drive = 1.0 + self.saturation * 3.0
             norm = np.tanh(drive)
-            stereo = np.tanh(stereo * drive) / norm
+            
+            # R3: Use oversampling for global saturation
+            def saturation_fn(x):
+                return np.tanh(x * drive) / norm
+            
+            stereo = _oversample_waveshaper(stereo, saturation_fn, factor=4)
 
         stereo = self._reverb.next_chunk(stereo)
         stereo = self._shimmer.next_chunk(stereo)
