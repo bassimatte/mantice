@@ -929,6 +929,9 @@ Apply pre-defined parameter automation curves to any preset:
 - `wander` — Random walk, seeded smooth chaos
 - `trance` — Rhythmic cycling, hypnotic patterns
 - `shimmer` — Fast high-frequency modulation
+- `sustain` — Pure static drone, no automation (La Monte Young style)
+- `drift` — Ultra-slow filter evolution (barely perceptible)
+- `pulse` — Slow breathing envelope (classic drone technique)
 
 ### Journey Templates
 
