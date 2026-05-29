@@ -1962,7 +1962,14 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
     <summary>Filter by tag</summary>
     <div class="tag-filter" id="tag-filter"></div>
   </details>
-  <div id="preset-list"></div>
+  <div id="preset-list">
+    <!-- Loading skeleton shown until presets load -->
+    <div class="preset-loading" id="preset-loading">
+      <div style="padding: 12px; color: var(--text-dim); font-size: 11px; text-align: center;">
+        Loading presets...
+      </div>
+    </div>
+  </div>
 </aside>
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
@@ -2347,19 +2354,29 @@ async function loadPresetList() {
   const result = await api('/api/presets');
   allPresets = Array.isArray(result) ? result : [];
   backendOffline = !Array.isArray(result);
-  // Apply manifest names to community presets (client-side override, works even before backend redeploy)
-  try {
-    const manifestUrl = 'https://raw.githubusercontent.com/bassimatte/mantice/main/shared/manifest.json';
-    const mRes = await fetch(manifestUrl);
-    if (mRes.ok) {
-      const manifest = await mRes.json();
-      allPresets = allPresets.map(p =>
-        p.source === 'community' && manifest[p.id] ? { ...p, name: manifest[p.id] } : p
-      );
-    }
-  } catch (_) {}
+  
+  // Render presets immediately with paths/IDs, don't wait for manifest
   buildTagFilter();
   renderPresetList();
+  
+  // Apply manifest names to community presets (non-blocking, updates in background)
+  (async () => {
+    try {
+      const manifestUrl = 'https://raw.githubusercontent.com/bassimatte/mantice/main/shared/manifest.json';
+      const mRes = await fetch(manifestUrl);
+      if (mRes.ok) {
+        const manifest = await mRes.json();
+        const updated = allPresets.map(p =>
+          p.source === 'community' && manifest[p.id] ? { ...p, name: manifest[p.id] } : p
+        );
+        // Only re-render if names actually changed
+        if (JSON.stringify(updated) !== JSON.stringify(allPresets)) {
+          allPresets = updated;
+          renderPresetList();
+        }
+      }
+    } catch (_) {}
+  })();
 
   // #shared=<id> — community shared preset
   const sharedMatch = window.location.hash.match(/[#&]shared=([^&]+)/);
@@ -2429,6 +2446,11 @@ function buildTagFilter() {
 
 function renderPresetList() {
   const container = $('preset-list');
+  
+  // Remove loading skeleton
+  const loadingSkeleton = $('preset-loading');
+  if (loadingSkeleton) loadingSkeleton.remove();
+  
   const filtered = activeTagFilter
     ? allPresets.filter(p => (p.tags || []).includes(activeTagFilter))
     : allPresets;
