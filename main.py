@@ -87,14 +87,87 @@ def apply_seed(preset: dict, cli_seed: Optional[int]) -> None:
 
 
 def build_tags(preset: dict) -> str:
-    meta     = preset.get("meta", {})
-    mood     = meta.get("mood") or []
-    base     = ["drone", "ambient", "spatial", "sacred"]
+    """Generate comprehensive Freesound tags (target: ~25 tags)."""
+    meta = preset.get("meta", {})
+    mood = meta.get("mood") or []
     category = meta.get("category", "")
-    if category and category not in base:
-        base.append(category)
-    all_tags = base + [m for m in mood if m not in base]
-    return ", ".join(all_tags)
+    
+    # Core MANTICE tags (always include)
+    tags = ["mantice", "procedural", "generative", "drone", "ambient"]
+    
+    # Add category if present
+    if category:
+        tags.append(category)
+    
+    # Add mood tags
+    for m in mood:
+        if m not in tags:
+            tags.append(m)
+    
+    # Synthesis type tags (check layers for what's actually used)
+    layers = preset.get("layers", [])
+    layer_types = set()
+    has_granular = False
+    has_fm = False
+    has_subtractive = False
+    
+    for layer in layers:
+        if not layer.get("enabled", True):
+            continue
+        layer_type = layer.get("type", "fm")
+        layer_types.add(layer_type)
+        if layer_type == "granular":
+            has_granular = True
+        elif layer_type == "subtractive":
+            has_subtractive = True
+        else:
+            has_fm = True
+    
+    if has_fm:
+        tags.extend(["fm-synthesis", "frequency-modulation"])
+    if has_subtractive:
+        tags.extend(["subtractive", "analog"])
+    if has_granular:
+        tags.extend(["granular", "sample-based"])
+    
+    # Effect tags (check what's enabled)
+    if preset.get("binaural", {}).get("enabled"):
+        tags.extend(["binaural", "brainwave"])
+    if preset.get("reverb", {}).get("enabled"):
+        tags.append("reverb")
+    if preset.get("earth", {}).get("enabled"):
+        tags.append("sub-bass")
+    if preset.get("air", {}).get("enabled"):
+        tags.append("shimmer")
+    if preset.get("phaser", {}).get("enabled"):
+        tags.append("phaser")
+    
+    # Spatial tags
+    tags.extend(["spatial", "immersive", "3d-audio"])
+    
+    # Musical/genre tags
+    tags.extend([
+        "meditation",
+        "soundscape",
+        "experimental",
+        "textural",
+        "evolving",
+        "cinematic",
+        "sound-design",
+        "atmospheric",
+        "sacred"
+    ])
+    
+    # Deduplicate and limit to first 25
+    seen = set()
+    unique_tags = []
+    for tag in tags:
+        tag_lower = tag.lower()
+        if tag_lower not in seen:
+            seen.add(tag_lower)
+            unique_tags.append(tag)
+    
+    return ", ".join(unique_tags[:25])
 
 
 def build_freesound_description(preset: dict) -> str:
