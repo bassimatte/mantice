@@ -16,6 +16,11 @@
   "Molten_Membrane_20260521_8cf372": "Molten Membrane",
   "Molten_Membrane_20260523_5cb2f8": "Ember Resonance",
   "Obsidian_Chamber_20260524_bb126d": "Obsidian Chamber",
+  "Obsidian_Undertone_20260529_636db0": {
+    "author": "Anonymous",
+    "created": "2026-05-29T19:29:09.421465Z",
+    "name": "Obsidian Undertone"
+  },
   "Obsidian_Vortex_20260523_88dce8": "Obsidian Vortex",
   "Phantom_Membrane_20260523_6ff9d0": "Phantom Membrane",
   "Rare_Membrane_20260523_5cb2f8": "Rare Membrane",
@@ -24,5 +29,10 @@
   "Solar_Pulse_20260522_47b854": "Solar Pulse",
   "Solar_Whisper_20260524_975345": "Solar Whisper",
   "Spectral_Field_20260523_5ddf8c": "Spectral Field",
+  "Spectral_Timbre_20260529_2925d7": {
+    "author": "Matteo Bassi",
+    "created": "2026-05-29T19:30:53.272988Z",
+    "name": "Spectral Timbre"
+  },
   "Tectonic_Pulse_20260524_143cc9": "Tectonic Pulse"
 }
