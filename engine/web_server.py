@@ -1859,8 +1859,31 @@ async def render_journey_endpoint(request: Request):
         max_samples = int(60 * config.STREAM_SAMPLE_RATE) if preview else None
         fmt_out = "ogg" if preview else fmt
 
+        # Memory limit check (same as regular render endpoint)
+        # Journeys always use hi-res (48kHz), so use that for estimation
+        out_sr = 48_000  # Journeys always render at 48kHz
+        estimated_audio_mb = (total_s * out_sr * 2 * 4) / (1024 * 1024)
+        estimated_total_mb = estimated_audio_mb * 4  # Conservative: 4× for reverb + oversampling
+        
+        MAX_MEMORY_MB = 200
+        
+        if not preview and estimated_total_mb > MAX_MEMORY_MB:
+            max_duration = int((MAX_MEMORY_MB / estimated_total_mb) * total_s)
+            error_msg = (
+                f"Journey too long: {int(total_s)}s would use ~{estimated_total_mb:.0f}MB (limit: {MAX_MEMORY_MB}MB). "
+                f"Maximum duration: {max_duration}s (hi-res). "
+                f"For longer journeys, use the Python CLI: python main.py --journey your_journey.yaml"
+            )
+            print(f"  [journey] MEMORY ERROR: {error_msg}")
+            return JSONResponse({
+                "ok": False, 
+                "error": error_msg,
+                "max_duration": max_duration,
+                "estimated_memory_mb": int(estimated_total_mb)
+            }, status_code=413)  # 413 Payload Too Large
+
         print(f"  [journey] {len(steps)} steps, loop={loop}, "
-              f"total={total_s:.0f}s, preview={preview}, fmt={fmt_out}")
+              f"total={total_s:.0f}s, preview={preview}, fmt={fmt_out}, ~{estimated_total_mb:.0f}MB")
 
         ev = asyncio.get_event_loop()
 
