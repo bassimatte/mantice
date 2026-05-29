@@ -461,6 +461,36 @@ AUTO_TEMPLATES: list[dict] = [
         },
         "layer": {},
     },
+    {
+        "name": "sustain",
+        "desc": "Pure static drone — no automation at all (La Monte Young style)",
+        "global": {},
+        "layer": {},
+    },
+    {
+        "name": "drift",
+        "desc": "Ultra-slow filter drift — barely perceptible evolution over the full duration",
+        "global": {},
+        "layer": {
+            "filter_cutoff": {"enabled": True, "breakpoints": [
+                {"t": 0.0, "value": 500,  "shape": "linear"},
+                {"t": 1.0, "value": 2000, "shape": "linear"},
+            ]},
+        },
+    },
+    {
+        "name": "pulse",
+        "desc": "Slow breathing envelope — gentle amplitude pulse (classic drone technique)",
+        "global": {
+            "master_output_db": {"enabled": True, "breakpoints": [
+                {"t": 0.00, "value": -3, "shape": "linear"},
+                {"t": 0.35, "value": 0,  "shape": "scurve"},
+                {"t": 0.65, "value": 0,  "shape": "scurve"},
+                {"t": 1.00, "value": -3, "shape": "scurve"},
+            ]},
+        },
+        "layer": {},
+    },
 ]
 _TEMPLATE_BY_NAME: dict[str, dict] = {t["name"]: t for t in AUTO_TEMPLATES}
 TEMPLATE_NAMES: list[str] = [t["name"] for t in AUTO_TEMPLATES]

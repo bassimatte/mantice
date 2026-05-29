@@ -1590,13 +1590,17 @@ python batch_render_freesound.py --metadata-only</pre>
           <h4 style="margin-top:24px;">▸ Automation Templates</h4>
           <p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Apply parameter automation curves to any preset:</p>
           <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
-# Available: journey, arc, breathe, meditate, sunrise, wander, trance, shimmer
+# Available: journey, arc, breathe, meditate, sunrise, wander, trance, shimmer, sustain, drift, pulse
 python main.py --name "Om" --auto-template journey --duration 300
-python main.py --name "Crystal Bowl" --auto-template breathe --hires</pre>
+python main.py --name "Crystal Bowl" --auto-template breathe --hires
+python main.py --name "Simple Drone" --auto-template sustain --duration 600</pre>
           <p style="font-size:11px;color:var(--text-dim);"><strong>journey:</strong> Fade-in, filter opens, reverb builds, binaural drifts alpha→delta<br>
           <strong>arc:</strong> Sweeping rise and fall, full frequency journey<br>
           <strong>breathe:</strong> Gentle pulsing, in-out cycles<br>
-          <strong>meditate:</strong> Ultra-slow drift, minimal movement</p>
+          <strong>meditate:</strong> Ultra-slow drift, minimal movement<br>
+          <strong>sustain:</strong> Pure static drone, no automation (La Monte Young style)<br>
+          <strong>drift:</strong> Ultra-slow filter evolution (barely perceptible)<br>
+          <strong>pulse:</strong> Slow breathing envelope (classic drone technique)</p>
           
           <h4 style="margin-top:24px;">▸ Journey Quick-Sets</h4>
           <p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">Render multi-preset sequences with auto-selected presets and timed crossfades:</p>
