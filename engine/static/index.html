@@ -2431,9 +2431,17 @@ async function loadPresetList() {
       const mRes = await fetch(manifestUrl);
       if (mRes.ok) {
         const manifest = await mRes.json();
-        const updated = allPresets.map(p =>
-          p.source === 'community' && manifest[p.id] ? { ...p, name: manifest[p.id] } : p
-        );
+        const updated = allPresets.map(p => {
+          if (p.source === 'community' && manifest[p.id]) {
+            const manifestEntry = manifest[p.id];
+            // Handle both old (string) and new (object) manifest formats
+            const displayName = typeof manifestEntry === 'string' 
+              ? manifestEntry 
+              : manifestEntry.name || p.name;
+            return { ...p, name: displayName };
+          }
+          return p;
+        });
         // Only re-render if names actually changed
         if (JSON.stringify(updated) !== JSON.stringify(allPresets)) {
           allPresets = updated;
