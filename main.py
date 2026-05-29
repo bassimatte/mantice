@@ -141,7 +141,7 @@ def write_freesound_xlsx(xlsx_path: Path, audio_filename: str, preset: dict) -> 
     ws.title = "Freesound Upload"
     
     # Headers (Freesound bulk upload format)
-    headers = ["audio_filename", "name", "tags", "geotag", "description", "license", "pack_name", "is_explicit"]
+    headers = ["audio_filename", "name", "tags", "geotag", "description", "license", "pack_name", "is_explicit", "bst_category"]
     ws.append(headers)
     
     # Build metadata row
@@ -153,7 +153,8 @@ def write_freesound_xlsx(xlsx_path: Path, audio_filename: str, preset: dict) -> 
         build_freesound_description(preset),
         "Creative Commons 0",
         "MANTICE Drones",
-        "0"  # not explicit
+        "0",  # not explicit
+        "m-m"  # bst_category: music-music
     ]
     ws.append(row)
     
