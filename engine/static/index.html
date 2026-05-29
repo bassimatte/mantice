@@ -7090,6 +7090,20 @@ function _morphingActive() {
   return currentJourney.steps.filter(s => s.presetPath).length >= 2;
 }
 
+/** Update the active step indicator without re-rendering the entire card. */
+function _updateMorphingStepHighlight() {
+  const body = $('journey-body');
+  if (!body) return;
+  const nums = body.querySelectorAll('.journey-step-num');
+  nums.forEach((num, i) => {
+    if (_currentMorphingStep === i) {
+      num.classList.add('active');
+    } else {
+      num.classList.remove('active');
+    }
+  });
+}
+
 /** Sync the top-bar Duration field with morphing total when morphing is active. */
 function _syncDurationField() {
   const durInput = $('duration');
@@ -7292,9 +7306,9 @@ function renderJourneyCard() {
 
     const morphIn = document.createElement('input');
     morphIn.type = 'number'; morphIn.className = 'journey-dur-input';
-    morphIn.min = 0; morphIn.max = 30; morphIn.step = 0.5;
+    morphIn.min = 0.05; morphIn.max = 30; morphIn.step = 0.1;
     morphIn.value = step.morphMin ?? 2;
-    morphIn.title = 'Crossfade into next preset (minutes)';
+    morphIn.title = 'Crossfade into next preset (minutes). Min 3s enforced for smooth transitions.';
     const isLastNoLoop = (i === currentJourney.steps.length - 1) && currentJourney.loop === 'none';
     if (isLastNoLoop) { morphIn.disabled = true; morphIn.style.opacity = '0.3'; }
     morphIn.oninput = () => { currentJourney.steps[i].morphMin = morphIn.value; _updateJourneyBadge(); };
@@ -7509,12 +7523,12 @@ async function doJourneyStream() {
       const msg = JSON.parse(event.data);
       if (msg.step_index !== undefined) {
         _currentMorphingStep = msg.step_index;
-        renderJourneyCard();  // re-render to highlight active step
+        _updateMorphingStepHighlight();  // efficient update without full re-render
         return;
       }
-      if (msg.status === 'done')    { setStatus('Journey complete'); _currentMorphingStep = -1; renderJourneyCard(); return; }
-      if (msg.status === 'stopped') { setStatus('Stopped'); _currentMorphingStep = -1; renderJourneyCard(); return; }
-      if (msg.error) { setStatus('Stream error: ' + msg.error); _currentMorphingStep = -1; renderJourneyCard(); return; }
+      if (msg.status === 'done')    { setStatus('Journey complete'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
+      if (msg.status === 'stopped') { setStatus('Stopped'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
+      if (msg.error) { setStatus('Stream error: ' + msg.error); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
       return;
     }
     if (!streamingCtx || streamingCtx.state === 'closed') return;
