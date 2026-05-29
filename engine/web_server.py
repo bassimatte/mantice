@@ -1443,6 +1443,7 @@ async def share_preset_endpoint(request: Request):
         return JSONResponse({"ok": False, "error": "Sharing not configured on this server"}, status_code=503)
     body = await request.json()
     params = body.get("params")
+    author = body.get("author", "Anonymous")  # NEW: Accept author from client
     if not params:
         return JSONResponse({"ok": False, "error": "No params"}, status_code=400)
     try:
@@ -1451,13 +1452,20 @@ async def share_preset_endpoint(request: Request):
         from .generator import _random_name
         # Fetch existing names from manifest to avoid duplicates (best-effort)
         manifest = _fetch_shared_manifest()
-        existing_names = {v.lower() for v in manifest.values()}
+        # Handle both old format (string) and new format (dict with metadata)
+        existing_names = set()
+        for v in manifest.values():
+            if isinstance(v, str):
+                existing_names.add(v.lower())  # old format: "Preset Name"
+            elif isinstance(v, dict):
+                existing_names.add(v.get("name", "").lower())  # new format: {"name": "...", "author": "..."}
         # Pick a name not already in use (up to 20 attempts)
         for _ in range(20):
             preset_name = _random_name()
             if preset_name.lower() not in existing_names:
                 break
         preset_data["meta"]["name"] = preset_name
+        preset_data["meta"]["author"] = author  # NEW: Store author in YAML metadata
         safe_name = "".join(c for c in preset_name if c.isalnum() or c in " -_").strip().replace(" ", "_")
         short_id = uuid.uuid4().hex[:6]
         date_str = datetime.utcnow().strftime("%Y%m%d")
@@ -1504,9 +1512,14 @@ async def share_preset_endpoint(request: Request):
             await loop.run_in_executor(None, lambda: urllib.request.urlopen(json_req))
         except Exception:
             pass  # JSON upload is best-effort; YAML is the source of truth
-        # Register name in manifest so future shares avoid this name
+        # Register preset metadata in manifest for gallery
         try:
-            await loop.run_in_executor(None, lambda: _update_shared_manifest({file_id: preset_name}))
+            manifest_entry = {
+                "name": preset_name,
+                "author": author,
+                "created": datetime.utcnow().isoformat() + "Z"
+            }
+            await loop.run_in_executor(None, lambda: _update_shared_manifest({file_id: manifest_entry}))
         except Exception:
             pass
         return JSONResponse({"ok": True, "id": file_id})
@@ -1556,12 +1569,59 @@ async def rename_shared_preset(request: Request):
         return JSONResponse({"ok": False, "error": "Invalid id"}, status_code=400)
     try:
         manifest = _fetch_shared_manifest()
-        taken = {v.lower() for k, v in manifest.items() if k != preset_id}
+        # Handle both old format (string) and new format (dict with metadata)
+        taken = set()
+        for k, v in manifest.items():
+            if k != preset_id:
+                if isinstance(v, str):
+                    taken.add(v.lower())
+                elif isinstance(v, dict):
+                    taken.add(v.get("name", "").lower())
         if new_name.lower() in taken:
             return JSONResponse({"ok": False, "error": "Name already in use"}, status_code=409)
+        
+        # Preserve existing metadata if present
+        existing_entry = manifest.get(preset_id)
+        if isinstance(existing_entry, dict):
+            # Update name but keep other metadata
+            existing_entry["name"] = new_name
+            update_entry = existing_entry
+        else:
+            # Old format or missing - just store the name
+            update_entry = new_name
+        
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: _update_shared_manifest({preset_id: new_name}))
+        await loop.run_in_executor(None, lambda: _update_shared_manifest({preset_id: update_entry}))
         return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/gallery")
+async def get_gallery_manifest():
+    """Return the full shared presets manifest for the gallery UI."""
+    try:
+        manifest = _fetch_shared_manifest()
+        # Normalize to new format (dict with metadata)
+        normalized = []
+        for preset_id, value in manifest.items():
+            if isinstance(value, str):
+                # Old format: just name
+                normalized.append({
+                    "id": preset_id,
+                    "name": value,
+                    "author": "Anonymous",
+                    "created": None
+                })
+            elif isinstance(value, dict):
+                # New format: full metadata
+                normalized.append({
+                    "id": preset_id,
+                    "name": value.get("name", "Untitled"),
+                    "author": value.get("author", "Anonymous"),
+                    "created": value.get("created")
+                })
+        return JSONResponse({"ok": True, "presets": normalized})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 

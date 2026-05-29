@@ -1118,6 +1118,50 @@ main {
 .docs-table tr:hover td { background: rgba(255,255,255,0.02); }
 .docs-note { color: var(--muted); font-style: italic; margin: 4px 0 16px; font-size: 11px; }
 
+/* ── Gallery Modal ──────────────────────────── */
+.gallery-controls {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+}
+#gallery-search {
+  width: 100%; padding: 10px 14px; font-size: 13px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; font-family: 'Space Mono', monospace;
+}
+#gallery-search:focus {
+  outline: none; border-color: var(--accent); background: var(--surface);
+}
+.gallery-grid {
+  padding: 20px; overflow-y: auto; max-height: calc(85vh - 160px);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.gallery-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; cursor: pointer;
+  transition: all 0.2s;
+}
+.gallery-card:hover {
+  border-color: var(--accent); background: var(--surface);
+  transform: translateY(-2px);
+}
+.gallery-card-name {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  margin-bottom: 6px;
+}
+.gallery-card-author {
+  font-size: 11px; color: var(--muted); margin-bottom: 10px;
+}
+.gallery-card-date {
+  font-size: 10px; color: var(--text-dim);
+}
+.gallery-loading {
+  color: var(--text-dim); text-align: center; padding: 40px;
+}
+.gallery-empty {
+  color: var(--text-dim); text-align: center; padding: 40px;
+  font-style: italic;
+}
+
 /* ── Connection overlay ─────────────────────── */
 #connection-overlay {
   position: fixed; inset: 0; z-index: 99999;
@@ -1268,6 +1312,7 @@ main {
       <div class="dropdown-section-label">Presets</div>
       <div class="file-menu-item" id="btn-restore">↺ Default</div>
       <div class="file-menu-item" id="btn-share">🔗 Share</div>
+      <div class="file-menu-item" id="btn-gallery">🎨 Gallery</div>
       <div class="file-menu-item" id="btn-export">⬇ Download</div>
       <div class="file-menu-item" id="btn-import-file">📂 Load</div>
       <input type="file" id="import-preset-input" accept=".yaml,.yml" style="display:none">
@@ -2264,6 +2309,22 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
     <div id="journey-body"></div>
   </div>
 </main>
+
+<!-- Gallery Modal -->
+<div class="docs-overlay" id="gallery-overlay">
+  <div class="docs-modal">
+    <div class="docs-header">
+      <h2>🎨 Community Gallery</h2>
+      <button class="docs-close" id="gallery-close">✕</button>
+    </div>
+    <div class="gallery-controls">
+      <input type="text" id="gallery-search" placeholder="🔍 Search presets..." />
+    </div>
+    <div class="gallery-grid" id="gallery-grid">
+      <p class="gallery-loading">Loading presets...</p>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── Zoom ────────────────────────────────────────────────────────────────────
@@ -5692,13 +5753,25 @@ async function doSharePreset() {
   }
 
   // Modified or generated preset → upload as new shared preset
+  // Get or prompt for username
+  let username = localStorage.getItem('mantice_username');
+  if (!username) {
+    username = prompt('Enter your creator name (optional, will be shown in gallery):', '');
+    if (username && username.trim()) {
+      localStorage.setItem('mantice_username', username.trim());
+      username = username.trim();
+    } else {
+      username = 'Anonymous';
+    }
+  }
+  
   setStatus('Sharing…');
   try {
     const params = collectParams();
     const data = await api('/api/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params })
+      body: JSON.stringify({ params, author: username })  // Include author
     });
     if (!data.ok) { setStatus('Share failed: ' + data.error); return; }
     currentSharedId = data.id;
@@ -5715,6 +5788,81 @@ async function doSharePreset() {
   } catch (e) {
     setStatus('Share error: ' + e.message);
   }
+}
+
+// ── Gallery ──────────────────────────────────────────────────────────────────
+let galleryPresets = [];
+
+async function openGallery() {
+  $('gallery-overlay').classList.add('open');
+  $('files-dropdown').classList.remove('open');
+  
+  // Fetch gallery data if not already loaded
+  if (galleryPresets.length === 0) {
+    try {
+      const data = await api('/api/gallery');
+      if (data.ok && Array.isArray(data.presets)) {
+        galleryPresets = data.presets;
+        renderGallery(galleryPresets);
+      } else {
+        $('gallery-grid').innerHTML = '<p class="gallery-empty">Could not load gallery: ' + (data.error || 'Unknown error') + '</p>';
+      }
+    } catch (e) {
+      $('gallery-grid').innerHTML = '<p class="gallery-empty">Gallery unavailable</p>';
+    }
+  } else {
+    renderGallery(galleryPresets);
+  }
+}
+
+function renderGallery(presets) {
+  const grid = $('gallery-grid');
+  if (!presets || presets.length === 0) {
+    grid.innerHTML = '<p class="gallery-empty">No presets in gallery yet. Share yours to get started!</p>';
+    return;
+  }
+  
+  grid.innerHTML = presets.map(p => `
+    <div class="gallery-card" data-id="${p.id}">
+      <div class="gallery-card-name">${p.name || 'Untitled'}</div>
+      <div class="gallery-card-author">by ${p.author || 'Anonymous'}</div>
+      ${p.created ? `<div class="gallery-card-date">${new Date(p.created).toLocaleDateString()}</div>` : ''}
+    </div>
+  `).join('');
+  
+  // Add click handlers to each card
+  document.querySelectorAll('.gallery-card').forEach(card => {
+    card.addEventListener('click', async () => {
+      const id = card.dataset.id;
+      $('gallery-overlay').classList.remove('open');
+      window.location.hash = 'shared=' + id;
+      // Load the preset
+      const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
+      if (data.ok && data.params) {
+        currentParams = data.params;
+        currentSharedId = id;
+        renderAllControls();
+        markClean();
+        setStatus('Loaded: ' + (data.params.name || id));
+      }
+    });
+  });
+}
+
+function filterGallery() {
+  const query = $('gallery-search').value.toLowerCase().trim();
+  if (!query) {
+    renderGallery(galleryPresets);
+    return;
+  }
+  
+  const filtered = galleryPresets.filter(p => {
+    const name = (p.name || '').toLowerCase();
+    const author = (p.author || '').toLowerCase();
+    return name.includes(query) || author.includes(query);
+  });
+  
+  renderGallery(filtered);
 }
 
 // ── Import preset from local YAML file ──────────────────────────────────────
@@ -6971,9 +7119,17 @@ function init() {
   // Export
   $('btn-export').addEventListener('click', doExportPreset);
   $('btn-share').addEventListener('click', doSharePreset);
+  $('btn-gallery').addEventListener('click', openGallery);
   $('btn-restore').addEventListener('click', doRestore);
   $('btn-import-file').addEventListener('click', () => { $('files-dropdown').classList.remove('open'); doImportPresetFile(); });
   $('import-preset-input').addEventListener('change', handleImportPresetFile);
+
+  // Gallery modal
+  $('gallery-close').addEventListener('click', () => $('gallery-overlay').classList.remove('open'));
+  $('gallery-overlay').addEventListener('click', (e) => {
+    if (e.target === $('gallery-overlay')) $('gallery-overlay').classList.remove('open');
+  });
+  $('gallery-search').addEventListener('input', filterGallery);
 
   // Mood buttons
   document.querySelectorAll('.mood-btn').forEach(btn => {
