@@ -5962,7 +5962,7 @@ async function doMutate() {
 // ── Export preset ────────────────────────────────────────────────────────────
 async function doSharePreset() {
   if (!currentParams) { setStatus('No preset loaded'); return; }
-  const isClean = savedParamsSnapshot && JSON.stringify(collectParams()) === savedParamsSnapshot;
+  const isClean = savedParamsSnapshot && JSON.stringify(currentParams) === savedParamsSnapshot;
 
   // Unmodified community preset → reuse existing link
   if (currentSharedId && isClean) {
