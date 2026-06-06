@@ -1640,11 +1640,11 @@ class StreamingDroneEngine:
 
         # Air engine (streaming noise)
         self.air_cfg = preset.get("air")
-        self._air_kernel = int(0.1 * SR)
+        self._air_kernel = int(0.1 * self.SR)
         self._air_state = np.float32(0.0)  # EMA state carried across chunks (was _air_buffer[-1] = always 0)
 
         # DC block filter state
-        nyquist = SR * 0.5
+        nyquist = self.SR * 0.5
         self._dc_sos = butter(4, max(18 / nyquist, 0.001), btype="high", output="sos")
         self._dc_zi_L = sosfilt_zi(self._dc_sos) * 0.0
         self._dc_zi_R = sosfilt_zi(self._dc_sos) * 0.0
@@ -2205,4 +2205,3 @@ class _ShallowCopy:
         self._limiter_gain = target
 
         return stereo
-
