@@ -1839,8 +1839,6 @@ async def preview_segment(request: Request):
 
     try:
         preset = _ui_params_to_preset(params)
-        sr = config.STREAM_SAMPLE_RATE
-
         # Create new engine or reuse existing session
         if not token or reset or token not in _segment_engines:
             token = uuid.uuid4().hex[:16]
@@ -1852,7 +1850,7 @@ async def preview_segment(request: Request):
             _segment_engines[token] = engine
         else:
             engine = _segment_engines[token]
-
+        sr = engine.SR
         total_samples = int(segment_s * sr)
         chunk_size    = 2048
 
