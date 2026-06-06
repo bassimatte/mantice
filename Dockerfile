@@ -15,8 +15,7 @@ RUN pip install --no-cache-dir -r requirements-server.txt
 # Copy application
 COPY . .
 
-# Render provides PORT env variable
-ENV PORT=8432
-EXPOSE ${PORT}
+# Railway provides PORT at runtime; fall back to 8432 for local Docker runs.
+EXPOSE 8432
 
-CMD uvicorn engine.web_server:app --host 0.0.0.0 --port ${PORT} --timeout-keep-alive 300
+CMD uvicorn engine.web_server:app --host 0.0.0.0 --port ${PORT:-8432} --timeout-keep-alive 300

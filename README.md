@@ -45,7 +45,7 @@ python main.py --preset "presets/essentials/Warm Pad.yaml" --duration 120
                        │ WebSocket + REST API
                        ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Render.com (Python backend)                            │
+│  Railway (Python backend)                               │
 │  FastAPI + NumPy/SciPy synthesis engine                 │
 │  Streams PCM audio chunks to browser                    │
 └─────────────────────────────────────────────────────────┘
@@ -145,11 +145,16 @@ See [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) and [MEMORY_REPORT.md](MEMORY
 2. Settings → Pages → Source: `/docs` folder
 3. Your UI is live at `https://bassimatte.github.io/mantice/`
 
-### Render (backend)
-1. Connect your GitHub repo on [render.com](https://render.com)
-2. It auto-detects the `Dockerfile`
-3. Backend runs at `https://mantice.onrender.com`
-4. Update `docs/index.html` → `MANTICE_API_BASE` with your actual Render URL
+### Railway (backend)
+1. Create a Railway project and deploy from the GitHub repo
+2. Railway auto-detects the `Dockerfile`
+3. Add required service variables, such as `GITHUB_TOKEN` and `FREESOUND_API_KEY`
+4. Backend runs at `https://mantice-production.up.railway.app`
+5. Update `docs/index.html` and `engine/static/index.html` → `MANTICE_API_BASE` if the Railway URL changes
+
+The Railway deployment config lives in `railway.toml`. It uses `/api/presets`
+as the health check endpoint and the Docker container listens on Railway's
+runtime `PORT` variable.
 
 ---
 

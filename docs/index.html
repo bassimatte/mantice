@@ -2457,12 +2457,12 @@ const MAX_HISTORY = 5;
 const $ = id => document.getElementById(id);
 
 // ── API configuration ────────────────────────────────────────────────────────
-// Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice.onrender.com")
+// Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice-production.up.railway.app")
 // When null/empty, uses same origin (local mode)
 // Auto-detect GitHub Pages and point to production backend
 const MANTICE_API_BASE = window.MANTICE_API_BASE || (
   (location.hostname.includes('github.io') || location.hostname.includes('githubusercontent.com'))
-    ? 'https://mantice.onrender.com'
+    ? 'https://mantice-production.up.railway.app'
     : ''
 );
 
@@ -5651,7 +5651,7 @@ async function doRender() {
   const duration = parseFloat($('duration').value);
   const hires = $('hires-toggle').dataset.state === '1';
   
-  // Limit hi-res renders to 30 seconds (memory constraint on Render.com)
+  // Limit hi-res renders to 30 seconds (memory constraint on hosted backends)
   if (hires && duration > 30) {
     setStatus('Hi-Res limited to 30s (use CLI for longer renders)');
     setTimeout(() => setStatus(''), 3000);
@@ -8032,7 +8032,7 @@ async function doJourneyStream() {
   ws.onclose = () => { if (isStreaming) { isStreaming = false; setLiveIndicator(false); } };
 }
 
-// ── Backend connection check (handles cold-start on Render) ──────────────────
+// ── Backend connection check (handles hosted backend cold starts) ────────────
 async function checkBackendConnection() {
   const overlay = $('connection-overlay');
   const msg = $('connection-msg');
@@ -8060,13 +8060,16 @@ async function checkBackendConnection() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  const isRenderCom = location.hostname.includes('onrender.com');
+  const isHostedBackend =
+    location.hostname.includes('onrender.com') ||
+    location.hostname.includes('up.railway.app') ||
+    location.hostname.includes('railway.app');
   
   if (MANTICE_API_BASE) {
     // Configured backend URL (remote backend, different origin) — do health check
     const ok = await checkBackendConnection();
     if (!ok) return;
-  } else if (!isLocal && !isRenderCom) {
+  } else if (!isLocal && !isHostedBackend) {
     // Deployed to GitHub Pages or similar static host, no backend configured
     const overlay = $('connection-overlay');
     const msg = $('connection-msg');
@@ -8076,7 +8079,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     overlay.classList.add('hidden');
     setTimeout(() => overlay.style.display = 'none', 0);
   } else {
-    // Local mode or Render.com (same origin) — hide overlay immediately
+    // Local mode or hosted backend (same origin) — hide overlay immediately
     const overlay = $('connection-overlay');
     overlay.classList.add('hidden');
     overlay.style.display = 'none';
