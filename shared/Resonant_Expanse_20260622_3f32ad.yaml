@@ -1,0 +1,261 @@
+meta:
+  name: Resonant Expanse
+  author: Matteo Bassi
+seed: null
+duration: 180.0
+spatial_depth: 1.3
+spatial_wet: 0.0
+saturation: 0.3
+master:
+  eq:
+    low_cut_hz: 20.0
+    bass_db: 0.0
+    bass_hz: 100.0
+    lo_mid_db: 0.0
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 0.0
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: 0.0
+    air_hz: 10000.0
+  comp:
+    threshold_db: -18.0
+    ratio: 2.5
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 3.0
+    makeup_db: 4.0
+  output_gain_db: 3.0
+swarm_density: 0.5
+layers:
+- name: Harmonic Bed
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  root: 415.3
+  tuning_degree: unison
+  voices: 12
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  fm_index: 0.233
+  amp_min: 0.0063
+  amp_max: 0.0584
+  drift: 0.0099
+  volume_db: -4.6
+  band: mid
+  quadrant: front_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.43
+  chorus_depth: 0.0091
+  chorus_mix: 0.15
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 3920.7
+  filter_resonance: 1.39
+  filter_lfo_rate: 0.069
+  filter_lfo_depth: 0.2
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+  automation: {}
+- name: Mid Shimmer
+  muted: false
+  type: granular
+  source: gong.ogg
+  grain_size: 43.4
+  density: 20.2
+  pitch_spread: 0.39
+  position: 0.11
+  scatter: 0.62
+  envelope: hann
+  root: 415.3
+  tuning_degree: unison
+  voices: 12
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0101
+  amp_max: 0.0424
+  drift: 0.008
+  volume_db: 1.0
+  band: mid
+  quadrant: rear_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.57
+  chorus_depth: 0.0045
+  chorus_mix: 0.04
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 668.5
+  filter_resonance: 0.74
+  filter_lfo_rate: 0.133
+  filter_lfo_depth: 0.21
+  filter_lfo_shape: triangle
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+  automation: {}
+- name: Tonal Weave
+  muted: false
+  type: granular
+  source: singing_bowl.ogg
+  grain_size: 147.7
+  density: 29.7
+  pitch_spread: 0.15
+  position: 0.42
+  scatter: 0.4
+  envelope: hann
+  root: 415.3
+  tuning_degree: unison
+  voices: 12
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  - 3
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0098
+  amp_max: 0.0512
+  drift: 0.0121
+  volume_db: -6.4
+  band: mid
+  quadrant: rear_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.4
+  chorus_depth: 0.0095
+  chorus_mix: 0.13
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 979.0
+  filter_resonance: 1.4
+  filter_lfo_rate: 0.085
+  filter_lfo_depth: 0.07
+  filter_lfo_shape: triangle
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+  automation: {}
+tuning_mode: free
+tonic_hz: 220.0
+tuning_system_ji: 5limit_ji
+pure_mode: false
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+  pre_delay_ms: 0
+  modulation_depth: 0
+earth: null
+air: null
+shimmer: null
+flanger: null
+automation: {}
