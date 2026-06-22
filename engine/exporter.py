@@ -18,12 +18,18 @@ from . import config
 SUPPORTED_FORMATS = ["wav", "flac", "ogg", "mp3"]
 
 
-def export_audio(path: Path, audio: np.ndarray, fmt: str = "wav") -> None:
+def export_audio(path: Path, audio: np.ndarray, fmt: str = "wav", sr: int = None) -> None:
     """
     Export stereo audio array to the given path in the specified format.
 
     For wav/flac/ogg: uses soundfile directly.
     For mp3: writes a temporary WAV then converts via ffmpeg.
+    
+    Args:
+        path: Output file path
+        audio: (N, 2) stereo float array
+        fmt: File format (wav, flac, ogg, mp3)
+        sr: Sample rate (defaults to config.SAMPLE_RATE if None)
     """
     path = Path(path)
     fmt  = fmt.lower()
@@ -33,7 +39,8 @@ def export_audio(path: Path, audio: np.ndarray, fmt: str = "wav") -> None:
             f"Unsupported format '{fmt}'. Choose from: {', '.join(SUPPORTED_FORMATS)}"
         )
 
-    sr = config.SAMPLE_RATE
+    if sr is None:
+        sr = config.SAMPLE_RATE
     bd = config.BIT_DEPTH
 
     _sf_subtypes = {

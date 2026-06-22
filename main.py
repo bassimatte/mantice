@@ -403,11 +403,13 @@ def run(
             sat = float(preset.get("saturation", 0.3))
             preset_for_render["saturation"] = 0.0
 
-            # Build using StreamingDroneEngine
+            # Build using StreamingDroneEngine with render_mode to match target sample rate
             seed = int(cli_seed) if cli_seed is not None else (preset.get("seed") or 42)
-            engine = StreamingDroneEngine(preset_for_render, seed=seed)
+            # render_mode=True uses config.SAMPLE_RATE, render_mode=False uses STREAM_SAMPLE_RATE
+            # For CLI, we want the configured SAMPLE_RATE (44.1k or 48k with --hires)
+            engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=True)
 
-            sr           = _engine_config.SAMPLE_RATE
+            sr           = engine.SR  # Use engine's actual sample rate
             total_samp   = int(preset["duration"] * sr)
             chunk_size   = 2048
             n_chunks     = (total_samp + chunk_size - 1) // chunk_size
@@ -441,7 +443,7 @@ def run(
             else:
                 audio_filename = f"{slug}.{audio_format}"
             out_path = EXPORT_DIR / audio_filename
-            export_audio(out_path, audio, fmt=audio_format)
+            export_audio(out_path, audio, fmt=audio_format, sr=sr)
             print(f"  ✓ Saved: {out_path}")
 
             # Generate Freesound bulk upload XLS
