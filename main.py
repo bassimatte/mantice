@@ -48,6 +48,8 @@ from engine.streaming_engine import StreamingDroneEngine
 from engine.exporter         import export_audio, SUPPORTED_FORMATS
 from engine.generator        import generate_preset, mutate_preset, save_generated_preset, get_available_moods
 from engine.automation       import apply_auto_template, strip_automation, TEMPLATE_NAMES
+from engine.post_processing  import oversampled_saturate
+from engine.convolution_reverb import apply_convolution_reverb
 from engine                  import config as _engine_config
 
 PRESET_DIR = Path("presets")
@@ -389,9 +391,21 @@ def run(
             else:
                 print(f"\n[{idx}/{total}] Generating: {name}")
 
-            # Build using StreamingDroneEngine (identical signal chain to web preview)
+            # High-quality export: Disable FDN reverb and saturation in engine,
+            # apply convolution reverb + oversampled saturation post-synthesis
+            # (matches web export quality)
+            preset_for_render = {**preset}
+            reverb_cfg = dict(preset.get("reverb") or {})
+            reverb_enabled = reverb_cfg.get("enabled", False)
+            if reverb_enabled:
+                preset_for_render["reverb"] = {**reverb_cfg, "enabled": False}
+            
+            sat = float(preset.get("saturation", 0.3))
+            preset_for_render["saturation"] = 0.0
+
+            # Build using StreamingDroneEngine
             seed = int(cli_seed) if cli_seed is not None else (preset.get("seed") or 42)
-            engine = StreamingDroneEngine(preset, seed=seed)
+            engine = StreamingDroneEngine(preset_for_render, seed=seed)
 
             sr           = _engine_config.SAMPLE_RATE
             total_samp   = int(preset["duration"] * sr)
@@ -406,6 +420,18 @@ def run(
                 progress.update(1)
             progress.finish()
             audio = np.concatenate(chunks, axis=0)
+
+            # Post-processing: Apply high-quality saturation + reverb
+            if sat > 0.01:
+                print(f"  [post] Applying 4× oversampled saturation (drive={1.0 + sat * 3.0:.2f})...")
+                audio = oversampled_saturate(audio, sat)
+            
+            if reverb_enabled:
+                space = reverb_cfg.get("space", "cathedral")
+                mix = float(reverb_cfg.get("mix", 0.3))
+                decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
+                print(f"  [post] Applying convolution reverb: {space} (mix={mix:.2f})...")
+                audio = apply_convolution_reverb(audio, space=space, mix=mix, decay_trim=decay_trim, sr=sr)
 
             # Export audio — append layer name if solo
             if solo_layer_name:
