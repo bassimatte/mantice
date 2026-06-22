@@ -10,3 +10,4 @@ psutil
 # Web UI (optional — only needed for --gui)
 fastapi
 uvicorn[standard]
+python-dotenv  # Load .env file for local development (GITHUB_TOKEN, FREESOUND_API_KEY)

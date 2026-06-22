@@ -48,6 +48,13 @@ from .exporter import export_audio
 from .generator import generate_preset, mutate_preset, save_generated_preset, _NAME_PARTS_A, _NAME_PARTS_B
 from .convolution_reverb import apply_convolution_reverb
 
+# Load .env file if present (for local development with GITHUB_TOKEN, FREESOUND_API_KEY)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed, rely on system environment variables
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 _ROOT = Path(__file__).resolve().parent.parent
