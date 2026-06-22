@@ -6002,7 +6002,15 @@ async function doSharePreset() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ params, author: username })  // Include author
     });
-    if (!data.ok) { setStatus('Share failed: ' + data.error); return; }
+    if (!data.ok) { 
+      // Better error message for missing GitHub token
+      if (data.error && data.error.includes('not configured')) {
+        setStatus('⚠️ Sharing disabled on local server (requires GITHUB_TOKEN env variable)');
+      } else {
+        setStatus('Share failed: ' + data.error);
+      }
+      return; 
+    }
     currentSharedId = data.id;
     savedParamsSnapshot = JSON.stringify(collectParams()); // now "clean" relative to this share
     // Immediately inject into allPresets so it appears in Community sidebar without reload
