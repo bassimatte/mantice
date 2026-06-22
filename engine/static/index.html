@@ -5982,16 +5982,14 @@ async function doSharePreset() {
   }
 
   // Modified or generated preset → upload as new shared preset
-  // Get or prompt for username
-  let username = localStorage.getItem('mantice_username');
-  if (!username) {
-    username = prompt('Enter your creator name (optional, will be shown in gallery):', '');
-    if (username && username.trim()) {
-      localStorage.setItem('mantice_username', username.trim());
-      username = username.trim();
-    } else {
-      username = 'Anonymous';
-    }
+  // Prompt for username (pre-filled if previously set)
+  let storedUsername = localStorage.getItem('mantice_username') || '';
+  let username = prompt('Enter your creator name (will be shown in gallery):', storedUsername || 'Anonymous');
+  if (username && username.trim()) {
+    username = username.trim();
+    localStorage.setItem('mantice_username', username);
+  } else {
+    username = 'Anonymous';
   }
   
   setStatus('Sharing…');

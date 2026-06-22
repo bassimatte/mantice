@@ -315,7 +315,7 @@ def _find_all_presets() -> list[dict]:
             if not fname.endswith(".yaml") or fname in (".gitkeep.yaml", ".gitkeep"):
                 continue
             stem = fname[:-5]
-            # Manifest name takes priority; fall back to filename-derived name
+            # Manifest name takes priority; fall back to filename-derived name (without # suffix)
             if stem in manifest:
                 manifest_entry = manifest[stem]
                 # Handle both old (string) and new (object) manifest formats
@@ -326,10 +326,9 @@ def _find_all_presets() -> list[dict]:
                 else:
                     display_name = str(manifest_entry)  # Fallback for unexpected types
             else:
-                m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
-                short_id = m.group(1)[-6:] if m else None
+                # Derive clean name from filename without # suffix
                 base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
-                display_name = f"{base_name} #{short_id}" if short_id else base_name
+                display_name = base_name or stem
             presets.append({
                 "name": display_name or stem,
                 "category": "community",
@@ -347,12 +346,18 @@ def _find_all_presets() -> list[dict]:
                 stem = yaml_file.stem
                 name, tags = _parse(yaml_file)
                 if stem in manifest:
-                    display_name = manifest[stem]
+                    # Handle both old and new manifest formats
+                    manifest_entry = manifest[stem]
+                    if isinstance(manifest_entry, str):
+                        display_name = manifest_entry
+                    elif isinstance(manifest_entry, dict):
+                        display_name = manifest_entry.get("name", stem)
+                    else:
+                        display_name = str(manifest_entry)
                 else:
-                    m = re.search(r'_(\d{8}_[a-f0-9]+)$', stem)
-                    short_id = m.group(1)[-6:] if m else None
+                    # Derive clean name from filename without # suffix
                     base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
-                    display_name = f"{base_name} #{short_id}" if short_id else base_name
+                    display_name = base_name or name
                 presets.append({
                     "name": display_name or name,
                     "category": "community",
