@@ -2,6 +2,8 @@
 Fetch new granular samples from Freesound (CC0) and update manifest.json.
 Skips files that already exist. Appends new entries to manifest.
 """
+from __future__ import annotations
+
 import json
 import os
 import time

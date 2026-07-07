@@ -13,6 +13,8 @@ Provides:
 Launch: python main.py --gui
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import io

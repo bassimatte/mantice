@@ -4,6 +4,8 @@ Convolution reverb engine for MANTICE V11.
 Applies impulse response (IR) based reverb to audio using FFT convolution.
 Supports multiple IR spaces with configurable wet/dry mix.
 """
+from __future__ import annotations
+
 import numpy as np
 from pathlib import Path
 from scipy.signal import fftconvolve
