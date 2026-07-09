@@ -1,0 +1,262 @@
+meta:
+  name: Chthonic Corridor
+  author: bassimat
+seed: null
+duration: 60.0
+spatial_depth: 1.2
+spatial_wet: 0.0
+saturation: 0.3
+master:
+  eq:
+    low_cut_hz: 20.0
+    bass_db: 0.0
+    bass_hz: 100.0
+    lo_mid_db: 0.0
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 0.0
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: 0.0
+    air_hz: 10000.0
+  comp:
+    threshold_db: -18.0
+    ratio: 2.5
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 3.0
+    makeup_db: 4.0
+  output_gain_db: 3.0
+swarm_density: 0.5
+layers:
+- name: Low Drone
+  muted: false
+  type: granular
+  source: singing_bowl.ogg
+  grain_size: 188.1
+  density: 21.9
+  pitch_spread: 0.23
+  position: 0.27
+  scatter: 0.33
+  envelope: trapezoid
+  root: 110.0
+  tuning_degree: unison
+  voices: 12
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0154
+  amp_max: 0.048
+  drift: 0.0242
+  volume_db: 0.7
+  band: sub
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.53
+  chorus_depth: 0.003
+  chorus_mix: 0.13
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 1613.1
+  filter_resonance: 1.71
+  filter_lfo_rate: 0.129
+  filter_lfo_depth: 0.27
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+  automation: {}
+- name: Mid Resonance
+  muted: false
+  type: granular
+  source: gong.ogg
+  grain_size: 90.1
+  density: 8.5
+  pitch_spread: 0.4
+  position: 0.8
+  scatter: 0.71
+  envelope: trapezoid
+  root: 220.0
+  tuning_degree: unison
+  voices: 12
+  ratios:
+  - 0.5
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0096
+  amp_max: 0.0549
+  drift: 0.0218
+  volume_db: 1.2
+  band: mid
+  quadrant: rear_left
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.57
+  chorus_depth: 0.0056
+  chorus_mix: 0.01
+  chorus_voices: 2
+  filter_type: bp
+  filter_cutoff: 2242.0
+  filter_resonance: 1.6
+  filter_lfo_rate: 0.279
+  filter_lfo_depth: 0.25
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+  automation: {}
+- name: Core Tone
+  muted: false
+  type: granular
+  source: metal_hit.ogg
+  grain_size: 40.1
+  density: 19.0
+  pitch_spread: 0.33
+  position: 0.4
+  scatter: 0.27
+  envelope: triangle
+  root: 277.18
+  tuning_degree: unison
+  voices: 10
+  ratios:
+  - 0.5
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0092
+  amp_max: 0.0612
+  drift: 0.0093
+  volume_db: 1.1
+  band: mid
+  quadrant: rear_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.66
+  chorus_depth: 0.0065
+  chorus_mix: 0.13
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 715.1
+  filter_resonance: 1.25
+  filter_lfo_rate: 0.285
+  filter_lfo_depth: 0.22
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  position_mode: linear
+  position_chaos: 0.3
+  automation: {}
+tuning_mode: free
+tonic_hz: 220.0
+tuning_system_ji: 5limit_ji
+pure_mode: false
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+  pre_delay_ms: 0
+  modulation_depth: 0
+earth: null
+air:
+  enabled: true
+  intensity: 0.23
+  movement: 0.0094
+  turbulence: 0.085
+shimmer: null
+flanger: null
+automation: {}
