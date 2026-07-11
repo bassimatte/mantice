@@ -944,7 +944,9 @@ main {
   opacity: 0.8;
   pointer-events: none;
   z-index: 1;
+  transition: opacity 0.12s;
 }
+.slider-control.is-at-default .slider-default-marker { opacity: 0; }
 .slider-value-bubble {
   position: absolute;
   left: calc(var(--value-pct, 50) * 1%);
@@ -2633,6 +2635,9 @@ function sliderDisplayValue(input) {
 function updateSliderDecoration(input) {
   const control = input.closest('.slider-control');
   if (!control) return;
+  const step = Math.abs(parseFloat(input.step)) || 0;
+  const distanceFromDefault = Math.abs(parseFloat(input.value) - parseFloat(input.dataset.sliderDefault));
+  control.classList.toggle('is-at-default', distanceFromDefault <= step * 0.001);
   control.style.setProperty('--value-pct', sliderPercent(input));
   control.style.setProperty('--default-pct', sliderPercent(input, input.dataset.sliderDefault));
   const bubble = control.querySelector('.slider-value-bubble');
