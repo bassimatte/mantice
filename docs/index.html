@@ -926,6 +926,47 @@ main {
   outline: 1px solid var(--accent);
   outline-offset: 4px;
 }
+.slider-control {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.slider-control > input[type="range"] { display: block; }
+.slider-default-marker {
+  position: absolute;
+  left: calc(var(--default-pct, 50) * 1%);
+  top: 50%;
+  width: 2px;
+  height: 10px;
+  background: var(--text-dim);
+  border: 1px solid var(--surface);
+  transform: translate(-50%, -50%);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 1;
+}
+.slider-value-bubble {
+  position: absolute;
+  left: calc(var(--value-pct, 50) * 1%);
+  bottom: calc(50% + 13px);
+  transform: translateX(-50%) translateY(3px);
+  padding: 3px 6px;
+  color: #000;
+  background: var(--accent);
+  border: 1px solid var(--surface);
+  font: 700 9px/1.2 'Space Mono', monospace;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 20;
+  transition: opacity 0.1s, transform 0.1s, visibility 0.1s;
+}
+.slider-control.is-active .slider-value-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
 .param-row .value {
   font-size: 10px;
   color: var(--text-lcd);
@@ -1072,6 +1113,8 @@ button:disabled {
     height: 24px;
     border-width: 3px;
   }
+  .slider-default-marker { height: 14px; }
+  .slider-value-bubble { bottom: calc(50% + 17px); font-size: 11px; padding: 4px 7px; }
   .transport-btn {
     width: 44px;
     height: 44px;
@@ -2565,6 +2608,137 @@ const generationHistory = [];
 const MAX_HISTORY = 5;
 
 const $ = id => document.getElementById(id);
+
+// ── Slider interaction helpers ──────────────────────────────────────────────
+const sliderDefaults = new Map();
+let sliderHideTimer = null;
+let lastSliderTap = { key: '', time: 0 };
+
+function sliderKey(input) {
+  const layerPrefix = input.id && input.id.startsWith('lp-') ? `layer:${activeLayerIdx}:` : '';
+  return layerPrefix + (input.id || input.name || 'slider');
+}
+
+function sliderPercent(input, value = input.value) {
+  const min = parseFloat(input.min) || 0;
+  const max = parseFloat(input.max) || 100;
+  return max === min ? 0 : Math.max(0, Math.min(100, ((parseFloat(value) - min) / (max - min)) * 100));
+}
+
+function sliderDisplayValue(input) {
+  const valueEl = input.closest('.slider-control')?.nextElementSibling;
+  return valueEl?.classList.contains('value') ? valueEl.textContent : input.value;
+}
+
+function updateSliderDecoration(input) {
+  const control = input.closest('.slider-control');
+  if (!control) return;
+  control.style.setProperty('--value-pct', sliderPercent(input));
+  control.style.setProperty('--default-pct', sliderPercent(input, input.dataset.sliderDefault));
+  const bubble = control.querySelector('.slider-value-bubble');
+  if (bubble) bubble.textContent = sliderDisplayValue(input);
+}
+
+function showSliderBubble(input, linger = false) {
+  const control = input.closest('.slider-control');
+  if (!control) return;
+  clearTimeout(sliderHideTimer);
+  updateSliderDecoration(input);
+  control.classList.add('is-active');
+  if (linger) sliderHideTimer = setTimeout(() => control.classList.remove('is-active'), 850);
+}
+
+function hideSliderBubble(input) {
+  clearTimeout(sliderHideTimer);
+  sliderHideTimer = setTimeout(() => input.closest('.slider-control')?.classList.remove('is-active'), 180);
+}
+
+function resetSlider(input) {
+  if (input.dataset.sliderDefault === undefined) return;
+  if (typeof pushUndo === 'function') pushUndo();
+  input.value = input.dataset.sliderDefault;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  requestAnimationFrame(() => {
+    updateSliderDecoration(input);
+    showSliderBubble(input, true);
+  });
+}
+
+function enhanceParamSlider(input) {
+  if (input.dataset.sliderEnhanced === '1') return;
+  input.dataset.sliderEnhanced = '1';
+
+  const key = sliderKey(input);
+  if (!sliderDefaults.has(key)) sliderDefaults.set(key, input.value);
+  input.dataset.sliderDefault = sliderDefaults.get(key);
+
+  const control = document.createElement('div');
+  control.className = 'slider-control';
+  input.parentNode.insertBefore(control, input);
+  control.appendChild(input);
+
+  const marker = document.createElement('span');
+  marker.className = 'slider-default-marker';
+  marker.setAttribute('aria-hidden', 'true');
+  control.appendChild(marker);
+
+  const bubble = document.createElement('span');
+  bubble.className = 'slider-value-bubble';
+  bubble.setAttribute('aria-hidden', 'true');
+  control.appendChild(bubble);
+
+  input.title = [input.title, 'Double-click or double-tap to reset'].filter(Boolean).join(' — ');
+  updateSliderDecoration(input);
+
+  input.addEventListener('pointerdown', () => showSliderBubble(input));
+  input.addEventListener('pointerup', e => {
+    if (e.pointerType === 'touch') {
+      const now = performance.now();
+      const tapKey = sliderKey(input);
+      if (lastSliderTap.key === tapKey && now - lastSliderTap.time < 350) {
+        e.preventDefault();
+        resetSlider(input);
+        lastSliderTap = { key: '', time: 0 };
+      } else {
+        lastSliderTap = { key: tapKey, time: now };
+      }
+    }
+    hideSliderBubble(input);
+  });
+  input.addEventListener('pointercancel', () => hideSliderBubble(input));
+  input.addEventListener('blur', () => hideSliderBubble(input));
+  input.addEventListener('dblclick', e => { e.preventDefault(); resetSlider(input); });
+  input.addEventListener('input', () => requestAnimationFrame(() => {
+    updateSliderDecoration(input);
+    showSliderBubble(input, !input.matches(':active'));
+  }));
+}
+
+function enhanceParamSliders(root = document) {
+  root.querySelectorAll('.param-row input[type="range"]').forEach(enhanceParamSlider);
+}
+
+function refreshSliderDefaults() {
+  sliderDefaults.clear();
+  document.querySelectorAll('.param-row input[type="range"]').forEach(input => {
+    const value = input.value;
+    sliderDefaults.set(sliderKey(input), value);
+    input.dataset.sliderDefault = value;
+    updateSliderDecoration(input);
+  });
+}
+
+function initParamSliderUX() {
+  enhanceParamSliders();
+  new MutationObserver(mutations => {
+    mutations.forEach(mutation => mutation.addedNodes.forEach(node => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      if (node.matches?.('.param-row input[type="range"]')) enhanceParamSlider(node);
+      enhanceParamSliders(node);
+    }));
+  }).observe(document.body, { childList: true, subtree: true });
+}
 
 // ── API configuration ────────────────────────────────────────────────────────
 // Set MANTICE_API_BASE to point to remote backend (e.g. "https://mantice-production.up.railway.app")
@@ -5194,6 +5368,7 @@ let savedParamsSnapshot = null;
 
 function markClean() {
   savedParamsSnapshot = currentParams ? JSON.stringify(currentParams) : null;
+  refreshSliderDefaults();
   $('dirty-indicator').style.display = 'none';
 }
 
@@ -7400,6 +7575,7 @@ function renderAutomationCard() {
 function init() {
   loadPresetList();
   initGenerationHistory();
+  initParamSliderUX();
 
   // Fetch running commit SHA and update the version link in settings.
   // Primary: /api/version from the backend (exact deployed SHA).
