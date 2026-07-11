@@ -1598,25 +1598,110 @@ async def get_gallery_manifest():
     """Return the full shared presets manifest for the gallery UI."""
     try:
         manifest = _fetch_shared_manifest()
+
+        def preset_summary(preset_id: str) -> dict:
+            """Build small, gallery-safe discovery metadata from a local preset."""
+            params = None
+            json_path = _SHARED_DIR / f"{preset_id}.json"
+            yaml_path = _SHARED_DIR / f"{preset_id}.yaml"
+            try:
+                if json_path.exists():
+                    params = json.loads(json_path.read_text(encoding="utf-8"))
+                elif yaml_path.exists():
+                    import yaml as _yaml
+                    raw = _yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+                    params = _preset_to_ui_params(raw or {})
+            except Exception:
+                params = None
+            if not isinstance(params, dict):
+                return {}
+
+            layers = [layer for layer in (params.get("layers") or []) if isinstance(layer, dict)]
+            roots = []
+            synth_types = []
+            widths = []
+            moving = False
+            for layer in layers:
+                root = layer.get("root", layer.get("base_freq"))
+                try:
+                    if float(root) > 0:
+                        roots.append(float(root))
+                except (TypeError, ValueError):
+                    pass
+                synth_type = str(layer.get("type") or "fm").lower()
+                if synth_type not in synth_types:
+                    synth_types.append(synth_type)
+                try:
+                    widths.append(float(layer.get("width", 1)))
+                except (TypeError, ValueError):
+                    pass
+                motion = layer.get("spatial_motion") or {}
+                trajectory = str(motion.get("trajectory_x") or "none").lower()
+                moving = moving or trajectory not in ("none", "static", "off")
+
+            traits = list(synth_types)
+            lowest_hz = min(roots) if roots else None
+            if lowest_hz is not None and lowest_hz < 80:
+                traits.append("sub-heavy")
+            if len(layers) >= 4:
+                traits.append("dense")
+            if widths and sum(widths) / len(widths) > 1.15:
+                traits.append("wide")
+            if moving:
+                traits.append("motion")
+            reverb = params.get("reverb") or {}
+            if reverb.get("enabled") and float(reverb.get("mix", 0) or 0) >= 0.3:
+                traits.append("deep space")
+            shimmer = params.get("shimmer") or {}
+            if float(shimmer.get("wet", 0) or 0) >= 0.08:
+                traits.append("shimmer")
+            binaural = params.get("binaural") or {}
+            if binaural.get("enabled"):
+                traits.append("binaural")
+            tuning = params.get("tuning_system_ji") if params.get("tuning_mode") == "ji" else params.get("tuning_system")
+            if params.get("tuning_mode") == "ji":
+                traits.append("just intonation")
+
+            return {
+                "layer_count": len(layers),
+                "lowest_hz": round(lowest_hz, 1) if lowest_hz is not None else None,
+                "synth_types": synth_types,
+                "traits": list(dict.fromkeys(traits))[:6],
+                "duration": params.get("duration"),
+                "tuning": tuning or "12-TET",
+                "complexity": len(layers) + len(traits),
+            }
+
+        def inferred_created(preset_id: str):
+            match = re.search(r"_(\d{8})_[a-f0-9]+$", preset_id)
+            if not match:
+                return None
+            stamp = match.group(1)
+            return f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:]}T00:00:00Z"
+
         # Normalize to new format (dict with metadata)
         normalized = []
         for preset_id, value in manifest.items():
             if isinstance(value, str):
                 # Old format: just name
-                normalized.append({
+                entry = {
                     "id": preset_id,
                     "name": value,
                     "author": "Anonymous",
-                    "created": None
-                })
+                    "created": inferred_created(preset_id)
+                }
             elif isinstance(value, dict):
                 # New format: full metadata
-                normalized.append({
+                entry = {
                     "id": preset_id,
                     "name": value.get("name", "Untitled"),
                     "author": value.get("author", "Anonymous"),
-                    "created": value.get("created")
-                })
+                    "created": value.get("created") or inferred_created(preset_id)
+                }
+            else:
+                continue
+            entry.update(preset_summary(preset_id))
+            normalized.append(entry)
         return JSONResponse({"ok": True, "presets": normalized})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

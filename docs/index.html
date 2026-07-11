@@ -1340,47 +1340,184 @@ button:disabled {
 .docs-note { color: var(--muted); font-style: italic; margin: 4px 0 16px; font-size: 11px; }
 
 /* ── Gallery Modal ──────────────────────────── */
+.gallery-modal {
+  width: min(1400px, 96vw);
+  height: min(92vh, 980px);
+  max-height: 92vh;
+  border-radius: 4px;
+}
+.gallery-modal .docs-header {
+  padding: 14px 20px;
+  background: linear-gradient(90deg, var(--surface2), var(--surface));
+}
+.gallery-modal .docs-header h2 { letter-spacing: 0.08em; text-transform: uppercase; }
 .gallery-controls {
-  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  background: var(--surface);
 }
 #gallery-search {
-  width: 100%; padding: 10px 14px; font-size: 13px;
+  width: 100%; padding: 10px 14px; font-size: 12px;
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: 6px; font-family: 'Space Mono', monospace;
+  border-radius: 2px; font-family: 'Space Mono', monospace;
 }
 #gallery-search:focus {
   outline: none; border-color: var(--accent); background: var(--surface);
 }
+.gallery-sort {
+  min-height: 38px;
+  padding: 0 32px 0 10px;
+  color: var(--text-lcd);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  font: 10px 'Space Mono', monospace;
+  text-transform: uppercase;
+}
+.gallery-sort:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.gallery-count {
+  min-width: 78px;
+  color: var(--text-dim);
+  font-size: 9px;
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 .gallery-grid {
-  padding: 20px; overflow-y: auto; max-height: calc(85vh - 160px);
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
+  flex: 1;
+  padding: 16px 20px 24px;
+  overflow-y: auto;
+  max-height: none;
+  align-content: start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  background:
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px),
+    var(--bg);
+  background-size: 28px 28px;
 }
 .gallery-card {
-  background: var(--bg); border: 1px solid var(--border);
-  border-radius: 8px; padding: 16px; cursor: pointer;
-  transition: all 0.2s;
+  position: relative;
+  min-height: 178px;
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--card-accent, var(--accent));
+  border-radius: 2px;
+  padding: 14px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.16s, background 0.16s, transform 0.16s, box-shadow 0.16s;
+}
+.gallery-card::after {
+  content: '';
+  position: absolute;
+  right: -30px; bottom: -45px;
+  width: 130px; height: 130px;
+  border: 1px solid var(--card-accent, var(--accent));
+  border-radius: 50%;
+  opacity: 0.08;
+  pointer-events: none;
 }
 .gallery-card:hover {
-  border-color: var(--accent); background: var(--surface);
+  border-color: var(--card-accent, var(--accent));
+  background: var(--surface2);
   transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.gallery-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gallery-card-top { display: flex; align-items: flex-start; gap: 10px; }
+.gallery-card-index {
+  flex: 0 0 auto;
+  color: var(--card-accent, var(--accent));
+  font-size: 9px;
+  opacity: 0.75;
 }
 .gallery-card-name {
-  font-size: 14px; font-weight: 600; color: var(--text);
-  margin-bottom: 6px;
+  min-height: 38px;
+  font-size: 15px; line-height: 1.25; font-weight: 700; color: var(--text);
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
 }
 .gallery-card-author {
-  font-size: 11px; color: var(--muted); margin-bottom: 10px;
+  margin: 2px 0 12px 27px;
+  font-size: 9px; color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.gallery-card-traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 42px;
+  align-content: flex-start;
+  margin-bottom: 12px;
+}
+.gallery-trait {
+  padding: 3px 6px;
+  color: var(--text-dim);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 8px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.gallery-trait:hover { color: var(--accent); border-color: var(--accent); }
+.gallery-card-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+.gallery-meta-item { min-width: 0; }
+.gallery-meta-label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-dim);
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.gallery-meta-value {
+  display: block;
+  overflow: hidden;
+  color: var(--text-lcd);
+  font-size: 9px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .gallery-card-date {
-  font-size: 10px; color: var(--text-dim);
+  position: absolute;
+  right: 10px; top: 9px;
+  font-size: 8px; color: var(--text-dim);
+  text-transform: uppercase;
 }
 .gallery-loading {
+  grid-column: 1 / -1;
   color: var(--text-dim); text-align: center; padding: 40px;
 }
 .gallery-empty {
+  grid-column: 1 / -1;
   color: var(--text-dim); text-align: center; padding: 40px;
   font-style: italic;
+}
+@media (max-width: 700px) {
+  .gallery-modal { width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+  .gallery-controls { grid-template-columns: 1fr auto; padding: 10px; }
+  #gallery-search { grid-column: 1 / -1; }
+  .gallery-count { min-width: 60px; }
+  .gallery-grid { grid-template-columns: 1fr; padding: 10px; gap: 8px; }
+  .gallery-card { min-height: 168px; }
 }
 
 /* ── Connection overlay ─────────────────────── */
@@ -2542,13 +2679,21 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
 
 <!-- Gallery Modal -->
 <div class="docs-overlay" id="gallery-overlay">
-  <div class="docs-modal">
+  <div class="docs-modal gallery-modal">
     <div class="docs-header">
       <h2>🎨 Community Gallery</h2>
       <button class="docs-close" id="gallery-close">✕</button>
     </div>
     <div class="gallery-controls">
-      <input type="text" id="gallery-search" placeholder="🔍 Search presets..." />
+      <input type="search" id="gallery-search" placeholder="Search names, artists, traits, synthesis..." autocomplete="off" />
+      <select class="gallery-sort" id="gallery-sort" aria-label="Sort gallery">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="name">Name A–Z</option>
+        <option value="complexity">Most complex</option>
+        <option value="lowest">Deepest first</option>
+      </select>
+      <span class="gallery-count" id="gallery-count">0 presets</span>
     </div>
     <div class="gallery-grid" id="gallery-grid">
       <p class="gallery-loading">Loading presets...</p>
@@ -6326,6 +6471,56 @@ async function doSharePreset() {
 
 // ── Gallery ──────────────────────────────────────────────────────────────────
 let galleryPresets = [];
+let gallerySort = 'newest';
+
+function escapeGalleryText(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  })[char]);
+}
+
+function galleryRelativeDate(value) {
+  if (!value) return 'archive';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'archive';
+  const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+function galleryCardAccent(preset) {
+  const hz = Number(preset.lowest_hz);
+  if (!Number.isFinite(hz)) return 'var(--accent)';
+  if (hz < 50) return '#6b52ff';
+  if (hz < 100) return '#a45cff';
+  if (hz < 250) return '#ff6b2b';
+  if (hz < 700) return '#ffb12b';
+  return '#2bffd4';
+}
+
+function galleryFallbackTraits(preset) {
+  const traits = [...(preset.traits || []), ...(preset.synth_types || [])];
+  if (!traits.length) {
+    const words = String(preset.name || '').toLowerCase();
+    ['drift', 'pulse', 'spectral', 'crystal', 'chamber', 'monolith', 'resonance', 'undertone']
+      .filter(word => words.includes(word)).forEach(word => traits.push(word));
+  }
+  return [...new Set(traits)].slice(0, 5);
+}
+
+function sortGalleryPresets(presets) {
+  const list = [...presets];
+  const created = p => p.created ? new Date(p.created).getTime() || 0 : 0;
+  if (gallerySort === 'oldest') list.sort((a, b) => created(a) - created(b));
+  else if (gallerySort === 'name') list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  else if (gallerySort === 'complexity') list.sort((a, b) => (b.complexity || b.layer_count || 0) - (a.complexity || a.layer_count || 0));
+  else if (gallerySort === 'lowest') list.sort((a, b) => (a.lowest_hz ?? Infinity) - (b.lowest_hz ?? Infinity));
+  else list.sort((a, b) => created(b) - created(a));
+  return list;
+}
 
 async function openGallery() {
   $('gallery-overlay').classList.add('open');
@@ -6351,22 +6546,50 @@ async function openGallery() {
 
 function renderGallery(presets) {
   const grid = $('gallery-grid');
-  if (!presets || presets.length === 0) {
+  const sorted = sortGalleryPresets(presets || []);
+  $('gallery-count').textContent = `${sorted.length} preset${sorted.length === 1 ? '' : 's'}`;
+  if (sorted.length === 0) {
     grid.innerHTML = '<p class="gallery-empty">No presets in gallery yet. Share yours to get started!</p>';
     return;
   }
-  
-  grid.innerHTML = presets.map(p => `
-    <div class="gallery-card" data-id="${p.id}">
-      <div class="gallery-card-name">${p.name || 'Untitled'}</div>
-      <div class="gallery-card-author">by ${p.author || 'Anonymous'}</div>
-      ${p.created ? `<div class="gallery-card-date">${new Date(p.created).toLocaleDateString()}</div>` : ''}
-    </div>
-  `).join('');
-  
+
+  grid.innerHTML = sorted.map((p, index) => {
+    const traits = galleryFallbackTraits(p);
+    const layerValue = p.layer_count ? `${p.layer_count} layer${p.layer_count === 1 ? '' : 's'}` : '—';
+    const rootValue = p.lowest_hz != null ? `${Number(p.lowest_hz).toFixed(Number(p.lowest_hz) % 1 ? 1 : 0)} Hz` : '—';
+    const tuningValue = p.tuning || '12-TET';
+    return `
+    <article class="gallery-card" data-id="${escapeGalleryText(p.id)}" tabindex="0" role="button"
+      aria-label="Load ${escapeGalleryText(p.name || 'Untitled')}"
+      style="--card-accent:${galleryCardAccent(p)}">
+      <div class="gallery-card-date">${escapeGalleryText(galleryRelativeDate(p.created))}</div>
+      <div class="gallery-card-top">
+        <span class="gallery-card-index">${String(index + 1).padStart(2, '0')}</span>
+        <div class="gallery-card-name">${escapeGalleryText(p.name || 'Untitled')}</div>
+      </div>
+      <div class="gallery-card-author">by ${escapeGalleryText(p.author || 'Anonymous')}</div>
+      <div class="gallery-card-traits">
+        ${traits.length ? traits.map(t => `<button class="gallery-trait" type="button" data-trait="${escapeGalleryText(t)}">${escapeGalleryText(t)}</button>`).join('') : '<span class="gallery-trait">unclassified</span>'}
+      </div>
+      <div class="gallery-card-meta">
+        <div class="gallery-meta-item"><span class="gallery-meta-label">Structure</span><span class="gallery-meta-value">${layerValue}</span></div>
+        <div class="gallery-meta-item"><span class="gallery-meta-label">Foundation</span><span class="gallery-meta-value">${rootValue}</span></div>
+        <div class="gallery-meta-item"><span class="gallery-meta-label">Tuning</span><span class="gallery-meta-value">${escapeGalleryText(tuningValue)}</span></div>
+      </div>
+    </article>`;
+  }).join('');
+
+  grid.querySelectorAll('.gallery-trait[data-trait]').forEach(tag => {
+    tag.addEventListener('click', event => {
+      event.stopPropagation();
+      $('gallery-search').value = tag.dataset.trait;
+      filterGallery();
+    });
+  });
+
   // Add click handlers to each card
-  document.querySelectorAll('.gallery-card').forEach(card => {
-    card.addEventListener('click', async () => {
+  grid.querySelectorAll('.gallery-card').forEach(card => {
+    const loadCard = async () => {
       const id = card.dataset.id;
       $('gallery-overlay').classList.remove('open');
       window.location.hash = 'shared=' + id;
@@ -6375,9 +6598,21 @@ function renderGallery(presets) {
       if (data.ok && data.params) {
         currentParams = data.params;
         currentSharedId = id;
-        renderAllControls();
+        currentPresetPath = null;
+        currentJourney = { steps: [], loop: 'none' };
+        _currentMorphingStep = -1;
+        applyParamsToUI(currentParams);
         markClean();
+        updateNowPlaying();
         setStatus('Loaded: ' + (data.params.name || id));
+      }
+    };
+    card.addEventListener('click', loadCard);
+    card.addEventListener('keydown', event => {
+      if (event.target !== card) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        loadCard();
       }
     });
   });
@@ -6391,11 +6626,11 @@ function filterGallery() {
   }
   
   const filtered = galleryPresets.filter(p => {
-    const name = (p.name || '').toLowerCase();
-    const author = (p.author || '').toLowerCase();
-    return name.includes(query) || author.includes(query);
+    const haystack = [p.name, p.author, p.tuning, ...(p.traits || []), ...(p.synth_types || [])]
+      .filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(query);
   });
-  
+
   renderGallery(filtered);
 }
 
@@ -7666,6 +7901,10 @@ function init() {
     if (e.target === $('gallery-overlay')) $('gallery-overlay').classList.remove('open');
   });
   $('gallery-search').addEventListener('input', filterGallery);
+  $('gallery-sort').addEventListener('change', () => {
+    gallerySort = $('gallery-sort').value;
+    filterGallery();
+  });
 
   // Mood buttons
   document.querySelectorAll('.mood-btn').forEach(btn => {
