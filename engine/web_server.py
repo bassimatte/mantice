@@ -1424,6 +1424,9 @@ async def share_preset_endpoint(request: Request):
     body = await request.json()
     params = body.get("params")
     author = body.get("author", "Anonymous")  # NEW: Accept author from client
+    parent_id = str(body.get("parent_id") or "").strip()
+    if parent_id and not re.match(r'^[a-zA-Z0-9_\-]{1,120}$', parent_id):
+        parent_id = ""
     if not params:
         return JSONResponse({"ok": False, "error": "No params"}, status_code=400)
     try:
@@ -1513,8 +1516,11 @@ async def share_preset_endpoint(request: Request):
             manifest_entry = {
                 "name": preset_name,
                 "author": author,
-                "created": datetime.utcnow().isoformat() + "Z"
+                "created": datetime.utcnow().isoformat() + "Z",
+                "plays": 0,
             }
+            if parent_id:
+                manifest_entry["parent_id"] = parent_id
             await loop.run_in_executor(None, lambda: _update_shared_manifest({file_id: manifest_entry}))
         except Exception:
             pass
@@ -1724,13 +1730,51 @@ async def get_gallery_manifest():
                     "id": preset_id,
                     "name": value.get("name", "Untitled"),
                     "author": value.get("author", "Anonymous"),
-                    "created": value.get("created") or inferred_created(preset_id)
+                    "created": value.get("created") or inferred_created(preset_id),
+                    "plays": int(value.get("plays", 0) or 0),
+                    "parent_id": value.get("parent_id"),
                 }
             else:
                 continue
             entry.update(preset_summary(preset_id))
             normalized.append(entry)
+        by_id = {entry["id"]: entry for entry in normalized}
+        remix_counts = {}
+        for entry in normalized:
+            parent_id = entry.get("parent_id")
+            if parent_id:
+                remix_counts[parent_id] = remix_counts.get(parent_id, 0) + 1
+                parent = by_id.get(parent_id)
+                entry["parent_name"] = parent.get("name") if parent else None
+        for entry in normalized:
+            entry["remix_count"] = remix_counts.get(entry["id"], 0)
         return JSONResponse({"ok": True, "presets": normalized})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/gallery/play")
+async def record_gallery_play(request: Request):
+    """Increment a shared preset's audition count in the gallery manifest."""
+    body = await request.json()
+    preset_id = str(body.get("id") or "").strip()
+    if not re.match(r'^[a-zA-Z0-9_\-]{1,120}$', preset_id):
+        return JSONResponse({"ok": False, "error": "Invalid id"}, status_code=400)
+    if not GITHUB_TOKEN:
+        return JSONResponse({"ok": False, "error": "Play persistence not configured"}, status_code=503)
+    try:
+        manifest = _fetch_shared_manifest()
+        existing = manifest.get(preset_id)
+        if existing is None:
+            return JSONResponse({"ok": False, "error": "Preset not found"}, status_code=404)
+        if isinstance(existing, str):
+            entry = {"name": existing, "author": "Anonymous", "plays": 1}
+        else:
+            entry = dict(existing)
+            entry["plays"] = int(entry.get("plays", 0) or 0) + 1
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: _update_shared_manifest({preset_id: entry}))
+        return JSONResponse({"ok": True, "plays": entry["plays"]})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 

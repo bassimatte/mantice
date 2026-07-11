@@ -1462,6 +1462,23 @@ button:disabled {
   background: var(--bg);
   border: 1px solid var(--border);
 }
+.gallery-fingerprint-wrap { position: relative; }
+.gallery-audition-btn {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 38px; height: 38px; padding: 0; border-radius: 50%;
+  color: var(--accent); background: rgba(8,8,8,0.82); border: 1px solid var(--accent);
+  font: 12px 'Space Mono', monospace; cursor: pointer; z-index: 2;
+  box-shadow: 0 0 15px rgba(0,0,0,0.65);
+}
+.gallery-audition-btn:hover, .gallery-audition-btn.playing { color: #000; background: var(--accent); }
+.gallery-audition-btn.loading { animation: gallery-pulse 0.8s infinite alternate; }
+@keyframes gallery-pulse { to { opacity: 0.45; } }
+.gallery-card-actions { position: absolute; right: 9px; top: 8px; display: flex; gap: 4px; z-index: 3; }
+.gallery-favorite-btn {
+  width: 26px; height: 26px; padding: 0; color: var(--text-dim); background: var(--bg);
+  border: 1px solid var(--border); cursor: pointer; font-size: 13px;
+}
+.gallery-favorite-btn:hover, .gallery-favorite-btn.active { color: #ff5470; border-color: #ff5470; }
 .gallery-card-traits {
   display: flex;
   flex-wrap: wrap;
@@ -1485,7 +1502,7 @@ button:disabled {
 .gallery-trait:hover { color: var(--accent); border-color: var(--accent); }
 .gallery-card-meta {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   padding-top: 9px;
   border-top: 1px solid var(--border);
@@ -1509,7 +1526,7 @@ button:disabled {
 }
 .gallery-card-date {
   position: absolute;
-  right: 10px; top: 9px;
+  right: 43px; top: 14px;
   font-size: 8px; color: var(--text-dim);
   text-transform: uppercase;
 }
@@ -1557,11 +1574,17 @@ button:disabled {
 .gallery-layer-name { color: var(--text-lcd); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .gallery-layer-meta { color: var(--text-dim); text-transform: uppercase; }
 .gallery-detail-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; position: sticky; bottom: 0; padding-top: 10px; background: var(--surface); }
-.gallery-detail-load, .gallery-detail-copy {
+.gallery-detail-load, .gallery-detail-copy, .gallery-detail-audition, .gallery-detail-favorite {
   min-height: 42px; font: 700 10px 'Space Mono', monospace; text-transform: uppercase; cursor: pointer;
 }
 .gallery-detail-load { color: #000; background: var(--accent); border: 1px solid var(--accent); }
 .gallery-detail-copy { padding: 0 12px; color: var(--accent); background: transparent; border: 1px solid var(--accent); }
+.gallery-detail-secondary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.gallery-detail-audition, .gallery-detail-favorite { color: var(--text-lcd); background: var(--bg); border: 1px solid var(--border); }
+.gallery-detail-audition.playing { color: #000; background: var(--accent); border-color: var(--accent); }
+.gallery-detail-favorite.active { color: #ff5470; border-color: #ff5470; }
+.gallery-lineage { margin-bottom: 16px; padding: 10px; color: var(--text-dim); background: var(--bg); border: 1px solid var(--border); font-size: 9px; line-height: 1.6; }
+.gallery-lineage strong { color: var(--text-lcd); }
 @media (max-width: 700px) {
   .gallery-modal { width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
   .gallery-controls { grid-template-columns: 1fr auto; padding: 10px; }
@@ -2751,6 +2774,9 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <option value="name">Name A–Z</option>
         <option value="complexity">Most complex</option>
         <option value="lowest">Deepest first</option>
+        <option value="popular">Most played</option>
+        <option value="remixed">Most remixed</option>
+        <option value="favorites">My favorites</option>
       </select>
       <span class="gallery-count" id="gallery-count">0 presets</span>
     </div>
@@ -6503,7 +6529,7 @@ async function doSharePreset() {
     const data = await api('/api/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params, author: username })  // Include author
+      body: JSON.stringify({ params, author: username, parent_id: currentSharedId || null })
     });
     if (!data.ok) { 
       // Better error message for missing GitHub token
@@ -6537,6 +6563,104 @@ async function doSharePreset() {
 let galleryPresets = [];
 let gallerySort = 'newest';
 let selectedGalleryPreset = null;
+let galleryAudition = null;
+let galleryFavorites = new Set();
+try { galleryFavorites = new Set(JSON.parse(localStorage.getItem('mantice_gallery_favorites') || '[]')); } catch (_) {}
+
+function isGalleryFavorite(id) { return galleryFavorites.has(id); }
+
+function syncGalleryFavoriteButtons(id) {
+  document.querySelectorAll(`[data-gallery-favorite="${id}"]`).forEach(button => {
+    const active = isGalleryFavorite(id);
+    button.classList.toggle('active', active);
+    button.textContent = button.classList.contains('gallery-detail-favorite')
+      ? (active ? '♥ Favorited' : '♡ Favorite')
+      : (active ? '♥' : '♡');
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function setGalleryAuditionButtons(preset, state) {
+  document.querySelectorAll(`[data-gallery-audition="${preset.id}"]`).forEach(button => {
+    button.classList.toggle('loading', state === 'loading');
+    button.classList.toggle('playing', state === 'playing');
+    if (button.classList.contains('gallery-detail-audition')) {
+      const icon = state === 'loading' ? '…' : state === 'playing' ? '■ Stop' : '▶ Audition';
+      button.innerHTML = `${icon} · <span data-gallery-plays="${preset.id}">${preset.plays || 0}</span> plays`;
+    } else {
+      button.textContent = state === 'loading' ? '…' : state === 'playing' ? '■' : '▶';
+    }
+  });
+}
+
+function toggleGalleryFavorite(preset) {
+  if (isGalleryFavorite(preset.id)) galleryFavorites.delete(preset.id);
+  else galleryFavorites.add(preset.id);
+  localStorage.setItem('mantice_gallery_favorites', JSON.stringify([...galleryFavorites]));
+  syncGalleryFavoriteButtons(preset.id);
+  if (gallerySort === 'favorites') filterGallery();
+}
+
+function syncGalleryPlayCounts(preset) {
+  document.querySelectorAll(`[data-gallery-plays="${preset.id}"]`).forEach(el => { el.textContent = preset.plays || 0; });
+}
+
+async function stopGalleryAudition() {
+  const active = galleryAudition;
+  galleryAudition = null;
+  if (!active) return;
+  clearInterval(active.timer);
+  try { active.source?.stop(); } catch (_) {}
+  try { await active.context?.close(); } catch (_) {}
+  if (active.token) fetch(apiUrl('/api/preview-segment/' + active.token), { method: 'DELETE' }).catch(() => {});
+  const preset = galleryPresets.find(item => item.id === active.id);
+  if (preset) setGalleryAuditionButtons(preset, 'idle');
+}
+
+async function auditionGalleryPreset(preset) {
+  if (galleryAudition?.id === preset.id) { await stopGalleryAudition(); return; }
+  await stopGalleryAudition();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const context = new AudioCtx();
+  await context.resume();
+  galleryAudition = { id: preset.id, context, source: null, token: null, timer: null };
+  setGalleryAuditionButtons(preset, 'loading');
+  try {
+    const loaded = await api('/api/load-shared?id=' + encodeURIComponent(preset.id));
+    if (!loaded?.ok || !loaded.params) throw new Error(loaded?.error || 'Preset unavailable');
+    const response = await fetch(apiUrl('/api/preview-segment'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ params: loaded.params, seed: galleryHash(preset.id) % 99999, segment_s: 8 }),
+    });
+    if (!response.ok) throw new Error(`Preview failed (${response.status})`);
+    const token = response.headers.get('X-Segment-Token');
+    const buffer = await context.decodeAudioData(await response.arrayBuffer());
+    if (!galleryAudition || galleryAudition.id !== preset.id) return;
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    galleryAudition.source = source;
+    galleryAudition.token = token;
+    const startedAt = context.currentTime;
+    source.start();
+    setGalleryAuditionButtons(preset, 'playing');
+    galleryAudition.timer = setInterval(() => {
+      const progress = Math.min(1, (context.currentTime - startedAt) / buffer.duration);
+      document.querySelectorAll(`[data-gallery-audition="${preset.id}"]`).forEach(button => {
+        button.title = `Stop preview · ${Math.round(progress * 100)}%`;
+      });
+    }, 200);
+    source.onended = () => { if (galleryAudition?.id === preset.id) stopGalleryAudition(); };
+    preset.plays = Number(preset.plays || 0) + 1;
+    syncGalleryPlayCounts(preset);
+    api('/api/gallery/play', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: preset.id })
+    }).then(data => { if (data?.ok) { preset.plays = data.plays; syncGalleryPlayCounts(preset); } }).catch(() => {});
+  } catch (error) {
+    await stopGalleryAudition();
+    setStatus('Audition failed: ' + error.message);
+  }
+}
 
 function escapeGalleryText(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({
@@ -6676,12 +6800,16 @@ function sortGalleryPresets(presets) {
   else if (gallerySort === 'name') list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   else if (gallerySort === 'complexity') list.sort((a, b) => (b.complexity || b.layer_count || 0) - (a.complexity || a.layer_count || 0));
   else if (gallerySort === 'lowest') list.sort((a, b) => (a.lowest_hz ?? Infinity) - (b.lowest_hz ?? Infinity));
+  else if (gallerySort === 'popular') list.sort((a, b) => (b.plays || 0) - (a.plays || 0));
+  else if (gallerySort === 'remixed') list.sort((a, b) => (b.remix_count || 0) - (a.remix_count || 0));
+  else if (gallerySort === 'favorites') return list.filter(p => isGalleryFavorite(p.id)).sort((a, b) => String(a.name).localeCompare(String(b.name)));
   else list.sort((a, b) => created(b) - created(a));
   return list;
 }
 
 async function loadGalleryPreset(preset) {
   if (!preset) return;
+  await stopGalleryAudition();
   const detailLoad = $('gallery-detail-load');
   if (detailLoad) { detailLoad.disabled = true; detailLoad.textContent = 'Loading…'; }
   try {
@@ -6719,6 +6847,11 @@ function openGalleryDetail(preset, card) {
   card?.classList.add('selected');
   const traits = galleryFallbackTraits(preset);
   const layers = galleryFingerprintLayers(preset);
+  const lineage = preset.parent_id
+    ? `Remix of <strong>${escapeGalleryText(preset.parent_name || preset.parent_id)}</strong>${preset.remix_count ? ` · ${preset.remix_count} descendant${preset.remix_count === 1 ? '' : 's'}` : ''}`
+    : preset.remix_count
+      ? `Original transmission · <strong>${preset.remix_count} remix${preset.remix_count === 1 ? '' : 'es'}</strong>`
+      : 'Original transmission · no remixes yet';
   $('gallery-detail-inner').innerHTML = `
     <div class="gallery-detail-head">
       <div>
@@ -6736,6 +6869,7 @@ function openGalleryDetail(preset, card) {
       <div class="gallery-detail-stat"><span class="gallery-meta-label">Duration</span><span class="gallery-meta-value">${preset.duration ? `${preset.duration}s` : '—'}</span></div>
       <div class="gallery-detail-stat"><span class="gallery-meta-label">Tuning</span><span class="gallery-meta-value">${escapeGalleryText(preset.tuning || '12-TET')}</span></div>
     </div>
+    <div class="gallery-lineage">${lineage}</div>
     <div class="gallery-detail-kicker" style="margin-bottom:7px">Layer signature</div>
     <div class="gallery-detail-layers">
       ${layers.map((layer, index) => `<div class="gallery-detail-layer">
@@ -6743,6 +6877,10 @@ function openGalleryDetail(preset, card) {
         <span class="gallery-layer-name">${escapeGalleryText(layer.name || `Layer ${index + 1}`)}</span>
         <span class="gallery-layer-meta">${escapeGalleryText(layer.type || 'fm')} · ${layer.root ? `${layer.root} Hz` : '—'}</span>
       </div>`).join('')}
+    </div>
+    <div class="gallery-detail-secondary">
+      <button class="gallery-detail-audition" data-gallery-audition="${escapeGalleryText(preset.id)}" type="button">▶ Audition · <span data-gallery-plays="${escapeGalleryText(preset.id)}">${preset.plays || 0}</span> plays</button>
+      <button class="gallery-detail-favorite ${isGalleryFavorite(preset.id) ? 'active' : ''}" data-gallery-favorite="${escapeGalleryText(preset.id)}" type="button">${isGalleryFavorite(preset.id) ? '♥ Favorited' : '♡ Favorite'}</button>
     </div>
     <div class="gallery-detail-actions">
       <button class="gallery-detail-load" id="gallery-detail-load" type="button">Load preset</button>
@@ -6752,6 +6890,10 @@ function openGalleryDetail(preset, card) {
   $('gallery-detail').setAttribute('aria-hidden', 'false');
   $('gallery-detail-close').addEventListener('click', closeGalleryDetail);
   $('gallery-detail-load').addEventListener('click', () => loadGalleryPreset(preset));
+  $('gallery-detail-inner').querySelector('[data-gallery-audition]').addEventListener('click', () => auditionGalleryPreset(preset));
+  $('gallery-detail-inner').querySelector('[data-gallery-favorite]').addEventListener('click', () => {
+    toggleGalleryFavorite(preset);
+  });
   $('gallery-detail-copy').addEventListener('click', async () => {
     const url = `${location.origin}${location.pathname}#shared=${preset.id}`;
     await navigator.clipboard.writeText(url);
@@ -6802,19 +6944,21 @@ function renderGallery(presets) {
       aria-label="Inspect ${escapeGalleryText(p.name || 'Untitled')}"
       style="--card-accent:${galleryCardAccent(p)}">
       <div class="gallery-card-date">${escapeGalleryText(galleryRelativeDate(p.created))}</div>
+      <div class="gallery-card-actions"><button class="gallery-favorite-btn ${isGalleryFavorite(p.id) ? 'active' : ''}" data-gallery-favorite="${escapeGalleryText(p.id)}" type="button" aria-label="Favorite ${escapeGalleryText(p.name)}" aria-pressed="${isGalleryFavorite(p.id)}">${isGalleryFavorite(p.id) ? '♥' : '♡'}</button></div>
       <div class="gallery-card-top">
         <span class="gallery-card-index">${String(index + 1).padStart(2, '0')}</span>
         <div class="gallery-card-name">${escapeGalleryText(p.name || 'Untitled')}</div>
       </div>
       <div class="gallery-card-author">by ${escapeGalleryText(p.author || 'Anonymous')}</div>
-      <canvas class="gallery-fingerprint" data-gallery-fingerprint="${escapeGalleryText(p.id)}" aria-hidden="true"></canvas>
+      <div class="gallery-fingerprint-wrap"><canvas class="gallery-fingerprint" data-gallery-fingerprint="${escapeGalleryText(p.id)}" aria-hidden="true"></canvas><button class="gallery-audition-btn" data-gallery-audition="${escapeGalleryText(p.id)}" type="button" aria-label="Audition ${escapeGalleryText(p.name)}">▶</button></div>
       <div class="gallery-card-traits">
         ${traits.length ? traits.map(t => `<button class="gallery-trait" type="button" data-trait="${escapeGalleryText(t)}">${escapeGalleryText(t)}</button>`).join('') : '<span class="gallery-trait">unclassified</span>'}
       </div>
       <div class="gallery-card-meta">
         <div class="gallery-meta-item"><span class="gallery-meta-label">Structure</span><span class="gallery-meta-value">${layerValue}</span></div>
         <div class="gallery-meta-item"><span class="gallery-meta-label">Foundation</span><span class="gallery-meta-value">${rootValue}</span></div>
-        <div class="gallery-meta-item"><span class="gallery-meta-label">Tuning</span><span class="gallery-meta-value">${escapeGalleryText(tuningValue)}</span></div>
+        <div class="gallery-meta-item"><span class="gallery-meta-label">Plays</span><span class="gallery-meta-value" data-gallery-plays="${escapeGalleryText(p.id)}">${p.plays || 0}</span></div>
+        <div class="gallery-meta-item"><span class="gallery-meta-label">Remixes</span><span class="gallery-meta-value">${p.remix_count || 0}</span></div>
       </div>
     </article>`;
   }).join('');
@@ -6828,6 +6972,25 @@ function renderGallery(presets) {
       filterGallery();
     });
   });
+
+  grid.querySelectorAll('[data-gallery-favorite]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      const preset = galleryPresets.find(p => p.id === button.dataset.galleryFavorite);
+      if (preset) toggleGalleryFavorite(preset);
+    });
+  });
+  grid.querySelectorAll('[data-gallery-audition]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      const preset = galleryPresets.find(p => p.id === button.dataset.galleryAudition);
+      if (preset) auditionGalleryPreset(preset);
+    });
+  });
+  if (galleryAudition) {
+    const activePreset = galleryPresets.find(p => p.id === galleryAudition.id);
+    if (activePreset) setGalleryAuditionButtons(activePreset, galleryAudition.source ? 'playing' : 'loading');
+  }
 
   // Add click handlers to each card
   grid.querySelectorAll('.gallery-card').forEach(card => {
@@ -8121,9 +8284,9 @@ function init() {
   $('import-preset-input').addEventListener('change', handleImportPresetFile);
 
   // Gallery modal
-  $('gallery-close').addEventListener('click', () => { closeGalleryDetail(); $('gallery-overlay').classList.remove('open'); });
+  $('gallery-close').addEventListener('click', () => { stopGalleryAudition(); closeGalleryDetail(); $('gallery-overlay').classList.remove('open'); });
   $('gallery-overlay').addEventListener('click', (e) => {
-    if (e.target === $('gallery-overlay')) { closeGalleryDetail(); $('gallery-overlay').classList.remove('open'); }
+    if (e.target === $('gallery-overlay')) { stopGalleryAudition(); closeGalleryDetail(); $('gallery-overlay').classList.remove('open'); }
   });
   $('gallery-search').addEventListener('input', filterGallery);
   $('gallery-sort').addEventListener('change', () => {
