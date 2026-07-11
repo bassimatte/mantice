@@ -484,7 +484,16 @@ aside h3 {
   transition: all 0.1s;
 }
 .btn:hover { background: #ff8844; }
-.btn:active { transform: scale(0.97); }
+.btn:active { transform: scale(0.97); filter: brightness(1.15); }
+.btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
 .btn-outline {
   background: transparent;
   border: 1px solid var(--accent);
@@ -865,31 +874,57 @@ main {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 2px;
+  height: 14px;
   background: var(--border);
+  background-clip: content-box;
+  padding: 6px 0;
   outline: none;
   cursor: pointer;
 }
 .param-row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   background: var(--accent);
-  border-radius: 0;
+  border: 2px solid var(--surface);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--accent), 0 0 7px var(--accent-glow);
   cursor: pointer;
+  margin-top: -6px;
 }
 .param-row input[type="range"]::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   background: var(--accent);
-  border: none;
-  border-radius: 0;
+  border: 2px solid var(--surface);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--accent), 0 0 7px var(--accent-glow);
   cursor: pointer;
 }
 .param-row input[type="range"]::-webkit-slider-runnable-track {
   height: 2px;
   background: var(--border);
+}
+.param-row input[type="range"]::-moz-range-track {
+  height: 2px;
+  background: var(--border);
+}
+.param-row input[type="range"]::-moz-range-progress {
+  height: 2px;
+  background: var(--accent);
+}
+.param-row input[type="range"]:hover::-webkit-slider-thumb,
+.param-row input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent);
+}
+.param-row input[type="range"]:hover::-moz-range-thumb,
+.param-row input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent);
+}
+.param-row input[type="range"]:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 4px;
 }
 .param-row .value {
   font-size: 10px;
@@ -936,7 +971,21 @@ main {
   color: var(--text);
   box-shadow: 0 0 0 0 transparent;
 }
-.transport-btn:active { transform: scale(0.9); }
+.transport-btn:active { transform: scale(0.9); filter: brightness(1.25); }
+.transport-btn:focus-visible,
+.toggle:focus-visible,
+.layer-tab:focus-visible,
+.layer-subtab:focus-visible,
+.solo-btn:focus-visible,
+.snap-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  box-shadow: none !important;
+}
 .btn-preview { border-color: var(--accent); color: var(--accent); }
 .btn-preview:hover { background: var(--accent); color: #000; box-shadow: 0 0 12px var(--accent); }
 .btn-stop { border-color: var(--danger); color: var(--danger); }
@@ -996,6 +1045,67 @@ main {
   transition: all 0.15s;
 }
 .toggle.on::after { background: var(--accent); transform: translateX(14px); }
+
+/* Touch controls — preserve the compact UI visually while providing reliable
+   44px interaction targets on phones, tablets, and other coarse pointers. */
+@media (pointer: coarse) {
+  .param-row {
+    min-height: 44px;
+    margin-bottom: 2px;
+  }
+  .param-row input[type="range"] {
+    height: 44px;
+    padding: 19px 0;
+    touch-action: pan-y;
+  }
+  .param-row input[type="range"]::-webkit-slider-runnable-track { height: 6px; }
+  .param-row input[type="range"]::-moz-range-track,
+  .param-row input[type="range"]::-moz-range-progress { height: 6px; }
+  .param-row input[type="range"]::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+    border-width: 3px;
+    margin-top: -9px;
+  }
+  .param-row input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-width: 3px;
+  }
+  .transport-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .toggle {
+    width: 44px;
+    height: 28px;
+    min-width: 44px;
+  }
+  .toggle::after {
+    width: 20px;
+    height: 20px;
+    top: 3px;
+    left: 3px;
+  }
+  .toggle.on::after { transform: translateX(16px); }
+  .layer-tab,
+  .layer-subtab,
+  .solo-btn,
+  .snap-btn,
+  .mood-btn,
+  .tag-btn,
+  .docs-tab,
+  .zoom-btn,
+  .hamburger {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .btn { min-height: 44px; }
+  button:active { filter: brightness(1.25); }
+}
 
 /* Layer tabs */
 .layer-tabs {
