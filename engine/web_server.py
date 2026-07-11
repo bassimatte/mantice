@@ -263,6 +263,7 @@ def _find_all_presets() -> list[dict]:
     # (Render's local shared/ folder is stale until next deploy)
     try:
         manifest = _fetch_shared_manifest()
+
         gh_req = urllib.request.Request(
             f"{_GH_API_BASE}/shared",
             headers=_gh_headers(auth=bool(GITHUB_TOKEN))
@@ -1605,6 +1606,26 @@ async def get_gallery_manifest():
     try:
         manifest = _fetch_shared_manifest()
 
+        # A manifest entry can outlive its preset file after manual cleanup.
+        # Match the sidebar's source of truth by only exposing IDs that still
+        # have a shared YAML file. Fall back to the bundled shared directory
+        # when GitHub is unavailable.
+        available_ids = None
+        try:
+            req = urllib.request.Request(
+                f"{_GH_API_BASE}/shared",
+                headers=_gh_headers(auth=bool(GITHUB_TOKEN)),
+            )
+            with urllib.request.urlopen(req, timeout=6) as response:
+                files = json.loads(response.read().decode())
+            available_ids = {
+                item.get("name", "")[:-5]
+                for item in files if isinstance(item, dict) and item.get("name", "").endswith(".yaml")
+            }
+        except Exception:
+            if _SHARED_DIR.exists():
+                available_ids = {path.stem for path in _SHARED_DIR.glob("*.yaml")}
+
         def preset_summary(preset_id: str) -> dict:
             """Build small, gallery-safe discovery metadata from a local preset."""
             params = None
@@ -1716,6 +1737,8 @@ async def get_gallery_manifest():
         # Normalize to new format (dict with metadata)
         normalized = []
         for preset_id, value in manifest.items():
+            if available_ids is not None and preset_id not in available_ids:
+                continue
             if isinstance(value, str):
                 # Old format: just name
                 entry = {
