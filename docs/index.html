@@ -5576,7 +5576,13 @@ async function doPreviewSegmented() {
   _segCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (_segCtx.state === 'suspended') await _segCtx.resume();
 
+  // Mobile uses segmented playback instead of the WebSocket stream, so it
+  // needs its own analyser graph to drive both visualizers.
+  const segmentAnalyser = startSpectrum(_segCtx);
+  segmentAnalyser.connect(_segCtx.destination);
+
   startMeterPolling();
+  drawSpectrum();
   startAurora();
   setStatus('Buffering…');
   setLiveIndicator(true);
@@ -5610,7 +5616,7 @@ async function _fetchAndPlaySegment(isFirst) {
 
     const source = _segCtx.createBufferSource();
     source.buffer = audioBuf;
-    source.connect(_segCtx.destination);
+    source.connect(spectrumAnalyser);
 
     const now     = _segCtx.currentTime;
     const startAt = isFirst ? now + 0.15 : Math.max(now + 0.05, _segNextStart);
