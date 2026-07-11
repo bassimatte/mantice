@@ -1424,7 +1424,12 @@ async def share_preset_endpoint(request: Request):
         return JSONResponse({"ok": False, "error": "Sharing not configured on this server"}, status_code=503)
     body = await request.json()
     params = body.get("params")
-    author = body.get("author", "Anonymous")  # NEW: Accept author from client
+    author = str(body.get("author") or "").strip()
+    if not author or author.lower() == "anonymous":
+        creator_adjectives = ("Velvet", "Lunar", "Quiet", "Oblique", "Astral", "Moss", "Copper", "Polar", "Soft", "Phantom", "Amber", "Hidden")
+        creator_nouns = ("Circuit", "Nomad", "Signal", "Orchard", "Relay", "Lattice", "Comet", "Scribe", "Bloom", "Vector", "Loom", "Tuner")
+        alias_seed = uuid.uuid4().int
+        author = f"{creator_adjectives[alias_seed % len(creator_adjectives)]} {creator_nouns[(alias_seed >> 8) % len(creator_nouns)]}"
     parent_id = str(body.get("parent_id") or "").strip()
     if parent_id and not re.match(r'^[a-zA-Z0-9_\-]{1,120}$', parent_id):
         parent_id = ""
