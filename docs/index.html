@@ -1341,6 +1341,7 @@ button:disabled {
 
 /* ── Gallery Modal ──────────────────────────── */
 .gallery-modal {
+  position: relative;
   width: min(1400px, 96vw);
   height: min(92vh, 980px);
   max-height: 92vh;
@@ -1387,6 +1388,7 @@ button:disabled {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+.gallery-discovery { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .gallery-grid {
   flex: 1;
   padding: 16px 20px 24px;
@@ -1431,6 +1433,7 @@ button:disabled {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
 }
+.gallery-card.selected { border-color: var(--card-accent, var(--accent)); box-shadow: inset 0 0 0 1px var(--card-accent, var(--accent)); }
 .gallery-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .gallery-card-top { display: flex; align-items: flex-start; gap: 10px; }
 .gallery-card-index {
@@ -1446,10 +1449,18 @@ button:disabled {
   text-transform: uppercase;
 }
 .gallery-card-author {
-  margin: 2px 0 12px 27px;
+  margin: 2px 0 9px 27px;
   font-size: 9px; color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+.gallery-fingerprint {
+  display: block;
+  width: 100%;
+  height: 62px;
+  margin: 0 0 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
 }
 .gallery-card-traits {
   display: flex;
@@ -1511,6 +1522,46 @@ button:disabled {
   color: var(--text-dim); text-align: center; padding: 40px;
   font-style: italic;
 }
+.gallery-detail {
+  flex: 0 0 0;
+  width: 0;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--surface);
+  border-left: 0 solid var(--border);
+  transition: flex-basis 0.2s ease, width 0.2s ease, border-width 0.2s ease;
+}
+.gallery-detail.open {
+  flex-basis: 390px;
+  width: 390px;
+  border-left-width: 1px;
+  overflow-y: auto;
+}
+.gallery-detail-inner { width: 389px; min-height: 100%; padding: 18px; box-sizing: border-box; }
+.gallery-detail-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.gallery-detail-kicker { color: var(--accent); font-size: 8px; text-transform: uppercase; letter-spacing: 0.16em; }
+.gallery-detail-title { margin: 5px 0 4px; color: var(--text); font-size: 20px; line-height: 1.2; text-transform: uppercase; }
+.gallery-detail-author { color: var(--text-dim); font-size: 9px; text-transform: uppercase; }
+.gallery-detail-close {
+  flex: 0 0 auto; width: 32px; height: 32px; color: var(--text-dim); background: transparent;
+  border: 1px solid var(--border); cursor: pointer;
+}
+.gallery-detail-close:hover { color: var(--accent); border-color: var(--accent); }
+.gallery-detail-canvas { display: block; width: 100%; height: 180px; margin: 18px 0 14px; background: var(--bg); border: 1px solid var(--border); }
+.gallery-detail-traits { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 16px; }
+.gallery-detail-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-bottom: 16px; background: var(--border); border: 1px solid var(--border); }
+.gallery-detail-stat { padding: 9px; background: var(--bg); }
+.gallery-detail-layers { margin: 0 0 18px; border-top: 1px solid var(--border); }
+.gallery-detail-layer { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 9px; }
+.gallery-layer-dot { width: 8px; height: 8px; margin-top: 2px; border-radius: 50%; background: var(--layer-accent, var(--accent)); box-shadow: 0 0 7px var(--layer-accent, var(--accent)); }
+.gallery-layer-name { color: var(--text-lcd); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.gallery-layer-meta { color: var(--text-dim); text-transform: uppercase; }
+.gallery-detail-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; position: sticky; bottom: 0; padding-top: 10px; background: var(--surface); }
+.gallery-detail-load, .gallery-detail-copy {
+  min-height: 42px; font: 700 10px 'Space Mono', monospace; text-transform: uppercase; cursor: pointer;
+}
+.gallery-detail-load { color: #000; background: var(--accent); border: 1px solid var(--accent); }
+.gallery-detail-copy { padding: 0 12px; color: var(--accent); background: transparent; border: 1px solid var(--accent); }
 @media (max-width: 700px) {
   .gallery-modal { width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
   .gallery-controls { grid-template-columns: 1fr auto; padding: 10px; }
@@ -1518,6 +1569,14 @@ button:disabled {
   .gallery-count { min-width: 60px; }
   .gallery-grid { grid-template-columns: 1fr; padding: 10px; gap: 8px; }
   .gallery-card { min-height: 168px; }
+  .gallery-detail, .gallery-detail.open {
+    position: absolute; z-index: 10; left: 0; right: 0; bottom: 0; top: 162px;
+    width: 100%; max-width: none; flex-basis: auto; border-left: 0; border-top: 1px solid var(--border);
+    transform: translateY(105%); transition: transform 0.22s ease; overflow-y: auto;
+  }
+  .gallery-detail.open { transform: translateY(0); }
+  .gallery-detail-inner { width: 100%; padding: 16px; }
+  .gallery-detail-canvas { height: 150px; }
 }
 
 /* ── Connection overlay ─────────────────────── */
@@ -2695,8 +2754,13 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       </select>
       <span class="gallery-count" id="gallery-count">0 presets</span>
     </div>
-    <div class="gallery-grid" id="gallery-grid">
-      <p class="gallery-loading">Loading presets...</p>
+    <div class="gallery-discovery">
+      <div class="gallery-grid" id="gallery-grid">
+        <p class="gallery-loading">Loading presets...</p>
+      </div>
+      <aside class="gallery-detail" id="gallery-detail" aria-hidden="true">
+        <div class="gallery-detail-inner" id="gallery-detail-inner"></div>
+      </aside>
     </div>
   </div>
 </div>
@@ -6472,6 +6536,7 @@ async function doSharePreset() {
 // ── Gallery ──────────────────────────────────────────────────────────────────
 let galleryPresets = [];
 let gallerySort = 'newest';
+let selectedGalleryPreset = null;
 
 function escapeGalleryText(value) {
   return String(value ?? '').replace(/[&<>'"]/g, char => ({
@@ -6501,6 +6566,99 @@ function galleryCardAccent(preset) {
   return '#2bffd4';
 }
 
+function galleryLayerColor(root, index = 0) {
+  const hz = Number(root);
+  if (!Number.isFinite(hz)) return ['#ff6b2b', '#a45cff', '#2bffd4', '#ffb12b'][index % 4];
+  if (hz < 50) return '#6552ff';
+  if (hz < 100) return '#a45cff';
+  if (hz < 250) return '#ff6b2b';
+  if (hz < 700) return '#ffb12b';
+  return '#2bffd4';
+}
+
+function galleryHash(value) {
+  let hash = 2166136261;
+  for (const char of String(value)) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  return hash >>> 0;
+}
+
+function galleryFingerprintLayers(preset) {
+  if (preset.fingerprint?.length) return preset.fingerprint;
+  const hash = galleryHash(preset.id || preset.name);
+  const count = Math.max(2, preset.layer_count || 3);
+  return Array.from({ length: count }, (_, index) => ({
+    index,
+    name: `Layer ${index + 1}`,
+    root: 35 + ((hash >>> (index * 3)) % 900),
+    volume_db: -4 - ((hash >>> (index + 2)) % 12),
+    width: 0.8 + ((hash >>> (index + 5)) % 100) / 100,
+    type: (preset.synth_types || ['fm'])[index % (preset.synth_types?.length || 1)],
+    trajectory: 'none',
+    motion_speed: 0,
+  }));
+}
+
+function drawGalleryFingerprint(canvas, preset) {
+  if (!canvas || !preset) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
+  if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#090909';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < width; x += Math.max(20, width / 12)) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+  }
+
+  const layers = galleryFingerprintLayers(preset);
+  const shimmer = Math.max(0, Math.min(1, Number(preset.shimmer_wet) || 0));
+  const reverb = Math.max(0, Math.min(1, Number(preset.reverb_mix) || 0));
+  layers.forEach((layer, index) => {
+    const root = Math.max(20, Math.min(16000, Number(layer.root) || 110));
+    const frequencyPosition = (Math.log(root) - Math.log(20)) / (Math.log(16000) - Math.log(20));
+    const centerY = height * (0.88 - frequencyPosition * 0.76);
+    const level = Math.max(0.12, Math.min(1, 1 + (Number(layer.volume_db) || 0) / 36));
+    const stereoWidth = Math.max(0.3, Math.min(2, Number(layer.width) || 1));
+    const moving = !['none', 'static', 'off'].includes(String(layer.trajectory || 'none'));
+    const amplitude = height * (0.025 + level * 0.045) * stereoWidth;
+    const cycles = layer.type === 'granular' ? 9 + index * 2 : layer.type === 'subtractive' ? 3 + index : 5 + index;
+    const phase = (galleryHash(`${preset.id}:${index}`) % 628) / 100;
+    const color = galleryLayerColor(root, index);
+
+    ctx.save();
+    ctx.beginPath();
+    for (let x = 0; x <= width; x += Math.max(2, width / 150)) {
+      const t = x / width;
+      const envelope = 0.45 + Math.sin(Math.PI * t) * 0.55;
+      const modulation = Math.sin(t * Math.PI * 2 * cycles + phase) +
+        0.35 * Math.sin(t * Math.PI * 2 * (cycles * 0.37) - phase);
+      const drift = moving ? Math.sin(t * Math.PI * 2 + phase) * amplitude * 1.2 : 0;
+      const y = centerY + modulation * amplitude * envelope + drift;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.72 + level * 0.28;
+    ctx.lineWidth = Math.max(1, dpr * (0.7 + level));
+    ctx.shadowColor = color;
+    ctx.shadowBlur = dpr * (2 + shimmer * 12 + reverb * 4);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawVisibleGalleryFingerprints(root = document) {
+  root.querySelectorAll('canvas[data-gallery-fingerprint]').forEach(canvas => {
+    const preset = galleryPresets.find(item => item.id === canvas.dataset.galleryFingerprint);
+    if (preset) drawGalleryFingerprint(canvas, preset);
+  });
+}
+
 function galleryFallbackTraits(preset) {
   const traits = [...(preset.traits || []), ...(preset.synth_types || [])];
   if (!traits.length) {
@@ -6520,6 +6678,87 @@ function sortGalleryPresets(presets) {
   else if (gallerySort === 'lowest') list.sort((a, b) => (a.lowest_hz ?? Infinity) - (b.lowest_hz ?? Infinity));
   else list.sort((a, b) => created(b) - created(a));
   return list;
+}
+
+async function loadGalleryPreset(preset) {
+  if (!preset) return;
+  const detailLoad = $('gallery-detail-load');
+  if (detailLoad) { detailLoad.disabled = true; detailLoad.textContent = 'Loading…'; }
+  try {
+    const data = await api('/api/load-shared?id=' + encodeURIComponent(preset.id));
+    if (!data.ok || !data.params) throw new Error(data.error || 'Preset unavailable');
+    currentParams = data.params;
+    currentSharedId = preset.id;
+    currentPresetPath = null;
+    currentJourney = { steps: [], loop: 'none' };
+    _currentMorphingStep = -1;
+    applyParamsToUI(currentParams);
+    markClean();
+    updateNowPlaying();
+    window.location.hash = 'shared=' + preset.id;
+    $('gallery-overlay').classList.remove('open');
+    closeGalleryDetail();
+    setStatus('Loaded: ' + (data.params.name || preset.id));
+  } catch (error) {
+    if (detailLoad) { detailLoad.disabled = false; detailLoad.textContent = 'Try again'; }
+    setStatus('Gallery load failed: ' + error.message);
+  }
+}
+
+function closeGalleryDetail() {
+  selectedGalleryPreset = null;
+  $('gallery-detail').classList.remove('open');
+  $('gallery-detail').setAttribute('aria-hidden', 'true');
+  document.querySelectorAll('.gallery-card.selected').forEach(card => card.classList.remove('selected'));
+}
+
+function openGalleryDetail(preset, card) {
+  if (!preset) return;
+  selectedGalleryPreset = preset;
+  document.querySelectorAll('.gallery-card.selected').forEach(item => item.classList.remove('selected'));
+  card?.classList.add('selected');
+  const traits = galleryFallbackTraits(preset);
+  const layers = galleryFingerprintLayers(preset);
+  $('gallery-detail-inner').innerHTML = `
+    <div class="gallery-detail-head">
+      <div>
+        <div class="gallery-detail-kicker">Sonic artifact · ${escapeGalleryText(galleryRelativeDate(preset.created))}</div>
+        <h3 class="gallery-detail-title">${escapeGalleryText(preset.name || 'Untitled')}</h3>
+        <div class="gallery-detail-author">by ${escapeGalleryText(preset.author || 'Anonymous')}</div>
+      </div>
+      <button class="gallery-detail-close" id="gallery-detail-close" type="button" aria-label="Close details">✕</button>
+    </div>
+    <canvas class="gallery-detail-canvas" data-gallery-fingerprint="${escapeGalleryText(preset.id)}"></canvas>
+    <div class="gallery-detail-traits">${traits.map(t => `<span class="gallery-trait">${escapeGalleryText(t)}</span>`).join('')}</div>
+    <div class="gallery-detail-stats">
+      <div class="gallery-detail-stat"><span class="gallery-meta-label">Layers</span><span class="gallery-meta-value">${preset.layer_count || layers.length || '—'}</span></div>
+      <div class="gallery-detail-stat"><span class="gallery-meta-label">Foundation</span><span class="gallery-meta-value">${preset.lowest_hz != null ? `${preset.lowest_hz} Hz` : '—'}</span></div>
+      <div class="gallery-detail-stat"><span class="gallery-meta-label">Duration</span><span class="gallery-meta-value">${preset.duration ? `${preset.duration}s` : '—'}</span></div>
+      <div class="gallery-detail-stat"><span class="gallery-meta-label">Tuning</span><span class="gallery-meta-value">${escapeGalleryText(preset.tuning || '12-TET')}</span></div>
+    </div>
+    <div class="gallery-detail-kicker" style="margin-bottom:7px">Layer signature</div>
+    <div class="gallery-detail-layers">
+      ${layers.map((layer, index) => `<div class="gallery-detail-layer">
+        <span class="gallery-layer-dot" style="--layer-accent:${galleryLayerColor(layer.root, index)}"></span>
+        <span class="gallery-layer-name">${escapeGalleryText(layer.name || `Layer ${index + 1}`)}</span>
+        <span class="gallery-layer-meta">${escapeGalleryText(layer.type || 'fm')} · ${layer.root ? `${layer.root} Hz` : '—'}</span>
+      </div>`).join('')}
+    </div>
+    <div class="gallery-detail-actions">
+      <button class="gallery-detail-load" id="gallery-detail-load" type="button">Load preset</button>
+      <button class="gallery-detail-copy" id="gallery-detail-copy" type="button" title="Copy share link">Copy link</button>
+    </div>`;
+  $('gallery-detail').classList.add('open');
+  $('gallery-detail').setAttribute('aria-hidden', 'false');
+  $('gallery-detail-close').addEventListener('click', closeGalleryDetail);
+  $('gallery-detail-load').addEventListener('click', () => loadGalleryPreset(preset));
+  $('gallery-detail-copy').addEventListener('click', async () => {
+    const url = `${location.origin}${location.pathname}#shared=${preset.id}`;
+    await navigator.clipboard.writeText(url);
+    $('gallery-detail-copy').textContent = 'Copied';
+  });
+  requestAnimationFrame(() => drawVisibleGalleryFingerprints($('gallery-detail')));
+  setTimeout(() => drawVisibleGalleryFingerprints($('gallery-detail')), 240);
 }
 
 async function openGallery() {
@@ -6560,7 +6799,7 @@ function renderGallery(presets) {
     const tuningValue = p.tuning || '12-TET';
     return `
     <article class="gallery-card" data-id="${escapeGalleryText(p.id)}" tabindex="0" role="button"
-      aria-label="Load ${escapeGalleryText(p.name || 'Untitled')}"
+      aria-label="Inspect ${escapeGalleryText(p.name || 'Untitled')}"
       style="--card-accent:${galleryCardAccent(p)}">
       <div class="gallery-card-date">${escapeGalleryText(galleryRelativeDate(p.created))}</div>
       <div class="gallery-card-top">
@@ -6568,6 +6807,7 @@ function renderGallery(presets) {
         <div class="gallery-card-name">${escapeGalleryText(p.name || 'Untitled')}</div>
       </div>
       <div class="gallery-card-author">by ${escapeGalleryText(p.author || 'Anonymous')}</div>
+      <canvas class="gallery-fingerprint" data-gallery-fingerprint="${escapeGalleryText(p.id)}" aria-hidden="true"></canvas>
       <div class="gallery-card-traits">
         ${traits.length ? traits.map(t => `<button class="gallery-trait" type="button" data-trait="${escapeGalleryText(t)}">${escapeGalleryText(t)}</button>`).join('') : '<span class="gallery-trait">unclassified</span>'}
       </div>
@@ -6579,6 +6819,8 @@ function renderGallery(presets) {
     </article>`;
   }).join('');
 
+  requestAnimationFrame(() => drawVisibleGalleryFingerprints(grid));
+
   grid.querySelectorAll('.gallery-trait[data-trait]').forEach(tag => {
     tag.addEventListener('click', event => {
       event.stopPropagation();
@@ -6589,30 +6831,13 @@ function renderGallery(presets) {
 
   // Add click handlers to each card
   grid.querySelectorAll('.gallery-card').forEach(card => {
-    const loadCard = async () => {
-      const id = card.dataset.id;
-      $('gallery-overlay').classList.remove('open');
-      window.location.hash = 'shared=' + id;
-      // Load the preset
-      const data = await api('/api/load-shared?id=' + encodeURIComponent(id));
-      if (data.ok && data.params) {
-        currentParams = data.params;
-        currentSharedId = id;
-        currentPresetPath = null;
-        currentJourney = { steps: [], loop: 'none' };
-        _currentMorphingStep = -1;
-        applyParamsToUI(currentParams);
-        markClean();
-        updateNowPlaying();
-        setStatus('Loaded: ' + (data.params.name || id));
-      }
-    };
-    card.addEventListener('click', loadCard);
+    const inspectCard = () => openGalleryDetail(galleryPresets.find(p => p.id === card.dataset.id), card);
+    card.addEventListener('click', inspectCard);
     card.addEventListener('keydown', event => {
       if (event.target !== card) return;
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        loadCard();
+        inspectCard();
       }
     });
   });
@@ -7896,9 +8121,9 @@ function init() {
   $('import-preset-input').addEventListener('change', handleImportPresetFile);
 
   // Gallery modal
-  $('gallery-close').addEventListener('click', () => $('gallery-overlay').classList.remove('open'));
+  $('gallery-close').addEventListener('click', () => { closeGalleryDetail(); $('gallery-overlay').classList.remove('open'); });
   $('gallery-overlay').addEventListener('click', (e) => {
-    if (e.target === $('gallery-overlay')) $('gallery-overlay').classList.remove('open');
+    if (e.target === $('gallery-overlay')) { closeGalleryDetail(); $('gallery-overlay').classList.remove('open'); }
   });
   $('gallery-search').addEventListener('input', filterGallery);
   $('gallery-sort').addEventListener('change', () => {

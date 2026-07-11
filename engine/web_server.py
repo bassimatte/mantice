@@ -1621,11 +1621,14 @@ async def get_gallery_manifest():
             synth_types = []
             widths = []
             moving = False
-            for layer in layers:
+            fingerprint = []
+            for index, layer in enumerate(layers):
                 root = layer.get("root", layer.get("base_freq"))
+                root_value = None
                 try:
                     if float(root) > 0:
-                        roots.append(float(root))
+                        root_value = float(root)
+                        roots.append(root_value)
                 except (TypeError, ValueError):
                     pass
                 synth_type = str(layer.get("type") or "fm").lower()
@@ -1638,6 +1641,28 @@ async def get_gallery_manifest():
                 motion = layer.get("spatial_motion") or {}
                 trajectory = str(motion.get("trajectory_x") or "none").lower()
                 moving = moving or trajectory not in ("none", "static", "off")
+                try:
+                    volume_db = float(layer.get("volume_db", 0) or 0)
+                except (TypeError, ValueError):
+                    volume_db = 0
+                try:
+                    width = float(layer.get("width", 1) or 1)
+                except (TypeError, ValueError):
+                    width = 1
+                try:
+                    motion_speed = float(motion.get("speed", 0) or 0)
+                except (TypeError, ValueError):
+                    motion_speed = 0
+                fingerprint.append({
+                    "index": index,
+                    "name": str(layer.get("name") or f"Layer {index + 1}"),
+                    "root": round(root_value, 2) if root_value is not None else None,
+                    "volume_db": round(volume_db, 2),
+                    "width": round(width, 2),
+                    "type": synth_type,
+                    "trajectory": trajectory,
+                    "motion_speed": round(motion_speed, 4),
+                })
 
             traits = list(synth_types)
             lowest_hz = min(roots) if roots else None
@@ -1670,6 +1695,9 @@ async def get_gallery_manifest():
                 "duration": params.get("duration"),
                 "tuning": tuning or "12-TET",
                 "complexity": len(layers) + len(traits),
+                "fingerprint": fingerprint,
+                "reverb_mix": round(float(reverb.get("mix", 0) or 0), 3),
+                "shimmer_wet": round(float(shimmer.get("wet", 0) or 0), 3),
             }
 
         def inferred_created(preset_id: str):
