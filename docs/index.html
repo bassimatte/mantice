@@ -1367,8 +1367,17 @@ button:disabled {
 .candidate-audition.playing { color: #000; background: var(--accent); }
 .candidate-use { color: #000; background: var(--accent); border: 1px solid var(--accent); }
 @media (max-width: 760px) {
-  .candidate-modal { width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
-  .candidate-grid { grid-template-columns: 1fr; padding: 10px; }
+  .candidate-modal { width: 100vw; height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border: 0; border-radius: 0; }
+  .candidate-modal .docs-header {
+    flex: 0 0 auto; min-height: 52px; z-index: 2;
+    padding: max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px 10px;
+    background: var(--surface);
+  }
+  .candidate-modal .docs-close {
+    display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+    color: var(--text); background: var(--bg); border: 1px solid var(--border); font-size: 22px;
+  }
+  .candidate-grid { min-height: 0; grid-template-columns: 1fr; padding: 10px; }
   .candidate-fingerprint { height: 100px; }
 }
 
