@@ -377,12 +377,6 @@ aside h3 {
 .intent-row label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
 .intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
 .intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
-.generation-plan { margin: 5px 0 7px; padding: 6px; background: var(--bg); border: 1px solid var(--border); }
-.generation-lock-label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.05em; }
-.generation-locks { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
-.generation-lock { display: flex; align-items: center; gap: 2px; padding: 2px 4px; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); font-size: 7px; cursor: pointer; text-transform: uppercase; }
-.generation-lock:has(input:checked) { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
-.generation-lock input { width: 9px; height: 9px; margin: 0; accent-color: var(--accent); }
 .gen-type-row {
   display: flex;
   gap: 5px;
@@ -2469,16 +2463,6 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="22"><span class="intent-value" id="intent-evolution-val">22</span></div>
       </div>
     </details>
-    <div class="generation-plan">
-      <div class="generation-lock-label">Keep from current preset</div>
-      <div class="generation-locks">
-        <label class="generation-lock"><input type="checkbox" value="harmony"> Roots</label>
-        <label class="generation-lock"><input type="checkbox" value="layers"> Layers</label>
-        <label class="generation-lock"><input type="checkbox" value="tuning"> Tuning</label>
-        <label class="generation-lock"><input type="checkbox" value="space"> Space</label>
-        <label class="generation-lock"><input type="checkbox" value="duration"> Duration</label>
-      </div>
-    </div>
     <div class="gen-type-row">
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
@@ -6772,9 +6756,9 @@ async function doGenerate() {
   const harmonicScale = document.getElementById('gen-harmonic-scale')?.value || 'major';
   const intent = collectGeneratorIntent();
   const strategy = 'scratch';
-  const locks = [...document.querySelectorAll('.generation-lock input:checked')].map(input => input.value);
-  const baseParams = currentParams ? collectParams() : null;
-  const parentId = activeHistoryNodeId && (strategy !== 'scratch' || locks.length) ? activeHistoryNodeId : null;
+  const locks = [];
+  const baseParams = null;
+  const parentId = null;
   const context = { mood: selectedMood, harmonicMode, harmonicKey, harmonicScale, intent, strategy, locks, parentId };
   const seeds = new Uint32Array(9);
   if (window.crypto?.getRandomValues) window.crypto.getRandomValues(seeds);
