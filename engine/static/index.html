@@ -1358,6 +1358,26 @@ button:disabled {
 .docs-note { color: var(--muted); font-style: italic; margin: 4px 0 16px; font-size: 11px; }
 
 /* ── Gallery Modal ──────────────────────────── */
+.candidate-modal { width: min(1120px, 95vw); max-height: 90vh; border-radius: 4px; }
+.candidate-intro { padding: 8px 18px; color: var(--text-dim); border-bottom: 1px solid var(--border); font-size: 9px; }
+.candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; overflow-y: auto; }
+.candidate-card { display: flex; flex-direction: column; min-width: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-top: 3px solid var(--candidate-accent, var(--accent)); }
+.candidate-index { color: var(--candidate-accent, var(--accent)); font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; }
+.candidate-name { min-height: 42px; margin: 5px 0 8px; color: var(--text); font-size: 14px; line-height: 1.3; text-transform: uppercase; }
+.candidate-fingerprint { display: block; width: 100%; height: 120px; background: var(--surface); border: 1px solid var(--border); }
+.candidate-traits { display: flex; flex-wrap: wrap; gap: 4px; min-height: 48px; margin: 10px 0; align-content: flex-start; }
+.candidate-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 8px 0; border-top: 1px solid var(--border); }
+.candidate-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: auto; padding-top: 10px; }
+.candidate-audition, .candidate-use { min-height: 40px; font: 700 9px 'Space Mono', monospace; text-transform: uppercase; cursor: pointer; }
+.candidate-audition { color: var(--accent); background: transparent; border: 1px solid var(--accent); }
+.candidate-audition.playing { color: #000; background: var(--accent); }
+.candidate-use { color: #000; background: var(--accent); border: 1px solid var(--accent); }
+@media (max-width: 760px) {
+  .candidate-modal { width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+  .candidate-grid { grid-template-columns: 1fr; padding: 10px; }
+  .candidate-fingerprint { height: 100px; }
+}
+
 .gallery-modal {
   position: relative;
   width: min(1400px, 96vw);
@@ -2808,6 +2828,18 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
     <div id="journey-body"></div>
   </div>
 </main>
+
+<!-- Generated candidate comparison -->
+<div class="docs-overlay" id="generation-candidates-overlay">
+  <div class="docs-modal candidate-modal">
+    <div class="docs-header">
+      <h2>Choose a generated direction</h2>
+      <button class="docs-close" id="generation-candidates-close">✕</button>
+    </div>
+    <div class="candidate-intro" id="candidate-intro">Three interpretations of the current intent. Audition before committing.</div>
+    <div class="candidate-grid" id="candidate-grid"></div>
+  </div>
+</div>
 
 <!-- Gallery Modal -->
 <div class="docs-overlay" id="gallery-overlay">
@@ -6486,6 +6518,98 @@ function loadHistoryEntry(histId) {
 
 // ── Waveform drawing ────────────────────────────────────────────────────────
 // ── Generator ───────────────────────────────────────────────────────────────
+let generationCandidates = [];
+
+function candidateDescriptor(params, index, context) {
+  const layers = params.layers || [];
+  const roots = layers.map(layer => Number(layer.root)).filter(Number.isFinite);
+  const types = [...new Set(layers.map(layer => layer.type || 'fm'))];
+  const traits = [...types];
+  if (roots.length && Math.min(...roots) < 80) traits.push('sub-heavy');
+  if (layers.length >= 3) traits.push('dense');
+  if (layers.some(layer => Number(layer.width || 1) > 1.15)) traits.push('wide');
+  if (layers.some(layer => !['none', 'static', 'off'].includes(layer.spatial_motion?.trajectory_x || 'none'))) traits.push('motion');
+  if (Number(params.reverb?.mix || 0) >= .3) traits.push('deep space');
+  return {
+    id: `candidate-${Date.now()}-${index}`,
+    isCandidate: true,
+    params,
+    name: params.name || `Candidate ${index + 1}`,
+    layer_count: layers.length,
+    lowest_hz: roots.length ? Math.round(Math.min(...roots) * 10) / 10 : null,
+    synth_types: types,
+    traits: [...new Set(traits)].slice(0, 5),
+    tuning: params.tuning_system || '12-TET',
+    duration: params.duration,
+    reverb_mix: params.reverb?.mix || 0,
+    shimmer_wet: params.shimmer?.wet || 0,
+    fingerprint: layers.map((layer, layerIndex) => ({
+      index: layerIndex, name: layer.name || `Layer ${layerIndex + 1}`, root: layer.root,
+      volume_db: layer.volume_db || 0, width: layer.width || 1, type: layer.type || 'fm',
+      trajectory: layer.spatial_motion?.trajectory_x || 'none', motion_speed: layer.spatial_motion?.speed || 0,
+    })),
+    generationContext: context,
+  };
+}
+
+function renderGenerationCandidates() {
+  const grid = $('candidate-grid');
+  grid.innerHTML = generationCandidates.map((candidate, index) => `
+    <article class="candidate-card" style="--candidate-accent:${galleryCardAccent(candidate)}">
+      <div class="candidate-index">Direction ${String.fromCharCode(65 + index)}</div>
+      <h3 class="candidate-name">${escapeGalleryText(candidate.name)}</h3>
+      <canvas class="candidate-fingerprint" data-candidate-index="${index}" aria-hidden="true"></canvas>
+      <div class="candidate-traits">${galleryFallbackTraits(candidate).map(trait => `<span class="gallery-trait">${escapeGalleryText(trait)}</span>`).join('')}</div>
+      <div class="candidate-meta">
+        <div><span class="gallery-meta-label">Layers</span><span class="gallery-meta-value">${candidate.layer_count}</span></div>
+        <div><span class="gallery-meta-label">Foundation</span><span class="gallery-meta-value">${candidate.lowest_hz != null ? `${candidate.lowest_hz} Hz` : '—'}</span></div>
+        <div><span class="gallery-meta-label">Duration</span><span class="gallery-meta-value">${candidate.duration || '—'}s</span></div>
+      </div>
+      <div class="candidate-actions">
+        <button class="candidate-audition" data-gallery-audition="${candidate.id}" data-candidate-index="${index}" type="button">▶ Audition</button>
+        <button class="candidate-use" data-candidate-index="${index}" type="button">Use direction</button>
+      </div>
+    </article>`).join('');
+  grid.querySelectorAll('canvas[data-candidate-index]').forEach(canvas => {
+    requestAnimationFrame(() => drawGalleryFingerprint(canvas, generationCandidates[Number(canvas.dataset.candidateIndex)]));
+  });
+  grid.querySelectorAll('.candidate-audition').forEach(button => {
+    button.addEventListener('click', () => auditionGalleryPreset(generationCandidates[Number(button.dataset.candidateIndex)]));
+  });
+  grid.querySelectorAll('.candidate-use').forEach(button => {
+    button.addEventListener('click', () => chooseGenerationCandidate(Number(button.dataset.candidateIndex)));
+  });
+}
+
+async function closeGenerationCandidates() {
+  await stopGalleryAudition();
+  $('generation-candidates-overlay').classList.remove('open');
+}
+
+async function chooseGenerationCandidate(index) {
+  const candidate = generationCandidates[index];
+  if (!candidate) return;
+  await stopGalleryAudition();
+  currentParams = JSON.parse(JSON.stringify(candidate.params));
+  currentPresetPath = null;
+  currentSharedId = null;
+  const context = candidate.generationContext;
+  addToGenerationHistory({
+    params: JSON.parse(JSON.stringify(currentParams)), timestamp: Date.now(),
+    mood: context.mood || 'mixed', harmonicMode: context.harmonicMode,
+    harmonicKey: context.harmonicKey, harmonicScale: context.harmonicScale,
+    intent: context.intent, strategy: context.strategy, locks: context.locks,
+    displayName: currentParams.name || 'Unnamed Preset', id: `hist_${Date.now()}`,
+  });
+  applyParamsToUI(currentParams);
+  markClean();
+  updateNowPlaying();
+  $('generation-candidates-overlay').classList.remove('open');
+  setStatus('Direction selected — previewing…');
+  stopAudio();
+  doPreview();
+}
+
 async function doGenerate() {
   const allowedTypes = [];
   if (document.getElementById('gen-type-fm').checked) allowedTypes.push('fm');
@@ -6504,45 +6628,30 @@ async function doGenerate() {
     return;
   }
   const baseParams = currentParams ? collectParams() : null;
-  const data = await api('/api/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes,
-                           harmonic_mode: harmonicMode, harmonic_key: harmonicKey,
-                           harmonic_scale: harmonicScale, intent,
-                           strategy, locks, base_params: baseParams })
-  });
-  if (data?.ok) {
-    currentParams = data.params;
-    currentPresetPath = null; // generated preset has no saved path
-    currentSharedId = null;
-    const activeTuning = $('tuning-system').value;
-    if (activeTuning !== '12-TET') _applyTuningOffsets(currentParams, activeTuning);
-    
-    // Add to generation history
-    addToGenerationHistory({
-      params: JSON.parse(JSON.stringify(currentParams)),
-      timestamp: Date.now(),
-      mood: selectedMood,
-      harmonicMode: harmonicMode,
-      harmonicKey: harmonicKey,
-      harmonicScale: harmonicScale,
-      intent: intent,
-      strategy: strategy,
-      locks: locks,
-      displayName: currentParams.name || "Unnamed Preset",
-      id: `hist_${Date.now()}`
-    });
-    
-    applyParamsToUI(currentParams);
-    markClean(); // treat generated params as new baseline — prevents spurious liveReload
-    updateNowPlaying();
-    setStatus('Generated — previewing…');
-    stopAudio();
-    doPreview();
-  } else {
-    setStatus(`Error: ${data?.error || 'Backend unavailable'}`);
+  const context = { mood: selectedMood, harmonicMode, harmonicKey, harmonicScale, intent, strategy, locks };
+  const seeds = new Uint32Array(3);
+  if (window.crypto?.getRandomValues) window.crypto.getRandomValues(seeds);
+  else seeds.set([Math.random() * 999999, Math.random() * 999999, Math.random() * 999999]);
+  const requests = [...seeds].map(seed => api('/api/generate', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mood: selectedMood, seed, allowed_types: allowedTypes,
+      harmonic_mode: harmonicMode, harmonic_key: harmonicKey, harmonic_scale: harmonicScale,
+      intent, strategy, locks, base_params: baseParams })
+  }));
+  const results = await Promise.all(requests);
+  if (results.some(result => !result?.ok)) {
+    setStatus(`Generation error: ${results.find(result => !result?.ok)?.error || 'Backend unavailable'}`);
+    return;
   }
+  const activeTuning = $('tuning-system').value;
+  generationCandidates = results.map((result, index) => {
+    if (activeTuning !== '12-TET') _applyTuningOffsets(result.params, activeTuning);
+    return candidateDescriptor(result.params, index, context);
+  });
+  $('candidate-intro').textContent = `${strategy.replace('_', ' ')} · ${selectedMood || 'mixed'} · choose one of three generated directions`;
+  renderGenerationCandidates();
+  $('generation-candidates-overlay').classList.add('open');
+  setStatus('Three directions ready');
 }
 
 async function doMutate() {
@@ -6684,6 +6793,8 @@ function setGalleryAuditionButtons(preset, state) {
     if (button.classList.contains('gallery-detail-audition')) {
       const icon = state === 'loading' ? '…' : state === 'playing' ? '■ Stop' : '▶ Audition';
       button.innerHTML = `${icon} · <span data-gallery-plays="${preset.id}">${preset.plays || 0}</span> plays`;
+    } else if (button.classList.contains('candidate-audition')) {
+      button.textContent = state === 'loading' ? '… Rendering' : state === 'playing' ? '■ Stop' : '▶ Audition';
     } else {
       button.textContent = state === 'loading' ? '…' : state === 'playing' ? '■' : '▶';
     }
@@ -6710,7 +6821,7 @@ async function stopGalleryAudition() {
   try { active.source?.stop(); } catch (_) {}
   try { await active.context?.close(); } catch (_) {}
   if (active.token) fetch(apiUrl('/api/preview-segment/' + active.token), { method: 'DELETE' }).catch(() => {});
-  const preset = galleryPresets.find(item => item.id === active.id);
+  const preset = active.preset || galleryPresets.find(item => item.id === active.id);
   if (preset) setGalleryAuditionButtons(preset, 'idle');
 }
 
@@ -6720,14 +6831,14 @@ async function auditionGalleryPreset(preset) {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   const context = new AudioCtx();
   await context.resume();
-  galleryAudition = { id: preset.id, context, source: null, token: null, timer: null };
+  galleryAudition = { id: preset.id, preset, context, source: null, token: null, timer: null };
   setGalleryAuditionButtons(preset, 'loading');
   try {
-    const loaded = await api('/api/load-shared?id=' + encodeURIComponent(preset.id));
-    if (!loaded?.ok || !loaded.params) throw new Error(loaded?.error || 'Preset unavailable');
+    const loadedParams = preset.params || (await api('/api/load-shared?id=' + encodeURIComponent(preset.id)))?.params;
+    if (!loadedParams) throw new Error('Preset unavailable');
     const response = await fetch(apiUrl('/api/preview-segment'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params: loaded.params, seed: galleryHash(preset.id) % 99999, segment_s: 8 }),
+      body: JSON.stringify({ params: loadedParams, seed: galleryHash(preset.id) % 99999, segment_s: 8 }),
     });
     if (!response.ok) throw new Error(`Preview failed (${response.status})`);
     const token = response.headers.get('X-Segment-Token');
@@ -6748,11 +6859,13 @@ async function auditionGalleryPreset(preset) {
       });
     }, 200);
     source.onended = () => { if (galleryAudition?.id === preset.id) stopGalleryAudition(); };
-    preset.plays = Number(preset.plays || 0) + 1;
-    syncGalleryPlayCounts(preset);
-    api('/api/gallery/play', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: preset.id })
-    }).then(data => { if (data?.ok) { preset.plays = data.plays; syncGalleryPlayCounts(preset); } }).catch(() => {});
+    if (!preset.isCandidate) {
+      preset.plays = Number(preset.plays || 0) + 1;
+      syncGalleryPlayCounts(preset);
+      api('/api/gallery/play', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: preset.id })
+      }).then(data => { if (data?.ok) { preset.plays = data.plays; syncGalleryPlayCounts(preset); } }).catch(() => {});
+    }
   } catch (error) {
     await stopGalleryAudition();
     setStatus('Audition failed: ' + error.message);
@@ -8381,6 +8494,10 @@ function init() {
   $('import-preset-input').addEventListener('change', handleImportPresetFile);
 
   // Gallery modal
+  $('generation-candidates-close').addEventListener('click', closeGenerationCandidates);
+  $('generation-candidates-overlay').addEventListener('click', event => {
+    if (event.target === $('generation-candidates-overlay')) closeGenerationCandidates();
+  });
   $('gallery-close').addEventListener('click', () => { stopGalleryAudition(); closeGalleryDetail(); $('gallery-overlay').classList.remove('open'); });
   $('gallery-overlay').addEventListener('click', (e) => {
     if (e.target === $('gallery-overlay')) { stopGalleryAudition(); closeGalleryDetail(); $('gallery-overlay').classList.remove('open'); }
