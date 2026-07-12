@@ -378,7 +378,6 @@ aside h3 {
 .intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
 .intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
 .synthesis-row { display: grid; grid-template-columns: 52px 1fr; gap: 5px; align-items: center; margin-top: 3px; padding-top: 5px; border-top: 1px solid var(--border); }
-.synthesis-title { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
 .synthesis-options { display: flex; flex-wrap: wrap; gap: 3px; }
 .synthesis-option { display: flex; align-items: center; gap: 2px; padding: 2px 3px; color: var(--text-dim); border: 1px solid var(--border); font-size: 7px; cursor: pointer; text-transform: uppercase; }
 .synthesis-option:has(input:checked) { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
@@ -2437,7 +2436,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <button class="mood-btn" data-mood="nature">nature</button>
     </div>
     <details class="intent-panel" open>
-      <summary>Intent · mood starting point</summary>
+      <summary>Settings</summary>
       <div class="intent-grid" id="intent-grid">
         <div class="intent-row"><label for="intent-density">Density</label><input type="range" id="intent-density" min="0" max="100" value="12"><span class="intent-value" id="intent-density-val">12</span></div>
         <div class="intent-row"><label for="intent-motion">Motion</label><input type="range" id="intent-motion" min="0" max="100" value="15"><span class="intent-value" id="intent-motion-val">15</span></div>
@@ -2448,7 +2447,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <div class="intent-row"><label for="intent-brightness">Brightness</label><input type="range" id="intent-brightness" min="0" max="100" value="46"><span class="intent-value" id="intent-brightness-val">46</span></div>
         <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="22"><span class="intent-value" id="intent-evolution-val">22</span></div>
         <div class="synthesis-row">
-          <span class="synthesis-title">Synthesis</span>
+          <span aria-hidden="true"></span>
           <div class="synthesis-options">
             <label class="synthesis-option"><input type="checkbox" id="gen-type-auto" checked> Auto</label>
             <label class="synthesis-option"><input type="checkbox" class="gen-type-override" value="fm"> FM</label>
