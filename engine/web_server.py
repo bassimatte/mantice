@@ -1252,13 +1252,23 @@ async def generate_endpoint(request: Request):
     harmonic_key = str(body.get("harmonic_key", "C"))
     harmonic_scale = str(body.get("harmonic_scale", "major"))
     intent = body.get("intent") if isinstance(body.get("intent"), dict) else None
+    strategy = str(body.get("strategy") or "scratch")
+    locks = {str(value) for value in (body.get("locks") or [])}
+    base_params = body.get("base_params") if isinstance(body.get("base_params"), dict) else None
     try:
-        import yaml as _yaml, tempfile
-        preset_data = generate_preset(mood=mood, seed=seed, allowed_types=allowed_types,
-                                      harmonic_mode=harmonic_mode,
-                                      harmonic_key=harmonic_key,
-                                      harmonic_scale=harmonic_scale,
-                                      intent=intent)
+        import copy, yaml as _yaml, tempfile
+        effective_intent = dict(intent or {})
+        if strategy == "contrast":
+            effective_intent = {key: 1.0 - float(value) for key, value in effective_intent.items()}
+
+        if strategy == "variation" and base_params:
+            preset_data = mutate_preset(_ui_params_to_preset(base_params), amount=0.24, seed=seed)
+        else:
+            preset_data = generate_preset(mood=mood, seed=seed, allowed_types=allowed_types,
+                                          harmonic_mode=harmonic_mode,
+                                          harmonic_key=harmonic_key,
+                                          harmonic_scale=harmonic_scale,
+                                          intent=effective_intent)
         with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False, mode='w', encoding='utf-8') as f:
             _yaml.dump(preset_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
             tmp_path = Path(f.name)
@@ -1267,6 +1277,52 @@ async def generate_endpoint(request: Request):
             params = _preset_to_ui_params(preset)
         finally:
             tmp_path.unlink(missing_ok=True)
+
+        if base_params:
+            effective_locks = set(locks)
+            if strategy == "related":
+                effective_locks.update({"harmony", "tuning"})
+
+            base_layers = base_params.get("layers") or []
+            generated_layers = params.get("layers") or []
+            if "layers" in effective_locks and base_layers and generated_layers:
+                structured_layers = []
+                for index, base_layer in enumerate(base_layers):
+                    layer = copy.deepcopy(generated_layers[index % len(generated_layers)])
+                    layer["type"] = base_layer.get("type", layer.get("type", "fm"))
+                    layer["name"] = base_layer.get("name", layer.get("name"))
+                    if layer["type"] == "granular":
+                        layer["source"] = base_layer.get("source", layer.get("source", "singing_bowl.ogg"))
+                    structured_layers.append(layer)
+                params["layers"] = structured_layers
+                generated_layers = structured_layers
+
+            if "harmony" in effective_locks and base_layers and generated_layers:
+                for index, layer in enumerate(generated_layers):
+                    base_layer = base_layers[index % len(base_layers)]
+                    for key in ("root", "ratios", "fm_ratios"):
+                        if key in base_layer:
+                            layer[key] = copy.deepcopy(base_layer[key])
+
+            if "tuning" in effective_locks:
+                for key in ("tuning_system", "tuning_mode", "tonic_hz", "tuning_system_ji", "pure_mode", "tuning_ref_a4"):
+                    if key in base_params:
+                        params[key] = copy.deepcopy(base_params[key])
+
+            if "space" in effective_locks:
+                for key in ("spatial_depth", "spatial_wet", "reverb"):
+                    if key in base_params:
+                        params[key] = copy.deepcopy(base_params[key])
+                for index, layer in enumerate(generated_layers):
+                    if not base_layers:
+                        break
+                    base_layer = base_layers[index % len(base_layers)]
+                    for key in ("pan", "width", "quadrant", "spatial_motion", "elevation", "elevation_motion", "elevation_speed", "elevation_range"):
+                        if key in base_layer:
+                            layer[key] = copy.deepcopy(base_layer[key])
+
+            if "duration" in effective_locks and "duration" in base_params:
+                params["duration"] = base_params["duration"]
         return JSONResponse({"ok": True, "params": params})
     except Exception as e:
         import traceback

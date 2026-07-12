@@ -377,6 +377,14 @@ aside h3 {
 .intent-row label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
 .intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
 .intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
+.generation-plan { margin: 5px 0 7px; padding: 6px; background: var(--bg); border: 1px solid var(--border); }
+.generation-strategy { display: grid; grid-template-columns: 52px 1fr; gap: 5px; align-items: center; margin-bottom: 6px; }
+.generation-strategy label, .generation-lock-label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.05em; }
+.generation-strategy select { min-width: 0; padding: 3px; color: var(--text-lcd); background: var(--surface); border: 1px solid var(--border); font: 8px 'Space Mono', monospace; }
+.generation-locks { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.generation-lock { display: flex; align-items: center; gap: 2px; padding: 2px 4px; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); font-size: 7px; cursor: pointer; text-transform: uppercase; }
+.generation-lock:has(input:checked) { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
+.generation-lock input { width: 9px; height: 9px; margin: 0; accent-color: var(--accent); }
 .gen-type-row {
   display: flex;
   gap: 5px;
@@ -2427,6 +2435,25 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="50"><span class="intent-value" id="intent-evolution-val">50</span></div>
       </div>
     </details>
+    <div class="generation-plan">
+      <div class="generation-strategy">
+        <label for="generation-strategy">Strategy</label>
+        <select id="generation-strategy">
+          <option value="scratch">From scratch</option>
+          <option value="related">Related to current</option>
+          <option value="variation">Variation of current</option>
+          <option value="contrast">Contrast</option>
+        </select>
+      </div>
+      <div class="generation-lock-label">Keep from current preset</div>
+      <div class="generation-locks">
+        <label class="generation-lock"><input type="checkbox" value="harmony"> Roots</label>
+        <label class="generation-lock"><input type="checkbox" value="layers"> Layers</label>
+        <label class="generation-lock"><input type="checkbox" value="tuning"> Tuning</label>
+        <label class="generation-lock"><input type="checkbox" value="space"> Space</label>
+        <label class="generation-lock"><input type="checkbox" value="duration"> Duration</label>
+      </div>
+    </div>
     <div class="gen-type-row">
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
@@ -6470,12 +6497,20 @@ async function doGenerate() {
   const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
   const harmonicScale = document.getElementById('gen-harmonic-scale')?.value || 'major';
   const intent = collectGeneratorIntent();
+  const strategy = $('generation-strategy').value;
+  const locks = [...document.querySelectorAll('.generation-lock input:checked')].map(input => input.value);
+  if (strategy !== 'scratch' && !currentParams) {
+    setStatus('Load a preset before using this generation strategy');
+    return;
+  }
+  const baseParams = currentParams ? collectParams() : null;
   const data = await api('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes,
                            harmonic_mode: harmonicMode, harmonic_key: harmonicKey,
-                           harmonic_scale: harmonicScale, intent })
+                           harmonic_scale: harmonicScale, intent,
+                           strategy, locks, base_params: baseParams })
   });
   if (data?.ok) {
     currentParams = data.params;
@@ -6493,6 +6528,8 @@ async function doGenerate() {
       harmonicKey: harmonicKey,
       harmonicScale: harmonicScale,
       intent: intent,
+      strategy: strategy,
+      locks: locks,
       displayName: currentParams.name || "Unnamed Preset",
       id: `hist_${Date.now()}`
     });
