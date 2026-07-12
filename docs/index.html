@@ -1363,9 +1363,11 @@ button:disabled {
 .candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; overflow-y: auto; }
 .candidate-card { display: flex; flex-direction: column; min-width: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-top: 3px solid var(--candidate-accent, var(--accent)); }
 .candidate-index { color: var(--candidate-accent, var(--accent)); font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; }
+.candidate-role { float: right; padding: 2px 5px; color: var(--candidate-accent, var(--accent)); border: 1px solid var(--candidate-accent, var(--accent)); font-size: 7px; letter-spacing: 0.06em; }
 .candidate-name { min-height: 42px; margin: 5px 0 8px; color: var(--text); font-size: 14px; line-height: 1.3; text-transform: uppercase; }
 .candidate-fingerprint { display: block; width: 100%; height: 120px; background: var(--surface); border: 1px solid var(--border); }
 .candidate-traits { display: flex; flex-wrap: wrap; gap: 4px; min-height: 48px; margin: 10px 0; align-content: flex-start; }
+.candidate-description { min-height: 70px; margin: 0 0 10px; color: var(--text-dim); font-size: 9px; line-height: 1.55; }
 .candidate-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 8px 0; border-top: 1px solid var(--border); }
 .candidate-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: auto; padding-top: 10px; }
 .candidate-audition, .candidate-use { min-height: 40px; font: 700 9px 'Space Mono', monospace; text-transform: uppercase; cursor: pointer; }
@@ -6520,6 +6522,94 @@ function loadHistoryEntry(histId) {
 // ── Generator ───────────────────────────────────────────────────────────────
 let generationCandidates = [];
 
+function candidateClamp(value, min = 0, max = 1) { return Math.max(min, Math.min(max, value)); }
+
+function candidateMetrics(params) {
+  const layers = params.layers || [];
+  const average = (values, fallback = 0) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : fallback;
+  const roots = layers.map(layer => Number(layer.root)).filter(value => value > 0);
+  const voices = layers.map(layer => Number(layer.voices) || 1);
+  const speeds = layers.map(layer => Number(layer.spatial_motion?.speed) || 0);
+  const moving = layers.filter(layer => !['none', 'static', 'off'].includes(layer.spatial_motion?.trajectory_x || 'none')).length;
+  const cutoffs = layers.map(layer => Number(layer.filter_cutoff) || 2000);
+  const drift = layers.map(layer => Number(layer.drift) || 0);
+  const instability = average(layers.map(layer => (Number(layer.pitch_spread) || 0) * .8 + (Number(layer.detune_cents) || 0) / 50 + (Number(layer.position_chaos) || 0) * .25));
+  const noise = average(layers.map(layer => Number(layer.noise_amount) || 0));
+  const fmIndex = average(layers.map(layer => Number(layer.fm_index) || 0));
+  const lfoDepth = average(layers.map(layer => Number(layer.filter_lfo_depth) || 0));
+  const lowest = roots.length ? Math.min(...roots) : 220;
+  const logNorm = (value, low, high) => candidateClamp((Math.log(Math.max(value, low)) - Math.log(low)) / (Math.log(high) - Math.log(low)));
+  return {
+    density: candidateClamp(((layers.length - 1) / 2) * .65 + candidateClamp((average(voices, 1) - 1) / 11) * .35),
+    motion: candidateClamp((moving / Math.max(1, layers.length)) * .55 + candidateClamp(average(speeds) / .03) * .45),
+    space: candidateClamp((Number(params.reverb?.mix) || 0) * .8 + candidateClamp((Number(params.spatial_depth) || 1) / 3) * .2),
+    tonality: candidateClamp(1 - noise * 2.5 - fmIndex * .12),
+    weight: candidateClamp(1 - logNorm(lowest, 20, 2000)),
+    stability: candidateClamp(1 - candidateClamp(average(drift) / .05) * .6 - candidateClamp(instability) * .4),
+    brightness: candidateClamp(average(cutoffs.map(value => logNorm(value, 120, 12000))) * .75 + logNorm(average(roots, 220), 30, 3000) * .15 + (params.air?.enabled ? .1 : 0)),
+    evolution: candidateClamp(candidateClamp(((Number(params.duration) || 60) - 60) / 120) * .45 + candidateClamp(lfoDepth) * .25 + candidateClamp(average(speeds) / .03) * .3),
+  };
+}
+
+function describeCandidate(candidate) {
+  const metrics = candidate.metrics;
+  const countWords = ['single-layer', 'two-layer', 'three-layer'];
+  const structure = countWords[Math.min(2, Math.max(0, candidate.layer_count - 1))];
+  const spectral = metrics.brightness > .7 ? 'luminous' : metrics.brightness < .3 ? 'shadowed' : 'balanced';
+  const weight = metrics.weight > .72 ? 'sub-heavy' : metrics.weight < .3 ? 'air-weight' : 'mid-weight';
+  const types = candidate.synth_types.map(type => type === 'fm' ? 'FM' : type).join(' and ');
+  const motion = metrics.motion > .7 ? 'Restless spatial motion' : metrics.motion > .3 ? 'Slow spatial movement' : 'Near-static placement';
+  const space = metrics.space > .7 ? 'a vast reverberant field' : metrics.space > .35 ? 'a measured acoustic space' : 'an intimate, dry space';
+  const foundation = candidate.lowest_hz != null ? `${candidate.lowest_hz} Hz` : 'an unpitched foundation';
+  return `${structure} ${spectral}, ${weight} field anchored at ${foundation}. ${types || 'Layered'} voices define the spectrum. ${motion} unfolds inside ${space}.`;
+}
+
+function scoreCandidate(candidate, targetIntent) {
+  const metrics = candidate.metrics;
+  const keys = GENERATOR_INTENT_KEYS;
+  const intentMatch = averageCandidate(keys.map(key => 1 - Math.abs(metrics[key] - (targetIntent[key] ?? .5))));
+  const roots = (candidate.params.layers || []).map(layer => Number(layer.root)).filter(value => value > 0).sort((a, b) => a - b);
+  const separations = roots.slice(1).map((root, index) => Math.abs(Math.log2(root / roots[index])));
+  const separationQuality = separations.length ? averageCandidate(separations.map(value => candidateClamp(value / .5))) : .8;
+  const volumes = (candidate.params.layers || []).map(layer => Number(layer.volume_db) || 0);
+  const audibility = volumes.length ? averageCandidate(volumes.map(value => value >= -30 && value <= 6 ? 1 : .25)) : 0;
+  const voiceCost = (candidate.params.layers || []).reduce((sum, layer) => sum + (Number(layer.voices) || 1), 0);
+  const efficiency = candidateClamp(1 - Math.max(0, voiceCost - 24) / 24);
+  let penalty = 0;
+  if (Number(candidate.params.reverb?.mix) > .72) penalty += 5;
+  if ((candidate.params.layers || []).some(layer => Number(layer.spatial_motion?.speed) > .05 || Number(layer.filter_lfo_rate) > .7)) penalty += 7;
+  if (separations.some(value => value < .08)) penalty += 5;
+  candidate.intentMatch = intentMatch;
+  candidate.qualityScore = intentMatch * 68 + separationQuality * 14 + audibility * 10 + efficiency * 8 - penalty;
+  return candidate.qualityScore;
+}
+
+function averageCandidate(values) { return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0; }
+
+function candidateDistance(a, b) {
+  return Math.sqrt(averageCandidate(GENERATOR_INTENT_KEYS.map(key => (a.metrics[key] - b.metrics[key]) ** 2)));
+}
+
+function selectQualityCandidates(candidates, targetIntent) {
+  candidates.forEach(candidate => { candidate.metrics = candidateMetrics(candidate.params); scoreCandidate(candidate, targetIntent); candidate.description = describeCandidate(candidate); });
+  const pool = [...candidates].sort((a, b) => b.qualityScore - a.qualityScore);
+  const selected = [pool.shift()];
+  while (selected.length < 3 && pool.length) {
+    pool.sort((a, b) => {
+      const value = candidate => candidate.qualityScore + Math.min(...selected.map(item => candidateDistance(candidate, item))) * 24;
+      return value(b) - value(a);
+    });
+    selected.push(pool.shift());
+  }
+  if (selected.length === 3 && selected[2].metrics.space > selected[1].metrics.space) {
+    [selected[1], selected[2]] = [selected[2], selected[1]];
+  }
+  if (selected[0]) selected[0].role = 'Closest match';
+  if (selected[1]) selected[1].role = 'Most spacious';
+  if (selected[2]) selected[2].role = 'Wildcard';
+  return selected;
+}
+
 function candidateDescriptor(params, index, context) {
   const layers = params.layers || [];
   const roots = layers.map(layer => Number(layer.root)).filter(Number.isFinite);
@@ -6556,10 +6646,11 @@ function renderGenerationCandidates() {
   const grid = $('candidate-grid');
   grid.innerHTML = generationCandidates.map((candidate, index) => `
     <article class="candidate-card" style="--candidate-accent:${galleryCardAccent(candidate)}">
-      <div class="candidate-index">Direction ${String.fromCharCode(65 + index)}</div>
+      <div class="candidate-index">Direction ${String.fromCharCode(65 + index)} <span class="candidate-role">${escapeGalleryText(candidate.role)}</span></div>
       <h3 class="candidate-name">${escapeGalleryText(candidate.name)}</h3>
       <canvas class="candidate-fingerprint" data-candidate-index="${index}" aria-hidden="true"></canvas>
       <div class="candidate-traits">${galleryFallbackTraits(candidate).map(trait => `<span class="gallery-trait">${escapeGalleryText(trait)}</span>`).join('')}</div>
+      <p class="candidate-description">${escapeGalleryText(candidate.description)}</p>
       <div class="candidate-meta">
         <div><span class="gallery-meta-label">Layers</span><span class="gallery-meta-value">${candidate.layer_count}</span></div>
         <div><span class="gallery-meta-label">Foundation</span><span class="gallery-meta-value">${candidate.lowest_hz != null ? `${candidate.lowest_hz} Hz` : '—'}</span></div>
@@ -6629,9 +6720,9 @@ async function doGenerate() {
   }
   const baseParams = currentParams ? collectParams() : null;
   const context = { mood: selectedMood, harmonicMode, harmonicKey, harmonicScale, intent, strategy, locks };
-  const seeds = new Uint32Array(3);
+  const seeds = new Uint32Array(9);
   if (window.crypto?.getRandomValues) window.crypto.getRandomValues(seeds);
-  else seeds.set([Math.random() * 999999, Math.random() * 999999, Math.random() * 999999]);
+  else seeds.forEach((_, index) => { seeds[index] = Math.random() * 999999; });
   const requests = [...seeds].map(seed => api('/api/generate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mood: selectedMood, seed, allowed_types: allowedTypes,
@@ -6644,10 +6735,11 @@ async function doGenerate() {
     return;
   }
   const activeTuning = $('tuning-system').value;
-  generationCandidates = results.map((result, index) => {
+  const candidatePool = results.map((result, index) => {
     if (activeTuning !== '12-TET') _applyTuningOffsets(result.params, activeTuning);
     return candidateDescriptor(result.params, index, context);
   });
+  generationCandidates = selectQualityCandidates(candidatePool, intent);
   $('candidate-intro').textContent = `${strategy.replace('_', ' ')} · ${selectedMood || 'mixed'} · choose one of three generated directions`;
   renderGenerationCandidates();
   $('generation-candidates-overlay').classList.add('open');
