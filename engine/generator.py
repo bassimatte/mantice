@@ -33,6 +33,7 @@ _MOOD_PROFILES = {
         "reverb_room": (0.6, 1.0),
         "earth_prob": 0.7,
         "air_prob": 0.3,
+        "synth_weights": {"fm": 0.40, "subtractive": 0.45, "granular": 0.15},
         "mood_tags": ["dark", "ominous", "deep"],
     },
     "bright": {
@@ -46,6 +47,7 @@ _MOOD_PROFILES = {
         "reverb_room": (0.4, 0.8),
         "earth_prob": 0.1,
         "air_prob": 0.4,
+        "synth_weights": {"fm": 0.55, "subtractive": 0.25, "granular": 0.20},
         "mood_tags": ["bright", "shimmering", "ethereal"],
     },
     "cinematic": {
@@ -59,6 +61,7 @@ _MOOD_PROFILES = {
         "reverb_room": (0.7, 1.0),
         "earth_prob": 0.6,
         "air_prob": 0.5,
+        "synth_weights": {"fm": 0.30, "subtractive": 0.35, "granular": 0.35},
         "mood_tags": ["cinematic", "epic", "immersive"],
     },
     "minimal": {
@@ -72,6 +75,7 @@ _MOOD_PROFILES = {
         "reverb_room": (0.3, 0.6),
         "earth_prob": 0.2,
         "air_prob": 0.1,
+        "synth_weights": {"fm": 0.30, "subtractive": 0.60, "granular": 0.10},
         "mood_tags": ["minimal", "pure", "meditative"],
     },
     "industrial": {
@@ -85,6 +89,7 @@ _MOOD_PROFILES = {
         "reverb_room": (0.3, 0.7),
         "earth_prob": 0.4,
         "air_prob": 0.6,
+        "synth_weights": {"fm": 0.60, "subtractive": 0.30, "granular": 0.10},
         "mood_tags": ["industrial", "metallic", "harsh"],
     },
     "nature": {
@@ -98,6 +103,7 @@ _MOOD_PROFILES = {
         "reverb_room": (0.5, 0.9),
         "earth_prob": 0.5,
         "air_prob": 0.8,
+        "synth_weights": {"fm": 0.15, "subtractive": 0.30, "granular": 0.55},
         "mood_tags": ["organic", "natural", "earthy"],
     },
 }
@@ -302,15 +308,12 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
                     intent: Optional[dict] = None) -> dict:
     """
     Generate a fully random preset, optionally biased by mood.
-    allowed_types: list of layer types to allow, e.g. ["fm", "subtractive", "granular"].
-                   Defaults to ["fm", "subtractive", "granular"].
+    allowed_types: optional explicit layer-type override. When omitted, the selected
+                   mood supplies weighted synthesis probabilities.
     Returns a raw dict ready to be saved as YAML.
     """
     if seed is not None:
         random.seed(seed)
-
-    if not allowed_types:
-        allowed_types = ["fm", "subtractive", "granular"]
 
     # Select mood profile or use neutral defaults
     if mood and mood in _MOOD_PROFILES:
@@ -364,7 +367,11 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
         else:
             root = 440 * (2 ** (round(12 * math.log2(root / 440)) / 12))
 
-        layer_type = random.choice(allowed_types)
+        if allowed_types:
+            layer_type = random.choice(allowed_types)
+        else:
+            synth_weights = profile.get("synth_weights", {"fm": 0.34, "subtractive": 0.33, "granular": 0.33})
+            layer_type = random.choices(list(synth_weights), weights=list(synth_weights.values()))[0]
 
         if tonality > .7:
             ratios = random.choice([[1.0, 2.0], [1.0, 2.0, 3.0], [1.0, 1.5, 2.0]])

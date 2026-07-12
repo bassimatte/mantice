@@ -1247,7 +1247,7 @@ async def generate_endpoint(request: Request):
     body = await request.json()
     mood = body.get("mood")
     seed = body.get("seed")
-    allowed_types = body.get("allowed_types") or ["fm", "subtractive"]
+    allowed_types = body.get("allowed_types") if isinstance(body.get("allowed_types"), list) else None
     harmonic_mode = bool(body.get("harmonic_mode", False))
     harmonic_key = str(body.get("harmonic_key", "C"))
     harmonic_scale = str(body.get("harmonic_scale", "major"))

@@ -377,26 +377,6 @@ aside h3 {
 .intent-row label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
 .intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
 .intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
-.gen-type-row {
-  display: flex;
-  gap: 5px;
-  margin-bottom: 5px;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-}
-.gen-type-row label {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
-  cursor: pointer;
-  user-select: none;
-}
-.gen-type-row input[type=checkbox] { accent-color: var(--accent); width: 11px; height: 11px; cursor: pointer; }
 .generator-actions {
   display: flex;
   gap: 4px;
@@ -2463,11 +2443,6 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="22"><span class="intent-value" id="intent-evolution-val">22</span></div>
       </div>
     </details>
-    <div class="gen-type-row">
-      <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
-      <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
-      <label><input type="checkbox" id="gen-type-granular"> Granular</label>
-    </div>
     <div style="display:flex; gap:5px; justify-content:center; align-items:center; margin-bottom:5px;">
       <label style="display:flex;align-items:center;gap:3px;font-size:8px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="gen-harmonic-mode" style="accent-color:var(--accent);width:11px;height:11px;cursor:pointer;"> Harm</label>
       <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:32px;">
@@ -6745,11 +6720,6 @@ async function chooseGenerationCandidate(index) {
 }
 
 async function doGenerate() {
-  const allowedTypes = [];
-  if (document.getElementById('gen-type-fm').checked) allowedTypes.push('fm');
-  if (document.getElementById('gen-type-subtractive').checked) allowedTypes.push('subtractive');
-  if (document.getElementById('gen-type-granular').checked) allowedTypes.push('granular');
-  if (allowedTypes.length === 0) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
   const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
@@ -6765,7 +6735,7 @@ async function doGenerate() {
   else seeds.forEach((_, index) => { seeds[index] = Math.random() * 999999; });
   const requests = [...seeds].map(seed => api('/api/generate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mood: selectedMood, seed, allowed_types: allowedTypes,
+    body: JSON.stringify({ mood: selectedMood, seed,
       harmonic_mode: harmonicMode, harmonic_key: harmonicKey, harmonic_scale: harmonicScale,
       intent, strategy, locks, base_params: baseParams })
   }));
