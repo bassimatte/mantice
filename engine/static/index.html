@@ -5025,8 +5025,13 @@ function showLayerParams(layer) {
         const response = await fetch(apiUrl('/api/wavetables/import'), {
           method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Filename': safeName }, body: file,
         });
-        const data = await response.json();
-        if (!response.ok || !data.ok) throw new Error(data.error || 'Import failed');
+        const responseText = await response.text();
+        let data = {};
+        try { data = responseText ? JSON.parse(responseText) : {}; } catch (_) {}
+        if (!response.ok || !data.ok) {
+          if (response.status === 404) throw new Error('Import API unavailable — restart the local Mantice server');
+          throw new Error(data.error || data.detail || responseText || `Import failed (HTTP ${response.status})`);
+        }
         pushUndo();
         const target = currentParams.layers[activeLayerIdx];
         target.wavetable_source = data.source;
