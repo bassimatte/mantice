@@ -102,6 +102,18 @@ _MOOD_PROFILES = {
     },
 }
 
+# Expressive generator intent (0 = left-hand label, 1 = right-hand label).
+# Mood buttons provide useful starting points; callers may override any axis.
+_MOOD_INTENTS = {
+    "dark":       dict(density=.62, motion=.35, space=.78, tonality=.62, weight=.90, stability=.58, brightness=.15, evolution=.72),
+    "bright":     dict(density=.45, motion=.48, space=.68, tonality=.82, weight=.18, stability=.72, brightness=.92, evolution=.60),
+    "cinematic":  dict(density=.82, motion=.65, space=.95, tonality=.72, weight=.76, stability=.62, brightness=.62, evolution=.92),
+    "minimal":    dict(density=.12, motion=.15, space=.35, tonality=.92, weight=.42, stability=.92, brightness=.46, evolution=.22),
+    "industrial": dict(density=.75, motion=.88, space=.45, tonality=.22, weight=.82, stability=.18, brightness=.55, evolution=.68),
+    "nature":     dict(density=.48, motion=.68, space=.72, tonality=.55, weight=.45, stability=.42, brightness=.58, evolution=.88),
+    "mixed":      dict(density=.50, motion=.50, space=.50, tonality=.50, weight=.50, stability=.50, brightness=.50, evolution=.50),
+}
+
 _QUADRANTS = ["front_left", "front_right", "rear_left", "rear_right", "center"]
 _TRAJECTORIES_X = ["orbit", "pendulum", "drift", "spiral", "none"]
 _TRAJECTORIES_Y = ["depth", "none"]
@@ -286,7 +298,8 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
                     allowed_types: Optional[List[str]] = None,
                     harmonic_mode: bool = False,
                     harmonic_key: str = 'C',
-                    harmonic_scale: str = 'major') -> dict:
+                    harmonic_scale: str = 'major',
+                    intent: Optional[dict] = None) -> dict:
     """
     Generate a fully random preset, optionally biased by mood.
     allowed_types: list of layer types to allow, e.g. ["fm", "subtractive", "granular"].
@@ -307,22 +320,45 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
         mood = "mixed"
 
     sub_profile = _SUB_PROFILES.get(mood, _SUB_PROFILES["mixed"])
+    intent_values = dict(_MOOD_INTENTS.get(mood, _MOOD_INTENTS["mixed"]))
+    for key, value in (intent or {}).items():
+        if key in intent_values:
+            try:
+                intent_values[key] = _clamp(float(value), 0.0, 1.0)
+            except (TypeError, ValueError):
+                pass
+    density    = intent_values["density"]
+    motion     = intent_values["motion"]
+    space      = intent_values["space"]
+    tonality   = intent_values["tonality"]
+    weight     = intent_values["weight"]
+    stability  = intent_values["stability"]
+    brightness = intent_values["brightness"]
+    evolution  = intent_values["evolution"]
+
+    # Intent controls are authoritative. Moods seed these values, but once a
+    # user moves a macro it must be able to cross the original mood's range.
+    brightness_curve = brightness ** 2
+    def spectral_cutoff(base: float) -> float:
+        return _clamp(base * (.35 + brightness * 1.1) + brightness_curve * 6500, 40, 12000)
 
     name = _random_name()
     slug = name.lower().replace(" ", "_")
 
     # Duration
-    duration = random.choice([60, 90, 120, 150, 180])
+    duration_pool = [60, 90] if evolution < .33 else [90, 120, 150] if evolution < .67 else [120, 150, 180]
+    duration = random.choice(duration_pool)
 
     # Number of layers — capped at _MAX_LAYERS for streaming safety
-    n_layers = random.choices(
-        [1, 2, 3],
-        weights=[15, 45, 40]
-    )[0]
+    layer_weights = [70, 25, 5] if density < .33 else [20, 55, 25] if density < .67 else [5, 30, 65]
+    n_layers = random.choices([1, 2, 3], weights=layer_weights)[0]
 
     layers = []
     for i in range(n_layers):
-        root = random.uniform(*profile["root_range"])
+        root_shift_octaves = (brightness - .5) * 3.2 - (weight - .5) * 1.0
+        root_factor = 2 ** root_shift_octaves
+        root_range = tuple(_clamp(value * root_factor, 20, 6000) for value in profile["root_range"])
+        root = random.uniform(*root_range)
         if harmonic_mode:
             root = _snap_to_scale(root, harmonic_key, harmonic_scale)
         else:
@@ -330,14 +366,21 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
 
         layer_type = random.choice(allowed_types)
 
-        ratios = random.choice(profile["ratios_pool"])
-        drift  = random.uniform(*profile["drift_range"])
+        if tonality > .7:
+            ratios = random.choice([[1.0, 2.0], [1.0, 2.0, 3.0], [1.0, 1.5, 2.0]])
+        elif tonality < .3:
+            ratios = random.choice([[1.0, 1.37, 2.11], [0.5, 1.0, 1.71, 2.63], [1.0, 1.41, 2.27]])
+        else:
+            ratios = random.choice(profile["ratios_pool"])
+        drift  = random.uniform(*profile["drift_range"]) * (.25 + (1 - stability) * 1.5)
 
+        moving_trajectories = _TRAJECTORIES_X[:-1]
+        trajectory_x = random.choice(moving_trajectories) if random.random() < motion else "none"
         spatial = {
             "quadrant":     random.choice(_QUADRANTS),
-            "speed":        round(random.uniform(0.002, 0.012), 4),
-            "trajectory_x": random.choice(_TRAJECTORIES_X),
-            "trajectory_y": random.choice(_TRAJECTORIES_Y),
+            "speed":        round(random.uniform(0.001, 0.004 + motion * 0.026), 4),
+            "trajectory_x": trajectory_x,
+            "trajectory_y": random.choice(_TRAJECTORIES_Y) if motion > .35 else "none",
         }
         dynamics = {
             "mix":     round(random.uniform(0.4, 1.2), 2),
@@ -347,7 +390,7 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
         }
 
         if layer_type == "subtractive":
-            voices = min(random.randint(*profile["voice_range"]), _MAX_VOICES_SUBTRACTIVE)
+            voices = min(max(1, round(random.randint(*profile["voice_range"]) * (.55 + density * .9))), _MAX_VOICES_SUBTRACTIVE)
             layer = {
                 "name":    _layer_name_for_freq(root, i),
                 "enabled": True,
@@ -357,53 +400,57 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
                 "dynamics":      dynamics,
                 "spatial_motion": spatial,
                 "waveform":        random.choice(sub_profile["waveforms"]),
-                "detune_cents":    round(random.uniform(*sub_profile["detune"]), 1),
+                "detune_cents":    round(random.uniform(*sub_profile["detune"]) * (.35 + (1 - stability) * 1.1), 1),
                 "sub_mix":         round(random.uniform(*sub_profile["sub_mix"]), 2),
                 "filter_type":     random.choice(sub_profile["filters"]),
-                "filter_cutoff":   round(random.uniform(*sub_profile["cutoff"]), 1),
+                "filter_cutoff":   round(spectral_cutoff(random.uniform(*sub_profile["cutoff"])), 1),
                 "filter_resonance":round(random.uniform(*sub_profile["res"]), 2),
-                "filter_lfo_rate": round(random.uniform(*sub_profile["lfo_rate"]), 3),
-                "filter_lfo_depth":round(random.uniform(*sub_profile["lfo_depth"]), 2),
+                "filter_lfo_rate": round(random.uniform(*sub_profile["lfo_rate"]) * (.3 + motion * 1.2), 3),
+                "filter_lfo_depth":round(random.uniform(*sub_profile["lfo_depth"]) * (.35 + evolution), 2),
                 "filter_lfo_shape":random.choice(sub_profile["lfo_shapes"]),
                 "chorus_rate":  round(random.uniform(0.2, 0.8), 2),
                 "chorus_depth": round(random.uniform(0.004, 0.015), 4),
                 "chorus_mix":   round(random.uniform(0.1, 0.5), 2),
                 "chorus_voices": random.choice([2, 3]),
+                "noise_amount": round(random.uniform(0, (1 - tonality) * .14), 3),
             }
 
         elif layer_type == "granular":
-            voices = min(random.randint(*profile["voice_range"]), _MAX_VOICES_FM)
+            voices = min(max(1, round(random.randint(*profile["voice_range"]) * (.55 + density * .9))), _MAX_VOICES_FM)
             layer = {
                 "name":    _layer_name_for_freq(root, i),
                 "enabled": True,
                 "type":    "granular",
                 "source":      random.choice(_GRANULAR_SAMPLES),
                 "grain_size":  round(random.uniform(40, 200), 1),
-                "density":     round(random.uniform(8, 30), 1),
-                "pitch_spread":round(random.uniform(0.1, 0.6), 2),
+                "density":     round(random.uniform(6, 14 + density * 28), 1),
+                "pitch_spread":round(random.uniform(0.05, 0.15 + (1 - stability) * 0.75), 2),
                 "position":    round(random.uniform(0.1, 0.9), 2),
-                "scatter":     round(random.uniform(0.2, 0.8), 2),
+                "scatter":     round(random.uniform(0.1, 0.25 + evolution * 0.7), 2),
                 "envelope":    random.choice(["hann", "triangle", "trapezoid"]),
                 "synthesis":     {"root": round(root, 2), "voices": voices, "ratios": ratios},
                 "fm":            {"ratios": [1.0], "index": 0.0},
                 "dynamics":      dynamics,
                 "spatial_motion": spatial,
                 "filter_type":     random.choice(["off", "lp", "bp"]),
-                "filter_cutoff":   round(random.uniform(500.0, 3000.0), 1),
+                "filter_cutoff":   round(spectral_cutoff(random.uniform(500.0, 3000.0)), 1),
                 "filter_resonance":round(random.uniform(0.7, 2.0), 2),
                 "filter_lfo_rate": round(random.uniform(0.05, 0.3), 3),
                 "filter_lfo_depth":round(random.uniform(0.0, 0.4), 2),
                 "filter_lfo_shape":random.choice(["sine", "triangle"]),
                 "chorus_rate":  round(random.uniform(0.3, 0.7), 2),
                 "chorus_depth": round(random.uniform(0.003, 0.01), 4),
-                "chorus_mix":   round(random.uniform(0.0, 0.3), 2),
+                "chorus_mix":   round(random.uniform(0.0, 0.08 + space * 0.35), 2),
                 "chorus_voices": 2,
             }
 
         else:  # fm
-            voices = min(random.randint(*profile["voice_range"]), _MAX_VOICES_FM)
-            fm_ratios = random.choice([[1.0], [1.0, 1.5], [1.0, 2.0], [1.0, 2.5, 3.0]])
-            fm_index  = random.uniform(*profile["fm_index_range"])
+            voices = min(max(1, round(random.randint(*profile["voice_range"]) * (.55 + density * .9))), _MAX_VOICES_FM)
+            fm_ratios = random.choice(
+                [[1.0], [1.0, 1.5], [1.0, 2.0], [1.0, 2.5, 3.0]] if tonality >= .5
+                else [[1.0, 1.37], [1.0, 1.71], [1.0, 2.27, 3.13]]
+            )
+            fm_index  = random.uniform(*profile["fm_index_range"]) * (1.35 - tonality * .85)
             layer = {
                 "name":    _layer_name_for_freq(root, i),
                 "enabled": True,
@@ -413,15 +460,16 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
                 "dynamics":      dynamics,
                 "spatial_motion": spatial,
                 "filter_type":     random.choice(["off", "off", "lp", "hp"]),
-                "filter_cutoff":   round(random.uniform(400.0, 4000.0), 1),
+                "filter_cutoff":   round(spectral_cutoff(random.uniform(400.0, 4000.0)), 1),
                 "filter_resonance":round(random.uniform(0.7, 2.0), 2),
                 "filter_lfo_rate": round(random.uniform(0.05, 0.2), 3),
                 "filter_lfo_depth":round(random.uniform(0.0, 0.3), 2),
                 "filter_lfo_shape":random.choice(["sine", "triangle"]),
                 "chorus_rate":  round(random.uniform(0.3, 0.8), 2),
                 "chorus_depth": round(random.uniform(0.003, 0.01), 4),
-                "chorus_mix":   round(random.uniform(0.0, 0.35), 2),
+                "chorus_mix":   round(random.uniform(0.0, 0.08 + space * 0.38), 2),
                 "chorus_voices": random.choice([2, 3]),
+                "noise_amount": round(random.uniform(0, (1 - tonality) * .1), 3),
             }
 
         layers.append(layer)
@@ -429,17 +477,17 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
     # Reverb
     reverb = {
         "enabled": True,
-        "room_size": round(random.uniform(*profile["reverb_room"]), 2),
-        "decay": round(random.uniform(*profile["reverb_decay"]), 2),
-        "damping": round(random.uniform(*profile["reverb_damping"]), 2),
-        "modulation": round(random.uniform(0.1, 0.5), 2),
-        "wet": round(random.uniform(0.2, 0.55), 2),
-        "predelay": round(random.uniform(0.01, 0.06), 3),
+        "room_size": round(_clamp(random.uniform(*profile["reverb_room"]) * (.55 + space * .65), .1, 1), 2),
+        "decay": round(_clamp(random.uniform(*profile["reverb_decay"]) + (space - .5) * .12, .55, .99), 2),
+        "damping": round(_clamp(random.uniform(*profile["reverb_damping"]) + (.5 - brightness) * .75, .05, .9), 2),
+        "modulation": round(random.uniform(0.03, 0.12 + evolution * .5), 2),
+        "wet": round(random.uniform(.06 + space * .18, .14 + space * .48), 2),
+        "predelay": round(random.uniform(0.005, 0.015 + space * .065), 3),
     }
 
     # Earth
     earth = None
-    if random.random() < profile["earth_prob"]:
+    if random.random() < _clamp(profile["earth_prob"] + (weight - .5) * .65, 0, 1):
         earth = {
             "enabled": True,
             "tectonic_frequency": random.randint(12, 24),
@@ -449,10 +497,11 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
 
     # Air
     air = None
-    if random.random() < profile["air_prob"]:
+    air_probability = 1.0 if brightness >= .8 else _clamp(profile["air_prob"] + (brightness - .5) * .75, 0, 1)
+    if random.random() < air_probability:
         air = {
             "enabled": True,
-            "intensity": round(random.uniform(0.05, 0.3), 2),
+            "intensity": round(random.uniform(0.05 + brightness * .12, 0.16 + brightness * .3), 2),
             "movement": round(random.uniform(0.004, 0.015), 4),
             "turbulence": round(random.uniform(0.02, 0.12), 3),
         }
@@ -464,6 +513,7 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
             "category": "generated",
             "mood": profile["mood_tags"],
             "description": f"Auto-generated {mood} drone preset.",
+            "intent": {key: round(value, 3) for key, value in intent_values.items()},
             "author": "MANTICE Generator",
             "origin": "generated",
         },

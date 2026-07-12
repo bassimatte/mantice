@@ -367,6 +367,16 @@ aside h3 {
 }
 .mood-btn:hover { border-color: var(--accent); color: var(--text); }
 .mood-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.intent-panel { margin: 5px 0 7px; border: 1px solid var(--border); background: var(--bg); }
+.intent-panel summary {
+  padding: 4px 6px; color: var(--text-dim); font-size: 8px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.08em; user-select: none;
+}
+.intent-grid { display: grid; gap: 2px; padding: 3px 6px 6px; }
+.intent-row { display: grid; grid-template-columns: 52px 1fr 22px; gap: 5px; align-items: center; min-height: 18px; }
+.intent-row label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
+.intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
+.intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
 .gen-type-row {
   display: flex;
   gap: 5px;
@@ -2404,6 +2414,19 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <button class="mood-btn" data-mood="industrial">industrial</button>
       <button class="mood-btn" data-mood="nature">nature</button>
     </div>
+    <details class="intent-panel" open>
+      <summary>Intent · mood starting point</summary>
+      <div class="intent-grid" id="intent-grid">
+        <div class="intent-row"><label for="intent-density">Density</label><input type="range" id="intent-density" min="0" max="100" value="50"><span class="intent-value" id="intent-density-val">50</span></div>
+        <div class="intent-row"><label for="intent-motion">Motion</label><input type="range" id="intent-motion" min="0" max="100" value="50"><span class="intent-value" id="intent-motion-val">50</span></div>
+        <div class="intent-row"><label for="intent-space">Space</label><input type="range" id="intent-space" min="0" max="100" value="50"><span class="intent-value" id="intent-space-val">50</span></div>
+        <div class="intent-row"><label for="intent-tonality">Tonality</label><input type="range" id="intent-tonality" min="0" max="100" value="50"><span class="intent-value" id="intent-tonality-val">50</span></div>
+        <div class="intent-row"><label for="intent-weight">Weight</label><input type="range" id="intent-weight" min="0" max="100" value="50"><span class="intent-value" id="intent-weight-val">50</span></div>
+        <div class="intent-row"><label for="intent-stability">Stability</label><input type="range" id="intent-stability" min="0" max="100" value="50"><span class="intent-value" id="intent-stability-val">50</span></div>
+        <div class="intent-row"><label for="intent-brightness">Brightness</label><input type="range" id="intent-brightness" min="0" max="100" value="50"><span class="intent-value" id="intent-brightness-val">50</span></div>
+        <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="50"><span class="intent-value" id="intent-evolution-val">50</span></div>
+      </div>
+    </details>
     <div class="gen-type-row">
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
@@ -2839,6 +2862,28 @@ let auroraTime = 0;
 let currentParams = null;
 let currentPresetPath = null;
 let selectedMood = null;
+
+const GENERATOR_INTENT_KEYS = ['density', 'motion', 'space', 'tonality', 'weight', 'stability', 'brightness', 'evolution'];
+const MOOD_INTENT_PROFILES = {
+  dark:       { density:62, motion:35, space:78, tonality:62, weight:90, stability:58, brightness:15, evolution:72 },
+  bright:     { density:45, motion:48, space:68, tonality:82, weight:18, stability:72, brightness:92, evolution:60 },
+  cinematic:  { density:82, motion:65, space:95, tonality:72, weight:76, stability:62, brightness:62, evolution:92 },
+  minimal:    { density:12, motion:15, space:35, tonality:92, weight:42, stability:92, brightness:46, evolution:22 },
+  industrial: { density:75, motion:88, space:45, tonality:22, weight:82, stability:18, brightness:55, evolution:68 },
+  nature:     { density:48, motion:68, space:72, tonality:55, weight:45, stability:42, brightness:58, evolution:88 },
+};
+
+function setGeneratorIntent(values) {
+  GENERATOR_INTENT_KEYS.forEach(key => {
+    const value = Math.round(values[key] ?? 50);
+    $(`intent-${key}`).value = value;
+    $(`intent-${key}-val`).textContent = value;
+  });
+}
+
+function collectGeneratorIntent() {
+  return Object.fromEntries(GENERATOR_INTENT_KEYS.map(key => [key, parseInt($(`intent-${key}`).value, 10) / 100]));
+}
 
 // Generation History
 const generationHistory = [];
@@ -6424,12 +6469,13 @@ async function doGenerate() {
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
   const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
   const harmonicScale = document.getElementById('gen-harmonic-scale')?.value || 'major';
+  const intent = collectGeneratorIntent();
   const data = await api('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes,
                            harmonic_mode: harmonicMode, harmonic_key: harmonicKey,
-                           harmonic_scale: harmonicScale })
+                           harmonic_scale: harmonicScale, intent })
   });
   if (data?.ok) {
     currentParams = data.params;
@@ -6446,6 +6492,7 @@ async function doGenerate() {
       harmonicMode: harmonicMode,
       harmonicKey: harmonicKey,
       harmonicScale: harmonicScale,
+      intent: intent,
       displayName: currentParams.name || "Unnamed Preset",
       id: `hist_${Date.now()}`
     });
@@ -8313,7 +8360,12 @@ function init() {
       document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       selectedMood = btn.dataset.mood;
+      setGeneratorIntent(MOOD_INTENT_PROFILES[selectedMood]);
     });
+  });
+  GENERATOR_INTENT_KEYS.forEach(key => {
+    const slider = $(`intent-${key}`);
+    slider.addEventListener('input', () => { $(`intent-${key}-val`).textContent = slider.value; });
   });
 
   // Toggles (with undo)

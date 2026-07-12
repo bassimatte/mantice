@@ -1251,12 +1251,14 @@ async def generate_endpoint(request: Request):
     harmonic_mode = bool(body.get("harmonic_mode", False))
     harmonic_key = str(body.get("harmonic_key", "C"))
     harmonic_scale = str(body.get("harmonic_scale", "major"))
+    intent = body.get("intent") if isinstance(body.get("intent"), dict) else None
     try:
         import yaml as _yaml, tempfile
         preset_data = generate_preset(mood=mood, seed=seed, allowed_types=allowed_types,
                                       harmonic_mode=harmonic_mode,
                                       harmonic_key=harmonic_key,
-                                      harmonic_scale=harmonic_scale)
+                                      harmonic_scale=harmonic_scale,
+                                      intent=intent)
         with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False, mode='w', encoding='utf-8') as f:
             _yaml.dump(preset_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
             tmp_path = Path(f.name)
