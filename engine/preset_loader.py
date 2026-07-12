@@ -259,6 +259,15 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "position": float(layer.get("position", 0.5)),
         "scatter": float(layer.get("scatter", 0.5)),
         "envelope": layer.get("envelope", "hann"),
+        # V27 wavetable keys
+        "wavetable_source": layer.get("wavetable_source", ""),
+        "wavetable_frame_size": int(layer.get("wavetable_frame_size", 2048)),
+        "wavetable_position": float(layer.get("wavetable_position", 0.0)),
+        "wavetable_scan_start": float(layer.get("wavetable_scan_start", 0.0)),
+        "wavetable_scan_end": float(layer.get("wavetable_scan_end", 1.0)),
+        "wavetable_scan_rate": float(layer.get("wavetable_scan_rate", 0.01)),
+        "wavetable_scan_mode": layer.get("wavetable_scan_mode", "pingpong"),
+        "wavetable_detune_cents": float(layer.get("wavetable_detune_cents", 7.0)),
         # V22 pan & width
         "pan":   float(layer.get("pan", 0.0)),
         "width": float(layer.get("width", 1.0)),
@@ -365,6 +374,14 @@ def _validate(preset: dict) -> None:
             if layer["trajectory_y"] not in _VALID_TRAJECTORIES:
                 errors.append(f"{label}: unknown trajectory_y {layer['trajectory_y']!r}")
             continue
+
+        if layer.get("type") == "wavetable":
+            if not layer.get("wavetable_source"):
+                errors.append(f"{label}: wavetable_source is required")
+            if layer.get("wavetable_frame_size", 0) < 32:
+                errors.append(f"{label}: wavetable_frame_size must be >= 32")
+            if layer.get("wavetable_scan_mode") not in {"static", "forward", "pingpong"}:
+                errors.append(f"{label}: unknown wavetable_scan_mode {layer.get('wavetable_scan_mode')!r}")
 
         if layer["root"] <= 0:
             errors.append(f"{label}: root must be > 0 (got {layer['root']})")

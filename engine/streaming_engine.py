@@ -31,6 +31,7 @@ VOWEL_FORMANTS: dict = {
 
 from . import config
 from .granular_layer import StreamingGranularLayer
+from .wavetable_layer import StreamingWavetableLayer
 from .master_processing import MasterProcessor
 from .automation import parse_layer_automation, parse_global_automation
 
@@ -1571,7 +1572,7 @@ class StreamingDroneEngine:
         for layer_cfg in preset["layers"]:
             if layer_cfg.get("muted", False):
                 continue
-            # Choose layer type: granular, subtractive, or FM
+            # Choose layer type: granular, wavetable, subtractive, or FM
             if layer_cfg.get("type") == "granular":
                 samples_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "samples")
                 resolved_cfg = dict(layer_cfg)
@@ -1579,6 +1580,9 @@ class StreamingDroneEngine:
                     layer_cfg.get("source", "singing_bowl.ogg"), samples_dir
                 )
                 layer = StreamingGranularLayer(resolved_cfg, samples_dir, sample_rate=self.SR)
+            elif layer_cfg.get("type") == "wavetable":
+                samples_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "samples")
+                layer = StreamingWavetableLayer(layer_cfg, samples_dir, sample_rate=self.SR)
             elif layer_cfg.get("type") == "subtractive":
                 layer = StreamingSubtractiveLayer(layer_cfg, sample_rate=self.SR)
             else:

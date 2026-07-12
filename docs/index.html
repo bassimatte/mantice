@@ -2295,6 +2295,18 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         </table>
         <p class="docs-note">Granular layers extract tiny overlapping slices from real audio samples, creating evolving textures impossible with pure synthesis.</p>
 
+        <h3>Layer — Wavetable</h3>
+        <table class="docs-table">
+          <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
+          <tr><td>WAV Source</td><td>Imported WAV</td><td>—</td><td>Multi-frame wavetable; CarveToy's 256 × 2048 format is supported directly</td></tr>
+          <tr><td>Root</td><td>20–2000 Hz</td><td>110 Hz</td><td>Oscillator fundamental frequency</td></tr>
+          <tr><td>Position</td><td>0–1</td><td>0</td><td>Frame used in Static mode</td></tr>
+          <tr><td>Scan Start / End</td><td>0–1</td><td>0 / 1</td><td>Limits the evolving frame range</td></tr>
+          <tr><td>Scan Rate</td><td>0–0.1 Hz</td><td>0.01 Hz</td><td>Frame traversal speed; 0.01 Hz is a 100-second cycle</td></tr>
+          <tr><td>Scan Mode</td><td>static / forward / ping-pong</td><td>ping-pong</td><td>How playback moves through frames</td></tr>
+        </table>
+        <p class="docs-note">Mantice interpolates within each waveform and between neighboring frames to avoid stepping during slow drone scans.</p>
+
         <h3>Reverb (FDN)</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
@@ -3964,6 +3976,7 @@ function showLayerParams(layer) {
         <option value="fm" ${layerType === 'fm' ? 'selected' : ''}>FM Synthesis</option>
         <option value="granular" ${layerType === 'granular' ? 'selected' : ''}>Granular</option>
         <option value="subtractive" ${layerType === 'subtractive' ? 'selected' : ''}>Subtractive</option>
+        <option value="wavetable" ${layerType === 'wavetable' ? 'selected' : ''}>Wavetable</option>
       </select>
     </div>
   `;
@@ -4180,6 +4193,40 @@ function showLayerParams(layer) {
     </div>
   `;
 
+  const wavetableParams = [
+    { id: 'root', label: 'Root Hz', min: 20, max: 2000, step: 0.1, val: layer.root ?? 110 },
+    { id: 'voices', label: 'Voices', min: 1, max: 8, step: 1, val: layer.voices ?? 3 },
+    { id: 'volume_db', label: 'Volume (dB)', min: -60, max: 6, step: 0.5, val: layer.volume_db ?? 0 },
+    { id: 'wavetable_detune_cents', label: 'Detune (¢)', min: 0, max: 50, step: 1, val: layer.wavetable_detune_cents ?? 7 },
+    { id: 'wavetable_position', label: 'Position', min: 0, max: 1, step: 0.01, val: layer.wavetable_position ?? 0 },
+    { id: 'wavetable_scan_start', label: 'Scan Start', min: 0, max: 1, step: 0.01, val: layer.wavetable_scan_start ?? 0 },
+    { id: 'wavetable_scan_end', label: 'Scan End', min: 0, max: 1, step: 0.01, val: layer.wavetable_scan_end ?? 1 },
+    { id: 'wavetable_scan_rate', label: 'Scan Hz', min: 0, max: 0.1, step: 0.001, val: layer.wavetable_scan_rate ?? 0.01 },
+  ];
+  const wavetableHtml = `
+    <div class="param-row">
+      <label>WAV Source</label>
+      <div style="grid-column:2/4; display:flex; gap:4px; align-items:center; min-width:0;">
+        <button id="lp-wavetable-import" class="btn btn-outline" type="button" style="margin:0; padding:3px 7px; width:auto;">Import WAV</button>
+        <span id="lp-wavetable-source-label" title="${layer.wavetable_source || ''}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:var(--text-dim);">${layer.wavetable_source ? layer.wavetable_source.split('/').pop() : 'No file loaded'}</span>
+        <input id="lp-wavetable-file" type="file" accept="audio/wav,.wav" hidden>
+      </div>
+    </div>
+    <div id="lp-wavetable-status" style="font-size:8px;color:var(--text-dim);margin:0 0 5px 57px;">${layer.wavetable_frames ? `${layer.wavetable_frames} frames · 2048 samples` : 'CarveToy format: 256 × 2048 samples'}</div>
+    ${wavetableParams.map(p => `<div class="param-row">
+      <label>${p.label}</label>
+      <input type="range" id="lp-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}">
+      <span class="value" id="lp-${p.id}-val">${p.id === 'root' ? rootLabel(p.val) : Number(p.val).toFixed(p.step < 1 ? (p.step < .01 ? 3 : 2) : 0)}</span>
+    </div>`).join('')}
+    <div class="param-row">
+      <label>Scan Mode</label>
+      <select id="lp-wavetable_scan_mode" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="static" ${(layer.wavetable_scan_mode || 'pingpong') === 'static' ? 'selected' : ''}>Static frame</option>
+        <option value="forward" ${(layer.wavetable_scan_mode || 'pingpong') === 'forward' ? 'selected' : ''}>Forward</option>
+        <option value="pingpong" ${(layer.wavetable_scan_mode || 'pingpong') === 'pingpong' ? 'selected' : ''}>Ping-pong</option>
+      </select>
+    </div>`;
+
   const elevIsActive = (layer.elevation || 0) !== 0 || (layer.elevation_motion || 'static') !== 'static';
   const elevationHtml = `
     <div class="card-subsection-label" style="margin-top:8px; cursor:pointer; display:flex; justify-content:space-between; user-select:none;" onclick="var b=document.getElementById('lp-elev-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.lp-elev-arrow').textContent=open?'▶':'▼';">
@@ -4370,6 +4417,8 @@ function showLayerParams(layer) {
   let synthHtml;
   if (layerType === 'granular') {
     synthHtml = granularHtml;
+  } else if (layerType === 'wavetable') {
+    synthHtml = wavetableHtml;
   } else if (layerType === 'subtractive') {
     synthHtml = subtractiveHtml;
   } else {
@@ -4945,6 +4994,54 @@ function showLayerParams(layer) {
 
     // Init scope
     initGranularScope(layer.source || 'singing_bowl.ogg', layer.position ?? 0.5, layer.scatter ?? 0.5);
+  }
+
+  if (layerType === 'wavetable') {
+    wavetableParams.forEach(p => {
+      const slider = $(`lp-${p.id}`);
+      if (!slider) return;
+      slider.addEventListener('mousedown', () => pushUndo());
+      slider.addEventListener('input', () => {
+        const value = p.id === 'voices' ? parseInt(slider.value, 10) : parseFloat(slider.value);
+        currentParams.layers[activeLayerIdx][p.id] = value;
+        $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(value) : Number(value).toFixed(p.step < 1 ? (p.step < .01 ? 3 : 2) : 0);
+        markDirty();
+      });
+    });
+    $('lp-wavetable_scan_mode')?.addEventListener('change', event => {
+      pushUndo();
+      currentParams.layers[activeLayerIdx].wavetable_scan_mode = event.target.value;
+      markDirty();
+      liveReload();
+    });
+    $('lp-wavetable-import')?.addEventListener('click', () => $('lp-wavetable-file').click());
+    $('lp-wavetable-file')?.addEventListener('change', async event => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const status = $('lp-wavetable-status');
+      status.textContent = 'Importing…';
+      try {
+        const safeName = file.name.replace(/[^A-Za-z0-9_.-]/g, '_');
+        const response = await fetch(apiUrl('/api/wavetables/import'), {
+          method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Filename': safeName }, body: file,
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Import failed');
+        pushUndo();
+        const target = currentParams.layers[activeLayerIdx];
+        target.wavetable_source = data.source;
+        target.wavetable_frame_size = data.frame_size;
+        target.wavetable_frames = data.frames;
+        status.textContent = `${data.frames} frames · ${data.frame_size} samples`;
+        $('lp-wavetable-source-label').textContent = data.name;
+        markDirty();
+        liveReload();
+      } catch (error) {
+        status.textContent = `Import failed: ${error.message}`;
+      } finally {
+        event.target.value = '';
+      }
+    });
   }
 
   // Spatial controls (shared by both types)

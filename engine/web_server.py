@@ -66,6 +66,7 @@ _EXPORTS_DIR = _ROOT / "exports"
 _SHARED_DIR = _ROOT / "shared"
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _SAMPLES_DIR = _ROOT / "samples"
+_WAVETABLES_DIR = _SAMPLES_DIR / "wavetables"
 _FS_CACHE_DIR = _SAMPLES_DIR / "freesound_cache"
 _PITCH_CACHE_FILE = _SAMPLES_DIR / "pitch_cache.json"
 
@@ -348,6 +349,14 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "position": layer.get("position", 0.5),
                 "scatter": layer.get("scatter", 0.5),
                 "envelope": layer.get("envelope", "hann"),
+                "wavetable_source": layer.get("wavetable_source", ""),
+                "wavetable_frame_size": layer.get("wavetable_frame_size", 2048),
+                "wavetable_position": layer.get("wavetable_position", 0.0),
+                "wavetable_scan_start": layer.get("wavetable_scan_start", 0.0),
+                "wavetable_scan_end": layer.get("wavetable_scan_end", 1.0),
+                "wavetable_scan_rate": layer.get("wavetable_scan_rate", 0.01),
+                "wavetable_scan_mode": layer.get("wavetable_scan_mode", "pingpong"),
+                "wavetable_detune_cents": layer.get("wavetable_detune_cents", 7.0),
                 "root": layer.get("root", 100),
                 "voices": layer.get("voices", 4),
                 "ratios": layer.get("ratios", [1.0]),
@@ -483,6 +492,14 @@ def _ui_params_to_preset(params: dict) -> dict:
             "position": float(l.get("position", 0.5)),
             "scatter": float(l.get("scatter", 0.5)),
             "envelope": l.get("envelope", "hann"),
+            "wavetable_source": l.get("wavetable_source", ""),
+            "wavetable_frame_size": int(l.get("wavetable_frame_size", 2048)),
+            "wavetable_position": float(l.get("wavetable_position", 0.0)),
+            "wavetable_scan_start": float(l.get("wavetable_scan_start", 0.0)),
+            "wavetable_scan_end": float(l.get("wavetable_scan_end", 1.0)),
+            "wavetable_scan_rate": float(l.get("wavetable_scan_rate", 0.01)),
+            "wavetable_scan_mode": l.get("wavetable_scan_mode", "pingpong"),
+            "wavetable_detune_cents": float(l.get("wavetable_detune_cents", 7.0)),
             "root": float(l.get("root", 100)),
             "tuning_degree": l.get("tuning_degree", "unison"),
             "voices": int(l.get("voices", 4)),
@@ -720,6 +737,56 @@ async def list_samples():
                 samples.append({"file": f"freesound_cache/{f}", "label": f"FS: {label}", "user": user, "source": "freesound"})
 
     return {"samples": samples}
+
+
+@app.post("/api/wavetables/import")
+async def import_wavetable(request: Request):
+    """Validate and store an uploaded WAV as a local 2048-sample-frame wavetable."""
+    import soundfile as sf
+
+    payload = await request.body()
+    if not payload:
+        return JSONResponse({"ok": False, "error": "Empty WAV file"}, status_code=400)
+    if len(payload) > 16 * 1024 * 1024:
+        return JSONResponse({"ok": False, "error": "Wavetable must be smaller than 16 MB"}, status_code=413)
+    original = request.headers.get("x-filename", "wavetable.wav")
+    if not original.lower().endswith(".wav"):
+        return JSONResponse({"ok": False, "error": "Only WAV files are supported"}, status_code=400)
+    try:
+        audio, sample_rate = sf.read(io.BytesIO(payload), dtype="float32", always_2d=True)
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": f"Invalid WAV file: {exc}"}, status_code=400)
+    if len(audio) < 32:
+        return JSONResponse({"ok": False, "error": "Wavetable WAV is too short"}, status_code=400)
+
+    mono = np.mean(audio, axis=1, dtype=np.float32)
+    frame_size = 2048
+    frame_count = min(256, max(1, len(mono) // frame_size))
+    used_samples = frame_count * frame_size
+    if len(mono) < frame_size:
+        old_x = np.linspace(0.0, 1.0, len(mono), endpoint=False)
+        new_x = np.linspace(0.0, 1.0, frame_size, endpoint=False)
+        mono = np.interp(new_x, old_x, mono).astype(np.float32)
+        used_samples = frame_size
+    else:
+        mono = mono[:used_samples]
+
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "_", Path(original).stem).strip("_")[:48] or "wavetable"
+    filename = f"{safe_stem}_{uuid.uuid4().hex[:8]}.wav"
+    _WAVETABLES_DIR.mkdir(parents=True, exist_ok=True)
+    destination = _WAVETABLES_DIR / filename
+    try:
+        sf.write(str(destination), mono, int(sample_rate), format="WAV", subtype="FLOAT")
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": f"Could not store wavetable: {exc}"}, status_code=500)
+    return JSONResponse({
+        "ok": True,
+        "source": f"wavetables/{filename}",
+        "name": Path(original).stem,
+        "frame_size": frame_size,
+        "frames": frame_count,
+        "samples": used_samples,
+    })
 
 
 @app.get("/samples/{filepath:path}")
@@ -1919,7 +1986,21 @@ async def save_preset_endpoint(request: Request):
                 "muted": bool(layer.get("muted", False)),
                 "type": layer.get("type", "fm"),
             }
-            if layer.get("type") == "granular":
+            if layer.get("type") == "wavetable":
+                l_out["wavetable_source"] = layer.get("wavetable_source", "")
+                l_out["wavetable_frame_size"] = int(layer.get("wavetable_frame_size", 2048))
+                l_out["wavetable_position"] = float(layer.get("wavetable_position", 0.0))
+                l_out["wavetable_scan_start"] = float(layer.get("wavetable_scan_start", 0.0))
+                l_out["wavetable_scan_end"] = float(layer.get("wavetable_scan_end", 1.0))
+                l_out["wavetable_scan_rate"] = float(layer.get("wavetable_scan_rate", 0.01))
+                l_out["wavetable_scan_mode"] = layer.get("wavetable_scan_mode", "pingpong")
+                l_out["wavetable_detune_cents"] = float(layer.get("wavetable_detune_cents", 7.0))
+                l_out["synthesis"] = {
+                    "root": layer.get("root", 110),
+                    "voices": layer.get("voices", 3),
+                    "ratios": layer.get("ratios", [1.0]),
+                }
+            elif layer.get("type") == "granular":
                 l_out["source"] = layer.get("source", "singing_bowl.ogg")
                 l_out["grain_size"] = layer.get("grain_size", 80)
                 l_out["density"] = layer.get("density", 15)
