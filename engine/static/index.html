@@ -378,9 +378,7 @@ aside h3 {
 .intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
 .intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
 .generation-plan { margin: 5px 0 7px; padding: 6px; background: var(--bg); border: 1px solid var(--border); }
-.generation-strategy { display: grid; grid-template-columns: 52px 1fr; gap: 5px; align-items: center; margin-bottom: 6px; }
-.generation-strategy label, .generation-lock-label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.05em; }
-.generation-strategy select { min-width: 0; padding: 3px; color: var(--text-lcd); background: var(--surface); border: 1px solid var(--border); font: 8px 'Space Mono', monospace; }
+.generation-lock-label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.05em; }
 .generation-locks { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
 .generation-lock { display: flex; align-items: center; gap: 2px; padding: 2px 4px; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); font-size: 7px; cursor: pointer; text-transform: uppercase; }
 .generation-lock:has(input:checked) { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
@@ -2454,33 +2452,24 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <button class="mood-btn" data-mood="dark">dark</button>
       <button class="mood-btn" data-mood="bright">bright</button>
       <button class="mood-btn" data-mood="cinematic">cinematic</button>
-      <button class="mood-btn" data-mood="minimal">minimal</button>
+      <button class="mood-btn active" data-mood="minimal">minimal</button>
       <button class="mood-btn" data-mood="industrial">industrial</button>
       <button class="mood-btn" data-mood="nature">nature</button>
     </div>
     <details class="intent-panel" open>
       <summary>Intent · mood starting point</summary>
       <div class="intent-grid" id="intent-grid">
-        <div class="intent-row"><label for="intent-density">Density</label><input type="range" id="intent-density" min="0" max="100" value="50"><span class="intent-value" id="intent-density-val">50</span></div>
-        <div class="intent-row"><label for="intent-motion">Motion</label><input type="range" id="intent-motion" min="0" max="100" value="50"><span class="intent-value" id="intent-motion-val">50</span></div>
-        <div class="intent-row"><label for="intent-space">Space</label><input type="range" id="intent-space" min="0" max="100" value="50"><span class="intent-value" id="intent-space-val">50</span></div>
-        <div class="intent-row"><label for="intent-tonality">Tonality</label><input type="range" id="intent-tonality" min="0" max="100" value="50"><span class="intent-value" id="intent-tonality-val">50</span></div>
-        <div class="intent-row"><label for="intent-weight">Weight</label><input type="range" id="intent-weight" min="0" max="100" value="50"><span class="intent-value" id="intent-weight-val">50</span></div>
-        <div class="intent-row"><label for="intent-stability">Stability</label><input type="range" id="intent-stability" min="0" max="100" value="50"><span class="intent-value" id="intent-stability-val">50</span></div>
-        <div class="intent-row"><label for="intent-brightness">Brightness</label><input type="range" id="intent-brightness" min="0" max="100" value="50"><span class="intent-value" id="intent-brightness-val">50</span></div>
-        <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="50"><span class="intent-value" id="intent-evolution-val">50</span></div>
+        <div class="intent-row"><label for="intent-density">Density</label><input type="range" id="intent-density" min="0" max="100" value="12"><span class="intent-value" id="intent-density-val">12</span></div>
+        <div class="intent-row"><label for="intent-motion">Motion</label><input type="range" id="intent-motion" min="0" max="100" value="15"><span class="intent-value" id="intent-motion-val">15</span></div>
+        <div class="intent-row"><label for="intent-space">Space</label><input type="range" id="intent-space" min="0" max="100" value="35"><span class="intent-value" id="intent-space-val">35</span></div>
+        <div class="intent-row"><label for="intent-tonality">Tonality</label><input type="range" id="intent-tonality" min="0" max="100" value="92"><span class="intent-value" id="intent-tonality-val">92</span></div>
+        <div class="intent-row"><label for="intent-weight">Weight</label><input type="range" id="intent-weight" min="0" max="100" value="42"><span class="intent-value" id="intent-weight-val">42</span></div>
+        <div class="intent-row"><label for="intent-stability">Stability</label><input type="range" id="intent-stability" min="0" max="100" value="92"><span class="intent-value" id="intent-stability-val">92</span></div>
+        <div class="intent-row"><label for="intent-brightness">Brightness</label><input type="range" id="intent-brightness" min="0" max="100" value="46"><span class="intent-value" id="intent-brightness-val">46</span></div>
+        <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="22"><span class="intent-value" id="intent-evolution-val">22</span></div>
       </div>
     </details>
     <div class="generation-plan">
-      <div class="generation-strategy">
-        <label for="generation-strategy">Strategy</label>
-        <select id="generation-strategy">
-          <option value="scratch">From scratch</option>
-          <option value="related">Related to current</option>
-          <option value="variation">Variation of current</option>
-          <option value="contrast">Contrast</option>
-        </select>
-      </div>
       <div class="generation-lock-label">Keep from current preset</div>
       <div class="generation-locks">
         <label class="generation-lock"><input type="checkbox" value="harmony"> Roots</label>
@@ -2936,7 +2925,7 @@ let auroraTime = 0;
 // ── State ───────────────────────────────────────────────────────────────────
 let currentParams = null;
 let currentPresetPath = null;
-let selectedMood = null;
+let selectedMood = 'minimal';
 
 const GENERATOR_INTENT_KEYS = ['density', 'motion', 'space', 'tonality', 'weight', 'stability', 'brightness', 'evolution'];
 const MOOD_INTENT_PROFILES = {
@@ -6436,21 +6425,9 @@ function initGenerationHistory() {
   renderGenerationHistory();
 }
 
-function syncGeneratorIntentToPreset(params) {
-  selectedMood = null;
-  document.querySelectorAll('.mood-btn').forEach(button => button.classList.remove('active'));
-  if (params) {
-    const presetIntent = Object.fromEntries(
-      Object.entries(candidateMetrics(params)).map(([key, value]) => [key, value * 100])
-    );
-    setGeneratorIntent(presetIntent);
-  }
-}
-
 function clearActiveHistoryNode() {
   const hadActiveNode = Boolean(activeHistoryNodeId);
   activeHistoryNodeId = null;
-  syncGeneratorIntentToPreset(currentParams);
   if (hadActiveNode) renderGenerationHistory();
 }
 
@@ -6586,7 +6563,6 @@ function loadHistoryEntry(histId) {
     return;
   }
   currentParams = JSON.parse(JSON.stringify(entry.params));
-  syncGeneratorIntentToPreset(currentParams);
   activeHistoryNodeId = entry.id;
   currentPresetPath = null;
   currentSharedId = null;
@@ -6795,12 +6771,8 @@ async function doGenerate() {
   const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
   const harmonicScale = document.getElementById('gen-harmonic-scale')?.value || 'major';
   const intent = collectGeneratorIntent();
-  const strategy = $('generation-strategy').value;
+  const strategy = 'scratch';
   const locks = [...document.querySelectorAll('.generation-lock input:checked')].map(input => input.value);
-  if (strategy !== 'scratch' && !currentParams) {
-    setStatus('Load a preset before using this generation strategy');
-    return;
-  }
   const baseParams = currentParams ? collectParams() : null;
   const parentId = activeHistoryNodeId && (strategy !== 'scratch' || locks.length) ? activeHistoryNodeId : null;
   const context = { mood: selectedMood, harmonicMode, harmonicKey, harmonicScale, intent, strategy, locks, parentId };
