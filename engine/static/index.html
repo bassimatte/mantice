@@ -2819,7 +2819,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <h2>Choose a generated direction</h2>
       <button class="docs-close" id="generation-candidates-close">✕</button>
     </div>
-    <div class="candidate-intro" id="candidate-intro">Three interpretations of the current intent. Audition before committing.</div>
+    <div class="candidate-intro" id="candidate-intro">Three interpretations of the current intent. Preview before selecting.</div>
     <div class="candidate-grid" id="candidate-grid"></div>
   </div>
 </div>
@@ -6692,8 +6692,8 @@ function renderGenerationCandidates() {
         <div><span class="gallery-meta-label">Duration</span><span class="gallery-meta-value">${candidate.duration || '—'}s</span></div>
       </div>
       <div class="candidate-actions">
-        <button class="candidate-audition" data-gallery-audition="${candidate.id}" data-candidate-index="${index}" type="button">▶ Audition</button>
-        <button class="candidate-use" data-candidate-index="${index}" type="button">Use direction</button>
+        <button class="candidate-audition" data-gallery-audition="${candidate.id}" data-candidate-index="${index}" type="button">▶ Preview</button>
+        <button class="candidate-use" data-candidate-index="${index}" type="button">Select</button>
       </div>
     </article>`).join('');
   grid.querySelectorAll('canvas[data-candidate-index]').forEach(canvas => {
@@ -6924,7 +6924,7 @@ function setGalleryAuditionButtons(preset, state) {
       const icon = state === 'loading' ? '…' : state === 'playing' ? '■ Stop' : '▶ Audition';
       button.innerHTML = `${icon} · <span data-gallery-plays="${preset.id}">${preset.plays || 0}</span> plays`;
     } else if (button.classList.contains('candidate-audition')) {
-      button.textContent = state === 'loading' ? '… Rendering' : state === 'playing' ? '■ Stop' : '▶ Audition';
+      button.textContent = state === 'loading' ? '… Rendering' : state === 'playing' ? '■ Stop' : '▶ Preview';
     } else {
       button.textContent = state === 'loading' ? '…' : state === 'playing' ? '■' : '▶';
     }
