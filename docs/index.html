@@ -1351,7 +1351,7 @@ button:disabled {
 
 /* ── Gallery Modal ──────────────────────────── */
 .candidate-modal { width: min(1120px, 95vw); max-height: 90vh; border-radius: 4px; }
-.candidate-intro { padding: 8px 18px; color: var(--text-dim); border-bottom: 1px solid var(--border); font-size: 9px; }
+.candidate-modal .docs-header { justify-content: flex-end; padding: 8px 12px; }
 .candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; overflow-y: auto; }
 .candidate-card { display: flex; flex-direction: column; min-width: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-top: 3px solid var(--candidate-accent, var(--accent)); }
 .candidate-index { color: var(--candidate-accent, var(--accent)); font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -2816,10 +2816,8 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
 <div class="docs-overlay" id="generation-candidates-overlay">
   <div class="docs-modal candidate-modal">
     <div class="docs-header">
-      <h2>Choose a generated direction</h2>
       <button class="docs-close" id="generation-candidates-close">✕</button>
     </div>
-    <div class="candidate-intro" id="candidate-intro">Three interpretations of the current intent. Preview before selecting.</div>
     <div class="candidate-grid" id="candidate-grid"></div>
   </div>
 </div>
@@ -6681,7 +6679,7 @@ function renderGenerationCandidates() {
   const grid = $('candidate-grid');
   grid.innerHTML = generationCandidates.map((candidate, index) => `
     <article class="candidate-card" style="--candidate-accent:${galleryCardAccent(candidate)}">
-      <div class="candidate-index">Direction ${String.fromCharCode(65 + index)} <span class="candidate-role">${escapeGalleryText(candidate.role)}</span></div>
+      <div class="candidate-index">Texture ${String.fromCharCode(65 + index)} <span class="candidate-role">${escapeGalleryText(candidate.role)}</span></div>
       <h3 class="candidate-name">${escapeGalleryText(candidate.name)}</h3>
       <canvas class="candidate-fingerprint" data-candidate-index="${index}" aria-hidden="true"></canvas>
       <div class="candidate-traits">${galleryFallbackTraits(candidate).map(trait => `<span class="gallery-trait">${escapeGalleryText(trait)}</span>`).join('')}</div>
@@ -6733,7 +6731,7 @@ async function chooseGenerationCandidate(index) {
   markClean();
   updateNowPlaying();
   $('generation-candidates-overlay').classList.remove('open');
-  setStatus('Direction selected — previewing…');
+  setStatus('Texture selected — previewing…');
   stopAudio();
   doPreview();
 }
@@ -6772,10 +6770,9 @@ async function doGenerate() {
     return candidateDescriptor(result.params, index, context);
   });
   generationCandidates = selectQualityCandidates(candidatePool, intent);
-  $('candidate-intro').textContent = `${strategy.replace('_', ' ')} · ${selectedMood || 'mixed'} · choose one of three generated directions`;
   renderGenerationCandidates();
   $('generation-candidates-overlay').classList.add('open');
-  setStatus('Three directions ready');
+  setStatus('Three textures ready');
 }
 
 async function doMutate() {
