@@ -439,6 +439,20 @@ aside h3 {
   gap: 3px;
   width: 100%;
 }
+.history-tree-node { position: relative; margin-left: calc(var(--tree-depth, 0) * 10px); }
+.history-tree-node::before {
+  content: ''; position: absolute; left: -6px; top: 0; bottom: -2px;
+  border-left: 1px solid var(--border); opacity: calc(var(--tree-depth, 0) * .65);
+}
+.history-node-row { display: grid; grid-template-columns: 14px 1fr; gap: 2px; align-items: stretch; margin-bottom: 3px; }
+.history-branch-toggle {
+  width: 14px; padding: 0; color: var(--text-dim); background: transparent;
+  border: 0; cursor: pointer; font-size: 8px;
+}
+.history-branch-toggle:disabled { opacity: .25; }
+.history-btn.active-node { border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
+.history-kind { margin-left: 4px; color: var(--text-dim); font-size: 7px; text-transform: uppercase; }
+.history-children.collapsed { display: none; }
 .history-btn:hover {
   background: var(--bg-light);
   border-color: var(--accent);
@@ -2521,7 +2535,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <summary style="font-size:8px; color:var(--text-dim); cursor:pointer; user-select:none; text-transform:uppercase; letter-spacing:0.05em;">
         History (<span id="gen-history-count">0</span>)
       </summary>
-      <div id="gen-history" style="display:flex; flex-direction:column; gap:3px; padding:4px 0; max-height:200px; overflow-y:auto;">
+      <div id="gen-history" style="display:flex; flex-direction:column; gap:1px; padding:4px 0; max-height:300px; overflow-y:auto;">
         <!-- Dynamically rendered history buttons -->
       </div>
     </details>
@@ -2948,7 +2962,9 @@ function collectGeneratorIntent() {
 
 // Generation History
 const generationHistory = [];
-const MAX_HISTORY = 5;
+const MAX_HISTORY = 60;
+let activeHistoryNodeId = null;
+const collapsedHistoryNodes = new Set();
 
 const $ = id => document.getElementById(id);
 
@@ -3180,6 +3196,7 @@ async function loadPresetList() {
         sharedPresetEntry = { name: displayName, params: data.params };
         currentSharedId = id;
         currentParams = data.params;
+        clearActiveHistoryNode();
         renderPresetList();
         applyParamsToUI(currentParams);
         markClean();
@@ -3319,6 +3336,7 @@ function renderPresetList() {
         document.querySelectorAll('.preset-item').forEach(e => e.classList.remove('active'));
         el.classList.add('active');
         currentParams = sharedPresetEntry.params;
+        clearActiveHistoryNode();
         
         // Clear journey state when loading a single preset
         currentJourney = { steps: [], loop: 'none' };
@@ -3350,6 +3368,7 @@ function renderPresetList() {
       document.querySelectorAll('.preset-item').forEach(e => e.classList.remove('active'));
       el.classList.add('active');
       currentParams = entry.params;
+      clearActiveHistoryNode();
       currentPresetPath = null;
       currentSharedId = null;
       
@@ -3374,6 +3393,7 @@ async function loadPreset(path, el) {
   if (!data.ok) { setStatus(`Error: ${data.error}`); return; }
 
   currentParams = data.params;
+  clearActiveHistoryNode();
   currentPresetPath = path;
   currentSharedId = null; // loading an official preset clears shared context
   renderedBuffer = null; // clear so Play does preview, not old render
@@ -3403,6 +3423,7 @@ async function loadCommunityPreset(id, el) {
     ? id.replace(/_\d{8}_[a-f0-9]+$/, '').replace(/_/g, ' ')
     : data.params.name;
   currentParams = data.params;
+  clearActiveHistoryNode();
   currentPresetPath = null;
   currentSharedId = id;
   renderedBuffer = null;
@@ -6401,7 +6422,13 @@ function initGenerationHistory() {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      generationHistory.push(...parsed.slice(0, MAX_HISTORY));
+      if (Array.isArray(parsed)) {
+        generationHistory.push(...parsed.map(entry => ({
+          ...entry,
+          parentId: entry.parentId || null,
+          kind: entry.kind || 'generation',
+        })).sort((a, b) => a.timestamp - b.timestamp).slice(-MAX_HISTORY));
+      }
     } catch (e) {
       console.warn("Failed to parse generation history:", e);
     }
@@ -6409,10 +6436,23 @@ function initGenerationHistory() {
   renderGenerationHistory();
 }
 
+function clearActiveHistoryNode() {
+  if (!activeHistoryNodeId) return;
+  activeHistoryNodeId = null;
+  renderGenerationHistory();
+}
+
 function addToGenerationHistory(entry) {
-  generationHistory.unshift(entry);
-  if (generationHistory.length > MAX_HISTORY) {
-    generationHistory.splice(MAX_HISTORY);
+  const node = { ...entry, parentId: entry.parentId || null, kind: entry.kind || 'generation' };
+  generationHistory.push(node);
+  activeHistoryNodeId = node.id;
+  while (generationHistory.length > MAX_HISTORY) {
+    const parentIds = new Set(generationHistory.map(item => item.parentId).filter(Boolean));
+    const removable = [...generationHistory]
+      .filter(item => !parentIds.has(item.id) && item.id !== activeHistoryNodeId)
+      .sort((a, b) => a.timestamp - b.timestamp)[0];
+    if (!removable) break;
+    generationHistory.splice(generationHistory.findIndex(item => item.id === removable.id), 1);
   }
   try {
     localStorage.setItem("mantice_generation_history", JSON.stringify(generationHistory));
@@ -6420,6 +6460,7 @@ function addToGenerationHistory(entry) {
     console.warn("Failed to save generation history:", e);
   }
   renderGenerationHistory();
+  return node;
 }
 
 function renderGenerationHistory() {
@@ -6434,28 +6475,53 @@ function renderGenerationHistory() {
     return;
   }
   
-  container.innerHTML = generationHistory.map(entry => {
+  const byParent = new Map();
+  generationHistory.forEach(entry => {
+    const parentExists = entry.parentId && generationHistory.some(candidate => candidate.id === entry.parentId);
+    const parentId = parentExists ? entry.parentId : null;
+    if (!byParent.has(parentId)) byParent.set(parentId, []);
+    byParent.get(parentId).push(entry);
+  });
+  byParent.forEach(entries => entries.sort((a, b) => b.timestamp - a.timestamp));
+
+  const renderNode = (entry, depth, visited) => {
+    if (visited.has(entry.id)) return '';
+    const nextVisited = new Set(visited); nextVisited.add(entry.id);
     const timeAgo = formatTimeAgo(entry.timestamp);
     const details = buildHistoryDetails(entry);
-    
+    const children = byParent.get(entry.id) || [];
+    const collapsed = collapsedHistoryNodes.has(entry.id);
     return `
-      <button class="history-btn" data-hist-id="${entry.id}">
-        <div class="history-btn-header">
-          <span class="history-name">${escapeHtml(entry.displayName)}</span>
-          <span class="history-mood-badge">${entry.mood}</span>
+      <div class="history-tree-node" style="--tree-depth:${depth}">
+        <div class="history-node-row">
+          <button class="history-branch-toggle" data-branch-id="${entry.id}" ${children.length ? '' : 'disabled'}>${children.length ? (collapsed ? '▸' : '▾') : '·'}</button>
+          <button class="history-btn ${entry.id === activeHistoryNodeId ? 'active-node' : ''}" data-hist-id="${entry.id}">
+            <div class="history-btn-header">
+              <span class="history-name">${escapeHtml(entry.displayName)}</span>
+              <span class="history-mood-badge">${escapeHtml(entry.mood || 'mixed')}</span>
+            </div>
+            <div class="history-meta">
+              <span class="history-timestamp">${timeAgo}<span class="history-kind">${escapeHtml(entry.kind)}</span></span>
+              <span class="history-details">${details}</span>
+            </div>
+          </button>
         </div>
-        <div class="history-meta">
-          <span class="history-timestamp">${timeAgo}</span>
-          <span class="history-details">${details}</span>
-        </div>
-      </button>
-    `;
-  }).join('');
+        <div class="history-children ${collapsed ? 'collapsed' : ''}">${children.map(child => renderNode(child, depth + 1, nextVisited)).join('')}</div>
+      </div>`;
+  };
+  container.innerHTML = (byParent.get(null) || []).map(entry => renderNode(entry, 0, new Set())).join('');
   
   container.querySelectorAll('.history-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const histId = btn.dataset.histId;
       loadHistoryEntry(histId);
+    });
+  });
+  container.querySelectorAll('.history-branch-toggle[data-branch-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.branchId;
+      if (collapsedHistoryNodes.has(id)) collapsedHistoryNodes.delete(id); else collapsedHistoryNodes.add(id);
+      renderGenerationHistory();
     });
   });
 }
@@ -6508,6 +6574,7 @@ function loadHistoryEntry(histId) {
     return;
   }
   currentParams = JSON.parse(JSON.stringify(entry.params));
+  activeHistoryNodeId = entry.id;
   currentPresetPath = null;
   currentSharedId = null;
   applyParamsToUI(currentParams);
@@ -6516,6 +6583,7 @@ function loadHistoryEntry(histId) {
   setStatus(`Loaded: ${entry.displayName}`);
   stopAudio();
   doPreview();
+  renderGenerationHistory();
 }
 
 // ── Waveform drawing ────────────────────────────────────────────────────────
@@ -6690,6 +6758,8 @@ async function chooseGenerationCandidate(index) {
     mood: context.mood || 'mixed', harmonicMode: context.harmonicMode,
     harmonicKey: context.harmonicKey, harmonicScale: context.harmonicScale,
     intent: context.intent, strategy: context.strategy, locks: context.locks,
+    parentId: context.parentId,
+    kind: context.strategy === 'variation' ? 'variation' : context.strategy === 'contrast' ? 'contrast' : 'generation',
     displayName: currentParams.name || 'Unnamed Preset', id: `hist_${Date.now()}`,
   });
   applyParamsToUI(currentParams);
@@ -6719,7 +6789,8 @@ async function doGenerate() {
     return;
   }
   const baseParams = currentParams ? collectParams() : null;
-  const context = { mood: selectedMood, harmonicMode, harmonicKey, harmonicScale, intent, strategy, locks };
+  const parentId = activeHistoryNodeId && (strategy !== 'scratch' || locks.length) ? activeHistoryNodeId : null;
+  const context = { mood: selectedMood, harmonicMode, harmonicKey, harmonicScale, intent, strategy, locks, parentId };
   const seeds = new Uint32Array(9);
   if (window.crypto?.getRandomValues) window.crypto.getRandomValues(seeds);
   else seeds.forEach((_, index) => { seeds[index] = Math.random() * 999999; });
@@ -6749,6 +6820,7 @@ async function doGenerate() {
 async function doMutate() {
   if (!currentParams) { setStatus('Load a preset first'); return; }
   const amount = parseFloat($('mutate-amount').value);
+  const parentId = activeHistoryNodeId;
   setStatus('Mutating…');
   const body = { amount };
   if (currentPresetPath) body.path = currentPresetPath;
@@ -6764,6 +6836,11 @@ async function doMutate() {
     currentSharedId = null;
     const activeTuning = $('tuning-system').value;
     if (activeTuning !== '12-TET') _applyTuningOffsets(currentParams, activeTuning);
+    addToGenerationHistory({
+      params: JSON.parse(JSON.stringify(currentParams)), timestamp: Date.now(),
+      mood: selectedMood || 'mixed', kind: 'mutation', parentId,
+      displayName: currentParams.name || 'Mutated preset', id: `hist_${Date.now()}_mut`,
+    });
     applyParamsToUI(currentParams);
     markClean(); // treat mutated params as new baseline — prevents spurious liveReload
     updateNowPlaying();
@@ -7118,6 +7195,7 @@ async function loadGalleryPreset(preset) {
     const data = await api('/api/load-shared?id=' + encodeURIComponent(preset.id));
     if (!data.ok || !data.params) throw new Error(data.error || 'Preset unavailable');
     currentParams = data.params;
+    clearActiveHistoryNode();
     currentSharedId = preset.id;
     currentPresetPath = null;
     currentJourney = { steps: [], loop: 'none' };
@@ -7352,6 +7430,7 @@ async function handleImportPresetFile() {
 
     // Auto-select the just-loaded preset
     currentParams = data.params;
+    clearActiveHistoryNode();
     currentPresetPath = null;
     currentSharedId = null;
     applyParamsToUI(currentParams);
