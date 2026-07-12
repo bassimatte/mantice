@@ -377,11 +377,12 @@ aside h3 {
 .intent-row label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
 .intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
 .intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
-.synthesis-row { display: grid; grid-template-columns: 52px 1fr; gap: 5px; align-items: center; margin-top: 3px; padding-top: 5px; border-top: 1px solid var(--border); }
-.synthesis-options { display: flex; flex-wrap: wrap; gap: 3px; }
+.synthesis-row { margin-top: 3px; padding-top: 5px; border-top: 1px solid var(--border); }
+.synthesis-options { display: flex; flex-wrap: nowrap; justify-content: center; gap: 3px; }
 .synthesis-option { display: flex; align-items: center; gap: 2px; padding: 2px 3px; color: var(--text-dim); border: 1px solid var(--border); font-size: 7px; cursor: pointer; text-transform: uppercase; }
 .synthesis-option:has(input:checked) { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
 .synthesis-option input { width: 9px; height: 9px; margin: 0; accent-color: var(--accent); }
+.tuning-panel-body { padding: 3px 6px 6px; }
 .generator-actions {
   display: flex;
   gap: 4px;
@@ -2436,7 +2437,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <button class="mood-btn" data-mood="nature">nature</button>
     </div>
     <details class="intent-panel" open>
-      <summary>Settings</summary>
+      <summary>Mood</summary>
       <div class="intent-grid" id="intent-grid">
         <div class="intent-row"><label for="intent-density">Density</label><input type="range" id="intent-density" min="0" max="100" value="12"><span class="intent-value" id="intent-density-val">12</span></div>
         <div class="intent-row"><label for="intent-motion">Motion</label><input type="range" id="intent-motion" min="0" max="100" value="15"><span class="intent-value" id="intent-motion-val">15</span></div>
@@ -2447,7 +2448,6 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <div class="intent-row"><label for="intent-brightness">Brightness</label><input type="range" id="intent-brightness" min="0" max="100" value="46"><span class="intent-value" id="intent-brightness-val">46</span></div>
         <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="22"><span class="intent-value" id="intent-evolution-val">22</span></div>
         <div class="synthesis-row">
-          <span aria-hidden="true"></span>
           <div class="synthesis-options">
             <label class="synthesis-option"><input type="checkbox" id="gen-type-auto" checked> Auto</label>
             <label class="synthesis-option"><input type="checkbox" class="gen-type-override" value="fm"> FM</label>
@@ -2457,6 +2457,9 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         </div>
       </div>
     </details>
+    <details class="intent-panel" open>
+      <summary>Tuning</summary>
+      <div class="tuning-panel-body">
     <div style="display:flex; gap:5px; justify-content:center; align-items:center; margin-bottom:5px;">
       <label style="display:flex;align-items:center;gap:3px;font-size:8px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="gen-harmonic-mode" style="accent-color:var(--accent);width:11px;height:11px;cursor:pointer;"> Harm</label>
       <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:32px;">
@@ -2487,6 +2490,8 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       </select>
       <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
     </div>
+      </div>
+    </details>
     <div class="generator-actions">
       <button class="btn" id="btn-generate">Generate</button>
       <button class="btn btn-outline" id="btn-mutate">Mutate</button>
