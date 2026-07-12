@@ -7008,6 +7008,7 @@ async function stopGalleryAudition() {
 }
 
 async function auditionGalleryPreset(preset) {
+  stopAudio();
   if (galleryAudition?.id === preset.id) { await stopGalleryAudition(); return; }
   await stopGalleryAudition();
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
