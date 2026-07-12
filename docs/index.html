@@ -377,6 +377,12 @@ aside h3 {
 .intent-row label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
 .intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
 .intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
+.synthesis-row { display: grid; grid-template-columns: 52px 1fr; gap: 5px; align-items: center; margin-top: 3px; padding-top: 5px; border-top: 1px solid var(--border); }
+.synthesis-title { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
+.synthesis-options { display: flex; flex-wrap: wrap; gap: 3px; }
+.synthesis-option { display: flex; align-items: center; gap: 2px; padding: 2px 3px; color: var(--text-dim); border: 1px solid var(--border); font-size: 7px; cursor: pointer; text-transform: uppercase; }
+.synthesis-option:has(input:checked) { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
+.synthesis-option input { width: 9px; height: 9px; margin: 0; accent-color: var(--accent); }
 .generator-actions {
   display: flex;
   gap: 4px;
@@ -2441,6 +2447,15 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <div class="intent-row"><label for="intent-stability">Stability</label><input type="range" id="intent-stability" min="0" max="100" value="92"><span class="intent-value" id="intent-stability-val">92</span></div>
         <div class="intent-row"><label for="intent-brightness">Brightness</label><input type="range" id="intent-brightness" min="0" max="100" value="46"><span class="intent-value" id="intent-brightness-val">46</span></div>
         <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="22"><span class="intent-value" id="intent-evolution-val">22</span></div>
+        <div class="synthesis-row">
+          <span class="synthesis-title">Synthesis</span>
+          <div class="synthesis-options">
+            <label class="synthesis-option"><input type="checkbox" id="gen-type-auto" checked> Auto</label>
+            <label class="synthesis-option"><input type="checkbox" class="gen-type-override" value="fm"> FM</label>
+            <label class="synthesis-option"><input type="checkbox" class="gen-type-override" value="subtractive"> Sub</label>
+            <label class="synthesis-option"><input type="checkbox" class="gen-type-override" value="granular"> Granular</label>
+          </div>
+        </div>
       </div>
     </details>
     <div style="display:flex; gap:5px; justify-content:center; align-items:center; margin-bottom:5px;">
@@ -6721,6 +6736,9 @@ async function chooseGenerationCandidate(index) {
 
 async function doGenerate() {
   setStatus('Generating…');
+  const allowedTypes = $('gen-type-auto').checked
+    ? null
+    : [...document.querySelectorAll('.gen-type-override:checked')].map(input => input.value);
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
   const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
   const harmonicScale = document.getElementById('gen-harmonic-scale')?.value || 'major';
@@ -6735,7 +6753,7 @@ async function doGenerate() {
   else seeds.forEach((_, index) => { seeds[index] = Math.random() * 999999; });
   const requests = [...seeds].map(seed => api('/api/generate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mood: selectedMood, seed,
+    body: JSON.stringify({ mood: selectedMood, seed, allowed_types: allowedTypes,
       harmonic_mode: harmonicMode, harmonic_key: harmonicKey, harmonic_scale: harmonicScale,
       intent, strategy, locks, base_params: baseParams })
   }));
@@ -8626,6 +8644,21 @@ function init() {
       btn.classList.add('active');
       selectedMood = btn.dataset.mood;
       setGeneratorIntent(MOOD_INTENT_PROFILES[selectedMood]);
+      resetSynthesisToAuto();
+    });
+  });
+  function resetSynthesisToAuto() {
+    $('gen-type-auto').checked = true;
+    document.querySelectorAll('.gen-type-override').forEach(input => { input.checked = false; });
+  }
+  $('gen-type-auto').addEventListener('change', () => {
+    if ($('gen-type-auto').checked) resetSynthesisToAuto();
+    else if (!document.querySelector('.gen-type-override:checked')) $('gen-type-auto').checked = true;
+  });
+  document.querySelectorAll('.gen-type-override').forEach(input => {
+    input.addEventListener('change', () => {
+      if (input.checked) $('gen-type-auto').checked = false;
+      if (!document.querySelector('.gen-type-override:checked')) $('gen-type-auto').checked = true;
     });
   });
   GENERATOR_INTENT_KEYS.forEach(key => {
