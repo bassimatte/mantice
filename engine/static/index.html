@@ -6436,10 +6436,22 @@ function initGenerationHistory() {
   renderGenerationHistory();
 }
 
+function syncGeneratorIntentToPreset(params) {
+  selectedMood = null;
+  document.querySelectorAll('.mood-btn').forEach(button => button.classList.remove('active'));
+  if (params) {
+    const presetIntent = Object.fromEntries(
+      Object.entries(candidateMetrics(params)).map(([key, value]) => [key, value * 100])
+    );
+    setGeneratorIntent(presetIntent);
+  }
+}
+
 function clearActiveHistoryNode() {
-  if (!activeHistoryNodeId) return;
+  const hadActiveNode = Boolean(activeHistoryNodeId);
   activeHistoryNodeId = null;
-  renderGenerationHistory();
+  syncGeneratorIntentToPreset(currentParams);
+  if (hadActiveNode) renderGenerationHistory();
 }
 
 function addToGenerationHistory(entry) {
@@ -6574,6 +6586,7 @@ function loadHistoryEntry(histId) {
     return;
   }
   currentParams = JSON.parse(JSON.stringify(entry.params));
+  syncGeneratorIntentToPreset(currentParams);
   activeHistoryNodeId = entry.id;
   currentPresetPath = null;
   currentSharedId = null;
