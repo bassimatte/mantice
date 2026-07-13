@@ -2305,7 +2305,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
           <tr><td>Scan Rate</td><td>0–0.1 Hz</td><td>0.01 Hz</td><td>Frame traversal speed; 0.01 Hz is a 100-second cycle</td></tr>
           <tr><td>Scan Mode</td><td>static / forward / ping-pong</td><td>ping-pong</td><td>How playback moves through frames</td></tr>
         </table>
-        <p class="docs-note">Mantice interpolates within each waveform and between neighboring frames to avoid stepping during slow drone scans.</p>
+        <p class="docs-note">Mantice interpolates within each waveform and between neighboring frames to avoid stepping during slow drone scans. Imported WAVs remain local until sharing; shared presets publish one SHA-256-addressed copy that can be reused safely by multiple presets.</p>
 
         <h3>Reverb (FDN)</h3>
         <table class="docs-table">
@@ -5035,6 +5035,7 @@ function showLayerParams(layer) {
         pushUndo();
         const target = currentParams.layers[activeLayerIdx];
         target.wavetable_source = data.source;
+        target.wavetable_name = data.name;
         target.wavetable_frame_size = data.frame_size;
         target.wavetable_frames = data.frames;
         status.textContent = `${data.frames} frames · ${data.frame_size} samples`;

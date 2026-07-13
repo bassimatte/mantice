@@ -21,6 +21,7 @@ import io
 import os
 import re
 import base64
+import hashlib
 import threading
 import uuid
 import urllib.request
@@ -233,6 +234,93 @@ def _update_shared_manifest(updates: dict) -> None:
     urllib.request.urlopen(req)
 
 
+def _github_content_exists(repo_path: str) -> bool:
+    req = urllib.request.Request(
+        f"{_GH_API_BASE}/{repo_path}?ref={GITHUB_BRANCH}",
+        headers=_gh_headers(auth=True),
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            return True
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return False
+        raise
+
+
+def _github_put_content(repo_path: str, content: bytes, message: str, *, skip_existing: bool = False) -> None:
+    """Create a repository file through GitHub's Contents API."""
+    if skip_existing and _github_content_exists(repo_path):
+        return
+    payload = {
+        "message": message,
+        "content": base64.b64encode(content).decode("ascii"),
+        "branch": GITHUB_BRANCH,
+    }
+    req = urllib.request.Request(
+        f"{_GH_API_BASE}/{repo_path}",
+        data=json.dumps(payload).encode("utf-8"),
+        method="PUT",
+        headers={**_gh_headers(auth=True), "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as response:
+        if response.status not in (200, 201):
+            raise RuntimeError(f"GitHub API returned {response.status} for {repo_path}")
+
+
+def _publish_shared_wavetables(preset_data: dict) -> list[dict]:
+    """Publish local wavetable sources by content hash and rewrite preset references."""
+    published = []
+    for layer in preset_data.get("layers", []):
+        if layer.get("type") != "wavetable":
+            continue
+        source = str(layer.get("wavetable_source") or "")
+        if not re.match(r"^[\w\-./]+\.wav$", source) or ".." in source:
+            raise ValueError(f"Invalid wavetable source: {source or 'missing'}")
+        local_path = (_SAMPLES_DIR / source).resolve()
+        if _SAMPLES_DIR.resolve() not in local_path.parents or not local_path.is_file():
+            raise ValueError(f"Wavetable file is unavailable: {source}")
+        content = local_path.read_bytes()
+        if len(content) > 16 * 1024 * 1024:
+            raise ValueError(f"Wavetable is too large to share: {local_path.name}")
+        digest = hashlib.sha256(content).hexdigest()
+        repo_path = f"shared/wavetables/{digest}.wav"
+        _github_put_content(repo_path, content, f"Add shared wavetable: {local_path.stem}", skip_existing=True)
+        original_name = str(layer.get("wavetable_name") or local_path.stem)
+        layer["wavetable_source"] = repo_path
+        layer["wavetable_name"] = original_name
+        layer["wavetable_sha256"] = digest
+        published.append({"sha256": digest, "path": repo_path, "name": original_name})
+    return published
+
+
+def _materialize_shared_wavetables(preset_data: dict) -> None:
+    """Download repository-backed tables into the runtime cache and rewrite local paths."""
+    for layer in preset_data.get("layers", []):
+        if layer.get("type") != "wavetable":
+            continue
+        source = str(layer.get("wavetable_source") or "")
+        match = re.fullmatch(r"shared/wavetables/([a-f0-9]{64})\.wav", source)
+        if not match:
+            continue
+        digest = match.group(1)
+        relative = f"wavetables/shared/{digest}.wav"
+        destination = _SAMPLES_DIR / relative
+        if not destination.exists():
+            req = urllib.request.Request(f"{_GH_RAW_BASE}/{source}", headers={"User-Agent": "Mantice/1.0"})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                content = response.read(16 * 1024 * 1024 + 1)
+            if len(content) > 16 * 1024 * 1024:
+                raise ValueError("Shared wavetable exceeds the 16 MB limit")
+            if hashlib.sha256(content).hexdigest() != digest:
+                raise ValueError("Shared wavetable hash verification failed")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            temporary = destination.with_suffix(".tmp")
+            temporary.write_bytes(content)
+            os.replace(temporary, destination)
+        layer["wavetable_source"] = relative
+
+
 def _find_all_presets() -> list[dict]:
     """Scan preset directories and return metadata list with source field."""
     import yaml as _yaml
@@ -357,6 +445,11 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "wavetable_scan_rate": layer.get("wavetable_scan_rate", 0.01),
                 "wavetable_scan_mode": layer.get("wavetable_scan_mode", "pingpong"),
                 "wavetable_detune_cents": layer.get("wavetable_detune_cents", 7.0),
+                "wavetable_name": layer.get("wavetable_name", ""),
+                "wavetable_sha256": layer.get("wavetable_sha256", ""),
+                "wavetable_source_url": layer.get("wavetable_source_url", ""),
+                "wavetable_creator": layer.get("wavetable_creator", ""),
+                "wavetable_license": layer.get("wavetable_license", ""),
                 "root": layer.get("root", 100),
                 "voices": layer.get("voices", 4),
                 "ratios": layer.get("ratios", [1.0]),
@@ -500,6 +593,11 @@ def _ui_params_to_preset(params: dict) -> dict:
             "wavetable_scan_rate": float(l.get("wavetable_scan_rate", 0.01)),
             "wavetable_scan_mode": l.get("wavetable_scan_mode", "pingpong"),
             "wavetable_detune_cents": float(l.get("wavetable_detune_cents", 7.0)),
+            "wavetable_name": l.get("wavetable_name", ""),
+            "wavetable_sha256": l.get("wavetable_sha256", ""),
+            "wavetable_source_url": l.get("wavetable_source_url", ""),
+            "wavetable_creator": l.get("wavetable_creator", ""),
+            "wavetable_license": l.get("wavetable_license", ""),
             "root": float(l.get("root", 100)),
             "tuning_degree": l.get("tuning_degree", "unison"),
             "voices": int(l.get("voices", 4)),
@@ -1600,6 +1698,8 @@ async def share_preset_endpoint(request: Request):
         short_id = uuid.uuid4().hex[:6]
         date_str = datetime.utcnow().strftime("%Y%m%d")
         file_id = f"{safe_name}_{date_str}_{short_id}"
+        loop = asyncio.get_event_loop()
+        wavetable_assets = await loop.run_in_executor(None, lambda: _publish_shared_wavetables(preset_data))
         yaml_str = _yaml.dump(preset_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
         content_b64 = base64.b64encode(yaml_str.encode("utf-8")).decode("ascii")
         api_gh_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared/{file_id}.yaml"
@@ -1617,7 +1717,6 @@ async def share_preset_endpoint(request: Request):
                 "User-Agent": "Mantice/1.0",
             }
         )
-        loop = asyncio.get_event_loop()
         def do_gh_put():
             with urllib.request.urlopen(req) as resp:
                 return resp.status
@@ -1625,8 +1724,9 @@ async def share_preset_endpoint(request: Request):
         if status not in (200, 201):
             return JSONResponse({"ok": False, "error": f"GitHub API returned {status}"}, status_code=500)
         # Also upload JSON params — enables backend-free loading on GitHub Pages
-        params["name"] = preset_name
-        json_b64 = base64.b64encode(json.dumps(params).encode("utf-8")).decode("ascii")
+        shared_params = _preset_to_ui_params(preset_data)
+        shared_params["name"] = preset_name
+        json_b64 = base64.b64encode(json.dumps(shared_params).encode("utf-8")).decode("ascii")
         json_req = urllib.request.Request(
             f"https://api.github.com/repos/{GITHUB_REPO}/contents/shared/{file_id}.json",
             data=json.dumps({"message": f"Share preset params: {preset_name}", "content": json_b64, "branch": GITHUB_BRANCH}).encode("utf-8"),
@@ -1652,6 +1752,8 @@ async def share_preset_endpoint(request: Request):
             }
             if parent_id:
                 manifest_entry["parent_id"] = parent_id
+            if wavetable_assets:
+                manifest_entry["wavetables"] = wavetable_assets
             await loop.run_in_executor(None, lambda: _update_shared_manifest({file_id: manifest_entry}))
         except Exception:
             pass
@@ -1678,6 +1780,7 @@ async def load_shared_preset(id: str):
                 return resp.read().decode("utf-8")
         yaml_str = await loop.run_in_executor(None, fetch_yaml)
         preset_data = _yaml.safe_load(yaml_str)
+        await loop.run_in_executor(None, lambda: _materialize_shared_wavetables(preset_data))
         params = _preset_to_ui_params(preset_data)
         return JSONResponse({"ok": True, "params": params})
     except urllib.error.HTTPError as e:
@@ -1995,6 +2098,9 @@ async def save_preset_endpoint(request: Request):
                 l_out["wavetable_scan_rate"] = float(layer.get("wavetable_scan_rate", 0.01))
                 l_out["wavetable_scan_mode"] = layer.get("wavetable_scan_mode", "pingpong")
                 l_out["wavetable_detune_cents"] = float(layer.get("wavetable_detune_cents", 7.0))
+                for metadata_key in ("wavetable_name", "wavetable_sha256", "wavetable_source_url", "wavetable_creator", "wavetable_license"):
+                    if layer.get(metadata_key):
+                        l_out[metadata_key] = layer[metadata_key]
                 l_out["synthesis"] = {
                     "root": layer.get("root", 110),
                     "voices": layer.get("voices", 3),

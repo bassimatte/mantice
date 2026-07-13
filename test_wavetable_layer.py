@@ -1,11 +1,13 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import soundfile as sf
 
 from engine.wavetable_layer import StreamingWavetableLayer
+import engine.web_server as web_server
 from engine.web_server import _preset_to_ui_params, _ui_params_to_preset
 
 
@@ -53,6 +55,10 @@ class WavetableLayerTests(unittest.TestCase):
                 "wavetable_scan_rate": 0.005,
                 "wavetable_scan_mode": "forward",
                 "wavetable_detune_cents": 9,
+                "wavetable_sha256": "a" * 64,
+                "wavetable_source_url": "https://www.carvetoy.online/view/example",
+                "wavetable_creator": "Example Artist",
+                "wavetable_license": "CC0",
                 "root": 82.4,
                 "voices": 4,
             }],
@@ -63,6 +69,43 @@ class WavetableLayerTests(unittest.TestCase):
         self.assertEqual(restored["wavetable_scan_mode"], "forward")
         self.assertAlmostEqual(restored["wavetable_scan_rate"], 0.005)
         self.assertEqual(restored["voices"], 4)
+        self.assertEqual(restored["wavetable_sha256"], "a" * 64)
+        self.assertEqual(restored["wavetable_license"], "CC0")
+
+    def test_share_publishes_hashed_asset_and_materializes_it(self):
+        with tempfile.TemporaryDirectory() as folder:
+            samples = Path(folder)
+            source = samples / "wavetables" / "local.wav"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(b"RIFF-test-wavetable-content")
+            preset = {"layers": [{
+                "type": "wavetable",
+                "wavetable_source": "wavetables/local.wav",
+                "wavetable_name": "Local Table",
+            }]}
+            uploads = []
+            original_samples = web_server._SAMPLES_DIR
+            web_server._SAMPLES_DIR = samples
+            try:
+                with patch.object(web_server, "_github_put_content", side_effect=lambda path, content, message, **kwargs: uploads.append((path, content, kwargs))):
+                    assets = web_server._publish_shared_wavetables(preset)
+                digest = assets[0]["sha256"]
+                self.assertEqual(preset["layers"][0]["wavetable_source"], f"shared/wavetables/{digest}.wav")
+                self.assertEqual(uploads[0][0], f"shared/wavetables/{digest}.wav")
+                self.assertTrue(uploads[0][2]["skip_existing"])
+
+                class FakeResponse:
+                    def __enter__(self): return self
+                    def __exit__(self, *args): return False
+                    def read(self, _limit): return uploads[0][1]
+
+                with patch("urllib.request.urlopen", return_value=FakeResponse()):
+                    web_server._materialize_shared_wavetables(preset)
+                local_reference = preset["layers"][0]["wavetable_source"]
+                self.assertEqual(local_reference, f"wavetables/shared/{digest}.wav")
+                self.assertTrue((samples / local_reference).is_file())
+            finally:
+                web_server._SAMPLES_DIR = original_samples
 
 
 if __name__ == "__main__":

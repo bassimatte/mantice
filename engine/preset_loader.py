@@ -268,6 +268,11 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "wavetable_scan_rate": float(layer.get("wavetable_scan_rate", 0.01)),
         "wavetable_scan_mode": layer.get("wavetable_scan_mode", "pingpong"),
         "wavetable_detune_cents": float(layer.get("wavetable_detune_cents", 7.0)),
+        "wavetable_name": layer.get("wavetable_name", ""),
+        "wavetable_sha256": layer.get("wavetable_sha256", ""),
+        "wavetable_source_url": layer.get("wavetable_source_url", ""),
+        "wavetable_creator": layer.get("wavetable_creator", ""),
+        "wavetable_license": layer.get("wavetable_license", ""),
         # V22 pan & width
         "pan":   float(layer.get("pan", 0.0)),
         "width": float(layer.get("width", 1.0)),
