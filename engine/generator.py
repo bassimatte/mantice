@@ -114,7 +114,7 @@ _MOOD_INTENTS = {
     "dark":       dict(density=.62, motion=.35, space=.78, tonality=.62, weight=.90, stability=.58, brightness=.15, evolution=.72),
     "bright":     dict(density=.45, motion=.48, space=.68, tonality=.82, weight=.18, stability=.72, brightness=.92, evolution=.60),
     "cinematic":  dict(density=.82, motion=.65, space=.95, tonality=.72, weight=.76, stability=.62, brightness=.62, evolution=.92),
-    "minimal":    dict(density=.12, motion=.15, space=.35, tonality=.92, weight=.42, stability=.92, brightness=.46, evolution=.22),
+    "minimal":    dict(density=.12, motion=.15, space=.35, tonality=.68, weight=.42, stability=.92, brightness=.46, evolution=.22),
     "industrial": dict(density=.75, motion=.88, space=.45, tonality=.22, weight=.82, stability=.18, brightness=.55, evolution=.68),
     "nature":     dict(density=.48, motion=.68, space=.72, tonality=.55, weight=.45, stability=.42, brightness=.58, evolution=.88),
     "mixed":      dict(density=.50, motion=.50, space=.50, tonality=.50, weight=.50, stability=.50, brightness=.50, evolution=.50),
