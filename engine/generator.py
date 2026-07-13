@@ -668,6 +668,155 @@ def mutate_preset(preset: dict, amount: float = 0.3, seed: Optional[int] = None)
     return result
 
 
+def mutate_ui_params(params: dict, amount: float = 0.3, seed: Optional[int] = None) -> dict:
+    """Create a balanced variation of the exact parameter state used by the web UI."""
+    import copy
+    rng = random.Random(seed)
+    amount = _clamp(float(amount), 0.0, 1.0)
+    result = copy.deepcopy(params)
+    if amount <= 0.0:
+        return result
+
+    def chance(probability: float = 0.65) -> bool:
+        return rng.random() < _clamp(probability * (0.7 + amount), 0.0, 1.0)
+
+    def vary(obj: dict, key: str, lo: float, hi: float, scale: float = 1.0,
+             probability: float = 0.65, digits: Optional[int] = None) -> None:
+        if key not in obj or not chance(probability):
+            return
+        value = float(obj[key])
+        value = _clamp(value + rng.gauss(0.0, amount * (hi - lo) * 0.16 * scale), lo, hi)
+        obj[key] = round(value, digits) if digits is not None else value
+
+    def vary_log(obj: dict, key: str, lo: float, hi: float, octaves: float = 1.0,
+                 probability: float = 0.65, digits: Optional[int] = None) -> None:
+        if key not in obj or float(obj[key]) <= 0 or not chance(probability):
+            return
+        value = float(obj[key]) * (2.0 ** rng.gauss(0.0, amount * octaves))
+        value = _clamp(value, lo, hi)
+        obj[key] = round(value, digits) if digits is not None else value
+
+    # Pitch is occasional and shared by every pitched layer, preserving intervals.
+    layers = result.get("layers") or []
+    if layers and rng.random() < (0.20 + amount * 0.25):
+        semitones = rng.gauss(0.0, amount * 2.0)
+        ratio = 2.0 ** (semitones / 12.0)
+        for layer in layers:
+            if "root" in layer:
+                layer["root"] = round(_clamp(float(layer["root"]) * ratio, 16.0, 8000.0), 2)
+
+    vary(result, "duration", 30, 300, 0.6, 0.25, 1)
+    vary(result, "spatial_depth", 0.1, 3.0, 0.65, 0.65, 3)
+    vary(result, "spatial_wet", 0.0, 1.0, 0.8, 0.65, 3)
+    vary(result, "saturation", 0.0, 1.0, 0.55, 0.55, 3)
+
+    reverb = result.get("reverb") or {}
+    vary(reverb, "mix", 0.0, 1.0, 0.8, 0.8, 3)
+    vary(reverb, "decay_trim", 0.25, 2.0, 0.7, 0.7, 3)
+    vary(reverb, "pre_delay_ms", 0.0, 250.0, 0.5, 0.45, 1)
+    vary(reverb, "modulation_depth", 0.0, 1.0, 0.7, 0.65, 3)
+    if amount > 0.55 and chance(0.15) and "space" in reverb:
+        reverb["space"] = rng.choice(["room", "hall", "cathedral", "cave", "plate"])
+
+    earth = result.get("earth") or {}
+    vary(earth, "tectonic_frequency", 10, 30, 0.5, 0.4, 1)
+    vary(earth, "pressure", 0.0, 1.0, 0.7, 0.65, 3)
+    vary(earth, "movement", 0.001, 0.08, 0.35, 0.55, 4)
+    air = result.get("air") or {}
+    vary(air, "intensity", 0.0, 0.5, 0.7, 0.65, 3)
+    vary(air, "movement", 0.001, 0.08, 0.35, 0.55, 4)
+    vary(air, "turbulence", 0.0, 0.25, 0.65, 0.6, 4)
+    shimmer = result.get("shimmer") or {}
+    vary(shimmer, "wet", 0.0, 1.0, 0.65, 0.65, 3)
+    vary(shimmer, "feedback", 0.0, 0.95, 0.5, 0.6, 3)
+
+    master = result.get("master") or {}
+    for key in ("eq_bass_db", "eq_lo_mid_db", "eq_hi_mid_db", "eq_air_db"):
+        vary(master, key, -12.0, 12.0, 0.35, 0.35, 2)
+
+    for layer in layers:
+        layer_type = str(layer.get("type") or "fm")
+        vary(layer, "volume_db", -60.0, 6.0, 0.18, 0.75, 2)
+        vary(layer, "drift", 0.0, 0.05, 0.22, 0.65, 5)
+        vary(layer, "pan", -1.0, 1.0, 0.7, 0.7, 3)
+        vary(layer, "width", 0.0, 2.0, 0.5, 0.65, 3)
+        vary(layer, "elevation", -90.0, 90.0, 0.35, 0.35, 1)
+        vary_log(layer, "chorus_rate", 0.01, 0.5, 0.6, 0.45, 3)
+        vary(layer, "chorus_depth", 0.0, 0.03, 0.45, 0.45, 4)
+        vary(layer, "chorus_mix", 0.0, 1.0, 0.55, 0.55, 3)
+        vary(layer, "flanger_wet", 0.0, 1.0, 0.45, 0.45, 3)
+        vary_log(layer, "flanger_rate", 0.01, 0.5, 0.6, 0.4, 3)
+        vary(layer, "flanger_depth", 0.0, 1.0, 0.45, 0.4, 3)
+        vary(layer, "flanger_feedback", 0.0, 0.95, 0.35, 0.35, 3)
+        vary(layer, "phaser_wet", 0.0, 1.0, 0.45, 0.45, 3)
+        vary_log(layer, "phaser_rate", 0.01, 0.5, 0.6, 0.4, 3)
+        vary(layer, "phaser_depth", 0.0, 1.0, 0.45, 0.4, 3)
+        vary_log(layer, "phaser_center_hz", 100.0, 4000.0, 0.8, 0.4, 1)
+        vary(layer, "phaser_feedback", -0.95, 0.95, 0.35, 0.35, 3)
+        vary(layer, "distortion_drive", 0.0, 5.0, 0.2, 0.45, 3)
+
+        if layer.get("filter_type", "off") != "off":
+            vary_log(layer, "filter_cutoff", 40.0, 12000.0, 1.2, 0.85, 1)
+            vary(layer, "filter_resonance", 0.1, 8.0, 0.5, 0.65, 3)
+            vary_log(layer, "filter_lfo_rate", 0.005, 0.2, 0.8, 0.65, 4)
+            vary(layer, "filter_lfo_depth", 0.0, 1.0, 0.7, 0.7, 3)
+
+        spatial = layer.get("spatial_motion") if isinstance(layer.get("spatial_motion"), dict) else {}
+        speed = float(spatial.get("speed", layer.get("speed", 0.01)))
+        speed_holder = {"speed": speed}
+        vary_log(speed_holder, "speed", 0.001, 0.05, 0.65, 0.75, 4)
+        quadrant = spatial.get("quadrant", layer.get("quadrant", "center"))
+        trajectory = spatial.get("trajectory_x", layer.get("trajectory_x", "none"))
+        if rng.random() < amount * 0.22:
+            quadrant = rng.choice(_QUADRANTS)
+        if rng.random() < amount * 0.18:
+            trajectory = rng.choice(_TRAJECTORIES_X)
+        layer["speed"] = speed_holder["speed"]
+        layer["quadrant"] = quadrant
+        layer["trajectory_x"] = trajectory
+        if spatial:
+            spatial.update({"speed": speed_holder["speed"], "quadrant": quadrant, "trajectory_x": trajectory})
+
+        if "voices" in layer and chance(0.4):
+            maximum = 8 if layer_type in {"subtractive", "wavetable"} else 12
+            layer["voices"] = int(_clamp(round(float(layer["voices"]) + rng.gauss(0, max(1.0, amount * 2.5))), 1, maximum))
+
+        if layer_type == "fm":
+            vary(layer, "fm_index", 0.0, 5.0, 0.55, 0.8, 3)
+            vary(layer, "harmonic_decay", 0.3, 0.95, 0.6, 0.55, 3)
+            vary(layer, "noise_amount", 0.0, 0.3, 0.5, 0.45, 3)
+            vary(layer, "spread", 0.0, 2.0, 0.55, 0.65, 3)
+            vary(layer, "blend", 0.0, 1.0, 0.5, 0.55, 3)
+        elif layer_type == "subtractive":
+            vary(layer, "detune_cents", 0.0, 50.0, 0.45, 0.75, 2)
+            vary(layer, "sub_mix", 0.0, 1.0, 0.6, 0.7, 3)
+            if amount > 0.6 and chance(0.16):
+                layer["waveform"] = rng.choice(["saw", "square", "triangle"])
+        elif layer_type == "granular":
+            vary(layer, "grain_size", 20.0, 200.0, 0.55, 0.8, 1)
+            vary(layer, "density", 1.0, 50.0, 0.55, 0.75, 2)
+            vary(layer, "pitch_spread", 0.0, 2.0, 0.45, 0.65, 3)
+            vary(layer, "position", 0.0, 1.0, 0.65, 0.8, 3)
+            vary(layer, "scatter", 0.0, 1.0, 0.65, 0.75, 3)
+            vary(layer, "pitch_semitones", -24.0, 24.0, 0.16, 0.35, 2)
+            vary(layer, "position_chaos", 0.05, 1.0, 0.55, 0.55, 3)
+        elif layer_type == "wavetable":
+            vary(layer, "wavetable_position", 0.0, 1.0, 0.65, 0.75, 3)
+            vary(layer, "wavetable_scan_start", 0.0, 1.0, 0.45, 0.65, 3)
+            vary(layer, "wavetable_scan_end", 0.0, 1.0, 0.45, 0.65, 3)
+            if layer.get("wavetable_scan_start", 0.0) > layer.get("wavetable_scan_end", 1.0):
+                layer["wavetable_scan_start"], layer["wavetable_scan_end"] = layer["wavetable_scan_end"], layer["wavetable_scan_start"]
+            vary_log(layer, "wavetable_scan_rate", 0.001, 0.1, 0.75, 0.75, 4)
+            vary(layer, "wavetable_detune_cents", 0.0, 50.0, 0.45, 0.7, 2)
+            if amount > 0.6 and chance(0.15):
+                layer["wavetable_scan_mode"] = rng.choice(["static", "forward", "pingpong"])
+
+    name = str(result.get("name") or "Untitled")
+    if not name.endswith(" (mutated)"):
+        result["name"] = f"{name} (mutated)"
+    return result
+
+
 # ── File I/O ──────────────────────────────────────────────────────────────────
 
 def save_generated_preset(preset: dict, output_dir: Path) -> Path:

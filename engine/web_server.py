@@ -48,7 +48,7 @@ from . import config
 from .preset_loader import load_preset, load_preset_from_yaml_string
 from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
-from .generator import generate_preset, mutate_preset, save_generated_preset, _NAME_PARTS_A, _NAME_PARTS_B
+from .generator import generate_preset, mutate_preset, mutate_ui_params, save_generated_preset, _NAME_PARTS_A, _NAME_PARTS_B
 from .convolution_reverb import apply_convolution_reverb
 from .post_processing import oversampled_saturate
 
@@ -451,6 +451,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "wavetable_creator": layer.get("wavetable_creator", ""),
                 "wavetable_license": layer.get("wavetable_license", ""),
                 "root": layer.get("root", 100),
+                "tuning_degree": layer.get("tuning_degree", "unison"),
                 "voices": layer.get("voices", 4),
                 "ratios": layer.get("ratios", [1.0]),
                 "fm_ratios": layer.get("fm_ratios", [1.0]),
@@ -461,6 +462,19 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "volume_db": float(layer.get("volume_db", 0.0)),
                 "band": layer.get("band", "mid"),
                 "quadrant": layer.get("quadrant", "center"),
+                "trajectory_x": layer.get("trajectory_x", "drift"),
+                "trajectory_y": layer.get("trajectory_y", "none"),
+                "speed": layer.get("speed", 0.01),
+                "spatial_motion": {
+                    "quadrant": layer.get("quadrant", "center"),
+                    "trajectory_x": layer.get("trajectory_x", "drift"),
+                    "trajectory_y": layer.get("trajectory_y", "none"),
+                    "speed": layer.get("speed", 0.01),
+                },
+                "pan": float(layer.get("pan", 0.0)),
+                "width": float(layer.get("width", 1.0)),
+                "spread": float(layer.get("spread", 1.0)),
+                "blend": float(layer.get("blend", 1.0)),
                 "muted": bool(layer.get("muted", False)) or not bool(layer.get("enabled", True)),
                 "harmonics": layer.get("harmonics", 4),
                 "harmonic_decay": layer.get("harmonic_decay", 0.7),
@@ -474,6 +488,16 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "chorus_depth": layer.get("chorus_depth", 0.005),
                 "chorus_mix": layer.get("chorus_mix", 0.0),
                 "chorus_voices": layer.get("chorus_voices", 2),
+                "flanger_wet": layer.get("flanger_wet", 0.0),
+                "flanger_rate": layer.get("flanger_rate", 0.25),
+                "flanger_depth": layer.get("flanger_depth", 0.5),
+                "flanger_feedback": layer.get("flanger_feedback", 0.4),
+                "phaser_wet": layer.get("phaser_wet", 0.0),
+                "phaser_rate": layer.get("phaser_rate", 0.5),
+                "phaser_depth": layer.get("phaser_depth", 0.7),
+                "phaser_center_hz": layer.get("phaser_center_hz", 800.0),
+                "phaser_feedback": layer.get("phaser_feedback", 0.0),
+                "phaser_stages": layer.get("phaser_stages", 4),
                 "filter_type": layer.get("filter_type", "off"),
                 "filter_cutoff": layer.get("filter_cutoff", 2000),
                 "filter_resonance": layer.get("filter_resonance", 1.0),
@@ -1497,8 +1521,7 @@ async def generate_endpoint(request: Request):
 
 @app.post("/api/mutate")
 async def mutate_endpoint(request: Request):
-    """Mutate a preset and return the mutated parameters.
-    Accepts either {path, amount} or {params, amount}."""
+    """Mutate the exact current UI state and return balanced parameter variations."""
     body = await request.json()
     path = body.get("path")
     ui_params = body.get("params")
@@ -1506,107 +1529,12 @@ async def mutate_endpoint(request: Request):
     if not path and not ui_params:
         return JSONResponse({"ok": False, "error": "No preset path or params"}, status_code=400)
     try:
-        import yaml as _yaml, tempfile
-        if path:
-            # Load raw YAML (mutate_preset expects the raw v2 dict, not the normalised one)
-            with open(path, encoding="utf-8") as f:
-                raw_preset = _yaml.safe_load(f)
+        if ui_params:
+            current = ui_params
         else:
-            # Build a v2-structured raw preset from current UI params
-            flat = _ui_params_to_preset(ui_params)
-            raw_layers = []
-            for l in flat.get("layers", []):
-                raw_layers.append({
-                    "name": l.get("name", "Layer"),
-                    "muted": bool(l.get("muted", False)),
-                    "type": l.get("type", "fm"),
-                    "source": l.get("source", "singing_bowl.ogg"),
-                    "grain_size": l.get("grain_size", 80),
-                    "density": l.get("density", 15),
-                    "pitch_spread": l.get("pitch_spread", 0.3),
-                    "position": l.get("position", 0.5),
-                    "scatter": l.get("scatter", 0.5),
-                    "envelope": l.get("envelope", "hann"),
-                    "synthesis": {
-                        "root": l.get("root", 220),
-                        "voices": l.get("voices", 4),
-                        "ratios": l.get("ratios", [1.0]),
-                    },
-                    "fm": {
-                        "ratios": l.get("fm_ratios", [1.0]),
-                        "index": l.get("fm_index", 0.5),
-                    },
-                    "dynamics": {
-                        "volume_db": l.get("volume_db", 0.0),
-                        "amp_min": l.get("amp_min", 0.005),
-                        "amp_max": l.get("amp_max", 0.04),
-                        "drift": l.get("drift", 0.002),
-                    },
-                    "spatial_motion": {
-                        "quadrant": l.get("quadrant", "center"),
-                        "speed": l.get("speed", 0.005),
-                        "trajectory_x": l.get("trajectory_x", "drift"),
-                        "trajectory_y": l.get("trajectory_y", "none"),
-                    },
-                    "pan": float(l.get("pan", 0.0)),
-                    "width": float(l.get("width", 1.0)),
-                    "spread": float(l.get("spread", 1.0)),
-                    "blend": float(l.get("blend", 1.0)),
-                    "flanger_wet":      float(l.get("flanger_wet", 0.0)),
-                    "flanger_rate":     float(l.get("flanger_rate", 0.25)),
-                    "flanger_depth":    float(l.get("flanger_depth", 0.5)),
-                    "flanger_feedback": float(l.get("flanger_feedback", 0.4)),
-                    "phaser_wet":       float(l.get("phaser_wet", 0.0)),
-                    "phaser_rate":      float(l.get("phaser_rate", 0.5)),
-                    "phaser_depth":     float(l.get("phaser_depth", 0.7)),
-                    "phaser_center_hz": float(l.get("phaser_center_hz", 800.0)),
-                    "phaser_feedback":  float(l.get("phaser_feedback", 0.0)),
-                    "phaser_stages":    int(l.get("phaser_stages", 4)),
-                    "harmonics": l.get("harmonics", 4),
-                    "harmonic_decay": l.get("harmonic_decay", 0.7),
-                    "noise_amount": l.get("noise_amount", 0.0),
-                    "noise_color": l.get("noise_color", "pink"),
-                    "elevation": l.get("elevation", 0.0),
-                    "elevation_motion": l.get("elevation_motion", "static"),
-                    "elevation_speed": l.get("elevation_speed", 0.1),
-                    "elevation_range": l.get("elevation_range", 60.0),
-                    "chorus_mix": l.get("chorus_mix", 0.0),
-                    "chorus_rate": l.get("chorus_rate", 0.5),
-                    "chorus_depth": l.get("chorus_depth", 0.005),
-                    "chorus_voices": l.get("chorus_voices", 2),
-                    "filter_type": l.get("filter_type", "off"),
-                    "filter_cutoff": float(l.get("filter_cutoff", 2000)),
-                    "filter_resonance": float(l.get("filter_resonance", 1.0)),
-                    "filter_lfo_rate": float(l.get("filter_lfo_rate", 0.1)),
-                    "filter_lfo_depth": float(l.get("filter_lfo_depth", 0.0)),
-                    "filter_lfo_shape": l.get("filter_lfo_shape", "sine"),
-                    "waveform": l.get("waveform", "saw"),
-                    "detune_cents": float(l.get("detune_cents", 8.0)),
-                    "sub_mix": float(l.get("sub_mix", 0.3)),
-                })
-            m = flat.get("master", {})
-            raw_preset = {
-                "meta": flat.get("meta", {}),
-                "global": {"duration_seconds": int(flat.get("duration", 60))},
-                "spatial": {"depth": flat.get("spatial_depth", 1.0), "wetness": flat.get("spatial_wet", 0.7)},
-                "saturation": flat.get("saturation", 0.3),
-                "master": m,
-                "reverb": flat.get("reverb"),
-                "binaural": flat.get("binaural"),
-                "earth": flat.get("earth"),
-                "air": flat.get("air"),
-                "layers": raw_layers,
-            }
-        mutated_data = mutate_preset(raw_preset, amount=amount)
-        with tempfile.NamedTemporaryFile(suffix='.yaml', delete=False, mode='w', encoding='utf-8') as f:
-            _yaml.dump(mutated_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-            tmp_path = Path(f.name)
-        try:
-            preset = load_preset(tmp_path)
-            params = _preset_to_ui_params(preset)
-        finally:
-            tmp_path.unlink(missing_ok=True)
-        return JSONResponse({"ok": True, "params": params})
+            current = _preset_to_ui_params(load_preset(Path(path)))
+        mutated = mutate_ui_params(current, amount=amount)
+        return JSONResponse({"ok": True, "params": mutated})
     except Exception as e:
         import traceback
         traceback.print_exc()

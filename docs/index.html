@@ -6892,9 +6892,7 @@ async function doMutate() {
   const amount = parseFloat($('mutate-amount').value);
   const parentId = activeHistoryNodeId;
   setStatus('Mutating…');
-  const body = { amount };
-  if (currentPresetPath) body.path = currentPresetPath;
-  else body.params = collectParams();
+  const body = { amount, params: collectParams() };
   const data = await api('/api/mutate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
