@@ -6969,10 +6969,11 @@ async function doSharePreset() {
   setStatus('Sharing…');
   try {
     const params = collectParams();
+    const parentId = currentSharedId || null;
     const data = await api('/api/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params, author: username, parent_id: currentSharedId || null })
+      body: JSON.stringify({ params, author: username, parent_id: parentId })
     });
     if (!data.ok) { 
       // Better error message for missing GitHub token
@@ -6992,8 +6993,16 @@ async function doSharePreset() {
       allPresets.push({ name: displayName, id: data.id, source: 'community', category: 'community', tags: [], path: `shared/${data.id}.yaml`, filename: `${data.id}.yaml` });
       renderPresetList();
     }
-    // Invalidate gallery cache so newly shared preset appears immediately
-    galleryPresets = [];
+    // GitHub's manifest can lag briefly after a successful share. Keep an
+    // optimistic gallery entry and merge it with the remote list on refresh.
+    const galleryEntry = galleryEntryFromParams({
+      id: data.id, name: displayName, author: username,
+      created: new Date().toISOString(), parentId, params,
+    });
+    const existingGalleryIndex = galleryPresets.findIndex(p => p.id === data.id);
+    if (existingGalleryIndex >= 0) galleryPresets[existingGalleryIndex] = galleryEntry;
+    else galleryPresets.push(galleryEntry);
+    if ($('gallery-overlay').classList.contains('open')) renderGallery(galleryPresets);
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + data.id;
     await navigator.clipboard.writeText(shareUrl);
     setStatus('🔗 Link copied! — #shared=' + data.id);
@@ -7004,11 +7013,29 @@ async function doSharePreset() {
 
 // ── Gallery ──────────────────────────────────────────────────────────────────
 let galleryPresets = [];
+let galleryLoaded = false;
 let gallerySort = 'newest';
 let selectedGalleryPreset = null;
 let galleryAudition = null;
 let galleryFavorites = new Set();
 try { galleryFavorites = new Set(JSON.parse(localStorage.getItem('mantice_gallery_favorites') || '[]')); } catch (_) {}
+
+function galleryEntryFromParams({ id, name, author, created, parentId, params }) {
+  const galleryParams = JSON.parse(JSON.stringify(params));
+  galleryParams.name = name;
+  const entry = candidateDescriptor(galleryParams, 0, null);
+  return {
+    ...entry,
+    id,
+    name,
+    author,
+    created,
+    parent_id: parentId || null,
+    plays: 0,
+    remix_count: 0,
+    isCandidate: false,
+  };
+}
 
 function isGalleryFavorite(id) { return galleryFavorites.has(id); }
 
@@ -7261,7 +7288,9 @@ async function loadGalleryPreset(preset) {
   const detailLoad = $('gallery-detail-load');
   if (detailLoad) { detailLoad.disabled = true; detailLoad.textContent = 'Loading…'; }
   try {
-    const data = await api('/api/load-shared?id=' + encodeURIComponent(preset.id));
+    const data = preset.params
+      ? { ok: true, params: JSON.parse(JSON.stringify(preset.params)) }
+      : await api('/api/load-shared?id=' + encodeURIComponent(preset.id));
     if (!data.ok || !data.params) throw new Error(data.error || 'Preset unavailable');
     currentParams = data.params;
     clearActiveHistoryNode();
@@ -7356,18 +7385,24 @@ async function openGallery() {
   $('gallery-overlay').classList.add('open');
   $('files-dropdown').classList.remove('open');
   
-  // Fetch gallery data if not already loaded
-  if (galleryPresets.length === 0) {
+  // Fetch once, but retain optimistic shares that GitHub may not expose yet.
+  if (!galleryLoaded) {
     try {
       const data = await api('/api/gallery');
       if (data.ok && Array.isArray(data.presets)) {
-        galleryPresets = data.presets;
+        const remoteIds = new Set(data.presets.map(preset => preset.id));
+        const optimistic = galleryPresets.filter(preset => !remoteIds.has(preset.id));
+        const localById = new Map(galleryPresets.map(preset => [preset.id, preset]));
+        galleryPresets = data.presets.map(preset => ({ ...localById.get(preset.id), ...preset })).concat(optimistic);
+        galleryLoaded = true;
         renderGallery(galleryPresets);
       } else {
-        $('gallery-grid').innerHTML = '<p class="gallery-empty">Could not load gallery: ' + (data.error || 'Unknown error') + '</p>';
+        if (galleryPresets.length) renderGallery(galleryPresets);
+        else $('gallery-grid').innerHTML = '<p class="gallery-empty">Could not load gallery: ' + (data.error || 'Unknown error') + '</p>';
       }
     } catch (e) {
-      $('gallery-grid').innerHTML = '<p class="gallery-empty">Gallery unavailable</p>';
+      if (galleryPresets.length) renderGallery(galleryPresets);
+      else $('gallery-grid').innerHTML = '<p class="gallery-empty">Gallery unavailable</p>';
     }
   } else {
     renderGallery(galleryPresets);
