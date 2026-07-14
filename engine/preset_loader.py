@@ -27,6 +27,32 @@ import yaml
 
 from . import config
 
+
+_DEFAULT_MASTER = {
+    "eq": {
+        "low_cut_hz": 20.0,
+        "bass_db": 0.0,
+        "bass_hz": 100.0,
+        "lo_mid_db": 0.0,
+        "lo_mid_hz": 250.0,
+        "lo_mid_q": 1.0,
+        "hi_mid_db": 0.0,
+        "hi_mid_hz": 2500.0,
+        "hi_mid_q": 1.0,
+        "air_db": 0.0,
+        "air_hz": 10000.0,
+    },
+    "comp": {
+        "threshold_db": -18.0,
+        "ratio": 2.5,
+        "attack_ms": 50.0,
+        "release_ms": 200.0,
+        "knee_db": 3.0,
+        "makeup_db": 4.0,
+    },
+    "output_gain_db": 3.0,
+}
+
 # ── volume helpers ────────────────────────────────────────────────────────────
 
 def _mix_to_db(volume_db_raw, mix_fallback=1.0) -> float:
@@ -66,6 +92,11 @@ def _deep_merge(base: dict, override: dict) -> dict:
         else:
             result[key] = copy.deepcopy(value)
     return result
+
+
+def _normalize_master(master: Optional[dict]) -> dict:
+    """Apply the website master defaults while preserving explicit settings."""
+    return _deep_merge(_DEFAULT_MASTER, master or {})
 
 
 # ── inheritance resolution ────────────────────────────────────────────────────
@@ -386,7 +417,7 @@ def _from_v1(raw: dict) -> dict:
         "binaural":      raw.get("binaural"),
         "flanger":       raw.get("flanger"),
         "shimmer":       raw.get("shimmer"),
-        "master":        raw.get("master"),
+        "master":        _normalize_master(raw.get("master")),
         "automation":    raw.get("automation") or {},
         "layers": [
             _normalize_layer_v1(l)
@@ -414,7 +445,7 @@ def _from_v2(raw: dict) -> dict:
         "binaural":      raw.get("binaural"),
         "flanger":       raw.get("flanger"),
         "shimmer":       raw.get("shimmer"),
-        "master":        raw.get("master"),
+        "master":        _normalize_master(raw.get("master")),
         "saturation":    float(raw.get("saturation", 0.3)),
         "automation":    raw.get("automation") or {},
         "layers": [

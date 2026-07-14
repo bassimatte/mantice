@@ -7,6 +7,37 @@ from engine.web_server import _ui_params_to_preset
 
 
 class WebsitePresetExportTests(unittest.TestCase):
+    def test_missing_master_uses_website_defaults(self):
+        loaded = load_preset_from_yaml_string(yaml.safe_dump({
+            "name": "Legacy preset",
+            "layers": [{"type": "fm", "root": 110.0}],
+        }))
+
+        self.assertEqual(loaded["master"]["comp"], {
+            "threshold_db": -18.0,
+            "ratio": 2.5,
+            "attack_ms": 50.0,
+            "release_ms": 200.0,
+            "knee_db": 3.0,
+            "makeup_db": 4.0,
+        })
+        self.assertEqual(loaded["master"]["output_gain_db"], 3.0)
+
+    def test_partial_master_overrides_only_explicit_values(self):
+        loaded = load_preset_from_yaml_string(yaml.safe_dump({
+            "name": "Custom master",
+            "master": {
+                "comp": {"ratio": 4.0, "makeup_db": 1.0},
+                "output_gain_db": -2.0,
+            },
+            "layers": [{"type": "fm", "root": 110.0}],
+        }))
+
+        self.assertEqual(loaded["master"]["comp"]["ratio"], 4.0)
+        self.assertEqual(loaded["master"]["comp"]["makeup_db"], 1.0)
+        self.assertEqual(loaded["master"]["comp"]["threshold_db"], -18.0)
+        self.assertEqual(loaded["master"]["output_gain_db"], -2.0)
+
     def test_flat_website_export_reloads_all_engine_parameters(self):
         common = {
             "voices": 3, "root": 110.0, "ratios": [1.0, 1.5],
