@@ -555,7 +555,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
             "comp_release_ms":   float(comp.get("release_ms", 200.0)),
             "comp_knee_db":      float(comp.get("knee_db", 3.0)),
             "comp_makeup_db":    float(comp.get("makeup_db", 4.0)),
-            "output_gain_db":    float(master.get("output_gain_db", 3.0)),
+            "output_gain_db":    float(master.get("output_gain_db", 0.0)),
         },
         "layers": layers_info,
         "binaural": {

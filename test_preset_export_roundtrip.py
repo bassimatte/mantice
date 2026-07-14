@@ -21,7 +21,7 @@ class WebsitePresetExportTests(unittest.TestCase):
             "knee_db": 3.0,
             "makeup_db": 4.0,
         })
-        self.assertEqual(loaded["master"]["output_gain_db"], 3.0)
+        self.assertEqual(loaded["master"]["output_gain_db"], 0.0)
 
     def test_partial_master_overrides_only_explicit_values(self):
         loaded = load_preset_from_yaml_string(yaml.safe_dump({

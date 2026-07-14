@@ -50,7 +50,7 @@ _DEFAULT_MASTER = {
         "knee_db": 3.0,
         "makeup_db": 4.0,
     },
-    "output_gain_db": 3.0,
+    "output_gain_db": 0.0,
 }
 
 # ── volume helpers ────────────────────────────────────────────────────────────
