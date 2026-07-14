@@ -50,7 +50,7 @@ from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
 from .generator import generate_preset, mutate_preset, mutate_ui_params, save_generated_preset, _NAME_PARTS_A, _NAME_PARTS_B
 from .convolution_reverb import apply_convolution_reverb
-from .post_processing import oversampled_saturate
+from .post_processing import final_limit_normalize, oversampled_saturate
 
 # Load .env file if present (for local development with GITHUB_TOKEN, FREESOUND_API_KEY)
 try:
@@ -76,39 +76,6 @@ _pitch_cache: dict = {}
 
 # Global engine for /api/meters endpoint (used by WebSocket preview)
 engine: Optional[StreamingDroneEngine] = None
-
-
-def final_limit_normalize(audio: np.ndarray, ceiling: float = 0.97,
-                           sr: int = 22050) -> np.ndarray:
-    """
-    True-peak normalize the full render buffer to ``ceiling``.
-
-    For offline drone renders (constant-level material) a single static scale
-    factor is the correct approach — no attack lag, no pumping, no transients
-    slipping through before the envelope catches up.
-
-    Algorithm:
-      1. True-peak detection: upsample 4× to find inter-sample peaks (prevents
-         MP3/AAC encode clipping caused by intersample overs).
-      2. If the true peak exceeds ``ceiling``, scale the whole buffer uniformly
-         by ceiling/peak.  Never boost — if peak < ceiling, return as-is.
-      3. Hard clip as final safety net (should be a no-op after step 2).
-
-    Args:
-        audio:    (N, 2) stereo float32 array.
-        ceiling:  Linear ceiling (default 0.97 ≈ −1 dBFS).
-        sr:       Sample rate (unused; kept for API compatibility).
-
-    Returns:
-        Same shape — normalized to ceiling if over, untouched if under.
-    """
-    from scipy.signal import resample_poly
-    factor = 4
-    up      = resample_poly(audio, factor, 1, axis=0)
-    tp      = float(np.max(np.abs(up)))          # true-peak
-    if tp > ceiling:
-        audio = audio * (ceiling / tp)
-    return np.clip(audio, -1.0, 1.0).astype(audio.dtype)
 
 
 def _load_pitch_cache():
@@ -1332,7 +1299,7 @@ async def render_endpoint(request: Request):
 
             # Full-buffer true-peak normalize — zero attack lag, zero pumping
             print("  [render] True-peak normalize (ceiling −1 dBFS)…")
-            raw = final_limit_normalize(raw, ceiling=0.97)
+            raw = final_limit_normalize(raw)
             log_memory("Normalize complete")
 
             # TPDF dither before quantisation (adds 1 LSB of shaped noise, eliminates truncation distortion)

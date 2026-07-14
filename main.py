@@ -48,7 +48,7 @@ from engine.streaming_engine import StreamingDroneEngine
 from engine.exporter         import export_audio, SUPPORTED_FORMATS
 from engine.generator        import generate_preset, mutate_preset, save_generated_preset, get_available_moods
 from engine.automation       import apply_auto_template, strip_automation, TEMPLATE_NAMES
-from engine.post_processing  import oversampled_saturate
+from engine.post_processing  import final_limit_normalize, oversampled_saturate
 from engine.convolution_reverb import apply_convolution_reverb
 from engine                  import config as _engine_config
 
@@ -434,6 +434,9 @@ def run(
                 decay_trim = float(reverb_cfg.get("decay_trim", 1.0))
                 print(f"  [post] Applying convolution reverb: {space} (mix={mix:.2f})...")
                 audio = apply_convolution_reverb(audio, space=space, mix=mix, decay_trim=decay_trim, sr=sr)
+
+            print("  [post] Applying true-peak ceiling (−1 dBFS)...")
+            audio = final_limit_normalize(audio)
 
             # Export audio — append layer name if solo
             if solo_layer_name:

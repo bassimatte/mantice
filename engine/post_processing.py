@@ -9,6 +9,31 @@ Used by both web export and Python CLI to ensure consistent quality.
 import numpy as np
 
 
+TRUE_PEAK_CEILING = 10.0 ** (-1.0 / 20.0)  # −1 dBFS
+
+
+def final_limit_normalize(
+    audio: np.ndarray,
+    ceiling: float = TRUE_PEAK_CEILING,
+    factor: int = 4,
+) -> np.ndarray:
+    """Attenuate a full render when its oversampled true peak exceeds ceiling.
+
+    Quiet renders are never boosted. A single gain factor is applied to the
+    complete buffer, avoiding the pumping and attack lag of a dynamic limiter.
+    """
+    if audio.size == 0:
+        return audio
+
+    from scipy.signal import resample_poly
+
+    upsampled = resample_poly(audio, factor, 1, axis=0)
+    true_peak = float(np.max(np.abs(upsampled)))
+    if true_peak > ceiling:
+        audio = audio * (ceiling / true_peak)
+    return np.clip(audio, -1.0, 1.0).astype(audio.dtype, copy=False)
+
+
 def oversampled_saturate(audio: np.ndarray, saturation: float, factor: int = 4) -> np.ndarray:
     """
     Apply tanh waveshaping at ``factor``× oversampling to eliminate in-band aliasing.
