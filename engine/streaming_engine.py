@@ -2102,7 +2102,7 @@ class StreamingDroneEngine:
         # R2: Stereo decorrelation via small phase offset
         # Create slight L/R difference without losing low-freq coherence
         # Use a shallow allpass-like delay (3-5 samples on one channel)
-        delay_samps = 4  # ~0.1ms @ 44.1kHz, ~0.08ms @ 48kHz
+        delay_samps = 4  # ~0.18ms @ 22.05kHz, ~0.08ms @ 48kHz
         signal_R = np.concatenate([self._earth_delay_buf, signal[:-delay_samps]])
         self._earth_delay_buf = signal[-delay_samps:].copy()
         

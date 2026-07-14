@@ -2006,7 +2006,7 @@ async def save_preset_endpoint(request: Request):
             },
             "global": {
                 "duration_seconds": preset_data.get("duration", 60),
-                "sample_rate": 44100,
+                "sample_rate": 22050,
                 "bit_depth": "16-bit",
             },
             "saturation": preset_data.get("saturation", 0.3),

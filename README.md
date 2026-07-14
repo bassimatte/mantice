@@ -165,7 +165,7 @@ runtime `PORT` variable.
 | Setting | YAML Key | Range | Default | Description |
 |---------|----------|-------|---------|-------------|
 | Duration | `global.duration_seconds` | 1–3600 s | 60 | Total audio length |
-| Sample Rate | `global.sample_rate` | 44100/48000 | 44100 | Audio sample rate |
+| Sample Rate | `global.sample_rate` | 22050/48000 | 22050 | Audio sample rate |
 | Bit Depth | `global.bit_depth` | 16-bit/24-bit | 16-bit | Output resolution |
 | Seed | `seed` | any integer | random | Reproducible output |
 | Saturation (Warmth) | `saturation` | 0.0–1.0 | 0.3 | Master soft saturation / tape warmth (normalized tanh waveshaping) |
@@ -419,7 +419,7 @@ meta:
 
 global:
   duration_seconds: 60
-  sample_rate: 44100
+  sample_rate: 22050
   bit_depth: 16-bit
 
 saturation: 0.3        # Master warmth (0=clean, 1=heavy saturation)

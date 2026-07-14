@@ -406,7 +406,7 @@ def run(
             # Build using StreamingDroneEngine with render_mode to match target sample rate
             seed = int(cli_seed) if cli_seed is not None else (preset.get("seed") or 42)
             # render_mode=True uses config.SAMPLE_RATE, render_mode=False uses STREAM_SAMPLE_RATE
-            # For CLI, we want the configured SAMPLE_RATE (44.1k or 48k with --hires)
+            # For CLI, use the configured SAMPLE_RATE (22.05k or 48k with --hires)
             engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=True)
 
             sr           = engine.SR  # Use engine's actual sample rate
@@ -575,7 +575,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--hires", action="store_true",
-        help="Render in high-resolution mode (48kHz/24-bit instead of default 44.1kHz/16-bit)",
+        help="Render in high-resolution mode (48kHz/24-bit instead of default 22.05kHz/16-bit)",
     )
     parser.add_argument(
         "--seed", type=int, default=None,
