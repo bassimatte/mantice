@@ -17,6 +17,16 @@ class FirstGuideTests(unittest.TestCase):
         self.assertIn("window.location.hash.includes('shared=')", self.static_html)
         self.assertIn("if (!firstGuideWasCompleted() && !isSharedLink)", self.static_html)
 
+    def test_deep_dive_is_optional_and_covers_advanced_workflow(self):
+        self.assertIn('id="btn-deep-guide"', self.static_html)
+        self.assertIn("const DEEP_DIVE_STEPS = [", self.static_html)
+        self.assertIn("function openDeepDiveGuide()", self.static_html)
+        for selector in ("#layers-card > h2", "#tuning-panel", "#global-fx-card > h2",
+                         "#master-card > h2", "#automation-card > h2",
+                         "#journey-card > h2", "#btn-files"):
+            self.assertIn(selector, self.static_html)
+        self.assertIn("activeGuideIsFirst &&", self.static_html)
+
     def test_guide_uses_real_sound_controls(self):
         self.assertIn("const FIRST_GUIDE_STEPS = [", self.static_html)
         self.assertIn("loadFirstGuideClassicStart", self.static_html)

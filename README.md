@@ -504,6 +504,7 @@ layers:
 - **Parameter Automation** — breakpoint timeline per parameter with lin/exp/S curves and 5 global templates
 - **Just Intonation mode** — exact-fraction layer roots from a single tonic; zero-beating pure intervals
 - **Settings reference** — ⓘ button opens in-app docs modal
+- **Guided tours** — First Breath introduces the core workflow; the optional Deep Dive maps layers, tuning, FX, mastering, automation, morphing, and export
 
 ### Keyboard Shortcuts
 

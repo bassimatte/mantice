@@ -1877,6 +1877,9 @@ button:disabled {
       <div class="settings-row">
         <button class="settings-info-btn" id="btn-first-guide">◉ First Breath guide</button>
       </div>
+      <div class="settings-row">
+        <button class="settings-info-btn" id="btn-deep-guide">◎ Deep Dive guide</button>
+      </div>
       <div class="settings-divider"></div>
       <div class="settings-row" style="justify-content:space-between;">
         <span class="settings-label" style="font-size:10px;">Code</span>
@@ -2777,7 +2780,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
   </div>
 
   <!-- Master -->
-  <div class="card card-collapsible">
+  <div class="card card-collapsible" id="master-card">
     <h2>Master</h2>
     <div class="param-row">
       <label>Seed</label>
@@ -8811,9 +8814,65 @@ const FIRST_GUIDE_STEPS = [
   }
 ];
 
+function openDeepDiveCard(id) {
+  $(id)?.classList.remove('collapsed');
+}
+
+const DEEP_DIVE_STEPS = [
+  {
+    title: 'Go deeper into Mantice',
+    copy: 'This optional tour maps the deeper sound-design workflow. It changes no parameters, so you can use it with any preset.'
+  },
+  {
+    title: 'Build with layers',
+    copy: 'Each layer is an independent instrument. Choose FM, subtractive, granular or wavetable synthesis, then shape it through Synth, Filter, Space and FX tabs.',
+    selectors: ['#layers-card > h2'],
+    enter: () => openDeepDiveCard('layers-card')
+  },
+  {
+    title: 'Tune the relationships',
+    copy: 'Free mode keeps independent frequencies. JI derives every layer from one tonic using pure intervals, while the tuning system controls how generated notes are quantized.',
+    selectors: ['#tuning-panel'],
+    enter: () => openDeepDiveCard('layers-card')
+  },
+  {
+    title: 'Place the sound in a world',
+    copy: 'Global FX combines binaural processing, reverb, shimmer, Earth and Air. These stages define the shared environment around all layers.',
+    selectors: ['#global-fx-card > h2'],
+    enter: () => openDeepDiveCard('global-fx-card')
+  },
+  {
+    title: 'Control the master bus',
+    copy: 'Master EQ balances the spectrum, compression controls peaks and density, and saturation adds warmth. The 0 dB output default preserves export headroom.',
+    selectors: ['#master-card > h2'],
+    enter: () => openDeepDiveCard('master-card')
+  },
+  {
+    title: 'Create long-form evolution',
+    copy: 'Automation moves parameters over the render using breakpoints, curves and slow random walks. Templates provide coherent starting shapes for drone-scale movement.',
+    selectors: ['#automation-card > h2'],
+    enter: () => openDeepDiveCard('automation-card')
+  },
+  {
+    title: 'Branch into journeys',
+    copy: 'Morphing sequences several presets and crossfades between them. Use it for evolving compositions that travel through distinct drone states.',
+    selectors: ['#journey-card > h2'],
+    enter: () => openDeepDiveCard('journey-card')
+  },
+  {
+    title: 'Render, share and return',
+    copy: 'Files contains audio rendering, preset download, sharing and the gallery. Standard export is 22.05 kHz/16-bit; Hi-Res is 48 kHz/24-bit.',
+    selectors: ['#btn-files'],
+    enter: () => $('files-dropdown')?.classList.add('open')
+  }
+];
+
 let firstGuideIndex = 0;
 let firstGuideCompletedActions = new Set();
 let firstGuidePositionHandler = null;
+let activeGuideSteps = FIRST_GUIDE_STEPS;
+let activeGuideName = 'First Breath';
+let activeGuideIsFirst = true;
 
 function firstGuideStoreComplete() {
   try { localStorage.setItem(FIRST_GUIDE_STORAGE_KEY, '1'); } catch (_) {}
@@ -8826,7 +8885,7 @@ function firstGuideWasCompleted() {
 function positionFirstGuideFocus() {
   const guide = $('first-guide');
   const focus = $('first-guide-focus');
-  const step = FIRST_GUIDE_STEPS[firstGuideIndex];
+  const step = activeGuideSteps[firstGuideIndex];
   const elements = (step.selectors || []).map(selector => document.querySelector(selector)).filter(Boolean);
   guide.classList.toggle('no-target', !elements.length);
   if (!elements.length) { focus.style.display = 'none'; return; }
@@ -8844,23 +8903,23 @@ function positionFirstGuideFocus() {
 }
 
 function renderFirstGuideStep() {
-  const step = FIRST_GUIDE_STEPS[firstGuideIndex];
+  const step = activeGuideSteps[firstGuideIndex];
   if (step.sidebar && innerWidth <= 760) document.querySelector('aside')?.classList.add('sidebar-open');
   else if (innerWidth <= 760) document.querySelector('aside')?.classList.remove('sidebar-open');
   $('sidebar-backdrop')?.classList.remove('open');
-  if (firstGuideIndex !== FIRST_GUIDE_STEPS.length - 1) $('files-dropdown')?.classList.remove('open');
+  if (firstGuideIndex !== activeGuideSteps.length - 1) $('files-dropdown')?.classList.remove('open');
   step.enter?.();
 
-  $('first-guide-kicker').textContent = `First Breath · ${firstGuideIndex + 1} of ${FIRST_GUIDE_STEPS.length}`;
+  $('first-guide-kicker').textContent = `${activeGuideName} · ${firstGuideIndex + 1} of ${activeGuideSteps.length}`;
   $('first-guide-title').textContent = step.title;
   $('first-guide-copy').textContent = step.copy;
   $('first-guide-back').style.visibility = firstGuideIndex ? 'visible' : 'hidden';
-  $('first-guide-explore').style.display = firstGuideIndex ? 'none' : '';
+  $('first-guide-explore').style.display = activeGuideIsFirst && !firstGuideIndex ? '' : 'none';
   const next = $('first-guide-next');
-  next.textContent = firstGuideIndex === FIRST_GUIDE_STEPS.length - 1 ? 'Finish' : 'Next';
+  next.textContent = firstGuideIndex === activeGuideSteps.length - 1 ? 'Finish' : 'Next';
   next.disabled = Boolean(step.action && !firstGuideCompletedActions.has(firstGuideIndex));
   if (next.disabled) next.textContent = step.actionLabel || 'Try it first';
-  $('first-guide-dots').innerHTML = FIRST_GUIDE_STEPS.map((_, index) =>
+  $('first-guide-dots').innerHTML = activeGuideSteps.map((_, index) =>
     `<span class="first-guide-dot${index === firstGuideIndex ? ' active' : ''}"></span>`).join('');
 
   const firstTarget = step.selectors?.map(selector => document.querySelector(selector)).find(Boolean);
@@ -8870,7 +8929,7 @@ function renderFirstGuideStep() {
 }
 
 function closeFirstGuide(alwaysComplete = false) {
-  if (alwaysComplete || $('first-guide-dismiss').checked) firstGuideStoreComplete();
+  if (activeGuideIsFirst && (alwaysComplete || $('first-guide-dismiss').checked)) firstGuideStoreComplete();
   $('first-guide').classList.remove('open', 'no-target');
   $('first-guide-focus').style.display = 'none';
   $('files-dropdown')?.classList.remove('open');
@@ -8882,11 +8941,15 @@ function closeFirstGuide(alwaysComplete = false) {
   firstGuidePositionHandler = null;
 }
 
-function openFirstGuide() {
+function openGuide(steps, name, isFirst = false) {
   $('docs-overlay')?.classList.remove('open');
   $('settings-dropdown')?.classList.remove('open');
+  activeGuideSteps = steps;
+  activeGuideName = name;
+  activeGuideIsFirst = isFirst;
   firstGuideIndex = 0;
   firstGuideCompletedActions = new Set();
+  $('first-guide-dismiss').parentElement.style.display = isFirst ? '' : 'none';
   $('first-guide').classList.add('open');
   firstGuidePositionHandler = positionFirstGuideFocus;
   window.addEventListener('resize', firstGuidePositionHandler);
@@ -8895,34 +8958,38 @@ function openFirstGuide() {
   $('first-guide-next').focus();
 }
 
+function openFirstGuide() { openGuide(FIRST_GUIDE_STEPS, 'First Breath', true); }
+function openDeepDiveGuide() { openGuide(DEEP_DIVE_STEPS, 'Deep Dive', false); }
+
 function initFirstGuide() {
   // The application uses CSS zoom on <body>. Moving the fixed guide beside
   // <body> prevents its viewport coordinates from being scaled a second time.
   document.documentElement.appendChild($('first-guide'));
   $('btn-first-guide').addEventListener('click', openFirstGuide);
+  $('btn-deep-guide').addEventListener('click', openDeepDiveGuide);
   $('first-guide-close').addEventListener('click', () => closeFirstGuide(false));
   $('first-guide-explore').addEventListener('click', () => closeFirstGuide(false));
   $('first-guide-back').addEventListener('click', () => {
     if (firstGuideIndex > 0) { firstGuideIndex--; renderFirstGuideStep(); }
   });
   $('first-guide-next').addEventListener('click', () => {
-    if (firstGuideIndex === FIRST_GUIDE_STEPS.length - 1) closeFirstGuide(true);
+    if (firstGuideIndex === activeGuideSteps.length - 1) closeFirstGuide(true);
     else { firstGuideIndex++; renderFirstGuideStep(); }
   });
   FIRST_GUIDE_STEPS.forEach((step, index) => {
     if (!step.action) return;
     document.querySelector(step.action)?.addEventListener('click', () => {
-      if (!$('first-guide').classList.contains('open') || firstGuideIndex !== index) return;
+      if (!$('first-guide').classList.contains('open') || activeGuideSteps !== FIRST_GUIDE_STEPS || firstGuideIndex !== index) return;
       firstGuideCompletedActions.add(index);
       $('first-guide-next').disabled = false;
       $('first-guide-next').textContent = 'Next';
     });
   });
   $('btn-generate').addEventListener('click', () => {
-    if ($('first-guide').classList.contains('open') && firstGuideIndex === 5) closeFirstGuide(true);
+    if ($('first-guide').classList.contains('open') && activeGuideSteps === FIRST_GUIDE_STEPS && firstGuideIndex === 5) closeFirstGuide(true);
   });
   ['btn-share', 'btn-export'].forEach(id => $(id).addEventListener('click', () => {
-    if ($('first-guide').classList.contains('open') && firstGuideIndex === 6) closeFirstGuide(true);
+    if ($('first-guide').classList.contains('open') && activeGuideSteps === FIRST_GUIDE_STEPS && firstGuideIndex === 6) closeFirstGuide(true);
   }));
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && $('first-guide').classList.contains('open')) closeFirstGuide(false);
