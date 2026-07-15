@@ -137,7 +137,7 @@ See [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) and [MEMORY_REPORT.md](MEMORY
 - **Master EQ & Compressor** — 5-band EQ plus feedforward compression; defaults are −18 dB / 2.5:1 / +4 dB makeup with 0 dB output gain
 - **47 Presets** — across 5 categories (essentials, cinematic, experimental, sacred, subharmonic)
 - **Real-time Web UI** — stream, tweak, save, and export from your browser; layer sub-tabs (Synth/Filter/Space/FX)
-- **Generator** — three candidates with fingerprints, inline previews, expressive intent, engine switches, and moods including Essential-style **Classic**
+- **Generator** — one directly loaded preset from the original six mood algorithms plus Essential-inspired **Classic**, with FM/Sub/Granular engine switches
 - **Preset Save/Load** — create, modify, share, and reconstruct website-exported YAML directly in Python
 
 ---
@@ -497,7 +497,7 @@ layers:
 - **Aurora ribbon visualization** — per-layer frequency ribbons + global RMS ribbon
 - **Log-scale spectrum analyzer** — 20 Hz to Nyquist
 - **Transport** — Play, Stop, Render (full), Download
-- **Generator panel** — expressive intent, Classic and six other moods, three fingerprinted candidates, Preview/Select, and balanced mutation
+- **Generator panel** — original six mood algorithms plus Classic, direct generation and preview, engine switches, history, and balanced mutation
 - **Format selector** — WAV, FLAC, OGG, and MP3 export
 - **Standard / Hi-Res export** — 22.05kHz/16-bit by default; optional 48kHz/24-bit mode
 - **True-peak protection** — website and Python exports share a non-boosting −1 dBFS ceiling

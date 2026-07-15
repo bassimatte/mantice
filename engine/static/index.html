@@ -367,6 +367,31 @@ aside h3 {
 }
 .mood-btn:hover { border-color: var(--accent); color: var(--text); }
 .mood-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.gen-type-row {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+.gen-type-row label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.gen-type-row input[type=checkbox] {
+  accent-color: var(--accent);
+  width: 11px;
+  height: 11px;
+  cursor: pointer;
+}
 .intent-panel { margin: 5px 0 7px; border: 1px solid var(--border); background: var(--bg); }
 .intent-panel summary {
   padding: 4px 6px; color: var(--text-dim); font-size: 8px; cursor: pointer;
@@ -2075,11 +2100,11 @@ button:disabled {
           and hear changes instantly. <strong>Render</strong> computes the full duration at high
           quality for export. Use the <strong>seed</strong> to reproduce exact results, or leave
           it random for variation.</p>
-          <p>The <strong>Generator</strong> creates three candidates from a mood and eight expressive
-          intent controls. Use <strong>Preview</strong> to audition a candidate and <strong>Select</strong>
-          to load it. <strong>Classic</strong> produces warm, stable FM drones inspired by the Essential
-          presets; Minimal is sparser and more restrained. Auto/FM/Sub/Granular switches control the
-          available layer engines. <strong>Mutate</strong> varies the current settings across pitch,
+          <p>The <strong>Generator</strong> creates one random preset biased by Dark, Bright, Cinematic,
+          Minimal, Industrial, Nature or <strong>Classic</strong>. Classic makes warm, stable FM drones
+          inspired by the Essential preset library. FM/Sub/Granular switches constrain the available layer engines;
+          Generate loads the result and starts previewing it immediately. <strong>Mutate</strong> varies
+          the current settings across pitch,
           timbre, motion, space and effects rather than mainly changing pitch.</p>
           <p>Presets are stored as YAML files — human-readable, version-controllable, and shareable.
           Website-exported YAML, including modern layer types and master/tuning settings, can be loaded
@@ -2538,31 +2563,15 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <button class="mood-btn" data-mood="bright">bright</button>
       <button class="mood-btn" data-mood="cinematic">cinematic</button>
       <button class="mood-btn" data-mood="classic">classic</button>
-      <button class="mood-btn active" data-mood="minimal">minimal</button>
+      <button class="mood-btn" data-mood="minimal">minimal</button>
       <button class="mood-btn" data-mood="industrial">industrial</button>
       <button class="mood-btn" data-mood="nature">nature</button>
     </div>
-    <details class="intent-panel" open>
-      <summary>Mood</summary>
-      <div class="intent-grid" id="intent-grid">
-        <div class="intent-row"><label for="intent-density">Density</label><input type="range" id="intent-density" min="0" max="100" value="12"><span class="intent-value" id="intent-density-val">12</span></div>
-        <div class="intent-row"><label for="intent-motion">Motion</label><input type="range" id="intent-motion" min="0" max="100" value="15"><span class="intent-value" id="intent-motion-val">15</span></div>
-        <div class="intent-row"><label for="intent-space">Space</label><input type="range" id="intent-space" min="0" max="100" value="35"><span class="intent-value" id="intent-space-val">35</span></div>
-        <div class="intent-row"><label for="intent-tonality">Tonality</label><input type="range" id="intent-tonality" min="0" max="100" value="68"><span class="intent-value" id="intent-tonality-val">68</span></div>
-        <div class="intent-row"><label for="intent-weight">Weight</label><input type="range" id="intent-weight" min="0" max="100" value="42"><span class="intent-value" id="intent-weight-val">42</span></div>
-        <div class="intent-row"><label for="intent-stability">Stability</label><input type="range" id="intent-stability" min="0" max="100" value="92"><span class="intent-value" id="intent-stability-val">92</span></div>
-        <div class="intent-row"><label for="intent-brightness">Brightness</label><input type="range" id="intent-brightness" min="0" max="100" value="46"><span class="intent-value" id="intent-brightness-val">46</span></div>
-        <div class="intent-row"><label for="intent-evolution">Evolution</label><input type="range" id="intent-evolution" min="0" max="100" value="22"><span class="intent-value" id="intent-evolution-val">22</span></div>
-        <div class="synthesis-row">
-          <div class="synthesis-options">
-            <label class="synthesis-option"><input type="checkbox" id="gen-type-auto" checked> Auto</label>
-            <label class="synthesis-option"><input type="checkbox" class="gen-type-override" value="fm"> FM</label>
-            <label class="synthesis-option"><input type="checkbox" class="gen-type-override" value="subtractive"> Sub</label>
-            <label class="synthesis-option"><input type="checkbox" class="gen-type-override" value="granular"> Granular</label>
-          </div>
-        </div>
-      </div>
-    </details>
+    <div class="gen-type-row">
+      <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
+      <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
+      <label><input type="checkbox" id="gen-type-granular"> Granular</label>
+    </div>
     <details class="intent-panel">
       <summary>Tuning</summary>
       <div class="tuning-panel-body">
@@ -3028,30 +3037,7 @@ let auroraTime = 0;
 // ── State ───────────────────────────────────────────────────────────────────
 let currentParams = null;
 let currentPresetPath = null;
-let selectedMood = 'minimal';
-
-const GENERATOR_INTENT_KEYS = ['density', 'motion', 'space', 'tonality', 'weight', 'stability', 'brightness', 'evolution'];
-const MOOD_INTENT_PROFILES = {
-  dark:       { density:62, motion:35, space:78, tonality:62, weight:90, stability:58, brightness:15, evolution:72 },
-  bright:     { density:45, motion:48, space:68, tonality:82, weight:18, stability:72, brightness:92, evolution:60 },
-  cinematic:  { density:82, motion:65, space:95, tonality:72, weight:76, stability:62, brightness:62, evolution:92 },
-  classic:    { density:28, motion:18, space:42, tonality:82, weight:48, stability:88, brightness:48, evolution:28 },
-  minimal:    { density:12, motion:15, space:35, tonality:68, weight:42, stability:92, brightness:46, evolution:22 },
-  industrial: { density:75, motion:88, space:45, tonality:22, weight:82, stability:18, brightness:55, evolution:68 },
-  nature:     { density:48, motion:68, space:72, tonality:55, weight:45, stability:42, brightness:58, evolution:88 },
-};
-
-function setGeneratorIntent(values) {
-  GENERATOR_INTENT_KEYS.forEach(key => {
-    const value = Math.round(values[key] ?? 50);
-    $(`intent-${key}`).value = value;
-    $(`intent-${key}-val`).textContent = value;
-  });
-}
-
-function collectGeneratorIntent() {
-  return Object.fromEntries(GENERATOR_INTENT_KEYS.map(key => [key, parseInt($(`intent-${key}`).value, 10) / 100]));
-}
+let selectedMood = null;
 
 // Generation History
 const generationHistory = [];
@@ -6969,42 +6955,40 @@ async function chooseGenerationCandidate(index) {
 }
 
 async function doGenerate() {
+  const allowedTypes = [];
+  if ($('gen-type-fm').checked) allowedTypes.push('fm');
+  if ($('gen-type-subtractive').checked) allowedTypes.push('subtractive');
+  if ($('gen-type-granular').checked) allowedTypes.push('granular');
+  if (!allowedTypes.length) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
-  const allowedTypes = $('gen-type-auto').checked
-    ? null
-    : [...document.querySelectorAll('.gen-type-override:checked')].map(input => input.value);
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
   const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
   const harmonicScale = document.getElementById('gen-harmonic-scale')?.value || 'major';
-  const intent = collectGeneratorIntent();
-  const strategy = 'scratch';
-  const locks = [];
-  const baseParams = null;
-  const parentId = null;
-  const context = { mood: selectedMood, harmonicMode, harmonicKey, harmonicScale, intent, strategy, locks, parentId };
-  const seeds = new Uint32Array(9);
-  if (window.crypto?.getRandomValues) window.crypto.getRandomValues(seeds);
-  else seeds.forEach((_, index) => { seeds[index] = Math.random() * 999999; });
-  const requests = [...seeds].map(seed => api('/api/generate', {
+  const data = await api('/api/generate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mood: selectedMood, seed, allowed_types: allowedTypes,
-      harmonic_mode: harmonicMode, harmonic_key: harmonicKey, harmonic_scale: harmonicScale,
-      intent, strategy, locks, base_params: baseParams })
-  }));
-  const results = await Promise.all(requests);
-  if (results.some(result => !result?.ok)) {
-    setStatus(`Generation error: ${results.find(result => !result?.ok)?.error || 'Backend unavailable'}`);
-    return;
-  }
-  const activeTuning = $('tuning-system').value;
-  const candidatePool = results.map((result, index) => {
-    if (activeTuning !== '12-TET') _applyTuningOffsets(result.params, activeTuning);
-    return candidateDescriptor(result.params, index, context);
+    body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes,
+      harmonic_mode: harmonicMode, harmonic_key: harmonicKey, harmonic_scale: harmonicScale })
   });
-  generationCandidates = selectQualityCandidates(candidatePool, intent);
-  renderGenerationCandidates();
-  $('generation-candidates-overlay').classList.add('open');
-  setStatus('Three textures ready');
+  if (data?.ok) {
+    currentParams = data.params;
+    currentPresetPath = null;
+    currentSharedId = null;
+    const activeTuning = $('tuning-system').value;
+    if (activeTuning !== '12-TET') _applyTuningOffsets(currentParams, activeTuning);
+    addToGenerationHistory({
+      params: JSON.parse(JSON.stringify(currentParams)), timestamp: Date.now(),
+      mood: selectedMood, harmonicMode, harmonicKey, harmonicScale,
+      displayName: currentParams.name || 'Unnamed Preset', id: `hist_${Date.now()}`,
+    });
+    applyParamsToUI(currentParams);
+    markClean();
+    updateNowPlaying();
+    setStatus('Generated — previewing…');
+    stopAudio();
+    doPreview();
+  } else {
+    setStatus(`Error: ${data?.error || 'Backend unavailable'}`);
+  }
 }
 
 async function doMutate() {
@@ -8806,8 +8790,8 @@ function renderAutomationCard() {
 }
 
 const FIRST_GUIDE_STORAGE_KEY = 'mantice_first_breath_complete_v1';
-function loadFirstGuideClassicStart() {
-  document.querySelector('.mood-btn[data-mood="classic"]')?.click();
+function loadFirstGuideGeneratorStart() {
+  document.querySelector('.mood-btn[data-mood="minimal"]')?.click();
   const warmPad = allPresets.find(preset => preset.name === 'Warm Pad');
   if (warmPad) loadPreset(warmPad.path, document.querySelector(`.preset-item[data-path="${warmPad.path}"]`));
 }
@@ -8823,11 +8807,11 @@ const FIRST_GUIDE_STEPS = [
     sidebar: true
   },
   {
-    title: 'Begin with Classic',
-    copy: 'Classic is a warm, stable starting point inspired by the Essential presets. We selected the Classic generator mood and loaded Warm Pad so you can hear that character now.',
-    selectors: ['.mood-btn[data-mood="classic"]'],
+    title: 'Begin with a mood',
+    copy: 'The six original moods keep Mantice’s restored random-generation characters, while Classic adds a warm Essential-inspired option. We selected Minimal and loaded Warm Pad so you can hear a restrained starting point now.',
+    selectors: ['.mood-btn[data-mood="minimal"]'],
     sidebar: true,
-    enter: loadFirstGuideClassicStart
+    enter: loadFirstGuideGeneratorStart
   },
   {
     title: 'Start the sound',
@@ -8837,14 +8821,14 @@ const FIRST_GUIDE_STEPS = [
     actionLabel: 'Press Play'
   },
   {
-    title: 'Shape what you hear',
-    copy: 'Brightness changes spectral color, Motion changes activity, and Space changes scale and ambience. These three controls are enough to transform a drone.',
-    selectors: ['#intent-brightness', '#intent-motion', '#intent-space'],
+    title: 'Choose the sound engines',
+    copy: 'FM and Sub are enabled by default. Add Granular for sampled textures, or switch engines off to constrain the next generated preset.',
+    selectors: ['.gen-type-row'],
     sidebar: true
   },
   {
     title: 'Discover three textures',
-    copy: 'Generate creates three candidates from your mood and settings. Preview each texture, then Select the one you want to continue shaping.',
+    copy: 'Generate creates one preset directly from the selected mood and engine choices, loads it, and starts previewing it.',
     selectors: ['#btn-generate'],
     sidebar: true
   },
@@ -9163,27 +9147,16 @@ function init() {
       document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       selectedMood = btn.dataset.mood;
-      setGeneratorIntent(MOOD_INTENT_PROFILES[selectedMood]);
-      resetSynthesisToAuto();
+      if (selectedMood === 'classic') {
+        $('gen-type-fm').checked = true;
+        $('gen-type-subtractive').checked = false;
+        $('gen-type-granular').checked = false;
+      } else {
+        $('gen-type-fm').checked = true;
+        $('gen-type-subtractive').checked = true;
+        $('gen-type-granular').checked = false;
+      }
     });
-  });
-  function resetSynthesisToAuto() {
-    $('gen-type-auto').checked = true;
-    document.querySelectorAll('.gen-type-override').forEach(input => { input.checked = false; });
-  }
-  $('gen-type-auto').addEventListener('change', () => {
-    if ($('gen-type-auto').checked) resetSynthesisToAuto();
-    else if (!document.querySelector('.gen-type-override:checked')) $('gen-type-auto').checked = true;
-  });
-  document.querySelectorAll('.gen-type-override').forEach(input => {
-    input.addEventListener('change', () => {
-      if (input.checked) $('gen-type-auto').checked = false;
-      if (!document.querySelector('.gen-type-override:checked')) $('gen-type-auto').checked = true;
-    });
-  });
-  GENERATOR_INTENT_KEYS.forEach(key => {
-    const slider = $(`intent-${key}`);
-    slider.addEventListener('input', () => { $(`intent-${key}-val`).textContent = slider.value; });
   });
 
   // Toggles (with undo)

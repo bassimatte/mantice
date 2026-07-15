@@ -35,12 +35,12 @@ class FirstGuideTests(unittest.TestCase):
 
     def test_guide_uses_real_sound_controls(self):
         self.assertIn("const FIRST_GUIDE_STEPS = [", self.static_html)
-        self.assertIn("loadFirstGuideClassicStart", self.static_html)
+        self.assertIn("loadFirstGuideGeneratorStart", self.static_html)
         self.assertIn("preset.name === 'Warm Pad'", self.static_html)
         self.assertIn("Explore the preset library", self.static_html)
         self.assertIn("selectors: ['#preset-list']", self.static_html)
-        for selector in ("#btn-preview", "#intent-brightness", "#intent-motion",
-                         "#intent-space", "#btn-generate", "#btn-share", "#btn-export"):
+        for selector in ("#btn-preview", ".gen-type-row", "#btn-generate",
+                         "#btn-share", "#btn-export"):
             self.assertIn(selector, self.static_html)
         self.assertIn("firstGuideIndex === 5) closeFirstGuide(true)", self.static_html)
         self.assertIn("firstGuideIndex === 6) closeFirstGuide(true)", self.static_html)
