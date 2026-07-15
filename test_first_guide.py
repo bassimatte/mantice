@@ -44,6 +44,7 @@ class FirstGuideTests(unittest.TestCase):
             self.assertIn(selector, self.static_html)
         self.assertIn("firstGuideIndex === 5) closeFirstGuide(true)", self.static_html)
         self.assertIn("firstGuideIndex === 6) closeFirstGuide(true)", self.static_html)
+        self.assertIn("Settings → Deep Dive guide", self.static_html)
 
     def test_spotlight_is_outside_body_zoom_and_tracks_scroll(self):
         self.assertIn("document.documentElement.appendChild($('first-guide'))", self.static_html)
