@@ -58,6 +58,15 @@ class FirstGuideTests(unittest.TestCase):
     def test_mobile_uses_bottom_sheet(self):
         self.assertIn(".first-guide-card { left:0; right:0; top:auto; bottom:0", self.static_html)
 
+    def test_render_dialog_links_to_local_installation(self):
+        self.assertIn('id="render-info-overlay"', self.static_html)
+        self.assertIn('id="render-info-continue"', self.static_html)
+        self.assertIn('id="render-info-local"', self.static_html)
+        self.assertIn('id="run-locally-install"', self.static_html)
+        self.assertIn("$('btn-render-files').addEventListener('click', openRenderInfo)", self.static_html)
+        self.assertIn("document.querySelector('.docs-tab[data-tab=\"tab-run\"]')?.click()", self.static_html)
+        self.assertIn("48 kHz / 24-bit with <code>--hires</code>", self.static_html)
+
 
 if __name__ == "__main__":
     unittest.main()

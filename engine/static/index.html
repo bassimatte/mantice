@@ -1385,6 +1385,14 @@ button:disabled {
 
 /* ── Gallery Modal ──────────────────────────── */
 .candidate-modal { width: min(1120px, 95vw); max-height: 90vh; border-radius: 4px; }
+.render-info-modal { width: min(520px, 92vw); }
+.render-info-body { padding: 20px; color: var(--text); font-size: 12px; line-height: 1.65; }
+.render-info-body p { margin: 0 0 12px; }
+.render-info-quality { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 18px; }
+.render-info-quality > div { padding:10px; background:var(--bg); border:1px solid var(--border); }
+.render-info-quality strong { display:block; margin-bottom:4px; color:var(--accent); font-size:10px; text-transform:uppercase; }
+.render-info-actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+@media (max-width:560px) { .render-info-quality { grid-template-columns:1fr; } .render-info-actions .btn { flex:1 1 100%; } }
 .candidate-modal .docs-header { justify-content: flex-end; padding: 8px 12px; }
 .candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; overflow-y: auto; }
 .candidate-card { display: flex; flex-direction: column; min-width: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-top: 3px solid var(--candidate-accent, var(--accent)); }
@@ -2088,7 +2096,7 @@ button:disabled {
         <h3>Run Locally (Offline)</h3>
         <p>Download Mantice and run it entirely on your machine — no internet required after cloning.</p>
 
-        <div class="docs-section">
+        <div class="docs-section" id="run-locally-install">
           <h4>▸ Installation</h4>
           <pre style="background:var(--bg);border:1px solid var(--border);padding:10px;font-size:11px;overflow-x:auto;line-height:1.6;margin:8px 0;">
 # Clone the repository
@@ -2909,6 +2917,27 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
     <div id="journey-body"></div>
   </div>
 </main>
+
+<!-- Website render information -->
+<div class="docs-overlay" id="render-info-overlay">
+  <div class="docs-modal render-info-modal" role="dialog" aria-modal="true" aria-labelledby="render-info-title">
+    <div class="docs-header">
+      <h2 id="render-info-title">Render &amp; Download</h2>
+      <button class="docs-close" id="render-info-close" aria-label="Close">✕</button>
+    </div>
+    <div class="render-info-body">
+      <p>You can render directly from this website. For longer sessions and unrestricted high-resolution exports, install Mantice and run the Python app locally on your computer.</p>
+      <div class="render-info-quality">
+        <div><strong>Website</strong>22.05 kHz / 16-bit standard<br>48 kHz / 24-bit Hi-Res up to 30 seconds</div>
+        <div><strong>Python app</strong>Long-duration rendering<br>48 kHz / 24-bit with <code>--hires</code></div>
+      </div>
+      <div class="render-info-actions">
+        <button class="btn btn-outline" id="render-info-local">How to install locally</button>
+        <button class="btn" id="render-info-continue">Continue website render</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Generated candidate comparison -->
 <div class="docs-overlay" id="generation-candidates-overlay">
@@ -6571,6 +6600,19 @@ async function doRender() {
   }
 }
 
+function openRenderInfo() {
+  if ($('first-guide').classList.contains('open')) closeFirstGuide(true);
+  $('files-dropdown').classList.remove('open');
+  $('render-info-overlay').classList.add('open');
+}
+
+function openLocalInstallDocs() {
+  $('render-info-overlay').classList.remove('open');
+  document.querySelector('.docs-tab[data-tab="tab-run"]')?.click();
+  $('docs-overlay').classList.add('open');
+  setTimeout(() => $('run-locally-install')?.scrollIntoView({ block: 'start' }), 0);
+}
+
 // ── Generation History ──────────────────────────────────────────────────────
 function initGenerationHistory() {
   const stored = localStorage.getItem("mantice_generation_history");
@@ -9270,7 +9312,19 @@ function init() {
     }
     e.stopPropagation();
   });
-  $('btn-render-files').addEventListener('click', doRender);
+  $('btn-render-files').addEventListener('click', openRenderInfo);
+  $('render-info-close').addEventListener('click', () => $('render-info-overlay').classList.remove('open'));
+  $('render-info-overlay').addEventListener('click', event => {
+    if (event.target === $('render-info-overlay')) $('render-info-overlay').classList.remove('open');
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') $('render-info-overlay').classList.remove('open');
+  });
+  $('render-info-local').addEventListener('click', openLocalInstallDocs);
+  $('render-info-continue').addEventListener('click', () => {
+    $('render-info-overlay').classList.remove('open');
+    doRender();
+  });
 
   // ── Collapsible Cards ───────────────────────────────────────────────────────
   document.querySelectorAll('.card-collapsible h2').forEach(h2 => {
