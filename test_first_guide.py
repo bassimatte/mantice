@@ -21,11 +21,18 @@ class FirstGuideTests(unittest.TestCase):
         self.assertIn("const FIRST_GUIDE_STEPS = [", self.static_html)
         self.assertIn("loadFirstGuideClassicStart", self.static_html)
         self.assertIn("preset.name === 'Warm Pad'", self.static_html)
+        self.assertIn("Explore the preset library", self.static_html)
+        self.assertIn("selectors: ['#preset-list']", self.static_html)
         for selector in ("#btn-preview", "#intent-brightness", "#intent-motion",
                          "#intent-space", "#btn-generate", "#btn-share", "#btn-export"):
             self.assertIn(selector, self.static_html)
-        self.assertIn("firstGuideIndex === 4) closeFirstGuide(true)", self.static_html)
         self.assertIn("firstGuideIndex === 5) closeFirstGuide(true)", self.static_html)
+        self.assertIn("firstGuideIndex === 6) closeFirstGuide(true)", self.static_html)
+
+    def test_spotlight_is_outside_body_zoom_and_tracks_scroll(self):
+        self.assertIn("document.documentElement.appendChild($('first-guide'))", self.static_html)
+        self.assertIn("window.addEventListener('scroll', firstGuidePositionHandler, true)", self.static_html)
+        self.assertIn("window.removeEventListener('scroll', firstGuidePositionHandler, true)", self.static_html)
 
     def test_mobile_uses_bottom_sheet(self):
         self.assertIn(".first-guide-card { left:0; right:0; top:auto; bottom:0", self.static_html)

@@ -2506,7 +2506,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
   <div class="first-guide-focus" id="first-guide-focus"></div>
   <div class="first-guide-card">
     <button class="first-guide-close" id="first-guide-close" aria-label="Close guide">✕</button>
-    <div class="first-guide-kicker" id="first-guide-kicker">First Breath · 1 of 6</div>
+    <div class="first-guide-kicker" id="first-guide-kicker">First Breath · 1 of 7</div>
     <h2 id="first-guide-title">Welcome to Mantice</h2>
     <p id="first-guide-copy"></p>
     <div class="first-guide-dots" id="first-guide-dots" aria-hidden="true"></div>
@@ -8772,6 +8772,12 @@ const FIRST_GUIDE_STEPS = [
     copy: 'Mantice creates living, evolving drones. In less than a minute, you can choose a character, hear it, shape it and keep the result.'
   },
   {
+    title: 'Explore the preset library',
+    copy: 'Mantice already includes Essential, Cinematic, Experimental, Sacred and Subharmonic presets. Click any name to load it, then press Play to hear it.',
+    selectors: ['#preset-list'],
+    sidebar: true
+  },
+  {
     title: 'Begin with Classic',
     copy: 'Classic is a warm, stable starting point inspired by the Essential presets. We selected the Classic generator mood and loaded Warm Pad so you can hear that character now.',
     selectors: ['.mood-btn[data-mood="classic"]'],
@@ -8807,7 +8813,7 @@ const FIRST_GUIDE_STEPS = [
 
 let firstGuideIndex = 0;
 let firstGuideCompletedActions = new Set();
-let firstGuideResizeHandler = null;
+let firstGuidePositionHandler = null;
 
 function firstGuideStoreComplete() {
   try { localStorage.setItem(FIRST_GUIDE_STORAGE_KEY, '1'); } catch (_) {}
@@ -8869,8 +8875,11 @@ function closeFirstGuide(alwaysComplete = false) {
   $('first-guide-focus').style.display = 'none';
   $('files-dropdown')?.classList.remove('open');
   document.querySelector('aside')?.classList.remove('sidebar-open');
-  if (firstGuideResizeHandler) window.removeEventListener('resize', firstGuideResizeHandler);
-  firstGuideResizeHandler = null;
+  if (firstGuidePositionHandler) {
+    window.removeEventListener('resize', firstGuidePositionHandler);
+    window.removeEventListener('scroll', firstGuidePositionHandler, true);
+  }
+  firstGuidePositionHandler = null;
 }
 
 function openFirstGuide() {
@@ -8879,13 +8888,17 @@ function openFirstGuide() {
   firstGuideIndex = 0;
   firstGuideCompletedActions = new Set();
   $('first-guide').classList.add('open');
-  firstGuideResizeHandler = positionFirstGuideFocus;
-  window.addEventListener('resize', firstGuideResizeHandler);
+  firstGuidePositionHandler = positionFirstGuideFocus;
+  window.addEventListener('resize', firstGuidePositionHandler);
+  window.addEventListener('scroll', firstGuidePositionHandler, true);
   renderFirstGuideStep();
   $('first-guide-next').focus();
 }
 
 function initFirstGuide() {
+  // The application uses CSS zoom on <body>. Moving the fixed guide beside
+  // <body> prevents its viewport coordinates from being scaled a second time.
+  document.documentElement.appendChild($('first-guide'));
   $('btn-first-guide').addEventListener('click', openFirstGuide);
   $('first-guide-close').addEventListener('click', () => closeFirstGuide(false));
   $('first-guide-explore').addEventListener('click', () => closeFirstGuide(false));
@@ -8906,10 +8919,10 @@ function initFirstGuide() {
     });
   });
   $('btn-generate').addEventListener('click', () => {
-    if ($('first-guide').classList.contains('open') && firstGuideIndex === 4) closeFirstGuide(true);
+    if ($('first-guide').classList.contains('open') && firstGuideIndex === 5) closeFirstGuide(true);
   });
   ['btn-share', 'btn-export'].forEach(id => $(id).addEventListener('click', () => {
-    if ($('first-guide').classList.contains('open') && firstGuideIndex === 5) closeFirstGuide(true);
+    if ($('first-guide').classList.contains('open') && firstGuideIndex === 6) closeFirstGuide(true);
   }));
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && $('first-guide').classList.contains('open')) closeFirstGuide(false);
