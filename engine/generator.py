@@ -64,6 +64,23 @@ _MOOD_PROFILES = {
         "synth_weights": {"fm": 0.30, "subtractive": 0.35, "granular": 0.35},
         "mood_tags": ["cinematic", "epic", "immersive"],
     },
+    "classic": {
+        "root_range": (55, 220),
+        "voice_range": (3, 8),
+        "fm_index_range": (0.04, 0.18),
+        "drift_range": (0.004, 0.015),
+        "ratios_pool": [[1.0], [1.0, 2.0], [1.0, 1.5, 2.0]],
+        "reverb_decay": (0.84, 0.91),
+        "reverb_damping": (0.3, 0.5),
+        "reverb_room": (0.4, 0.7),
+        "earth_prob": 0.0,
+        "air_prob": 0.0,
+        "synth_weights": {"fm": 1.0},
+        "saturation_range": (0.2, 0.4),
+        "spatial_depth_range": (0.5, 0.9),
+        "spatial_wetness": 0.5,
+        "mood_tags": ["classic", "essential", "warm"],
+    },
     "minimal": {
         "root_range": (60, 220),
         "voice_range": (2, 6),
@@ -114,6 +131,7 @@ _MOOD_INTENTS = {
     "dark":       dict(density=.62, motion=.35, space=.78, tonality=.62, weight=.90, stability=.58, brightness=.15, evolution=.72),
     "bright":     dict(density=.45, motion=.48, space=.68, tonality=.82, weight=.18, stability=.72, brightness=.92, evolution=.60),
     "cinematic":  dict(density=.82, motion=.65, space=.95, tonality=.72, weight=.76, stability=.62, brightness=.62, evolution=.92),
+    "classic":    dict(density=.28, motion=.18, space=.42, tonality=.82, weight=.48, stability=.88, brightness=.48, evolution=.28),
     "minimal":    dict(density=.12, motion=.15, space=.35, tonality=.68, weight=.42, stability=.92, brightness=.46, evolution=.22),
     "industrial": dict(density=.75, motion=.88, space=.45, tonality=.22, weight=.82, stability=.18, brightness=.55, evolution=.68),
     "nature":     dict(density=.48, motion=.68, space=.72, tonality=.55, weight=.45, stability=.42, brightness=.58, evolution=.88),
@@ -142,6 +160,7 @@ _SUB_PROFILES = {
     "dark":       dict(waveforms=["saw","square"],     detune=(12,28), sub_mix=(0.35,0.65), filters=["lp","lp","bp"],  cutoff=(200,700),   res=(1.8,3.5), lfo_rate=(0.04,0.15), lfo_depth=(0.4,0.8),  lfo_shapes=["sine","triangle"]),
     "bright":     dict(waveforms=["triangle","saw"],   detune=(4,12),  sub_mix=(0.15,0.4),  filters=["bp","hp"],       cutoff=(1500,4000), res=(1.2,2.5), lfo_rate=(0.2,0.5),  lfo_depth=(0.2,0.5),  lfo_shapes=["sine","triangle"]),
     "cinematic":  dict(waveforms=["saw","triangle"],   detune=(8,22),  sub_mix=(0.4,0.9),   filters=["lp","lp","bp"],  cutoff=(400,1200),  res=(1.5,3.0), lfo_rate=(0.04,0.12),lfo_depth=(0.3,0.7),  lfo_shapes=["sine","triangle"]),
+    "classic":    dict(waveforms=["triangle","saw"],   detune=(3,8),   sub_mix=(0.25,0.5),  filters=["off","lp"],      cutoff=(700,1800),  res=(0.7,1.4), lfo_rate=(0.02,0.07),lfo_depth=(0.05,0.25),lfo_shapes=["sine"]),
     "minimal":    dict(waveforms=["triangle","saw"],   detune=(3,8),   sub_mix=(0.3,0.6),   filters=["lp","off"],      cutoff=(600,1800),  res=(0.8,1.5), lfo_rate=(0.02,0.08),lfo_depth=(0.1,0.35), lfo_shapes=["sine"]),
     "industrial": dict(waveforms=["saw","square","square"], detune=(15,35), sub_mix=(0.5,1.0), filters=["lp","bp","hp"], cutoff=(300,2000), res=(2.0,4.5), lfo_rate=(0.1,0.4),  lfo_depth=(0.3,0.7),  lfo_shapes=["square","triangle","sine"]),
     "nature":     dict(waveforms=["triangle","saw"],   detune=(5,15),  sub_mix=(0.2,0.5),   filters=["lp","bp"],       cutoff=(500,2000),  res=(1.0,2.0), lfo_rate=(0.08,0.25),lfo_depth=(0.2,0.5),  lfo_shapes=["sine","triangle"]),
@@ -531,12 +550,15 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
         },
         "reverb": reverb,
         "spatial": {
-            "depth": round(random.uniform(1.0, 3.0), 1),
-            "wetness": 0.0,
+            "depth": round(random.uniform(*profile.get("spatial_depth_range", (1.0, 3.0))), 1),
+            "wetness": float(profile.get("spatial_wetness", 0.0)),
             "swarm_density": round(random.uniform(0.2, 0.7), 2),
         },
         "layers": layers,
     }
+
+    if "saturation_range" in profile:
+        preset["saturation"] = round(random.uniform(*profile["saturation_range"]), 2)
 
     if earth:
         preset["earth"] = earth
