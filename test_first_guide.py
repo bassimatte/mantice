@@ -25,6 +25,12 @@ class FirstGuideTests(unittest.TestCase):
                          "#master-card > h2", "#automation-card > h2",
                          "#journey-card > h2", "#btn-files"):
             self.assertIn(selector, self.static_html)
+        self.assertIn("Choose a synthesis engine", self.static_html)
+        self.assertIn("FM for pure-to-metallic spectra", self.static_html)
+        self.assertIn("Shape each layer", self.static_html)
+        self.assertIn("distortion, chorus, flanger and phaser", self.static_html)
+        self.assertIn("openDeepDiveLayerTab('synth')", self.static_html)
+        self.assertIn("openDeepDiveLayerTab('fx')", self.static_html)
         self.assertIn("activeGuideIsFirst &&", self.static_html)
 
     def test_guide_uses_real_sound_controls(self):

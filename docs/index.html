@@ -8818,6 +8818,11 @@ function openDeepDiveCard(id) {
   $(id)?.classList.remove('collapsed');
 }
 
+function openDeepDiveLayerTab(name) {
+  openDeepDiveCard('layers-card');
+  document.querySelector(`#layer-params .layer-subtab[data-subtab="${name}"]`)?.click();
+}
+
 const DEEP_DIVE_STEPS = [
   {
     title: 'Go deeper into Mantice',
@@ -8825,9 +8830,21 @@ const DEEP_DIVE_STEPS = [
   },
   {
     title: 'Build with layers',
-    copy: 'Each layer is an independent instrument. Choose FM, subtractive, granular or wavetable synthesis, then shape it through Synth, Filter, Space and FX tabs.',
+    copy: 'Each layer is an independent instrument with its own engine, pitch, dynamics, placement and effects. Layer tabs choose the voice you are editing; add, mute or solo layers to arrange the ensemble.',
     selectors: ['#layers-card > h2'],
     enter: () => openDeepDiveCard('layers-card')
+  },
+  {
+    title: 'Choose a synthesis engine',
+    copy: 'Synth offers four engines: FM for pure-to-metallic spectra; Subtractive for waveform, detune and sub-bass weight; Granular for clouds built from recorded sound; and Wavetable for slowly scanning imported waveform frames. Root, voices and ratios establish the pitch structure.',
+    selectors: ['#layer-params .layer-subtab[data-subtab="synth"]'],
+    enter: () => openDeepDiveLayerTab('synth')
+  },
+  {
+    title: 'Shape each layer',
+    copy: 'Filter provides LP, HP, BP, Comb and Formant shaping with cutoff LFO movement. Space controls pan, width, trajectory and elevation. FX adds distortion, chorus, flanger and phaser after synthesis and filtering.',
+    selectors: ['#layer-params .layer-subtab[data-subtab="filter"]', '#layer-params .layer-subtab[data-subtab="space"]', '#layer-params .layer-subtab[data-subtab="fx"]'],
+    enter: () => openDeepDiveLayerTab('fx')
   },
   {
     title: 'Tune the relationships',
