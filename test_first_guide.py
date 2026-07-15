@@ -34,6 +34,10 @@ class FirstGuideTests(unittest.TestCase):
         self.assertIn("window.addEventListener('scroll', firstGuidePositionHandler, true)", self.static_html)
         self.assertIn("window.removeEventListener('scroll', firstGuidePositionHandler, true)", self.static_html)
 
+    def test_guide_keeps_mantice_typography_outside_body(self):
+        self.assertIn(".first-guide { display: none;", self.static_html)
+        self.assertIn("font-family: 'Space Mono', monospace", self.static_html)
+
     def test_mobile_uses_bottom_sheet(self):
         self.assertIn(".first-guide-card { left:0; right:0; top:auto; bottom:0", self.static_html)
 
