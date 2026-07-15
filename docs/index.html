@@ -1920,6 +1920,11 @@ button:disabled {
           impossible with pure synthesis. Control grain size, density, pitch spread, and
           read position to sculpt the cloud.</p>
 
+          <h4>Wavetable Synthesis</h4>
+          <p>Wavetable layers scan through imported WAV tables as a fourth sound source.
+          Frame position, scan range and scan speed turn a single table into a slowly evolving drone.
+          Imported tables are stored with shared presets so the same sound can be reconstructed elsewhere.</p>
+
           <h4>Spatial Motion</h4>
           <p>Each layer has a <strong>position in 3D space</strong> — horizontal (left/right, front/back)
           and vertical (elevation). Layers can move through space using trajectories: orbit, drift,
@@ -1949,7 +1954,8 @@ button:disabled {
           <strong>Global FX</strong> card below the layers, ordered by signal chain:
           Reverb → Shimmer → Earth &amp; Air → Binaural.</p>
           <p class="docs-note" style="font-size:11px;">Per-layer signal chain: Synthesis → Filter → Distortion → Panner → Chorus → Flanger → Phaser<br>
-          Global chain: DC Block → Saturation → Reverb → Shimmer → Earth &amp; Air → Master EQ/Comp → Limiter → Binaural</p>
+          Global chain: DC Block → Saturation → Reverb → Shimmer → Earth &amp; Air → Master EQ/Comp → Binaural<br>
+          Offline export: oversampled saturation → convolution reverb → non-boosting −1 dBFS true-peak ceiling</p>
         </div>
 
         <h3>Global Processing</h3>
@@ -2021,12 +2027,15 @@ button:disabled {
           and hear changes instantly. <strong>Render</strong> computes the full duration at high
           quality for export. Use the <strong>seed</strong> to reproduce exact results, or leave
           it random for variation.</p>
-          <p>The <strong>Generator</strong> creates random presets biased by mood. Choose which
-          synthesis types to include — <em>FM</em> and/or <em>Subtractive</em> — then click Generate.
-          <strong>Mutate</strong> takes the current preset and introduces controlled variation
-          (use the Amount slider to set how wild).</p>
+          <p>The <strong>Generator</strong> creates three candidates from a mood and eight expressive
+          intent controls. Use <strong>Preview</strong> to audition a candidate and <strong>Select</strong>
+          to load it. <strong>Classic</strong> produces warm, stable FM drones inspired by the Essential
+          presets; Minimal is sparser and more restrained. Auto/FM/Sub/Granular switches control the
+          available layer engines. <strong>Mutate</strong> varies the current settings across pitch,
+          timbre, motion, space and effects rather than mainly changing pitch.</p>
           <p>Presets are stored as YAML files — human-readable, version-controllable, and shareable.
-          Use Save/Save As to create your own library.</p>
+          Website-exported YAML, including modern layer types and master/tuning settings, can be loaded
+          directly by Python without rebuilding the file.</p>
         </div>
 
         <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
@@ -2085,6 +2094,12 @@ python main.py --generate
 
 # Generate with a mood bias
 python main.py --generate --mood dark
+
+# Generate an Essential-style classic drone
+python main.py --generate --mood classic
+
+# Standard export is 22.05kHz / 16-bit; opt into 48kHz / 24-bit
+python main.py --name "Warm Pad" --hires
 
 # Mutate an existing preset
 python main.py --mutate "Breathing Cathedral" --amount 0.3
@@ -2159,6 +2174,8 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
           <tr><td>Duration</td><td>1–3600 s</td><td>60</td><td>Total audio length</td></tr>
+          <tr><td>Standard Export</td><td>WAV / FLAC / OGG / MP3</td><td>22.05 kHz / 16-bit</td><td>Shared website and Python default</td></tr>
+          <tr><td>Hi-Res Export</td><td>toggle / <code>--hires</code></td><td>off</td><td>48 kHz / 24-bit; website renders are limited to 30 seconds</td></tr>
           <tr><td>Saturation</td><td>0.0–1.0</td><td>0.3</td><td>Master soft saturation — normalized tanh waveshaping for tape-like warmth</td></tr>
           <tr><td>Seed</td><td>any integer</td><td>random</td><td>Reproducible output</td></tr>
         </table>
@@ -2361,14 +2378,15 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <h3>Master Compressor</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Threshold</td><td>-40–0 dB</td><td>0</td><td>Level above which compression begins</td></tr>
-          <tr><td>Ratio</td><td>1–20</td><td>2.0</td><td>Compression ratio (e.g. 4:1)</td></tr>
+          <tr><td>Threshold</td><td>-40–0 dB</td><td>−18</td><td>Level above which compression begins</td></tr>
+          <tr><td>Ratio</td><td>1–20</td><td>2.5</td><td>Compression ratio (e.g. 4:1)</td></tr>
           <tr><td>Attack</td><td>1–500 ms</td><td>50</td><td>Time to reach full compression</td></tr>
           <tr><td>Release</td><td>10–2000 ms</td><td>200</td><td>Time to recover after signal drops</td></tr>
-          <tr><td>Knee</td><td>0–12 dB</td><td>0</td><td>Soft-knee width for gradual onset</td></tr>
-          <tr><td>Makeup Gain</td><td>-6–12 dB</td><td>0</td><td>Output gain after compression</td></tr>
+          <tr><td>Knee</td><td>0–12 dB</td><td>3</td><td>Soft-knee width for gradual onset</td></tr>
+          <tr><td>Makeup Gain</td><td>-6–12 dB</td><td>+4</td><td>Gain after compression</td></tr>
+          <tr><td>Output Gain</td><td>-6–12 dB</td><td>0</td><td>Final master gain; 0 dB preserves headroom</td></tr>
         </table>
-        <p class="docs-note">Feed-forward peak compressor on the master bus. Use a soft knee (4–8 dB) for transparent limiting; fast attack/slow release for pumping effects.</p>
+        <p class="docs-note">These defaults are shared by website and Python, including older presets with no master block. Offline exports finish with a non-boosting 4× oversampled true-peak check at −1 dBFS: hot renders are attenuated uniformly, while quiet renders are not raised.</p>
       </div>
 
       <!-- ═══ TAB 3: Shortcuts ═══ -->

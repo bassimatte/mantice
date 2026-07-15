@@ -1,7 +1,7 @@
 # MANTICE — The Breath Behind the Drone
 
-A procedural sacred/ambient drone audio generator with FM synthesis, granular clouds,
-spatial panning, binaural beats, FDN reverb, and a real-time Web UI.
+A procedural sacred/ambient drone generator with FM, subtractive, granular and wavetable
+synthesis, spatial motion, binaural beats, evolving effects, and a real-time Web UI.
 
 **Created by Matteo Bassi** — [freesound.org/people/bassimat](https://freesound.org/people/bassimat/)
 
@@ -57,7 +57,7 @@ python main.py --preset "presets/essentials/Warm Pad.yaml" --duration 120
 
 ```
 Per-Layer (each layer independently):
-  Synthesis (FM / Subtractive / Granular)
+  Synthesis (FM / Subtractive / Granular / Wavetable)
   → Filter (LP/HP/BP/Comb/Formant) + LFO
   → Distortion (tanh soft / hard clip)
   → Panner (quadrant + trajectory + elevation)
@@ -71,9 +71,12 @@ Global (after all layers are mixed):
   → Shimmer FX (pitch-shifted feedback tail)
   → Earth + Air (sub-bass rumble / breath texture — kept dry, post-reverb)
   → Master EQ + Compressor
-  → Soft Limiter
   → Crossfade (hot-reload)
   → Binaural (absolutely last — psychoacoustic L/R preserved to headphones)
+
+Offline export (website and Python):
+  4× Oversampled Saturation → Convolution Reverb
+  → non-boosting 4× true-peak check at −1 dBFS
 ```
 
 ---
@@ -121,6 +124,7 @@ See [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) and [MEMORY_REPORT.md](MEMORY
 - **FM Synthesis** — up to 12 detuned voices per layer with configurable harmonics and harmonic decay
 - **Subtractive Synthesis** — dual detuned oscillator pairs (saw/square/triangle) + sine sub-oscillator; classic Reese bass style
 - **Granular Clouds** — sample-based grain synthesis with 17 CC0 sound sources (singing bowls, gongs, wind, etc.)
+- **Wavetable Synthesis** — import WAV tables, scan frames slowly, and package imported tables with shared presets
 - **Per-Layer Filter & LFO** — LP/HP/BP biquad, Comb (metallic resonance), and Formant (vowel shaping A/E/I/O/U) with LFO modulation
 - **Per-Layer Distortion** — soft (tanh) and hard-clip waveshaping, 0–5 drive
 - **Per-Layer Chorus** — multi-voice LFO-modulated delay for stereo width and organic animation
@@ -130,11 +134,11 @@ See [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) and [MEMORY_REPORT.md](MEMORY
 - **Spatial Motion** — per-layer panning trajectories (orbit, drift, bounce) with elevation panning (HRTF-inspired)
 - **Binaural Beats** — theta/delta/alpha entrainment; carrier mode (true L/R sine pair) and detune mode (energy-preserving cos²/sin² L/R alternation)
 - **FDN Reverb** — 8-tap feedback delay network with Hadamard mixing, per-line damping, and stereo decorrelation
-- **Master EQ & Compressor** — 5-band parametric EQ (low-cut, bass shelf, lo-mid bell, hi-mid bell, air shelf) + feedforward compressor
+- **Master EQ & Compressor** — 5-band EQ plus feedforward compression; defaults are −18 dB / 2.5:1 / +4 dB makeup with 0 dB output gain
 - **47 Presets** — across 5 categories (essentials, cinematic, experimental, sacred, subharmonic)
 - **Real-time Web UI** — stream, tweak, save, and export from your browser; layer sub-tabs (Synth/Filter/Space/FX)
-- **Generator** — mood-biased random preset generator with FM/Subtractive/Granular type selection
-- **Preset Save/Load** — create, modify, and share YAML preset files
+- **Generator** — three candidates with fingerprints, inline previews, expressive intent, engine switches, and moods including Essential-style **Classic**
+- **Preset Save/Load** — create, modify, share, and reconstruct website-exported YAML directly in Python
 
 ---
 
@@ -176,12 +180,18 @@ runtime `PORT` variable.
 
 | Setting | YAML Key | Range | Default | Description |
 |---------|----------|-------|---------|-------------|
-| Threshold | `master.comp.threshold_db` | -40–0 dB | 0 | Level above which compression starts |
-| Ratio | `master.comp.ratio` | 1–20 | 2.0 | Compression ratio (e.g. 4 = 4:1) |
+| Threshold | `master.comp.threshold_db` | -40–0 dB | -18 | Level above which compression starts |
+| Ratio | `master.comp.ratio` | 1–20 | 2.5 | Compression ratio (e.g. 4 = 4:1) |
 | Attack | `master.comp.attack_ms` | 1–500 ms | 50 | Time to reach full compression after threshold crossed |
 | Release | `master.comp.release_ms` | 10–2000 ms | 200 | Time to return to unity after level drops below threshold |
-| Knee | `master.comp.knee_db` | 0–12 dB | 0 | Soft-knee width — gradual onset around threshold |
-| Makeup Gain | `master.comp.makeup_db` | -6–12 dB | 0 | Output gain after compression |
+| Knee | `master.comp.knee_db` | 0–12 dB | 3 | Soft-knee width — gradual onset around threshold |
+| Makeup Gain | `master.comp.makeup_db` | -6–12 dB | +4 | Gain applied after compression |
+| Output Gain | `master.output_gain_db` | -6–12 dB | 0 | Final master gain; 0 dB preserves export headroom |
+
+Missing or partial `master` sections receive these same defaults in the website and Python
+loader. Explicit preset values always win. Offline exports then perform a non-boosting,
+4× oversampled true-peak check at **−1 dBFS**: hot renders are attenuated uniformly and
+quiet renders are left unchanged.
 
 #### Master EQ
 
@@ -487,9 +497,10 @@ layers:
 - **Aurora ribbon visualization** — per-layer frequency ribbons + global RMS ribbon
 - **Log-scale spectrum analyzer** — 20 Hz to Nyquist
 - **Transport** — Play, Stop, Render (full), Download
-- **Generator panel** — mood selector + generate/mutate buttons
-- **Format selector** — WAV, FLAC, OGG export
-- **Hi-Res toggle** — 48kHz/24-bit mode
+- **Generator panel** — expressive intent, Classic and six other moods, three fingerprinted candidates, Preview/Select, and balanced mutation
+- **Format selector** — WAV, FLAC, OGG, and MP3 export
+- **Standard / Hi-Res export** — 22.05kHz/16-bit by default; optional 48kHz/24-bit mode
+- **True-peak protection** — website and Python exports share a non-boosting −1 dBFS ceiling
 - **Parameter Automation** — breakpoint timeline per parameter with lin/exp/S curves and 5 global templates
 - **Just Intonation mode** — exact-fraction layer roots from a single tonic; zero-beating pure intervals
 - **Settings reference** — ⓘ button opens in-app docs modal
@@ -697,7 +708,7 @@ Located at: `presets/sacred/Theta Gateway.yaml`
 ### Random preset generator
 - **`--generate`** creates random presets with musically-constrained randomness.
 - **`--mood`** biases generation toward a sonic character:
-  `dark`, `bright`, `cinematic`, `minimal`, `industrial`, `nature`, `chaotic`
+  `dark`, `bright`, `cinematic`, `classic`, `minimal`, `industrial`, `nature`
 - **`--generate-count N`** produces multiple presets in one run.
 - Output is ephemeral (not saved to disk) — use **Share Link** to preserve a generated preset permanently.
 - Generated presets include `meta.origin: "generated"` for traceability.
@@ -728,6 +739,9 @@ python main.py --mutate "Cavern of Echoes" --amount 0.7 --generate-count 3
 
 # Reproducible generation
 python main.py --generate --mood minimal --seed 42
+
+# Essential-style warm, stable FM drone
+python main.py --generate --mood classic --seed 42
 ```
 
 ### 8 new presets filling key gaps
