@@ -1,0 +1,93 @@
+meta:
+  name: Chopper Siege Engine
+  slug: chopper_siege_engine
+  category: experimental
+  mood: [brutal, mechanical, enormous]
+  description: A brutal low-register machine driven by opposing regions of the Chopper table.
+  author: Matteo Bassi
+  tags: [wavetable, brutal, mechanical, industrial]
+global: {duration_seconds: 180, sample_rate: 22050, bit_depth: 16-bit}
+saturation: 0.38
+reverb: {enabled: true, space: cave, mix: 0.32, decay_trim: 0.9}
+spatial: {depth: 2.7, wetness: 0.4, swarm_density: 0.78}
+earth: {enabled: true, tectonic_frequency: 12, pressure: 0.42, movement: 0.004}
+air: {enabled: true, intensity: 0.045, movement: 0.004, turbulence: 0.04}
+layers:
+- &chopper
+  name: Siege Motor
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1784146377-chopper-256-2048-32.wav
+  wavetable_name: Chopper
+  wavetable_frame_size: 2048
+  wavetable_position: 0.16
+  wavetable_scan_start: 0.02
+  wavetable_scan_end: 0.25
+  wavetable_scan_rate: 0.0005
+  wavetable_scan_mode: pingpong
+  wavetable_detune_cents: 6
+  synthesis: {root: 30.87, voices: 7, ratios: [0.5, 1.0]}
+  volume_db: -13.0
+  dynamics: {amp_min: 0.008, amp_max: 0.025, drift: 0.004}
+  spatial_motion: {quadrant: rear_left, speed: 0.0013, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 780
+  filter_resonance: 1.6
+  filter_lfo_rate: 0.009
+  filter_lfo_depth: 0.22
+  filter_lfo_shape: triangle
+  chorus_rate: 0.2
+  chorus_depth: 0.007
+  chorus_mix: 0.16
+  chorus_voices: 3
+- <<: *chopper
+  name: Grinding Tower
+  wavetable_position: 0.72
+  wavetable_scan_start: 0.62
+  wavetable_scan_end: 0.86
+  wavetable_scan_rate: 0.0009
+  wavetable_detune_cents: 12
+  synthesis: {root: 46.25, voices: 6, ratios: [1.0, 1.5, 2.0]}
+  volume_db: -16.0
+  dynamics: {amp_min: 0.005, amp_max: 0.017, drift: 0.005}
+  spatial_motion: {quadrant: rear_right, speed: 0.0019, trajectory_x: pendulum, trajectory_y: depth}
+  filter_type: bp
+  filter_cutoff: 1650
+  filter_resonance: 2.1
+  filter_lfo_rate: 0.018
+  filter_lfo_depth: 0.28
+- name: Siege FM Dynamo
+  enabled: true
+  type: fm
+  synthesis: {root: 30.87, voices: 6, ratios: [0.5, 1.0, 1.41]}
+  fm: {ratios: [1.0, 1.5], index: 0.18}
+  volume_db: -6.0
+  dynamics: {amp_min: 0.009, amp_max: 0.029, drift: 0.004}
+  spatial_motion: {quadrant: center, speed: 0.0012, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 700
+  filter_resonance: 1.4
+  filter_lfo_rate: 0.009
+  filter_lfo_depth: 0.16
+  chorus_mix: 0.28
+- name: Armored Subtractive Tread
+  enabled: true
+  type: subtractive
+  synthesis: {root: 61.74, voices: 5, ratios: [1.0, 1.41]}
+  fm: {ratios: [1.0], index: 0.0}
+  volume_db: -8.0
+  dynamics: {amp_min: 0.007, amp_max: 0.023, drift: 0.005}
+  spatial_motion: {quadrant: rear_right, speed: 0.0017, trajectory_x: pendulum, trajectory_y: depth}
+  waveform: square
+  detune_cents: 16
+  sub_mix: 0.66
+  filter_type: bp
+  filter_cutoff: 1050
+  filter_resonance: 2.2
+  filter_lfo_rate: 0.014
+  filter_lfo_depth: 0.24
+  filter_lfo_shape: triangle
+  chorus_rate: 0.22
+  chorus_depth: 0.008
+  chorus_mix: 0.3
+  chorus_voices: 2

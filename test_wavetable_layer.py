@@ -12,6 +12,14 @@ from engine.web_server import _preset_to_ui_params, _ui_params_to_preset
 
 
 class WavetableLayerTests(unittest.TestCase):
+    def test_ui_links_to_and_credits_carvetoy(self):
+        static_html = Path("engine/static/index.html").read_text(encoding="utf-8")
+        docs_html = Path("docs/index.html").read_text(encoding="utf-8")
+        self.assertEqual(static_html, docs_html)
+        self.assertIn('href="https://www.carvetoy.online/"', static_html)
+        self.assertIn("Get wavetables ↗", static_html)
+        self.assertIn('Special thanks to <a href="https://www.carvetoy.online/"', static_html)
+
     def _write_table(self, root: Path, frames: int = 8) -> None:
         phase = np.arange(2048, dtype=np.float32) / 2048
         waves = []

@@ -2509,6 +2509,9 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <h3>Community &amp; Feedback</h3>
         <p>Special thanks to <a href="https://freesound.org/people/CAT-FOX_ALEX/" target="_blank" style="color:var(--accent)">CAT-FOX_ALEX</a> on Freesound for ongoing feedback, suggestions and feature ideas that have shaped Mantice.</p>
 
+        <h3>Wavetable Library</h3>
+        <p>Special thanks to <a href="https://www.carvetoy.online/" target="_blank" rel="noopener" style="color:var(--accent)">CarveToy</a> and its creators for the tools and shared wavetables used to shape Mantice’s wavetable drones.</p>
+
         <h3>Granular Sample Library</h3>
         <p class="docs-note">All samples are licensed <strong>Creative Commons 0</strong> (public domain) from <a href="https://freesound.org" target="_blank" style="color:var(--accent)">freesound.org</a>.</p>
         <table class="docs-table">
@@ -4301,6 +4304,7 @@ function showLayerParams(layer) {
       <label>WAV Source</label>
       <div style="grid-column:2/4; display:flex; gap:4px; align-items:center; min-width:0;">
         <button id="lp-wavetable-import" class="btn btn-outline" type="button" style="margin:0; padding:3px 7px; width:auto;">Import WAV</button>
+        <a href="https://www.carvetoy.online/" target="_blank" rel="noopener" title="Find or create wavetables with CarveToy" style="font-size:8px;color:var(--accent);white-space:nowrap;">Get wavetables ↗</a>
         <span id="lp-wavetable-source-label" title="${layer.wavetable_source || ''}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:var(--text-dim);">${layer.wavetable_source ? layer.wavetable_source.split('/').pop() : 'No file loaded'}</span>
         <input id="lp-wavetable-file" type="file" accept="audio/wav,.wav" hidden>
       </div>

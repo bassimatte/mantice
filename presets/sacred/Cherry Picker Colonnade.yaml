@@ -1,0 +1,105 @@
+meta:
+  name: Cherry Picker Colonnade
+  slug: cherry_picker_colonnade
+  category: sacred
+  mood: [vast, harmonic, luminous]
+  description: Three towering Cherry Picker voices arranged as a slow-moving harmonic colonnade.
+  author: Matteo Bassi
+  tags: [wavetable, vast, harmonic, luminous]
+global: {duration_seconds: 180, sample_rate: 22050, bit_depth: 16-bit}
+saturation: 0.2
+reverb: {enabled: true, space: cathedral, mix: 0.46, decay_trim: 1.08}
+spatial: {depth: 3.0, wetness: 0.5, swarm_density: 0.82}
+earth: {enabled: false, tectonic_frequency: 16, pressure: 0.0, movement: 0.003}
+air: {enabled: true, intensity: 0.09, movement: 0.004, turbulence: 0.03}
+layers:
+- &column
+  name: Stone Column
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1784146344-ct_v1_6_0___new_cherry_picker-256-2048-32.wav
+  wavetable_name: New Cherry Picker
+  wavetable_frame_size: 2048
+  wavetable_position: 0.28
+  wavetable_scan_start: 0.12
+  wavetable_scan_end: 0.32
+  wavetable_scan_rate: 0.0005
+  wavetable_scan_mode: pingpong
+  wavetable_detune_cents: 4
+  synthesis: {root: 41.2, voices: 6, ratios: [1.0, 1.5]}
+  volume_db: -14.0
+  dynamics: {amp_min: 0.009, amp_max: 0.03, drift: 0.0025}
+  spatial_motion: {quadrant: rear_left, speed: 0.0012, trajectory_x: orbit, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 1100
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.007
+  filter_lfo_depth: 0.12
+  filter_lfo_shape: sine
+  chorus_rate: 0.18
+  chorus_depth: 0.006
+  chorus_mix: 0.22
+  chorus_voices: 3
+- <<: *column
+  name: Bronze Column
+  wavetable_position: 0.54
+  wavetable_scan_start: 0.46
+  wavetable_scan_end: 0.66
+  wavetable_scan_rate: 0.0008
+  wavetable_detune_cents: 7
+  synthesis: {root: 61.74, voices: 5, ratios: [1.0, 2.0]}
+  volume_db: -17.0
+  dynamics: {amp_min: 0.006, amp_max: 0.022, drift: 0.003}
+  spatial_motion: {quadrant: rear_right, speed: 0.0017, trajectory_x: orbit, trajectory_y: depth}
+  filter_cutoff: 2100
+  filter_lfo_rate: 0.011
+  filter_lfo_depth: 0.18
+- <<: *column
+  name: Light Column
+  wavetable_position: 0.81
+  wavetable_scan_start: 0.78
+  wavetable_scan_end: 0.94
+  wavetable_scan_rate: 0.001
+  wavetable_detune_cents: 10
+  synthesis: {root: 123.47, voices: 4, ratios: [1.0, 2.0]}
+  volume_db: -21.0
+  dynamics: {amp_min: 0.004, amp_max: 0.015, drift: 0.0035}
+  spatial_motion: {quadrant: front_right, speed: 0.0021, trajectory_x: spiral, trajectory_y: none}
+  filter_cutoff: 4200
+  filter_lfo_rate: 0.015
+  filter_lfo_depth: 0.2
+- name: Colonnade FM Nave
+  enabled: true
+  type: fm
+  synthesis: {root: 41.2, voices: 5, ratios: [0.5, 1.0, 1.5, 2.0]}
+  fm: {ratios: [1.0, 1.5], index: 0.08}
+  volume_db: 0.0
+  dynamics: {amp_min: 0.025, amp_max: 0.08, drift: 0.0025}
+  spatial_motion: {quadrant: center, speed: 0.0011, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 1000
+  filter_resonance: 1.1
+  filter_lfo_rate: 0.006
+  filter_lfo_depth: 0.1
+  chorus_mix: 0.3
+- name: Bronze Subtractive Choir
+  enabled: true
+  type: subtractive
+  synthesis: {root: 82.41, voices: 4, ratios: [1.0, 1.5, 2.0]}
+  fm: {ratios: [1.0], index: 0.0}
+  volume_db: -2.0
+  dynamics: {amp_min: 0.018, amp_max: 0.06, drift: 0.003}
+  spatial_motion: {quadrant: front_left, speed: 0.0015, trajectory_x: orbit, trajectory_y: depth}
+  waveform: triangle
+  detune_cents: 8
+  sub_mix: 0.4
+  filter_type: lp
+  filter_cutoff: 1800
+  filter_resonance: 1.45
+  filter_lfo_rate: 0.009
+  filter_lfo_depth: 0.14
+  filter_lfo_shape: sine
+  chorus_rate: 0.2
+  chorus_depth: 0.008
+  chorus_mix: 0.34
+  chorus_voices: 3

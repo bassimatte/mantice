@@ -1,0 +1,108 @@
+meta:
+  name: Warpy Cherry Horizon Choir
+  slug: warpy_cherry_horizon_choir
+  category: sacred
+  mood: [vast, harmonic, transcendent]
+  description: A huge open-fifth FM and subtractive choir illuminated by distant wavetable bands.
+  author: Matteo Bassi
+  tags: [wavetable, choir, enormous, wide, harmonic]
+global: {duration_seconds: 180, sample_rate: 22050, bit_depth: 16-bit}
+saturation: 0.22
+reverb: {enabled: true, space: infinite, mix: 0.5, decay_trim: 1.12}
+spatial: {depth: 3.0, wetness: 0.62, swarm_density: 0.9}
+earth: {enabled: true, tectonic_frequency: 16, pressure: 0.2, movement: 0.0025}
+air: {enabled: true, intensity: 0.1, movement: 0.004, turbulence: 0.03}
+layers:
+- &choir
+  name: Horizon Bass
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1784147249-warpy_cherries-256-2048-32.wav
+  wavetable_name: Warpy Cherries
+  wavetable_frame_size: 2048
+  wavetable_position: 0.2
+  wavetable_scan_start: 0.06
+  wavetable_scan_end: 0.28
+  wavetable_scan_rate: 0.0005
+  wavetable_scan_mode: pingpong
+  wavetable_detune_cents: 5
+  synthesis: {root: 41.2, voices: 6, ratios: [0.5, 1.0, 1.5]}
+  volume_db: -14.0
+  dynamics: {amp_min: 0.005, amp_max: 0.017, drift: 0.0025}
+  spatial_motion: {quadrant: rear_left, speed: 0.0012, trajectory_x: orbit, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 780
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.006
+  filter_lfo_depth: 0.12
+  filter_lfo_shape: sine
+  chorus_rate: 0.15
+  chorus_depth: 0.009
+  chorus_mix: 0.3
+  chorus_voices: 3
+- <<: *choir
+  name: Horizon Fifth
+  wavetable_position: 0.55
+  wavetable_scan_start: 0.46
+  wavetable_scan_end: 0.68
+  wavetable_scan_rate: 0.0008
+  wavetable_detune_cents: 9
+  synthesis: {root: 61.74, voices: 6, ratios: [1.0, 1.5, 2.0]}
+  volume_db: -17.0
+  dynamics: {amp_min: 0.0035, amp_max: 0.013, drift: 0.003}
+  spatial_motion: {quadrant: rear_right, speed: 0.0016, trajectory_x: orbit, trajectory_y: depth}
+  filter_cutoff: 1450
+  filter_lfo_rate: 0.01
+  filter_lfo_depth: 0.17
+- <<: *choir
+  name: Horizon Light
+  wavetable_position: 0.86
+  wavetable_scan_start: 0.76
+  wavetable_scan_end: 0.94
+  wavetable_scan_rate: 0.001
+  wavetable_detune_cents: 13
+  synthesis: {root: 123.47, voices: 4, ratios: [1.0, 2.0, 3.0]}
+  volume_db: -21.0
+  dynamics: {amp_min: 0.002, amp_max: 0.008, drift: 0.0035}
+  spatial_motion: {quadrant: front_right, speed: 0.002, trajectory_x: spiral, trajectory_y: none}
+  filter_cutoff: 3200
+  filter_lfo_rate: 0.014
+  filter_lfo_depth: 0.18
+- name: Horizon FM Choir
+  enabled: true
+  type: fm
+  synthesis: {root: 41.2, voices: 10, ratios: [0.5, 1.0, 1.5, 2.0, 3.0]}
+  fm: {ratios: [1.0, 1.5, 2.0], index: 0.09}
+  volume_db: -7.0
+  dynamics: {amp_min: 0.007, amp_max: 0.024, drift: 0.002}
+  spatial_motion: {quadrant: center, speed: 0.001, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 1650
+  filter_resonance: 1.1
+  filter_lfo_rate: 0.005
+  filter_lfo_depth: 0.09
+  chorus_rate: 0.14
+  chorus_depth: 0.011
+  chorus_mix: 0.34
+  chorus_voices: 3
+- name: Horizon Subtractive Breath
+  enabled: true
+  type: subtractive
+  synthesis: {root: 82.41, voices: 6, ratios: [0.5, 1.0, 1.5, 2.0]}
+  fm: {ratios: [1.0], index: 0.0}
+  volume_db: -9.0
+  dynamics: {amp_min: 0.005, amp_max: 0.018, drift: 0.003}
+  spatial_motion: {quadrant: front_left, speed: 0.0015, trajectory_x: orbit, trajectory_y: depth}
+  waveform: triangle
+  detune_cents: 10
+  sub_mix: 0.4
+  filter_type: lp
+  filter_cutoff: 2800
+  filter_resonance: 1.4
+  filter_lfo_rate: 0.008
+  filter_lfo_depth: 0.14
+  filter_lfo_shape: sine
+  chorus_rate: 0.18
+  chorus_depth: 0.009
+  chorus_mix: 0.36
+  chorus_voices: 3

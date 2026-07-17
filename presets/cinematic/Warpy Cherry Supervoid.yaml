@@ -1,0 +1,110 @@
+meta:
+  name: Warpy Cherry Supervoid
+  slug: warpy_cherry_supervoid
+  category: cinematic
+  mood: [immense, wide, rotating]
+  description: A huge FM-subtractive gravity field with three distant wavetable color bands.
+  author: Matteo Bassi
+  tags: [wavetable, huge, ultra-wide, evolving, cinematic]
+global: {duration_seconds: 180, sample_rate: 22050, bit_depth: 16-bit}
+saturation: 0.28
+reverb: {enabled: true, space: infinite, mix: 0.5, decay_trim: 1.12}
+spatial: {depth: 3.0, wetness: 0.65, swarm_density: 0.92}
+earth: {enabled: true, tectonic_frequency: 14, pressure: 0.28, movement: 0.003}
+air: {enabled: true, intensity: 0.08, movement: 0.004, turbulence: 0.035}
+layers:
+- &void
+  name: Left Event Wall
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1784147249-warpy_cherries-256-2048-32.wav
+  wavetable_name: Warpy Cherries
+  wavetable_frame_size: 2048
+  wavetable_position: 0.08
+  wavetable_scan_start: 0.0
+  wavetable_scan_end: 0.24
+  wavetable_scan_rate: 0.0005
+  wavetable_scan_mode: forward
+  wavetable_detune_cents: 8
+  synthesis: {root: 34.65, voices: 7, ratios: [0.5, 1.0, 2.0]}
+  volume_db: -14.0
+  dynamics: {amp_min: 0.005, amp_max: 0.017, drift: 0.003}
+  spatial_motion: {quadrant: rear_left, speed: 0.0014, trajectory_x: orbit, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 620
+  filter_resonance: 1.35
+  filter_lfo_rate: 0.007
+  filter_lfo_depth: 0.15
+  filter_lfo_shape: sine
+  chorus_rate: 0.16
+  chorus_depth: 0.01
+  chorus_mix: 0.34
+  chorus_voices: 3
+- <<: *void
+  name: Right Event Wall
+  wavetable_position: 0.9
+  wavetable_scan_start: 0.68
+  wavetable_scan_end: 0.92
+  wavetable_scan_rate: 0.0007
+  wavetable_scan_mode: pingpong
+  wavetable_detune_cents: 11
+  synthesis: {root: 51.91, voices: 7, ratios: [1.0, 1.5, 2.0]}
+  volume_db: -16.0
+  dynamics: {amp_min: 0.004, amp_max: 0.014, drift: 0.004}
+  spatial_motion: {quadrant: rear_right, speed: 0.0016, trajectory_x: orbit, trajectory_y: depth}
+  filter_cutoff: 1200
+  filter_lfo_rate: 0.011
+  filter_lfo_depth: 0.2
+- <<: *void
+  name: Far Halo
+  wavetable_position: 0.52
+  wavetable_scan_start: 0.42
+  wavetable_scan_end: 0.64
+  wavetable_scan_rate: 0.001
+  wavetable_scan_mode: pingpong
+  wavetable_detune_cents: 15
+  synthesis: {root: 103.83, voices: 5, ratios: [1.0, 2.0]}
+  volume_db: -20.0
+  dynamics: {amp_min: 0.0025, amp_max: 0.009, drift: 0.004}
+  spatial_motion: {quadrant: front_right, speed: 0.0021, trajectory_x: spiral, trajectory_y: none}
+  filter_cutoff: 2700
+  filter_lfo_rate: 0.016
+  filter_lfo_depth: 0.18
+- name: Supervoid FM Gravity
+  enabled: true
+  type: fm
+  synthesis: {root: 34.65, voices: 10, ratios: [0.5, 1.0, 1.5, 2.0]}
+  fm: {ratios: [1.0, 1.5, 2.0], index: 0.12}
+  volume_db: -6.0
+  dynamics: {amp_min: 0.008, amp_max: 0.027, drift: 0.0025}
+  spatial_motion: {quadrant: center, speed: 0.001, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 980
+  filter_resonance: 1.15
+  filter_lfo_rate: 0.006
+  filter_lfo_depth: 0.1
+  chorus_rate: 0.13
+  chorus_depth: 0.011
+  chorus_mix: 0.34
+  chorus_voices: 3
+- name: Subtractive Dark Matter
+  enabled: true
+  type: subtractive
+  synthesis: {root: 69.3, voices: 6, ratios: [0.5, 1.0, 1.5]}
+  fm: {ratios: [1.0], index: 0.0}
+  volume_db: -8.0
+  dynamics: {amp_min: 0.006, amp_max: 0.021, drift: 0.0035}
+  spatial_motion: {quadrant: front_left, speed: 0.0017, trajectory_x: orbit, trajectory_y: depth}
+  waveform: triangle
+  detune_cents: 16
+  sub_mix: 0.52
+  filter_type: lp
+  filter_cutoff: 1700
+  filter_resonance: 1.65
+  filter_lfo_rate: 0.009
+  filter_lfo_depth: 0.16
+  filter_lfo_shape: sine
+  chorus_rate: 0.2
+  chorus_depth: 0.01
+  chorus_mix: 0.38
+  chorus_voices: 3

@@ -1,0 +1,94 @@
+meta:
+  name: Warpy Cherry Leviathan
+  slug: warpy_cherry_leviathan
+  category: cinematic
+  mood: [colossal, warped, abyssal]
+  description: A massive FM and subtractive drone body stained by slowly shifting Warpy Cherries spectra.
+  author: Matteo Bassi
+  tags: [wavetable, massive, wide, sub, dark]
+global: {duration_seconds: 180, sample_rate: 22050, bit_depth: 16-bit}
+saturation: 0.34
+reverb: {enabled: true, space: infinite, mix: 0.46, decay_trim: 1.08}
+spatial: {depth: 3.0, wetness: 0.62, swarm_density: 0.9}
+earth: {enabled: true, tectonic_frequency: 12, pressure: 0.4, movement: 0.003}
+air: {enabled: true, intensity: 0.05, movement: 0.003, turbulence: 0.025}
+layers:
+- &warpy
+  name: Leviathan Spine
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1784147249-warpy_cherries-256-2048-32.wav
+  wavetable_name: Warpy Cherries
+  wavetable_frame_size: 2048
+  wavetable_position: 0.14
+  wavetable_scan_start: 0.02
+  wavetable_scan_end: 0.26
+  wavetable_scan_rate: 0.0006
+  wavetable_scan_mode: pingpong
+  wavetable_detune_cents: 6
+  synthesis: {root: 27.5, voices: 7, ratios: [0.5, 1.0]}
+  volume_db: -13.0
+  dynamics: {amp_min: 0.007, amp_max: 0.022, drift: 0.003}
+  spatial_motion: {quadrant: rear_left, speed: 0.0012, trajectory_x: orbit, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 520
+  filter_resonance: 1.45
+  filter_lfo_rate: 0.007
+  filter_lfo_depth: 0.16
+  filter_lfo_shape: sine
+  chorus_rate: 0.16
+  chorus_depth: 0.008
+  chorus_mix: 0.28
+  chorus_voices: 3
+- <<: *warpy
+  name: Leviathan Crown
+  wavetable_position: 0.72
+  wavetable_scan_start: 0.58
+  wavetable_scan_end: 0.82
+  wavetable_scan_rate: 0.0009
+  wavetable_detune_cents: 12
+  synthesis: {root: 55.0, voices: 6, ratios: [1.0, 1.5, 2.0]}
+  volume_db: -16.0
+  dynamics: {amp_min: 0.004, amp_max: 0.015, drift: 0.004}
+  spatial_motion: {quadrant: rear_right, speed: 0.0017, trajectory_x: orbit, trajectory_y: depth}
+  filter_cutoff: 1050
+  filter_lfo_rate: 0.012
+  filter_lfo_depth: 0.22
+- name: Abyssal FM Heart
+  enabled: true
+  type: fm
+  synthesis: {root: 27.5, voices: 10, ratios: [0.5, 1.0, 1.5, 2.0]}
+  fm: {ratios: [1.0, 1.5, 2.0], index: 0.14}
+  volume_db: -6.0
+  dynamics: {amp_min: 0.009, amp_max: 0.03, drift: 0.003}
+  spatial_motion: {quadrant: center, speed: 0.001, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 760
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.006
+  filter_lfo_depth: 0.1
+  chorus_rate: 0.14
+  chorus_depth: 0.01
+  chorus_mix: 0.28
+  chorus_voices: 3
+- name: Warped Subtractive Flesh
+  enabled: true
+  type: subtractive
+  synthesis: {root: 55.0, voices: 6, ratios: [0.5, 1.0, 1.5]}
+  fm: {ratios: [1.0], index: 0.0}
+  volume_db: -8.0
+  dynamics: {amp_min: 0.007, amp_max: 0.024, drift: 0.004}
+  spatial_motion: {quadrant: front_left, speed: 0.0015, trajectory_x: pendulum, trajectory_y: depth}
+  waveform: saw
+  detune_cents: 14
+  sub_mix: 0.62
+  filter_type: lp
+  filter_cutoff: 1250
+  filter_resonance: 1.8
+  filter_lfo_rate: 0.009
+  filter_lfo_depth: 0.2
+  filter_lfo_shape: sine
+  chorus_rate: 0.18
+  chorus_depth: 0.009
+  chorus_mix: 0.32
+  chorus_voices: 3

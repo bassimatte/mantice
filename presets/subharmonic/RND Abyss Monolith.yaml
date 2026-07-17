@@ -1,0 +1,102 @@
+meta:
+  name: RND Abyss Monolith
+  slug: rnd_abyss_monolith
+  category: subharmonic
+  mood: [massive, abyssal, static]
+  description: A sub-heavy two-octave monument carved from the RND wavetable.
+  author: Matteo Bassi
+  tags: [wavetable, massive, dark, sub]
+global: {duration_seconds: 180, sample_rate: 22050, bit_depth: 16-bit}
+saturation: 0.28
+reverb: {enabled: true, space: infinite, mix: 0.38, decay_trim: 0.92}
+spatial: {depth: 2.8, wetness: 0.35, swarm_density: 0.72}
+earth: {enabled: true, tectonic_frequency: 14, pressure: 0.32, movement: 0.004}
+air: {enabled: false, intensity: 0.0, movement: 0.004, turbulence: 0.02}
+layers:
+- name: Continental Plate
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1783861884-rnd___modified-256-2048-32_8a119dca.wav
+  wavetable_name: RND Modified
+  wavetable_frame_size: 2048
+  wavetable_position: 0.12
+  wavetable_scan_start: 0.04
+  wavetable_scan_end: 0.26
+  wavetable_scan_rate: 0.0005
+  wavetable_scan_mode: pingpong
+  wavetable_detune_cents: 4
+  synthesis: {root: 32.7, voices: 6, ratios: [0.5, 1.0]}
+  volume_db: -13.0
+  dynamics: {amp_min: 0.008, amp_max: 0.025, drift: 0.003}
+  spatial_motion: {quadrant: rear_left, speed: 0.0012, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 720
+  filter_resonance: 1.25
+  filter_lfo_rate: 0.008
+  filter_lfo_depth: 0.16
+  filter_lfo_shape: sine
+  chorus_rate: 0.18
+  chorus_depth: 0.006
+  chorus_mix: 0.18
+  chorus_voices: 3
+- name: Black Crown
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1783861884-rnd___modified-256-2048-32_8a119dca.wav
+  wavetable_name: RND Modified
+  wavetable_frame_size: 2048
+  wavetable_position: 0.68
+  wavetable_scan_start: 0.58
+  wavetable_scan_end: 0.8
+  wavetable_scan_rate: 0.0008
+  wavetable_scan_mode: pingpong
+  wavetable_detune_cents: 7
+  synthesis: {root: 65.41, voices: 5, ratios: [1.0, 1.5]}
+  volume_db: -16.0
+  dynamics: {amp_min: 0.005, amp_max: 0.017, drift: 0.004}
+  spatial_motion: {quadrant: rear_right, speed: 0.0015, trajectory_x: orbit, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 1450
+  filter_resonance: 1.4
+  filter_lfo_rate: 0.011
+  filter_lfo_depth: 0.2
+  filter_lfo_shape: sine
+  chorus_rate: 0.22
+  chorus_depth: 0.008
+  chorus_mix: 0.25
+  chorus_voices: 3
+- name: Subterranean FM
+  enabled: true
+  type: fm
+  synthesis: {root: 32.7, voices: 5, ratios: [0.5, 1.0, 1.5]}
+  fm: {ratios: [1.0, 2.0], index: 0.09}
+  volume_db: -6.0
+  dynamics: {amp_min: 0.009, amp_max: 0.03, drift: 0.0025}
+  spatial_motion: {quadrant: center, speed: 0.001, trajectory_x: drift, trajectory_y: none}
+  filter_type: lp
+  filter_cutoff: 620
+  filter_resonance: 1.1
+  filter_lfo_rate: 0.006
+  filter_lfo_depth: 0.1
+  chorus_mix: 0.28
+- name: Obsidian Subtractive Body
+  enabled: true
+  type: subtractive
+  synthesis: {root: 65.41, voices: 4, ratios: [1.0, 1.5]}
+  fm: {ratios: [1.0], index: 0.0}
+  volume_db: -8.0
+  dynamics: {amp_min: 0.007, amp_max: 0.024, drift: 0.003}
+  spatial_motion: {quadrant: rear_right, speed: 0.0013, trajectory_x: pendulum, trajectory_y: depth}
+  waveform: saw
+  detune_cents: 9
+  sub_mix: 0.55
+  filter_type: lp
+  filter_cutoff: 900
+  filter_resonance: 1.8
+  filter_lfo_rate: 0.008
+  filter_lfo_depth: 0.18
+  filter_lfo_shape: sine
+  chorus_rate: 0.18
+  chorus_depth: 0.006
+  chorus_mix: 0.32
+  chorus_voices: 2
