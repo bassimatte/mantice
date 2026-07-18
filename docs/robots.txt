@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://bassimatte.github.io/mantice/sitemap.xml
