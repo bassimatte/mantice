@@ -2443,7 +2443,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
           <tr><td>WAV Source</td><td>Imported WAV</td><td>—</td><td>Multi-frame wavetable; CarveToy's 256 × 2048 format is supported directly</td></tr>
           <tr><td>Root</td><td>20–2000 Hz</td><td>110 Hz</td><td>Oscillator fundamental frequency</td></tr>
           <tr><td>Position</td><td>0–1</td><td>0</td><td>Frame used in Static mode</td></tr>
-          <tr><td>Scan Start / End</td><td>0–1</td><td>0 / 1</td><td>Limits the evolving frame range</td></tr>
+          <tr><td>Scan Start / End</td><td>Frame 0–last</td><td>0 / last</td><td>Limits the evolving range using wavetable frame numbers</td></tr>
           <tr><td>Scan Rate</td><td>0–0.1 Hz</td><td>0.01 Hz</td><td>Frame traversal speed; 0.01 Hz is a 100-second cycle</td></tr>
           <tr><td>Scan Mode</td><td>static / forward / ping-pong</td><td>ping-pong</td><td>How playback moves through frames</td></tr>
         </table>
@@ -4341,14 +4341,17 @@ function showLayerParams(layer) {
     </div>
   `;
 
+  const wavetableFrameCount = Math.max(1, parseInt(layer.wavetable_frames ?? 256, 10));
+  const wavetableLastFrame = wavetableFrameCount - 1;
+  const wavetableFrame = value => Math.round(Math.max(0, Math.min(1, Number(value))) * wavetableLastFrame);
   const wavetableParams = [
     { id: 'root', label: 'Root Hz', min: 20, max: 2000, step: 0.1, val: layer.root ?? 110 },
     { id: 'voices', label: 'Voices', min: 1, max: 8, step: 1, val: layer.voices ?? 3 },
     { id: 'volume_db', label: 'Volume (dB)', min: -60, max: 6, step: 0.5, val: layer.volume_db ?? 0 },
     { id: 'wavetable_detune_cents', label: 'Detune (¢)', min: 0, max: 50, step: 1, val: layer.wavetable_detune_cents ?? 7 },
     { id: 'wavetable_position', label: 'Position', min: 0, max: 1, step: 0.01, val: layer.wavetable_position ?? 0 },
-    { id: 'wavetable_scan_start', label: 'Scan Start', min: 0, max: 1, step: 0.01, val: layer.wavetable_scan_start ?? 0 },
-    { id: 'wavetable_scan_end', label: 'Scan End', min: 0, max: 1, step: 0.01, val: layer.wavetable_scan_end ?? 1 },
+    { id: 'wavetable_scan_start', label: 'Scan Start', min: 0, max: wavetableLastFrame, step: 1, val: wavetableFrame(layer.wavetable_scan_start ?? 0), frameNumber: true },
+    { id: 'wavetable_scan_end', label: 'Scan End', min: 0, max: wavetableLastFrame, step: 1, val: wavetableFrame(layer.wavetable_scan_end ?? 1), frameNumber: true },
     { id: 'wavetable_scan_rate', label: 'Scan Hz', min: 0, max: 0.1, step: 0.001, val: layer.wavetable_scan_rate ?? 0.01 },
   ];
   const wavetableHtml = `
@@ -4361,7 +4364,7 @@ function showLayerParams(layer) {
         <input id="lp-wavetable-file" type="file" accept="audio/wav,.wav" hidden>
       </div>
     </div>
-    <div id="lp-wavetable-status" style="font-size:8px;color:var(--text-dim);margin:0 0 5px 57px;">${layer.wavetable_frames ? `${layer.wavetable_frames} frames · 2048 samples` : 'CarveToy format: 256 × 2048 samples'}</div>
+    <div id="lp-wavetable-status" style="font-size:8px;color:var(--text-dim);margin:0 0 5px 57px;">${layer.wavetable_frames ? `${layer.wavetable_frames} frames · ${layer.wavetable_frame_size || 2048} samples` : 'CarveToy format: 256 × 2048 samples'}</div>
     ${wavetableParams.map(p => `<div class="param-row">
       <label>${p.label}</label>
       <input type="range" id="lp-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}">
@@ -5151,9 +5154,12 @@ function showLayerParams(layer) {
       if (!slider) return;
       slider.addEventListener('mousedown', () => pushUndo());
       slider.addEventListener('input', () => {
-        const value = p.id === 'voices' ? parseInt(slider.value, 10) : parseFloat(slider.value);
+        const displayValue = p.id === 'voices' || p.frameNumber ? parseInt(slider.value, 10) : parseFloat(slider.value);
+        const value = p.frameNumber
+          ? (wavetableLastFrame > 0 ? displayValue / wavetableLastFrame : 0)
+          : displayValue;
         currentParams.layers[activeLayerIdx][p.id] = value;
-        $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(value) : Number(value).toFixed(p.step < 1 ? (p.step < .01 ? 3 : 2) : 0);
+        $(`lp-${p.id}-val`).textContent = p.id === 'root' ? rootLabel(value) : Number(displayValue).toFixed(p.step < 1 ? (p.step < .01 ? 3 : 2) : 0);
         markDirty();
       });
     });
@@ -5187,8 +5193,9 @@ function showLayerParams(layer) {
         target.wavetable_name = data.name;
         target.wavetable_frame_size = data.frame_size;
         target.wavetable_frames = data.frames;
-        status.textContent = `${data.frames} frames · ${data.frame_size} samples`;
-        $('lp-wavetable-source-label').textContent = data.name;
+        target.wavetable_scan_start = 0;
+        target.wavetable_scan_end = 1;
+        showLayerParams(target);
         markDirty();
         liveReload();
       } catch (error) {

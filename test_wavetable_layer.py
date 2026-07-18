@@ -57,6 +57,7 @@ class WavetableLayerTests(unittest.TestCase):
                 "type": "wavetable",
                 "wavetable_source": "wavetables/test.wav",
                 "wavetable_frame_size": 2048,
+                "wavetable_frames": 64,
                 "wavetable_position": 0.25,
                 "wavetable_scan_start": 0.1,
                 "wavetable_scan_end": 0.8,
@@ -74,11 +75,21 @@ class WavetableLayerTests(unittest.TestCase):
         preset = _ui_params_to_preset(params)
         restored = _preset_to_ui_params(preset)["layers"][0]
         self.assertEqual(restored["wavetable_source"], "wavetables/test.wav")
+        self.assertEqual(restored["wavetable_frames"], 64)
         self.assertEqual(restored["wavetable_scan_mode"], "forward")
         self.assertAlmostEqual(restored["wavetable_scan_rate"], 0.005)
         self.assertEqual(restored["voices"], 4)
         self.assertEqual(restored["wavetable_sha256"], "a" * 64)
         self.assertEqual(restored["wavetable_license"], "CC0")
+
+    def test_scan_range_ui_uses_frame_numbers(self):
+        local_html = (Path(__file__).parent / "engine" / "static" / "index.html").read_text()
+        deployed_html = (Path(__file__).parent / "docs" / "index.html").read_text()
+        for html in (local_html, deployed_html):
+            self.assertIn("label: 'Scan Start', min: 0, max: wavetableLastFrame, step: 1", html)
+            self.assertIn("label: 'Scan End', min: 0, max: wavetableLastFrame, step: 1", html)
+            self.assertIn("displayValue / wavetableLastFrame", html)
+            self.assertIn("target.wavetable_frames = data.frames", html)
 
     def test_share_publishes_hashed_asset_and_materializes_it(self):
         with tempfile.TemporaryDirectory() as folder:

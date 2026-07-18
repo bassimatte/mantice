@@ -258,6 +258,7 @@ def _normalize_layer_v1(layer: dict) -> dict:
         # Wavetable
         "wavetable_source":       layer.get("wavetable_source", ""),
         "wavetable_frame_size":   int(layer.get("wavetable_frame_size", 2048)),
+        "wavetable_frames":       int(layer.get("wavetable_frames", 256)),
         "wavetable_position":     float(layer.get("wavetable_position", 0.0)),
         "wavetable_scan_start":   float(layer.get("wavetable_scan_start", 0.0)),
         "wavetable_scan_end":     float(layer.get("wavetable_scan_end", 1.0)),
@@ -359,6 +360,7 @@ def _normalize_layer_v2(layer: dict) -> dict:
         # V27 wavetable keys
         "wavetable_source": layer.get("wavetable_source", ""),
         "wavetable_frame_size": int(layer.get("wavetable_frame_size", 2048)),
+        "wavetable_frames": int(layer.get("wavetable_frames", 256)),
         "wavetable_position": float(layer.get("wavetable_position", 0.0)),
         "wavetable_scan_start": float(layer.get("wavetable_scan_start", 0.0)),
         "wavetable_scan_end": float(layer.get("wavetable_scan_end", 1.0)),

@@ -412,6 +412,7 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "stereo_width": layer.get("stereo_width", 0.8),
                 "wavetable_source": layer.get("wavetable_source", ""),
                 "wavetable_frame_size": layer.get("wavetable_frame_size", 2048),
+                "wavetable_frames": layer.get("wavetable_frames", 256),
                 "wavetable_position": layer.get("wavetable_position", 0.0),
                 "wavetable_scan_start": layer.get("wavetable_scan_start", 0.0),
                 "wavetable_scan_end": layer.get("wavetable_scan_end", 1.0),
@@ -590,6 +591,7 @@ def _ui_params_to_preset(params: dict) -> dict:
             "stereo_width": float(l.get("stereo_width", 0.8)),
             "wavetable_source": l.get("wavetable_source", ""),
             "wavetable_frame_size": int(l.get("wavetable_frame_size", 2048)),
+            "wavetable_frames": int(l.get("wavetable_frames", 256)),
             "wavetable_position": float(l.get("wavetable_position", 0.0)),
             "wavetable_scan_start": float(l.get("wavetable_scan_start", 0.0)),
             "wavetable_scan_end": float(l.get("wavetable_scan_end", 1.0)),
@@ -1999,6 +2001,7 @@ async def save_preset_endpoint(request: Request):
             if layer.get("type") == "wavetable":
                 l_out["wavetable_source"] = layer.get("wavetable_source", "")
                 l_out["wavetable_frame_size"] = int(layer.get("wavetable_frame_size", 2048))
+                l_out["wavetable_frames"] = int(layer.get("wavetable_frames", 256))
                 l_out["wavetable_position"] = float(layer.get("wavetable_position", 0.0))
                 l_out["wavetable_scan_start"] = float(layer.get("wavetable_scan_start", 0.0))
                 l_out["wavetable_scan_end"] = float(layer.get("wavetable_scan_end", 1.0))
