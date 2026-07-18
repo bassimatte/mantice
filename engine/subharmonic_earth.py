@@ -10,6 +10,17 @@ import numpy as np
 from . import config
 
 
+def shape_earth_wave(phase: np.ndarray) -> np.ndarray:
+    """Shape Earth toward audible bass instead of an inaudible sub-octave.
+
+    Earlier versions paired the configured tectonic frequency with a strong
+    half-frequency component. At common settings that created 5--10 Hz energy:
+    useful to a meter, but mostly inaudible and expensive in headroom. A quiet
+    octave harmonic keeps the sense of pressure while moving that energy up.
+    """
+    return np.sin(phase) * 0.72 + np.sin(phase * 2.0) * 0.28
+
+
 class SubharmonicEarth:
 
     @staticmethod
@@ -25,12 +36,8 @@ class SubharmonicEarth:
         # Slow tectonic wobble on the fundamental pitch
         wobble = np.sin(2 * np.pi * movement * t) * 0.5
 
-        earth = np.sin(2 * np.pi * (tectonic_frequency + wobble) * t)
-
-        # Sub-octave pressure layer
-        pressure_wave = np.sin(2 * np.pi * tectonic_frequency * 0.5 * t) * 0.6
-
-        signal = earth * 0.7 + pressure_wave * 0.3
+        phase = 2 * np.pi * (tectonic_frequency + wobble) * t
+        signal = shape_earth_wave(phase)
 
         # Smooth attack / release so it doesn't click
         fade_n = min(int(4.0 * config.SAMPLE_RATE), samples // 4)

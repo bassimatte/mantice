@@ -102,7 +102,10 @@ def _build_filter_chain(master_cfg: dict[str, Any] | None, sr: float) -> list[np
     filters: list[np.ndarray] = []
 
     low_cut_hz = float(eq.get("low_cut_hz", 20.0))
-    if low_cut_hz > 22.0:
+    # The UI and preset loader both advertise 20 Hz as the default low-cut.
+    # Previously it was silently bypassed unless set above 22 Hz, allowing
+    # Earth and low-root layers to spend substantial headroom below hearing.
+    if low_cut_hz >= 20.0:
         filters.append(_highpass_sos(sr, low_cut_hz))
 
     bass_db = float(eq.get("bass_db", 0.0))

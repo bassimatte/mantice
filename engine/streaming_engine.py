@@ -33,6 +33,7 @@ from . import config
 from .granular_layer import StreamingGranularLayer
 from .wavetable_layer import StreamingWavetableLayer
 from .master_processing import MasterProcessor
+from .subharmonic_earth import shape_earth_wave
 from .automation import parse_layer_automation, parse_global_automation
 
 
@@ -2093,11 +2094,10 @@ class StreamingDroneEngine:
 
         # Earth tone
         earth_t = self.earth_phase + np.arange(n) * dt
-        earth = np.sin(2 * np.pi * (freq + wobble) * earth_t)
-        pressure_wave = np.sin(2 * np.pi * freq * 0.5 * earth_t) * 0.6
+        phase = 2 * np.pi * (freq + wobble) * earth_t
         self.earth_phase = earth_t[-1] + dt
 
-        signal = (earth * 0.7 + pressure_wave * 0.3) * pressure
+        signal = shape_earth_wave(phase) * pressure
 
         # R2: Stereo decorrelation via small phase offset
         # Create slight L/R difference without losing low-freq coherence

@@ -27,8 +27,8 @@ layers:
   wavetable_scan_mode: pingpong
   wavetable_detune_cents: 5
   synthesis: {root: 41.2, voices: 6, ratios: [0.5, 1.0, 1.5]}
-  volume_db: -14.0
-  dynamics: {amp_min: 0.005, amp_max: 0.017, drift: 0.0025}
+  volume_db: 4.0
+  dynamics: {amp_min: 0.009, amp_max: 0.031, drift: 0.0025}
   spatial_motion: {quadrant: rear_left, speed: 0.0012, trajectory_x: orbit, trajectory_y: depth}
   filter_type: lp
   filter_cutoff: 780
@@ -48,8 +48,8 @@ layers:
   wavetable_scan_rate: 0.0008
   wavetable_detune_cents: 9
   synthesis: {root: 61.74, voices: 6, ratios: [1.0, 1.5, 2.0]}
-  volume_db: -17.0
-  dynamics: {amp_min: 0.0035, amp_max: 0.013, drift: 0.003}
+  volume_db: 1.0
+  dynamics: {amp_min: 0.0063, amp_max: 0.023, drift: 0.003}
   spatial_motion: {quadrant: rear_right, speed: 0.0016, trajectory_x: orbit, trajectory_y: depth}
   filter_cutoff: 1450
   filter_lfo_rate: 0.01
@@ -62,8 +62,8 @@ layers:
   wavetable_scan_rate: 0.001
   wavetable_detune_cents: 13
   synthesis: {root: 123.47, voices: 4, ratios: [1.0, 2.0, 3.0]}
-  volume_db: -21.0
-  dynamics: {amp_min: 0.002, amp_max: 0.008, drift: 0.0035}
+  volume_db: -3.0
+  dynamics: {amp_min: 0.0036, amp_max: 0.014, drift: 0.0035}
   spatial_motion: {quadrant: front_right, speed: 0.002, trajectory_x: spiral, trajectory_y: none}
   filter_cutoff: 3200
   filter_lfo_rate: 0.014
@@ -73,8 +73,8 @@ layers:
   type: fm
   synthesis: {root: 41.2, voices: 10, ratios: [0.5, 1.0, 1.5, 2.0, 3.0]}
   fm: {ratios: [1.0, 1.5, 2.0], index: 0.09}
-  volume_db: -7.0
-  dynamics: {amp_min: 0.007, amp_max: 0.024, drift: 0.002}
+  volume_db: 5.0
+  dynamics: {amp_min: 0.013, amp_max: 0.043, drift: 0.002}
   spatial_motion: {quadrant: center, speed: 0.001, trajectory_x: drift, trajectory_y: depth}
   filter_type: lp
   filter_cutoff: 1650
@@ -90,8 +90,8 @@ layers:
   type: subtractive
   synthesis: {root: 82.41, voices: 6, ratios: [0.5, 1.0, 1.5, 2.0]}
   fm: {ratios: [1.0], index: 0.0}
-  volume_db: -9.0
-  dynamics: {amp_min: 0.005, amp_max: 0.018, drift: 0.003}
+  volume_db: 3.0
+  dynamics: {amp_min: 0.009, amp_max: 0.032, drift: 0.003}
   spatial_motion: {quadrant: front_left, speed: 0.0015, trajectory_x: orbit, trajectory_y: depth}
   waveform: triangle
   detune_cents: 10

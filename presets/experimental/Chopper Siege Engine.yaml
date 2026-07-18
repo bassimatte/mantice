@@ -27,8 +27,8 @@ layers:
   wavetable_scan_mode: pingpong
   wavetable_detune_cents: 6
   synthesis: {root: 30.87, voices: 7, ratios: [0.5, 1.0]}
-  volume_db: -13.0
-  dynamics: {amp_min: 0.008, amp_max: 0.025, drift: 0.004}
+  volume_db: 5.0
+  dynamics: {amp_min: 0.011, amp_max: 0.034, drift: 0.004}
   spatial_motion: {quadrant: rear_left, speed: 0.0013, trajectory_x: drift, trajectory_y: depth}
   filter_type: lp
   filter_cutoff: 780
@@ -48,8 +48,8 @@ layers:
   wavetable_scan_rate: 0.0009
   wavetable_detune_cents: 12
   synthesis: {root: 46.25, voices: 6, ratios: [1.0, 1.5, 2.0]}
-  volume_db: -16.0
-  dynamics: {amp_min: 0.005, amp_max: 0.017, drift: 0.005}
+  volume_db: 2.0
+  dynamics: {amp_min: 0.0068, amp_max: 0.023, drift: 0.005}
   spatial_motion: {quadrant: rear_right, speed: 0.0019, trajectory_x: pendulum, trajectory_y: depth}
   filter_type: bp
   filter_cutoff: 1650
@@ -61,8 +61,8 @@ layers:
   type: fm
   synthesis: {root: 30.87, voices: 6, ratios: [0.5, 1.0, 1.41]}
   fm: {ratios: [1.0, 1.5], index: 0.18}
-  volume_db: -6.0
-  dynamics: {amp_min: 0.009, amp_max: 0.029, drift: 0.004}
+  volume_db: 6.0
+  dynamics: {amp_min: 0.012, amp_max: 0.039, drift: 0.004}
   spatial_motion: {quadrant: center, speed: 0.0012, trajectory_x: drift, trajectory_y: depth}
   filter_type: lp
   filter_cutoff: 700
@@ -75,8 +75,8 @@ layers:
   type: subtractive
   synthesis: {root: 61.74, voices: 5, ratios: [1.0, 1.41]}
   fm: {ratios: [1.0], index: 0.0}
-  volume_db: -8.0
-  dynamics: {amp_min: 0.007, amp_max: 0.023, drift: 0.005}
+  volume_db: 4.0
+  dynamics: {amp_min: 0.0095, amp_max: 0.031, drift: 0.005}
   spatial_motion: {quadrant: rear_right, speed: 0.0017, trajectory_x: pendulum, trajectory_y: depth}
   waveform: square
   detune_cents: 16
