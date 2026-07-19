@@ -170,6 +170,18 @@ _GRANULAR_SAMPLES = [
     "metal_hit.ogg",
 ]
 
+# Bundled CarveToy-format tables available in both the local app and the
+# deployed site.  Repeated entries deliberately favour the two tables that
+# have proven most useful as slow drone material.
+_WAVETABLES = [
+    ("wavetables/ct-wt-1784147249-warpy_cherries-256-2048-32.wav", "Warpy Cherries"),
+    ("wavetables/ct-wt-1784147249-warpy_cherries-256-2048-32.wav", "Warpy Cherries"),
+    ("wavetables/ct-wt-1783861884-rnd___modified-256-2048-32_8a119dca.wav", "RND Modified"),
+    ("wavetables/ct-wt-1783861884-rnd___modified-256-2048-32_8a119dca.wav", "RND Modified"),
+    ("wavetables/ct-wt-1784146344-ct_v1_6_0___new_cherry_picker-256-2048-32.wav", "New Cherry Picker"),
+    ("wavetables/ct-wt-1784146377-chopper-256-2048-32.wav", "Chopper"),
+]
+
 # Per-mood subtractive character
 _SUB_PROFILES = {
     "dark":       dict(waveforms=["saw","square"],     detune=(12,28), sub_mix=(0.35,0.65), filters=["lp","lp","bp"],  cutoff=(200,700),   res=(1.8,3.5), lfo_rate=(0.01,0.05),  lfo_depth=(0.4,0.8),  lfo_shapes=["sine","triangle"]),
@@ -509,6 +521,58 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
                 "chorus_depth": round(random.uniform(0.003, 0.01), 4),
                 "chorus_mix":   round(random.uniform(0.0, 0.08 + space * 0.35), 2) if use_intent else round(random.uniform(0.0, 0.3), 2),
                 "chorus_voices": 2,
+            }
+
+        elif layer_type == "wavetable":
+            # Wavetable generation is intentionally a slow, drone-first
+            # palette. Audio-rate scanning remains an explicit layer-editor
+            # experiment and is never selected by the generator.
+            wavetable_source, wavetable_name = random.choice(_WAVETABLES)
+            while root > 330.0:
+                root /= 2.0
+            raw_voices = random.randint(*profile["voice_range"])
+            voices = min(max(3, raw_voices), 6)
+            scan_start = random.uniform(0.02, 0.54)
+            scan_end = min(0.98, scan_start + random.uniform(0.24, 0.68))
+            if scan_end - scan_start < 0.18:
+                scan_start = max(0.02, scan_end - 0.18)
+            scan_rate = 10 ** random.uniform(math.log10(0.001), math.log10(0.03))
+            scan_mode = random.choices(
+                ["smooth_random", "sine", "pingpong", "forward", "reverse"],
+                weights=[42, 25, 20, 7, 6],
+            )[0]
+            tremor_enabled = random.random() < 0.4
+            layer = {
+                "name":    f"{wavetable_name} Terrain {i + 1}",
+                "enabled": True,
+                "type":    "wavetable",
+                "wavetable_source": wavetable_source,
+                "wavetable_name": wavetable_name,
+                "wavetable_frame_size": 2048,
+                "wavetable_frames": 256,
+                "wavetable_position": round((scan_start + scan_end) / 2, 4),
+                "wavetable_scan_start": round(scan_start, 4),
+                "wavetable_scan_end": round(scan_end, 4),
+                "wavetable_scan_rate": round(scan_rate, 4),
+                "wavetable_scan_mode": scan_mode,
+                "wavetable_tremor_amount": random.randint(2, 10) if tremor_enabled else 0,
+                "wavetable_tremor_rate": round(random.uniform(0.05, 0.3), 3),
+                "wavetable_audio_rate_scan": False,
+                "wavetable_detune_cents": round(random.uniform(4.0, 14.0), 1),
+                "synthesis":     {"root": round(root, 2), "voices": voices, "ratios": ratios},
+                "fm":            {"ratios": [1.0], "index": 0.0},
+                "dynamics":      dynamics,
+                "spatial_motion": spatial,
+                "filter_type":     random.choice(["off", "lp", "lp", "bp"]),
+                "filter_cutoff":   round(random.uniform(450.0, 2400.0), 1),
+                "filter_resonance":round(random.uniform(0.7, 1.8), 2),
+                "filter_lfo_rate": round(random.uniform(0.005, 0.05), 3),
+                "filter_lfo_depth":round(random.uniform(0.0, 0.28), 2),
+                "filter_lfo_shape":random.choice(["sine", "triangle"]),
+                "chorus_rate":  round(random.uniform(0.2, 0.55), 2),
+                "chorus_depth": round(random.uniform(0.004, 0.012), 4),
+                "chorus_mix":   round(random.uniform(0.08, 0.32), 2),
+                "chorus_voices": random.choice([2, 3]),
             }
 
         else:  # fm

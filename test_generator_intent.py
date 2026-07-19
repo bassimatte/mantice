@@ -35,12 +35,38 @@ class GeneratorIntentTests(unittest.TestCase):
     def test_generated_motion_stays_in_drone_rate_ranges(self):
         moods = ("dark", "bright", "cinematic", "classic", "minimal", "industrial", "nature")
         for mood in moods:
-            for layer_type in ("fm", "subtractive", "granular"):
+            for layer_type in ("fm", "subtractive", "granular", "wavetable"):
                 for seed in range(10):
                     preset = generate_preset(mood, seed=seed, allowed_types=[layer_type])
                     for layer in preset["layers"]:
                         self.assertLessEqual(layer["filter_lfo_rate"], 0.12)
                         self.assertLessEqual(layer["spatial_motion"]["speed"], 0.005)
+
+    def test_wavetable_generation_is_bundled_slow_and_drone_oriented(self):
+        expected_sources = {
+            "wavetables/ct-wt-1784147249-warpy_cherries-256-2048-32.wav",
+            "wavetables/ct-wt-1783861884-rnd___modified-256-2048-32_8a119dca.wav",
+            "wavetables/ct-wt-1784146344-ct_v1_6_0___new_cherry_picker-256-2048-32.wav",
+            "wavetables/ct-wt-1784146377-chopper-256-2048-32.wav",
+        }
+        for seed in range(30):
+            preset = generate_preset("minimal", seed=seed, allowed_types=["wavetable"])
+            for layer in preset["layers"]:
+                self.assertEqual(layer["type"], "wavetable")
+                self.assertIn(layer["wavetable_source"], expected_sources)
+                self.assertTrue(Path("samples", layer["wavetable_source"]).is_file())
+                self.assertIn(layer["wavetable_scan_mode"],
+                              {"smooth_random", "sine", "pingpong", "forward", "reverse"})
+                self.assertGreaterEqual(layer["wavetable_scan_rate"], 0.001)
+                self.assertLessEqual(layer["wavetable_scan_rate"], 0.03)
+                self.assertFalse(layer["wavetable_audio_rate_scan"])
+                self.assertGreaterEqual(layer["wavetable_scan_start"], 0.0)
+                self.assertLessEqual(layer["wavetable_scan_end"], 1.0)
+                self.assertGreaterEqual(layer["wavetable_scan_end"] - layer["wavetable_scan_start"], 0.179)
+                self.assertIn(layer["wavetable_tremor_amount"], {0, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+                self.assertGreaterEqual(layer["wavetable_tremor_rate"], 0.05)
+                self.assertLessEqual(layer["wavetable_tremor_rate"], 0.3)
+                self.assertLessEqual(layer["synthesis"]["root"], 330.0)
 
     def test_shipped_generator_uses_legacy_controls(self):
         static_html = Path("engine/static/index.html").read_text(encoding="utf-8")
@@ -53,6 +79,9 @@ class GeneratorIntentTests(unittest.TestCase):
         self.assertIn('id="gen-type-fm" checked', static_html)
         self.assertIn('id="gen-type-subtractive" checked', static_html)
         self.assertIn('id="gen-type-granular"', static_html)
+        self.assertIn('id="gen-type-wavetable"', static_html)
+        self.assertNotIn('id="gen-type-wavetable" checked', static_html)
+        self.assertIn("allowedTypes.push('wavetable')", static_html)
         self.assertIn("let selectedMood = null", static_html)
 
 

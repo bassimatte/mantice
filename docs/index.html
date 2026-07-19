@@ -2164,7 +2164,7 @@ button:disabled {
           it random for variation.</p>
           <p>The <strong>Generator</strong> creates one random preset biased by Dark, Bright, Cinematic,
           Minimal, Industrial, Nature or <strong>Classic</strong>. Classic makes warm, stable FM drones
-          inspired by the Essential preset library. FM/Sub/Granular switches constrain the available layer engines;
+          inspired by the Essential preset library. FM/Sub/Granular/WT switches constrain the available layer engines;
           Generate loads the result and starts previewing it immediately. <strong>Mutate</strong> varies
           the current settings across pitch,
           timbre, motion, space and effects rather than mainly changing pitch.</p>
@@ -2638,6 +2638,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
       <label><input type="checkbox" id="gen-type-granular"> Granular</label>
+      <label><input type="checkbox" id="gen-type-wavetable"> WT</label>
     </div>
     <details class="intent-panel">
       <summary>Tuning</summary>
@@ -7375,11 +7376,20 @@ function describeCandidate(candidate) {
   const structure = countWords[Math.min(2, Math.max(0, candidate.layer_count - 1))];
   const spectral = metrics.brightness > .7 ? 'luminous' : metrics.brightness < .3 ? 'shadowed' : 'balanced';
   const weight = metrics.weight > .72 ? 'sub-heavy' : metrics.weight < .3 ? 'air-weight' : 'mid-weight';
-  const types = candidate.synth_types.map(type => type === 'fm' ? 'FM' : type).join(' and ');
+  const typeLabels = { fm: 'FM', subtractive: 'Subtractive', granular: 'Granular', wavetable: 'Wavetable' };
+  const types = candidate.synth_types.map(type => typeLabels[type] || type).join(' and ');
   const motion = metrics.motion > .7 ? 'Restless spatial motion' : metrics.motion > .3 ? 'Slow spatial movement' : 'Near-static placement';
   const space = metrics.space > .7 ? 'a vast reverberant field' : metrics.space > .35 ? 'a measured acoustic space' : 'an intimate, dry space';
   const foundation = candidate.lowest_hz != null ? `${candidate.lowest_hz} Hz` : 'an unpitched foundation';
-  return `${structure} ${spectral}, ${weight} field anchored at ${foundation}. ${types || 'Layered'} voices define the spectrum. ${motion} unfolds inside ${space}.`;
+  const wavetable = (candidate.params.layers || []).find(layer => layer.type === 'wavetable');
+  const wavetableDetail = wavetable
+    ? ` ${(wavetable.wavetable_name || 'Bundled wavetable')} scans frames ${Math.round(Number(wavetable.wavetable_scan_start || 0) * 255)}–${Math.round(Number(wavetable.wavetable_scan_end ?? 1) * 255)} with ${wavetableScanModeLabel(wavetable.wavetable_scan_mode)}${Number(wavetable.wavetable_tremor_amount) > 0 ? ` and ${Math.round(Number(wavetable.wavetable_tremor_amount))}-frame Tremor` : ''}.`
+    : '';
+  return `${structure} ${spectral}, ${weight} field anchored at ${foundation}. ${types || 'Layered'} voices define the spectrum. ${motion} unfolds inside ${space}.${wavetableDetail}`;
+}
+
+function wavetableScanModeLabel(mode) {
+  return ({ smooth_random: 'Smooth Random', sine: 'Sine', pingpong: 'Triangle', forward: 'Ramp Up', reverse: 'Ramp Down', static: 'Static' })[mode] || 'slow motion';
 }
 
 function scoreCandidate(candidate, targetIntent) {
@@ -7433,6 +7443,12 @@ function candidateDescriptor(params, index, context) {
   const roots = layers.map(layer => Number(layer.root)).filter(Number.isFinite);
   const types = [...new Set(layers.map(layer => layer.type || 'fm'))];
   const traits = [...types];
+  const wavetableLayers = layers.filter(layer => layer.type === 'wavetable');
+  if (wavetableLayers.length) {
+    traits.push(...wavetableLayers.map(layer => layer.wavetable_name).filter(Boolean));
+    if (wavetableLayers.some(layer => layer.wavetable_scan_mode === 'smooth_random')) traits.push('smooth random');
+    if (wavetableLayers.some(layer => Number(layer.wavetable_tremor_amount) > 0)) traits.push('tremor');
+  }
   if (roots.length && Math.min(...roots) < 80) traits.push('sub-heavy');
   if (layers.length >= 3) traits.push('dense');
   if (layers.some(layer => Number(layer.width || 1) > 1.15)) traits.push('wide');
@@ -7455,6 +7471,9 @@ function candidateDescriptor(params, index, context) {
       index: layerIndex, name: layer.name || `Layer ${layerIndex + 1}`, root: layer.root,
       volume_db: layer.volume_db || 0, width: layer.width || 1, type: layer.type || 'fm',
       trajectory: layer.spatial_motion?.trajectory_x || 'none', motion_speed: layer.spatial_motion?.speed || 0,
+      wavetable_name: layer.wavetable_name || '', scan_mode: layer.wavetable_scan_mode || '',
+      scan_start: layer.wavetable_scan_start, scan_end: layer.wavetable_scan_end,
+      scan_rate: layer.wavetable_scan_rate, tremor_amount: layer.wavetable_tremor_amount || 0,
     })),
     generationContext: context,
   };
@@ -7526,6 +7545,7 @@ async function doGenerate() {
   if ($('gen-type-fm').checked) allowedTypes.push('fm');
   if ($('gen-type-subtractive').checked) allowedTypes.push('subtractive');
   if ($('gen-type-granular').checked) allowedTypes.push('granular');
+  if ($('gen-type-wavetable').checked) allowedTypes.push('wavetable');
   if (!allowedTypes.length) { setStatus('Select at least one synthesis type.'); return; }
   setStatus('Generating…');
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
@@ -9718,10 +9738,12 @@ function init() {
         $('gen-type-fm').checked = true;
         $('gen-type-subtractive').checked = false;
         $('gen-type-granular').checked = false;
+        $('gen-type-wavetable').checked = false;
       } else {
         $('gen-type-fm').checked = true;
         $('gen-type-subtractive').checked = true;
         $('gen-type-granular').checked = false;
+        $('gen-type-wavetable').checked = false;
       }
     });
   });
