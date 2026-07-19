@@ -68,6 +68,26 @@ class GeneratorIntentTests(unittest.TestCase):
                 self.assertLessEqual(layer["wavetable_tremor_rate"], 0.3)
                 self.assertLessEqual(layer["synthesis"]["root"], 330.0)
 
+    def test_opted_in_wavetable_is_always_present(self):
+        for seed in range(100):
+            preset = generate_preset(
+                "minimal", seed=seed,
+                allowed_types=["fm", "subtractive", "wavetable"],
+            )
+            layer_types = {layer["type"] for layer in preset["layers"]}
+            self.assertIn("wavetable", layer_types)
+            self.assertGreaterEqual(len(preset["layers"]), 2)
+
+    def test_all_opted_in_special_engines_are_present(self):
+        for seed in range(30):
+            preset = generate_preset(
+                "cinematic", seed=seed,
+                allowed_types=["fm", "subtractive", "granular", "wavetable"],
+            )
+            layer_types = {layer["type"] for layer in preset["layers"]}
+            self.assertIn("granular", layer_types)
+            self.assertIn("wavetable", layer_types)
+
     def test_shipped_generator_uses_legacy_controls(self):
         static_html = Path("engine/static/index.html").read_text(encoding="utf-8")
         docs_html = Path("docs/index.html").read_text(encoding="utf-8")

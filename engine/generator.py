@@ -409,6 +409,25 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
     else:
         n_layers = random.choices([1, 2, 3], weights=[15, 45, 40])[0]
 
+    # FM and Subtractive form the default generator palette. Engines the user
+    # explicitly opts into must be audible in the result, rather than merely
+    # joining a random pool that can produce no matching layer at all.
+    layer_type_plan = None
+    if allowed_types:
+        opt_in_types = [layer_type for layer_type in ("granular", "wavetable")
+                        if layer_type in allowed_types]
+        support_types = [layer_type for layer_type in allowed_types
+                         if layer_type not in opt_in_types]
+        if opt_in_types:
+            minimum_layers = len(opt_in_types) + (1 if support_types else 0)
+            n_layers = max(n_layers, min(_MAX_LAYERS, minimum_layers))
+            random.shuffle(opt_in_types)
+            random.shuffle(support_types)
+            layer_type_plan = (opt_in_types + support_types)[:n_layers]
+            while len(layer_type_plan) < n_layers:
+                layer_type_plan.append(random.choice(allowed_types))
+            random.shuffle(layer_type_plan)
+
     layers = []
     for i in range(n_layers):
         root_shift_octaves = (brightness - .5) * 3.2 - (weight - .5) * 1.0 if use_intent else 0.0
@@ -423,7 +442,9 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
         if mood == "classic" and allowed_types is None:
             layer_type = "fm"
         elif allowed_types or not use_intent:
-            layer_type = random.choice(allowed_types or ["fm", "subtractive", "granular"])
+            layer_type = layer_type_plan[i] if layer_type_plan else random.choice(
+                allowed_types or ["fm", "subtractive", "granular"]
+            )
         else:
             synth_weights = profile.get("synth_weights", {"fm": 0.34, "subtractive": 0.33, "granular": 0.33})
             layer_type = random.choices(list(synth_weights), weights=list(synth_weights.values()))[0]

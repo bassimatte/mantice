@@ -2200,6 +2200,7 @@ button:disabled {
           <p>The <strong>Generator</strong> creates one random preset biased by Dark, Bright, Cinematic,
           Minimal, Industrial, Nature or <strong>Classic</strong>. Classic makes warm, stable FM drones
           inspired by the Essential preset library. FM/Sub/Granular/WT switches constrain the available layer engines;
+          explicitly enabled Granular and WT engines are guaranteed to appear;
           Generate loads the result and starts previewing it immediately. <strong>Mutate</strong> varies
           the current settings across pitch,
           timbre, motion, space and effects rather than mainly changing pitch.</p>
@@ -2673,7 +2674,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <label><input type="checkbox" id="gen-type-fm" checked> FM</label>
       <label><input type="checkbox" id="gen-type-subtractive" checked> Sub</label>
       <label><input type="checkbox" id="gen-type-granular"> Granular</label>
-      <label><input type="checkbox" id="gen-type-wavetable"> WT</label>
+      <label title="Include at least one wavetable layer"><input type="checkbox" id="gen-type-wavetable"> WT</label>
     </div>
     <details class="intent-panel">
       <summary>Tuning</summary>
