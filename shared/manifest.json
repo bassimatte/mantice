@@ -91,6 +91,19 @@
     "author": "Copper Halo",
     "name": "Magnetic Horizon"
   },
+  "Magnetic_Tape_20260719_c095c1": {
+    "author": "CT",
+    "created": "2026-07-19T16:24:59.895003Z",
+    "name": "Magnetic Tape",
+    "plays": 0,
+    "wavetables": [
+      {
+        "name": "ct-wt-1784477892-spectral_squeeze-256-2048-32",
+        "path": "shared/wavetables/4a06482394306f362dea132a1e2456c5dbb6c0cd76c092b18651ed6f1e7fac74.wav",
+        "sha256": "4a06482394306f362dea132a1e2456c5dbb6c0cd76c092b18651ed6f1e7fac74"
+      }
+    ]
+  },
   "Molten_Membrane_20260521_8cf372": {
     "author": "Basalt Echo",
     "name": "Molten Membrane"
