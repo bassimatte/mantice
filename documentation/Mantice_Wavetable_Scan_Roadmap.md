@@ -22,28 +22,33 @@ Factory presets should retain their slow movement. New controls should expand wh
 
 This is the first recommended implementation because it makes the existing frame controls immediately easier to understand.
 
-The wavetable layer should show:
+The wavetable layer should show two deliberately separate views:
 
 - The waveform of the currently selected or interpolated frame.
-- The complete frame range.
+- A fixed perspective terrain containing all frames in the wavetable.
 - Scan Start and Scan End handles.
-- An animated current-frame playhead.
+- An animated current-frame ridge in the terrain and playhead on the frame rail.
 - Numeric frame values.
 
 Proposed layout:
 
 ```text
 ┌──────────────────────────────────────────┐
-│ Current interpolated waveform            │
+│ CURRENT FRAME · 118                      │
 │       ╭──╮       ╭────╮                  │
 │ ──────╯  ╰───────╯    ╰────────          │
 ├──────────────────────────────────────────┤
+│ ALL FRAMES (fixed perspective terrain)    │
+│       ╱╲___╱╲___╱╲                        │
+│    ╱╲___╱╲___╱╲                           │
 │ 0        [ 24 ═══════●══════ 212 ]   255 │
 │           start    current     end       │
 └──────────────────────────────────────────┘
 ```
 
-Users should be able to drag Start and End directly on the scope. The existing sliders must update at the same time. Touch interaction should select the nearest handle so that mobile users do not need pixel-perfect accuracy.
+The upper waveform displays phase across one complete cycle and is allowed to morph as the interpolated frame changes. It must not contain a frame-position cursor. Below it, all frames are drawn as waveform ridges in a fixed perspective landscape: horizontal position is waveform phase, vertical displacement is sample amplitude, and depth is frame number. The current interpolated frame becomes a bright ridge while Start and End bound a translucent terrain region.
+
+Precise frame editing remains on a separate horizontal rail under the terrain. Users can drag Start and End there, and the existing sliders update at the same time. Touch interaction selects the nearest handle so mobile users do not need pixel-perfect accuracy.
 
 The browser should receive downsampled inspection data instead of the complete `256 × 2048` sample table as JSON. Canvas rendering should stop automatically when the layer panel is no longer visible.
 
@@ -215,12 +220,23 @@ For the first version, the client may calculate the visual playhead from the sam
 
 ## Current implementation status
 
-The frame-number Scan Start and Scan End controls are present. On 19 July 2026, the first roadmap item was implemented locally:
+The frame-number Scan Start and Scan End controls are present. On 19 July 2026, all six roadmap items were implemented locally:
 
 - Animated waveform for the currently interpolated frame.
 - Current-frame playhead and selected-range overlay.
 - Pointer and touch dragging of the nearest Start/End handle.
 - Synchronization with the numeric frame sliders.
 - Compact, safe inspection data for shipped and imported wavetables.
+- Ramp Up and Ramp Down scan modes.
+- Triangle as the clearer interface name for the existing Ping-pong behavior.
+- Sine scanning with smooth acceleration and easing at both range boundaries.
+- Deterministic Smooth Random scanning with seeded targets and cosine interpolation.
+- Chunk-continuous random motion shared by website preview and Python rendering.
+- Independent Tremor Amount in frames and Tremor Rate in Hz.
+- Seeded, smoothed tremor constrained to the selected frame range and preserved through hot reloads.
+- Split-logarithmic `0.001–20 Hz` Scan Rate with `1 Hz` at the slider midpoint.
+- Frequency and cycle-duration readouts across the complete range.
+- Collapsed Advanced Scan switch that unlocks the experimental `20–100 Hz` range.
+- Per-voice FFT band-limited wavetable copies with scan-aware Nyquist guard bands.
 
-Additional scan shapes, Smooth Random, Tremor and expanded scan-rate behavior remain roadmap work.
+The `20–100 Hz` range remains explicitly experimental: band-limiting substantially reduces oscillator aliasing, but rapid timbral modulation intentionally creates audible sidebands and can sound bright or rough with discontinuous source frames.

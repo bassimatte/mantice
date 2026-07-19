@@ -1570,7 +1570,7 @@ class StreamingDroneEngine:
                 resolved.append(lc)
             preset = {**preset, "layers": resolved}
 
-        for layer_cfg in preset["layers"]:
+        for layer_index, layer_cfg in enumerate(preset["layers"]):
             if layer_cfg.get("muted", False):
                 continue
             # Choose layer type: granular, wavetable, subtractive, or FM
@@ -1583,7 +1583,8 @@ class StreamingDroneEngine:
                 layer = StreamingGranularLayer(resolved_cfg, samples_dir, sample_rate=self.SR)
             elif layer_cfg.get("type") == "wavetable":
                 samples_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "samples")
-                layer = StreamingWavetableLayer(layer_cfg, samples_dir, sample_rate=self.SR)
+                scan_seed = (int(self._seed) + layer_index * 0x9E3779B9) & 0xFFFFFFFF
+                layer = StreamingWavetableLayer(layer_cfg, samples_dir, sample_rate=self.SR, scan_seed=scan_seed)
             elif layer_cfg.get("type") == "subtractive":
                 layer = StreamingSubtractiveLayer(layer_cfg, sample_rate=self.SR)
             else:
@@ -1695,6 +1696,13 @@ class StreamingDroneEngine:
             self._crossfade_total = int(crossfade_secs * self.SR)
             self._crossfade_remaining = self._crossfade_total
             self._build_from_preset(new_preset)
+            # Keep deterministic wavetable motion on the same absolute target
+            # segment when parameters are hot-reloaded. The crossfade then
+            # changes the sound without restarting Smooth Random at target 0.
+            for old_layer, new_layer in zip(self._old_engine.layers, self.layers):
+                if isinstance(old_layer, StreamingWavetableLayer) and isinstance(new_layer, StreamingWavetableLayer):
+                    new_layer.scan_phase = old_layer.scan_phase
+                    new_layer.tremor_phase = old_layer.tremor_phase
 
         stereo = np.zeros((n, 2), dtype=np.float32)
 

@@ -264,6 +264,9 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "wavetable_scan_end":     float(layer.get("wavetable_scan_end", 1.0)),
         "wavetable_scan_rate":    float(layer.get("wavetable_scan_rate", 0.01)),
         "wavetable_scan_mode":    layer.get("wavetable_scan_mode", "pingpong"),
+        "wavetable_tremor_amount": float(layer.get("wavetable_tremor_amount", 0.0)),
+        "wavetable_tremor_rate":   float(layer.get("wavetable_tremor_rate", 0.3)),
+        "wavetable_audio_rate_scan": bool(layer.get("wavetable_audio_rate_scan", False)),
         "wavetable_detune_cents": float(layer.get("wavetable_detune_cents", 7.0)),
         "wavetable_name":         layer.get("wavetable_name", ""),
         "wavetable_sha256":       layer.get("wavetable_sha256", ""),
@@ -366,6 +369,9 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "wavetable_scan_end": float(layer.get("wavetable_scan_end", 1.0)),
         "wavetable_scan_rate": float(layer.get("wavetable_scan_rate", 0.01)),
         "wavetable_scan_mode": layer.get("wavetable_scan_mode", "pingpong"),
+        "wavetable_tremor_amount": float(layer.get("wavetable_tremor_amount", 0.0)),
+        "wavetable_tremor_rate": float(layer.get("wavetable_tremor_rate", 0.3)),
+        "wavetable_audio_rate_scan": bool(layer.get("wavetable_audio_rate_scan", False)),
         "wavetable_detune_cents": float(layer.get("wavetable_detune_cents", 7.0)),
         "wavetable_name": layer.get("wavetable_name", ""),
         "wavetable_sha256": layer.get("wavetable_sha256", ""),
@@ -492,7 +498,7 @@ def _validate(preset: dict) -> None:
                 errors.append(f"{label}: wavetable_source is required")
             if layer.get("wavetable_frame_size", 0) < 32:
                 errors.append(f"{label}: wavetable_frame_size must be >= 32")
-            if layer.get("wavetable_scan_mode") not in {"static", "forward", "pingpong"}:
+            if layer.get("wavetable_scan_mode") not in {"static", "forward", "reverse", "pingpong", "sine", "smooth_random"}:
                 errors.append(f"{label}: unknown wavetable_scan_mode {layer.get('wavetable_scan_mode')!r}")
 
         if layer["root"] <= 0:

@@ -877,9 +877,11 @@ def mutate_ui_params(params: dict, amount: float = 0.3, seed: Optional[int] = No
             if layer.get("wavetable_scan_start", 0.0) > layer.get("wavetable_scan_end", 1.0):
                 layer["wavetable_scan_start"], layer["wavetable_scan_end"] = layer["wavetable_scan_end"], layer["wavetable_scan_start"]
             vary_log(layer, "wavetable_scan_rate", 0.001, 0.1, 0.75, 0.75, 4)
+            vary(layer, "wavetable_tremor_amount", 0.0, 32.0, 0.3, 0.45, 1)
+            vary_log(layer, "wavetable_tremor_rate", 0.01, 2.0, 0.35, 0.45, 3)
             vary(layer, "wavetable_detune_cents", 0.0, 50.0, 0.45, 0.7, 2)
             if amount > 0.6 and chance(0.15):
-                layer["wavetable_scan_mode"] = rng.choice(["static", "forward", "pingpong"])
+                layer["wavetable_scan_mode"] = rng.choice(["static", "forward", "reverse", "pingpong", "sine", "smooth_random"])
 
     name = str(result.get("name") or "Untitled")
     if not name.endswith(" (mutated)"):

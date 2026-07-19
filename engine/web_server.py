@@ -418,6 +418,9 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "wavetable_scan_end": layer.get("wavetable_scan_end", 1.0),
                 "wavetable_scan_rate": layer.get("wavetable_scan_rate", 0.01),
                 "wavetable_scan_mode": layer.get("wavetable_scan_mode", "pingpong"),
+                "wavetable_tremor_amount": layer.get("wavetable_tremor_amount", 0.0),
+                "wavetable_tremor_rate": layer.get("wavetable_tremor_rate", 0.3),
+                "wavetable_audio_rate_scan": bool(layer.get("wavetable_audio_rate_scan", False)),
                 "wavetable_detune_cents": layer.get("wavetable_detune_cents", 7.0),
                 "wavetable_name": layer.get("wavetable_name", ""),
                 "wavetable_sha256": layer.get("wavetable_sha256", ""),
@@ -597,6 +600,9 @@ def _ui_params_to_preset(params: dict) -> dict:
             "wavetable_scan_end": float(l.get("wavetable_scan_end", 1.0)),
             "wavetable_scan_rate": float(l.get("wavetable_scan_rate", 0.01)),
             "wavetable_scan_mode": l.get("wavetable_scan_mode", "pingpong"),
+            "wavetable_tremor_amount": float(l.get("wavetable_tremor_amount", 0.0)),
+            "wavetable_tremor_rate": float(l.get("wavetable_tremor_rate", 0.3)),
+            "wavetable_audio_rate_scan": bool(l.get("wavetable_audio_rate_scan", False)),
             "wavetable_detune_cents": float(l.get("wavetable_detune_cents", 7.0)),
             "wavetable_name": l.get("wavetable_name", ""),
             "wavetable_sha256": l.get("wavetable_sha256", ""),
@@ -840,6 +846,45 @@ async def list_samples():
                 samples.append({"file": f"freesound_cache/{f}", "label": f"FS: {label}", "user": user, "source": "freesound"})
 
     return {"samples": samples}
+
+
+def _wavetable_display_name(filename: str) -> str:
+    """Turn CarveToy and imported filenames into compact library labels."""
+    stem = Path(filename).stem
+    stem = re.sub(r"^ct-wt-\d+-", "", stem, flags=re.IGNORECASE)
+    stem = re.sub(r"-\d+-\d+-\d+(?:_[a-f0-9]+)?$", "", stem, flags=re.IGNORECASE)
+    stem = re.sub(r"^ct_v[\d_]+", "", stem, flags=re.IGNORECASE)
+    label = re.sub(r"[_-]+", " ", stem).strip().title()
+    return re.sub(r"\bRnd\b", "RND", label) or "Wavetable"
+
+
+def _available_wavetables() -> list[dict]:
+    """List local wavetable WAVs with the metadata needed by the layer UI."""
+    import soundfile as sf
+
+    tables = []
+    if not _WAVETABLES_DIR.exists():
+        return tables
+    for path in sorted(_WAVETABLES_DIR.glob("*.wav")):
+        try:
+            info = sf.info(str(path))
+            frame_size = 2048
+            frame_count = min(256, max(1, int(info.frames) // frame_size))
+        except Exception:
+            continue
+        tables.append({
+            "source": f"wavetables/{path.name}",
+            "label": _wavetable_display_name(path.name),
+            "frame_size": frame_size,
+            "frames": frame_count,
+        })
+    return sorted(tables, key=lambda item: item["label"].casefold())
+
+
+@app.get("/api/wavetables")
+async def list_wavetables():
+    """Return wavetables already available to the synthesis engine."""
+    return {"ok": True, "wavetables": _available_wavetables()}
 
 
 @app.post("/api/wavetables/import")
@@ -2061,6 +2106,9 @@ async def save_preset_endpoint(request: Request):
                 l_out["wavetable_scan_end"] = float(layer.get("wavetable_scan_end", 1.0))
                 l_out["wavetable_scan_rate"] = float(layer.get("wavetable_scan_rate", 0.01))
                 l_out["wavetable_scan_mode"] = layer.get("wavetable_scan_mode", "pingpong")
+                l_out["wavetable_tremor_amount"] = float(layer.get("wavetable_tremor_amount", 0.0))
+                l_out["wavetable_tremor_rate"] = float(layer.get("wavetable_tremor_rate", 0.3))
+                l_out["wavetable_audio_rate_scan"] = bool(layer.get("wavetable_audio_rate_scan", False))
                 l_out["wavetable_detune_cents"] = float(layer.get("wavetable_detune_cents", 7.0))
                 for metadata_key in ("wavetable_name", "wavetable_sha256", "wavetable_source_url", "wavetable_creator", "wavetable_license"):
                     if layer.get(metadata_key):

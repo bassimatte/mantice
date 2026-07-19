@@ -1,0 +1,123 @@
+meta:
+  name: Tremor Cartography
+  slug: tremor_cartography
+  category: experimental
+  mood: [tectonic, evolving, luminous]
+  description: A living wavetable landscape where seeded contours wander, reverse ridges tremble, and one band-limited fault line scans at audio rate.
+  author: Matteo Bassi
+  tags: [wavetable, terrain, smooth-random, tremor, audio-rate]
+global: {duration_seconds: 180, sample_rate: 22050, bit_depth: 16-bit}
+saturation: 0.24
+reverb: {enabled: true, space: infinite, mix: 0.44, decay_trim: 1.04, modulation_depth: 0.18}
+spatial: {depth: 2.8, wetness: 0.58, swarm_density: 0.86}
+earth: {enabled: true, tectonic_frequency: 14, pressure: 0.24, movement: 0.003}
+air: {enabled: true, intensity: 0.045, movement: 0.004, turbulence: 0.022}
+layers:
+- name: Wandering Continent
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1783861884-rnd___modified-256-2048-32_8a119dca.wav
+  wavetable_name: RND Modified
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.22
+  wavetable_scan_start: 0.08
+  wavetable_scan_end: 0.86
+  wavetable_scan_rate: 0.025
+  wavetable_scan_mode: smooth_random
+  wavetable_tremor_amount: 9
+  wavetable_tremor_rate: 0.18
+  wavetable_audio_rate_scan: false
+  wavetable_detune_cents: 8
+  synthesis: {root: 41.2, voices: 5, ratios: [0.5, 1.0, 1.5]}
+  volume_db: 4.0
+  dynamics: {amp_min: 0.01, amp_max: 0.034, drift: 0.003}
+  spatial_motion: {quadrant: rear_left, speed: 0.003, trajectory_x: orbit, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 920
+  filter_resonance: 1.35
+  filter_lfo_rate: 0.008
+  filter_lfo_depth: 0.14
+  filter_lfo_shape: sine
+  chorus_rate: 0.14
+  chorus_depth: 0.009
+  chorus_mix: 0.3
+  chorus_voices: 3
+- name: Reverse Escarpment
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1784147249-warpy_cherries-256-2048-32.wav
+  wavetable_name: Warpy Cherries
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.64
+  wavetable_scan_start: 0.18
+  wavetable_scan_end: 0.72
+  wavetable_scan_rate: 0.014
+  wavetable_scan_mode: reverse
+  wavetable_tremor_amount: 5
+  wavetable_tremor_rate: 0.09
+  wavetable_audio_rate_scan: false
+  wavetable_detune_cents: 12
+  synthesis: {root: 61.8, voices: 4, ratios: [0.5, 1.0, 2.0]}
+  volume_db: 5.0
+  dynamics: {amp_min: 0.009, amp_max: 0.03, drift: 0.004}
+  spatial_motion: {quadrant: rear_right, speed: 0.004, trajectory_x: pendulum, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 1550
+  filter_resonance: 1.3
+  filter_lfo_rate: 0.011
+  filter_lfo_depth: 0.18
+  filter_lfo_shape: triangle
+  chorus_rate: 0.18
+  chorus_depth: 0.008
+  chorus_mix: 0.26
+  chorus_voices: 2
+- name: Audio Fault Line
+  enabled: true
+  type: wavetable
+  wavetable_source: wavetables/ct-wt-1784146344-ct_v1_6_0___new_cherry_picker-256-2048-32.wav
+  wavetable_name: New Cherry Picker
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.4
+  wavetable_scan_start: 0.32
+  wavetable_scan_end: 0.47
+  wavetable_scan_rate: 37.0
+  wavetable_scan_mode: sine
+  wavetable_tremor_amount: 1
+  wavetable_tremor_rate: 2.3
+  wavetable_audio_rate_scan: true
+  wavetable_detune_cents: 5
+  synthesis: {root: 82.4, voices: 3, ratios: [1.0, 1.5]}
+  volume_db: 2.0
+  dynamics: {amp_min: 0.006, amp_max: 0.02, drift: 0.002}
+  spatial_motion: {quadrant: front_right, speed: 0.006, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 3200
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.017
+  filter_lfo_depth: 0.1
+  filter_lfo_shape: sine
+  chorus_rate: 0.21
+  chorus_depth: 0.006
+  chorus_mix: 0.22
+  chorus_voices: 2
+- name: Bedrock Fundamental
+  enabled: true
+  type: fm
+  synthesis: {root: 41.2, voices: 6, ratios: [0.5, 1.0, 1.5]}
+  fm: {ratios: [1.0, 1.5], index: 0.12}
+  volume_db: 1.0
+  dynamics: {amp_min: 0.009, amp_max: 0.03, drift: 0.003}
+  spatial_motion: {quadrant: center, speed: 0.002, trajectory_x: drift, trajectory_y: depth}
+  filter_type: lp
+  filter_cutoff: 680
+  filter_resonance: 1.2
+  filter_lfo_rate: 0.006
+  filter_lfo_depth: 0.08
+  filter_lfo_shape: sine
+  chorus_rate: 0.12
+  chorus_depth: 0.01
+  chorus_mix: 0.28
+  chorus_voices: 3
