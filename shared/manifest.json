@@ -32,6 +32,19 @@
     "name": "Chthonic Corridor",
     "plays": 1
   },
+  "Cinnabar_Nexus_20260719_3df296": {
+    "author": "Mark",
+    "created": "2026-07-19T19:29:50.890645Z",
+    "name": "Cinnabar Nexus",
+    "plays": 0,
+    "wavetables": [
+      {
+        "name": "Chopper",
+        "path": "shared/wavetables/bf92e9bab5a4865012b15561f9cfbc763ad403c3f8e60b0f3d0636418135c4e7.wav",
+        "sha256": "bf92e9bab5a4865012b15561f9cfbc763ad403c3f8e60b0f3d0636418135c4e7"
+      }
+    ]
+  },
   "Crystal_Current_20260529_9da3f1": {
     "author": "Glass Orchard",
     "name": "Crystal Current"
