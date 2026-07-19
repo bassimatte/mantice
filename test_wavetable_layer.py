@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import base64
 from pathlib import Path
 from unittest.mock import patch
 
@@ -90,6 +91,41 @@ class WavetableLayerTests(unittest.TestCase):
             self.assertIn("label: 'Scan End', min: 0, max: wavetableLastFrame, step: 1", html)
             self.assertIn("displayValue / wavetableLastFrame", html)
             self.assertIn("target.wavetable_frames = data.frames", html)
+
+    def test_scope_data_is_compact_normalized_and_safe(self):
+        with tempfile.TemporaryDirectory() as folder:
+            samples = Path(folder)
+            tables = samples / "wavetables"
+            tables.mkdir()
+            self._write_table(tables, frames=8)
+            original_samples = web_server._SAMPLES_DIR
+            web_server._SAMPLES_DIR = samples
+            try:
+                data = web_server._wavetable_scope_data(
+                    "wavetables/table.wav", frame_size=2048, points=64
+                )
+                self.assertEqual(data["frames"], 8)
+                self.assertEqual(data["frame_size"], 2048)
+                self.assertEqual(data["points"], 64)
+                self.assertEqual(data["waveform_encoding"], "int8-base64")
+                packed = np.frombuffer(base64.b64decode(data["waveforms"]), dtype=np.int8)
+                self.assertEqual(packed.size, 8 * 64)
+                self.assertLessEqual(int(np.max(np.abs(packed.astype(np.int16)))), 127)
+                with self.assertRaises(ValueError):
+                    web_server._wavetable_scope_data("../private.wav")
+            finally:
+                web_server._SAMPLES_DIR = original_samples
+
+    def test_scope_is_animated_and_drives_scan_range(self):
+        html = Path("engine/static/index.html").read_text(encoding="utf-8")
+        self.assertIn('id="wavetable-scope-canvas"', html)
+        self.assertIn("/api/wavetables/inspect", html)
+        self.assertIn("data.waveform_encoding === 'int8-base64'", html)
+        self.assertIn("_wavetableVisualFrame", html)
+        self.assertIn("canvas.addEventListener('pointerdown'", html)
+        self.assertIn("layer.wavetable_scan_start = startFrame / lastFrame", html)
+        self.assertIn("layer.wavetable_scan_end = endFrame / lastFrame", html)
+        self.assertIn("if (moved) liveReload()", html)
 
     def test_share_publishes_hashed_asset_and_materializes_it(self):
         with tempfile.TemporaryDirectory() as folder:

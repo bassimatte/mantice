@@ -892,6 +892,60 @@ async def import_wavetable(request: Request):
     })
 
 
+def _wavetable_scope_data(source: str, frame_size: int = 2048, points: int = 128) -> dict:
+    """Return compact, normalized frame waveforms for the browser scope."""
+    import soundfile as sf
+
+    if not re.match(r"^[\w\-./]+\.wav$", source or "") or ".." in source:
+        raise ValueError("Invalid wavetable source")
+    samples_root = _SAMPLES_DIR.resolve()
+    path = (_SAMPLES_DIR / source).resolve()
+    if samples_root not in path.parents or not path.is_file():
+        raise FileNotFoundError("Wavetable not found")
+
+    frame_size = max(32, min(int(frame_size), 8192))
+    points = max(32, min(int(points), 256))
+    audio, _ = sf.read(str(path), dtype="float32", always_2d=True)
+    mono = np.mean(audio, axis=1, dtype=np.float32)
+    if len(mono) < 32:
+        raise ValueError("Wavetable WAV is too short")
+    if len(mono) < frame_size:
+        old_x = np.linspace(0.0, 1.0, len(mono), endpoint=False)
+        new_x = np.linspace(0.0, 1.0, frame_size, endpoint=False)
+        mono = np.interp(new_x, old_x, mono).astype(np.float32)
+
+    frame_count = min(256, max(1, len(mono) // frame_size))
+    frames = mono[:frame_count * frame_size].reshape(frame_count, frame_size)
+    frames = frames - np.mean(frames, axis=1, keepdims=True)
+    peak = float(np.max(np.abs(frames)))
+    if peak > 1e-8:
+        frames = frames / peak
+
+    sample_positions = np.linspace(0, frame_size - 1, points).astype(np.int32)
+    compact = np.clip(np.rint(frames[:, sample_positions] * 127.0), -127, 127).astype(np.int8)
+    return {
+        "source": source,
+        "frame_size": frame_size,
+        "frames": frame_count,
+        "points": points,
+        "waveform_encoding": "int8-base64",
+        "waveforms": base64.b64encode(compact.tobytes()).decode("ascii"),
+    }
+
+
+@app.get("/api/wavetables/inspect")
+async def inspect_wavetable(source: str, frame_size: int = 2048, points: int = 128):
+    """Serve compact frame data for the interactive wavetable scope."""
+    try:
+        return JSONResponse({"ok": True, **_wavetable_scope_data(source, frame_size, points)})
+    except FileNotFoundError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": f"Could not inspect wavetable: {exc}"}, status_code=500)
+
+
 @app.get("/samples/{filepath:path}")
 async def serve_sample(filepath: str):
     """Serve a sample audio file (supports freesound_cache/ subdirectory)."""

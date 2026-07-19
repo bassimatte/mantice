@@ -4365,6 +4365,10 @@ function showLayerParams(layer) {
       </div>
     </div>
     <div id="lp-wavetable-status" style="font-size:8px;color:var(--text-dim);margin:0 0 5px 57px;">${layer.wavetable_frames ? `${layer.wavetable_frames} frames · ${layer.wavetable_frame_size || 2048} samples` : 'CarveToy format: 256 × 2048 samples'}</div>
+    <div style="position:relative; margin:4px 0 8px;">
+      <canvas id="wavetable-scope-canvas" aria-label="Wavetable waveform and draggable scan range" style="display:block;width:100%;height:92px;background:var(--bg);border:1px solid var(--border);border-radius:4px;touch-action:none;cursor:ew-resize;"></canvas>
+      <div style="font-size:8px;color:var(--text-dim);margin-top:2px;text-align:center;">Drag the range handles to set Scan Start and Scan End</div>
+    </div>
     ${wavetableParams.map(p => `<div class="param-row">
       <label>${p.label}</label>
       <input type="range" id="lp-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}">
@@ -5149,6 +5153,7 @@ function showLayerParams(layer) {
   }
 
   if (layerType === 'wavetable') {
+    initWavetableScope(layer, wavetableFrameCount);
     wavetableParams.forEach(p => {
       const slider = $(`lp-${p.id}`);
       if (!slider) return;
@@ -5928,6 +5933,249 @@ function updateGranularScope() {
       if (wf) _drawGranularScope(canvas, wf, pos, scat);
     });
   }
+}
+
+// ── Wavetable Scope ─────────────────────────────────────────────────────────
+const _wavetableScopeCache = new Map();
+let _wavetableScopeAnimation = 0;
+
+async function _loadWavetableScope(source, frameSize) {
+  const key = `${source}:${frameSize}`;
+  if (_wavetableScopeCache.has(key)) return _wavetableScopeCache.get(key);
+  const url = apiUrl(`/api/wavetables/inspect?source=${encodeURIComponent(source)}&frame_size=${frameSize}&points=128`);
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok || !data.ok) throw new Error(data.error || 'Could not inspect wavetable');
+  if (data.waveform_encoding === 'int8-base64' && typeof data.waveforms === 'string') {
+    const packed = atob(data.waveforms);
+    data.waveforms = Array.from({ length: data.frames }, (_, frameIndex) => {
+      const frame = new Float32Array(data.points);
+      const offset = frameIndex * data.points;
+      for (let point = 0; point < data.points; point++) {
+        const byte = packed.charCodeAt(offset + point);
+        frame[point] = (byte > 127 ? byte - 256 : byte) / 127;
+      }
+      return frame;
+    });
+  }
+  _wavetableScopeCache.set(key, data);
+  return data;
+}
+
+function _wavetableVisualFrame(layer, now, startedAt, lastFrame) {
+  if (lastFrame <= 0) return 0;
+  const start = Math.max(0, Math.min(1, Number(layer.wavetable_scan_start ?? 0)));
+  const end = Math.max(start, Math.min(1, Number(layer.wavetable_scan_end ?? 1)));
+  const mode = layer.wavetable_scan_mode || 'pingpong';
+  if (mode === 'static') {
+    return Math.max(0, Math.min(lastFrame, Number(layer.wavetable_position ?? 0) * lastFrame));
+  }
+  const rate = Math.max(0, Number(layer.wavetable_scan_rate ?? 0.01));
+  const phase = (((now - startedAt) / 1000) * rate) % 1;
+  const curve = mode === 'forward' ? phase : 1 - Math.abs(2 * phase - 1);
+  return (start + curve * (end - start)) * lastFrame;
+}
+
+function _drawWavetableScope(canvas, data, layer, now, startedAt, message = '') {
+  const W = Math.max(220, canvas.clientWidth || 220);
+  const H = Math.max(92, canvas.clientHeight || 92);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const pixelW = Math.round(W * dpr);
+  const pixelH = Math.round(H * dpr);
+  if (canvas.width !== pixelW || canvas.height !== pixelH) {
+    canvas.width = pixelW;
+    canvas.height = pixelH;
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const isDark = document.documentElement.dataset.theme !== 'light';
+  const text = isDark ? 'rgba(230,235,240,.62)' : 'rgba(25,35,45,.62)';
+  const grid = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.09)';
+  const wave = isDark ? 'rgba(150,210,255,.92)' : 'rgba(35,100,185,.92)';
+  const range = isDark ? 'rgba(255,107,43,.16)' : 'rgba(225,85,25,.14)';
+  const accent = '#ff6b2b';
+  const left = 9;
+  const right = W - 9;
+  const waveTop = 16;
+  const waveBottom = H - 29;
+  const mid = (waveTop + waveBottom) * 0.5;
+  const trackY = H - 15;
+
+  ctx.strokeStyle = grid;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(left, mid);
+  ctx.lineTo(right, mid);
+  ctx.stroke();
+
+  if (!data || !data.waveforms?.length) {
+    ctx.fillStyle = text;
+    ctx.font = "9px 'Space Mono', monospace";
+    ctx.textAlign = 'center';
+    ctx.fillText(message || 'Loading wavetable frames…', W * 0.5, H * 0.5);
+    return;
+  }
+
+  const lastFrame = Math.max(0, data.frames - 1);
+  const startFrame = Math.round(Math.max(0, Math.min(1, Number(layer.wavetable_scan_start ?? 0))) * lastFrame);
+  const endFrame = Math.round(Math.max(0, Math.min(1, Number(layer.wavetable_scan_end ?? 1))) * lastFrame);
+  const currentFrame = _wavetableVisualFrame(layer, now, startedAt, lastFrame);
+  const xForFrame = frame => left + (lastFrame > 0 ? frame / lastFrame : 0) * (right - left);
+  const startX = xForFrame(startFrame);
+  const endX = xForFrame(endFrame);
+  const currentX = xForFrame(currentFrame);
+
+  ctx.fillStyle = range;
+  ctx.fillRect(startX, waveTop, Math.max(1, endX - startX), trackY - waveTop);
+
+  const lowFrame = Math.max(0, Math.min(lastFrame, Math.floor(currentFrame)));
+  const highFrame = Math.min(lastFrame, lowFrame + 1);
+  const blend = currentFrame - lowFrame;
+  const lowWave = data.waveforms[lowFrame];
+  const highWave = data.waveforms[highFrame] || lowWave;
+  if (lowWave?.length) {
+    ctx.strokeStyle = wave;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    lowWave.forEach((sample, index) => {
+      const mixed = sample * (1 - blend) + (highWave[index] ?? sample) * blend;
+      const x = left + (index / Math.max(1, lowWave.length - 1)) * (right - left);
+      const y = mid - mixed * (waveBottom - waveTop) * 0.45;
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = grid;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(left, trackY);
+  ctx.lineTo(right, trackY);
+  ctx.stroke();
+
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(startX, waveTop);
+  ctx.lineTo(startX, trackY + 5);
+  ctx.moveTo(endX, waveTop);
+  ctx.lineTo(endX, trackY + 5);
+  ctx.stroke();
+
+  ctx.fillStyle = accent;
+  for (const x of [startX, endX]) {
+    ctx.beginPath();
+    ctx.arc(x, trackY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,.72)' : 'rgba(0,0,0,.68)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(currentX, waveTop);
+  ctx.lineTo(currentX, waveBottom);
+  ctx.stroke();
+
+  ctx.fillStyle = text;
+  ctx.font = "8px 'Space Mono', monospace";
+  ctx.textAlign = 'left';
+  ctx.fillText(`FRAME ${currentFrame.toFixed(1)}`, left, 10);
+  ctx.fillText('0', left, H - 3);
+  ctx.textAlign = 'right';
+  ctx.fillText(String(lastFrame), right, H - 3);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = accent;
+  ctx.fillText(String(startFrame), Math.max(left + 12, startX), H - 3);
+  ctx.fillText(String(endFrame), Math.min(right - 12, endX), H - 3);
+}
+
+function initWavetableScope(layer, initialFrameCount) {
+  if (_wavetableScopeAnimation) cancelAnimationFrame(_wavetableScopeAnimation);
+  const canvas = $('wavetable-scope-canvas');
+  if (!canvas) return;
+
+  let data = null;
+  let message = layer.wavetable_source ? 'Loading wavetable frames…' : 'Import a wavetable to inspect its frames';
+  let dragging = null;
+  let moved = false;
+  const startedAt = performance.now();
+
+  const render = now => {
+    if (!canvas.isConnected) return;
+    _drawWavetableScope(canvas, data, layer, now, startedAt, message);
+    _wavetableScopeAnimation = requestAnimationFrame(render);
+  };
+  _wavetableScopeAnimation = requestAnimationFrame(render);
+
+  if (layer.wavetable_source) {
+    _loadWavetableScope(layer.wavetable_source, layer.wavetable_frame_size || 2048)
+      .then(result => {
+        data = result;
+        message = '';
+        if (result.frames !== initialFrameCount) {
+          layer.wavetable_frames = result.frames;
+          showLayerParams(layer);
+        }
+      })
+      .catch(error => { message = error.message; });
+  }
+
+  const pointerFrame = event => {
+    const rect = canvas.getBoundingClientRect();
+    const lastFrame = Math.max(0, (data?.frames ?? layer.wavetable_frames ?? initialFrameCount) - 1);
+    const normalized = Math.max(0, Math.min(1, (event.clientX - rect.left - 9) / Math.max(1, rect.width - 18)));
+    return Math.round(normalized * lastFrame);
+  };
+
+  const updateRange = event => {
+    const lastFrame = Math.max(0, (data?.frames ?? layer.wavetable_frames ?? initialFrameCount) - 1);
+    if (!dragging || lastFrame <= 0) return;
+    const frame = pointerFrame(event);
+    let startFrame = Math.round(Number(layer.wavetable_scan_start ?? 0) * lastFrame);
+    let endFrame = Math.round(Number(layer.wavetable_scan_end ?? 1) * lastFrame);
+    if (dragging === 'start') startFrame = Math.min(frame, endFrame);
+    else endFrame = Math.max(frame, startFrame);
+    layer.wavetable_scan_start = startFrame / lastFrame;
+    layer.wavetable_scan_end = endFrame / lastFrame;
+    const startSlider = $('lp-wavetable_scan_start');
+    const endSlider = $('lp-wavetable_scan_end');
+    if (startSlider) startSlider.value = startFrame;
+    if (endSlider) endSlider.value = endFrame;
+    if ($('lp-wavetable_scan_start-val')) $('lp-wavetable_scan_start-val').textContent = String(startFrame);
+    if ($('lp-wavetable_scan_end-val')) $('lp-wavetable_scan_end-val').textContent = String(endFrame);
+    moved = true;
+    markDirty();
+  };
+
+  canvas.addEventListener('pointerdown', event => {
+    const lastFrame = Math.max(0, (data?.frames ?? layer.wavetable_frames ?? initialFrameCount) - 1);
+    if (lastFrame <= 0) return;
+    const frame = pointerFrame(event);
+    const startFrame = Math.round(Number(layer.wavetable_scan_start ?? 0) * lastFrame);
+    const endFrame = Math.round(Number(layer.wavetable_scan_end ?? 1) * lastFrame);
+    dragging = Math.abs(frame - startFrame) <= Math.abs(frame - endFrame) ? 'start' : 'end';
+    moved = false;
+    pushUndo();
+    canvas.setPointerCapture(event.pointerId);
+    updateRange(event);
+    event.preventDefault();
+  });
+  canvas.addEventListener('pointermove', event => {
+    if (!dragging) return;
+    updateRange(event);
+    event.preventDefault();
+  });
+  const finishDrag = event => {
+    if (!dragging) return;
+    dragging = null;
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    if (moved) liveReload();
+  };
+  canvas.addEventListener('pointerup', finishDrag);
+  canvas.addEventListener('pointercancel', finishDrag);
 }
 
 // ── Undo/Redo ────────────────────────────────────────────────────────────────
