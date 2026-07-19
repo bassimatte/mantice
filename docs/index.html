@@ -7,7 +7,7 @@
 <meta name="description" content="Create evolving ambient drones in your browser with FM, subtractive, granular and wavetable synthesis. Mantice is free, open source and ready to play.">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="application-name" content="Mantice">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="#090b0b">
 <link rel="canonical" href="https://bassimatte.github.io/mantice/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Mantice">
@@ -62,29 +62,56 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
 :root {
-  --bg: #0a0a0a;
-  --surface: #141414;
-  --surface2: #1e1e1e;
-  --border: #2a2a2a;
-  --accent: #ff6b2b;
-  --accent-dim: #cc5522;
-  --accent-glow: rgba(255, 107, 43, 0.15);
-  --text: #e8e8e8;
-  --text-dim: #666;
-  --text-lcd: #ff6b2b;
-  --success: #2bff6b;
-  --danger: #ff2b4a;
+  color-scheme: dark;
+  --bg: #090b0b;
+  --surface: #111514;
+  --surface2: #18201e;
+  --border: #29302d;
+  --accent: #f47738;
+  --accent-hover: #ff9560;
+  --accent-dim: #bd5528;
+  --accent-glow: rgba(244, 119, 56, 0.16);
+  --focus: #ffd0a8;
+  --text: #e9e4d8;
+  --text-dim: #92978e;
+  --text-lcd: #d8c7b3;
+  --success: #78b77b;
+  --danger: #d76565;
+  --engine-fm: #e6a84a;
+  --engine-subtractive: #7fa66a;
+  --engine-granular: #a988c7;
+  --engine-wavetable: #58a9b4;
+  --grid-line: rgba(233, 228, 216, 0.045);
+  --ink-on-color: #101312;
+  --muted: var(--text-dim);
+  --bg2: var(--surface2);
+  --cyan: var(--engine-wavetable);
+  --bg-dark: var(--bg);
   --radius: 2px;
 }
 
 [data-theme="light"] {
-  --bg: #f0f0f0;
-  --surface: #ffffff;
-  --surface2: #e8e8e8;
-  --border: #ccc;
-  --text: #1a1a1a;
-  --text-dim: #777;
-  --accent-glow: rgba(255, 107, 43, 0.1);
+  color-scheme: light;
+  --bg: #eeeae1;
+  --surface: #f8f5ee;
+  --surface2: #e4e0d6;
+  --border: #c8c1b5;
+  --accent: #ad461d;
+  --accent-hover: #8f3715;
+  --accent-dim: #9f431d;
+  --accent-glow: rgba(201, 86, 36, 0.12);
+  --focus: #7c3518;
+  --text: #242724;
+  --text-dim: #595f58;
+  --text-lcd: #544b43;
+  --success: #4d8051;
+  --danger: #ae4848;
+  --engine-fm: #8d641a;
+  --engine-subtractive: #4f7341;
+  --engine-granular: #74578f;
+  --engine-wavetable: #2f737e;
+  --grid-line: rgba(36, 39, 36, 0.055);
+  --ink-on-color: #f8f5ee;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -93,13 +120,17 @@
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 0; }
-::-webkit-scrollbar-thumb:hover { background: #ff8844; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-hover); }
 * { scrollbar-width: thin; scrollbar-color: var(--accent) var(--bg); }
 
 body {
   font-family: 'Space Mono', monospace;
   font-size: 90%;
-  background: var(--bg);
+  line-height: 1.35;
+  background:
+    radial-gradient(circle at 78% 4%, color-mix(in srgb, var(--engine-wavetable) 5%, transparent), transparent 32%),
+    radial-gradient(circle at 12% 100%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 34%),
+    var(--bg);
   color: var(--text);
   height: 100vh;
   height: 100dvh;
@@ -145,7 +176,7 @@ header h1 {
   text-transform: uppercase;
 }
 .header-byline {
-  font-size: 8px;
+  font-size: 9px;
   color: var(--text-dim);
   letter-spacing: 0.05em;
   font-weight: 400;
@@ -268,7 +299,7 @@ header .status {
 }
 .files-dropdown.open { display: block; }
 .dropdown-section-label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -284,10 +315,10 @@ aside {
   padding: 8px 0;
 }
 aside h3 {
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: var(--accent);
+  color: var(--text-dim);
   padding: 10px 12px 4px;
   font-weight: 700;
 }
@@ -329,7 +360,7 @@ aside h3 {
 /* ── Preset source sections (Official / Community) ── */
 .preset-source-section { margin-bottom: 4px; }
 .preset-source-header {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -359,7 +390,7 @@ aside h3 {
   margin-bottom: 6px;
 }
 #tag-filter-details > summary {
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -378,7 +409,7 @@ aside h3 {
 }
 .tag-btn {
   font-family: 'Space Mono', monospace;
-  font-size: 8px;
+  font-size: 10px;
   padding: 2px 6px;
   background: var(--surface2);
   color: var(--text-dim);
@@ -390,7 +421,7 @@ aside h3 {
   transition: all 0.1s;
 }
 .tag-btn:hover { border-color: var(--accent); color: var(--text); }
-.tag-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+.tag-btn.active { background: var(--accent); color: var(--ink-on-color); border-color: var(--accent); font-weight: 700; }
 
 .sidebar-section {
   border-top: 1px solid var(--border);
@@ -410,7 +441,7 @@ aside h3 {
   border-radius: 10px;
   padding: 3px 8px;
   font-family: 'Space Mono', monospace;
-  font-size: 8px;
+  font-size: 10px;
   color: var(--text-dim);
   cursor: pointer;
   text-transform: uppercase;
@@ -431,7 +462,7 @@ aside h3 {
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-dim);
@@ -446,17 +477,17 @@ aside h3 {
 }
 .intent-panel { margin: 5px 0 7px; border: 1px solid var(--border); background: var(--bg); }
 .intent-panel summary {
-  padding: 4px 6px; color: var(--text-dim); font-size: 8px; cursor: pointer;
+  padding: 4px 6px; color: var(--text-dim); font-size: 10px; cursor: pointer;
   text-transform: uppercase; letter-spacing: 0.08em; user-select: none;
 }
 .intent-grid { display: grid; gap: 2px; padding: 3px 6px 6px; }
 .intent-row { display: grid; grid-template-columns: 52px 1fr 22px; gap: 5px; align-items: center; min-height: 18px; }
-.intent-row label { color: var(--text-dim); font-size: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
+.intent-row label { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
 .intent-row input[type="range"] { width: 100%; min-width: 0; height: 3px; accent-color: var(--accent); cursor: pointer; }
-.intent-value { color: var(--text-lcd); font-size: 7px; text-align: right; font-variant-numeric: tabular-nums; }
+.intent-value { color: var(--text-lcd); font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
 .synthesis-row { margin-top: 3px; padding-top: 5px; border-top: 1px solid var(--border); }
 .synthesis-options { display: flex; flex-wrap: nowrap; justify-content: center; gap: 3px; }
-.synthesis-option { display: flex; align-items: center; gap: 2px; padding: 2px 3px; color: var(--text-dim); border: 1px solid var(--border); font-size: 7px; cursor: pointer; text-transform: uppercase; }
+.synthesis-option { display: flex; align-items: center; gap: 3px; padding: 3px 5px; color: var(--text-dim); border: 1px solid var(--border); font-size: 10px; cursor: pointer; text-transform: uppercase; }
 .synthesis-option:has(input:checked) { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
 .synthesis-option input { width: 9px; height: 9px; margin: 0; accent-color: var(--accent); }
 .tuning-panel-body { padding: 3px 6px 6px; }
@@ -471,7 +502,7 @@ aside h3 {
   width: auto;
   margin: 0;
   padding: 3px 7px;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 /* Generation History */
@@ -486,7 +517,7 @@ aside h3 {
   border-radius: 4px;
   cursor: pointer;
   font-family: 'Space Mono', monospace;
-  font-size: 9px;
+  font-size: 10px;
   text-align: left;
   transition: all 0.15s ease;
   display: flex;
@@ -502,11 +533,11 @@ aside h3 {
 .history-node-row { display: grid; grid-template-columns: 14px 1fr; gap: 2px; align-items: stretch; margin-bottom: 3px; }
 .history-branch-toggle {
   width: 14px; padding: 0; color: var(--text-dim); background: transparent;
-  border: 0; cursor: pointer; font-size: 8px;
+  border: 0; cursor: pointer; font-size: 10px;
 }
-.history-branch-toggle:disabled { opacity: .25; }
+.history-branch-toggle:disabled { opacity: .55; }
 .history-btn.active-node { border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
-.history-kind { margin-left: 4px; color: var(--text-dim); font-size: 7px; text-transform: uppercase; }
+.history-kind { margin-left: 4px; color: var(--text-dim); font-size: 9px; text-transform: uppercase; }
 .history-children.collapsed { display: none; }
 .history-btn:hover {
   background: var(--bg-light);
@@ -532,7 +563,7 @@ aside h3 {
   color: var(--bg);
   padding: 1px 4px;
   border-radius: 3px;
-  font-size: 7px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -541,7 +572,7 @@ aside h3 {
 .history-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 7px;
+  font-size: 9px;
   color: var(--muted);
   gap: 6px;
 }
@@ -559,7 +590,7 @@ aside h3 {
   padding: 7px;
   margin-top: 6px;
   background: var(--accent);
-  color: #000;
+  color: var(--ink-on-color);
   border: none;
   border-radius: 0;
   font-family: 'Space Mono', monospace;
@@ -570,10 +601,10 @@ aside h3 {
   letter-spacing: 0.1em;
   transition: all 0.1s;
 }
-.btn:hover { background: #ff8844; }
+.btn:hover { background: var(--accent-hover); }
 .btn:active { transform: scale(0.97); filter: brightness(1.15); }
 .btn:focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 .btn:disabled {
@@ -598,6 +629,7 @@ main {
   gap: 8px;
   min-width: 0;
   min-height: 0;
+  background: transparent;
 }
 
 .card {
@@ -605,12 +637,13 @@ main {
   border-radius: 0;
   padding: 10px;
   border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 2.5%, transparent);
 }
 .card h2 {
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: var(--accent);
+  color: var(--text-dim);
   margin-bottom: 8px;
   font-weight: 700;
   padding-bottom: 5px;
@@ -642,9 +675,9 @@ main {
   animation: pulse-dirty 1s infinite;
 }
 .dirty-badge {
-  font-size: 8px;
+  font-size: 9px;
   background: var(--accent);
-  color: #000;
+  color: var(--ink-on-color);
   padding: 1px 5px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -690,29 +723,29 @@ main {
 .auto-row { display:flex; flex-direction:column; gap:0; padding:2px 0; font-size:10px; }
 .auto-controls { display:flex; align-items:center; gap:3px; flex-wrap:nowrap; }
 .auto-canvas { display:block; width:100%; height:14px; border-radius:2px; margin-top:2px; opacity:0.85; }
-.auto-row.disabled { opacity:0.42; }
+.auto-row.disabled { opacity:0.68; }
 .auto-toggle-btn { cursor:pointer; font-size:13px; line-height:1; color:var(--text-dim); background:none; border:none; padding:0 2px; flex-shrink:0; }
 .auto-toggle-btn.on { color:var(--accent); }
 .auto-label { min-width:82px; color:var(--text-lcd); font-size:10px; flex-shrink:0; }
-.auto-t { width:26px; padding:1px 3px; font-size:9px; text-align:right; background:var(--surface); color:var(--text-dim); border:1px solid rgba(255,255,255,0.10); border-radius:2px; flex-shrink:0; -moz-appearance:textfield; }
+.auto-t { width:30px; padding:1px 3px; font-size:10px; text-align:right; background:var(--surface); color:var(--text-dim); border:1px solid color-mix(in srgb, var(--text) 12%, transparent); border-radius:2px; flex-shrink:0; -moz-appearance:textfield; }
 .auto-t::-webkit-outer-spin-button, .auto-t::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 .auto-pct { font-size:9px; color:var(--text-dim); flex-shrink:0; }
-.auto-val { width:48px; padding:1px 4px; font-size:10px; text-align:right; background:var(--surface); color:var(--text-lcd); border:1px solid rgba(255,255,255,0.12); border-radius:2px; flex-shrink:0; -moz-appearance:textfield; }
+.auto-val { width:52px; padding:1px 4px; font-size:10px; text-align:right; background:var(--surface); color:var(--text-lcd); border:1px solid color-mix(in srgb, var(--text) 14%, transparent); border-radius:2px; flex-shrink:0; -moz-appearance:textfield; }
 .auto-val::-webkit-outer-spin-button, .auto-val::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
-.auto-shape-btn { background:none; border:none; color:var(--accent); font-size:9px; cursor:pointer; padding:0 2px; flex-shrink:0; white-space:nowrap; letter-spacing:-.02em; }
+.auto-shape-btn { background:none; border:none; color:var(--accent); font-size:10px; cursor:pointer; padding:0 2px; flex-shrink:0; white-space:nowrap; letter-spacing:-.02em; }
 .auto-shape-btn:hover { color:var(--text); }
-.auto-mid-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.12); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-left:3px; flex-shrink:0; }
+.auto-mid-btn { cursor:pointer; font-size:10px; background:none; border:1px solid color-mix(in srgb, var(--text) 14%, transparent); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-left:3px; flex-shrink:0; }
 .auto-mid-btn:hover { border-color:var(--accent); color:var(--accent); }
-.auto-mode-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.14); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-right:3px; flex-shrink:0; }
+.auto-mode-btn { cursor:pointer; font-size:10px; background:none; border:1px solid color-mix(in srgb, var(--text) 16%, transparent); border-radius:2px; color:var(--text-dim); padding:1px 5px; margin-right:3px; flex-shrink:0; }
 .auto-mode-btn:hover { border-color:var(--accent); color:var(--accent); }
 .auto-mode-btn.walk { border-color:rgba(160,210,160,0.4); color:rgb(140,200,140); }
 .auto-mode-btn.walk:hover { border-color:rgb(160,220,160); color:rgb(180,240,180); }
 .auto-walk-label { font-size:9px; color:var(--text-dim); flex-shrink:0; margin-left:3px; }
 .auto-quickset { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:8px; padding-bottom:7px; border-bottom:1px solid rgba(255,255,255,0.07); }
 .auto-quickset-label { font-size:9px; color:var(--text-dim); flex-shrink:0; margin-right:2px; }
-.auto-quickset-btn { cursor:pointer; font-size:9px; background:var(--surface2); border:1px solid rgba(255,255,255,0.14); border-radius:10px; color:var(--text); padding:2px 9px; flex-shrink:0; transition:border-color .15s, color .15s; }
+.auto-quickset-btn { cursor:pointer; font-size:10px; background:var(--surface2); border:1px solid color-mix(in srgb, var(--text) 16%, transparent); border-radius:10px; color:var(--text); padding:3px 9px; flex-shrink:0; transition:border-color .15s, color .15s; }
 .auto-quickset-btn:hover { border-color:var(--accent); color:var(--accent); }
-.auto-clear-btn { cursor:pointer; font-size:9px; background:none; border:1px solid rgba(255,255,255,0.09); border-radius:10px; color:var(--text-dim); padding:2px 8px; margin-left:auto; flex-shrink:0; }
+.auto-clear-btn { cursor:pointer; font-size:10px; background:none; border:1px solid color-mix(in srgb, var(--text) 12%, transparent); border-radius:10px; color:var(--text-dim); padding:3px 8px; margin-left:auto; flex-shrink:0; }
 .auto-clear-btn:hover { border-color:var(--danger); color:var(--danger); }
 
 /* ── JI Tuning Panel ───────────────────────────── */
@@ -738,7 +771,7 @@ main {
 }
 .tuning-mode-btn.active {
   background: var(--accent);
-  color: #000;
+  color: var(--ink-on-color);
   border-color: var(--accent);
 }
 #tuning-ji-controls { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
@@ -890,8 +923,8 @@ main {
     grid-template-columns: 60px 1fr 36px;
     gap: 4px;
   }
-  .param-row label { font-size: 8px; }
-  .param-row .value { font-size: 9px; }
+  .param-row label { font-size: 11px; }
+  .param-row .value { font-size: 11px; }
   .param-row input[type="range"] { height: 6px; }
   .param-row input[type="range"]::-webkit-slider-thumb {
     width: 20px;
@@ -955,14 +988,15 @@ main {
   grid-template-columns: 100px 1fr 130px;
 }
 .param-row.scan-rate-row .value {
-  font-size: 8px;
+  font-size: 9px;
   white-space: nowrap;
 }
 @media (max-width: 700px) {
   .param-row.scan-rate-row { grid-template-columns: 60px 1fr 105px; gap: 4px; }
 }
 .param-row label {
-  font-size: 9px;
+  font-size: 10px;
+  line-height: 1.3;
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1020,7 +1054,7 @@ main {
   box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent);
 }
 .param-row input[type="range"]:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--focus);
   outline-offset: 4px;
 }
 .slider-control {
@@ -1050,7 +1084,7 @@ main {
   bottom: calc(50% + 13px);
   transform: translateX(-50%) translateY(3px);
   padding: 3px 6px;
-  color: #000;
+  color: var(--ink-on-color);
   background: var(--accent);
   border: 1px solid var(--surface);
   font: 700 9px/1.2 'Space Mono', monospace;
@@ -1076,7 +1110,7 @@ main {
   border: 1px solid var(--border);
 }
 .card-subsection-label {
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-dim);
@@ -1118,7 +1152,7 @@ main {
 .layer-subtab:focus-visible,
 .solo-btn:focus-visible,
 .snap-btn:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 button:disabled {
@@ -1127,11 +1161,11 @@ button:disabled {
   box-shadow: none !important;
 }
 .btn-preview { border-color: var(--accent); color: var(--accent); }
-.btn-preview:hover { background: var(--accent); color: #000; box-shadow: 0 0 12px var(--accent); }
+.btn-preview:hover { background: var(--accent); color: var(--ink-on-color); box-shadow: 0 0 12px var(--accent-glow); }
 .btn-stop { border-color: var(--danger); color: var(--danger); }
-.btn-stop:hover { background: var(--danger); color: #000; box-shadow: 0 0 12px var(--danger); }
-.btn-render { border-color: var(--success); color: var(--success); }
-.btn-render:hover { background: var(--success); color: #000; box-shadow: 0 0 12px var(--success); }
+.btn-stop:hover { background: var(--danger); color: var(--ink-on-color); box-shadow: 0 0 12px color-mix(in srgb, var(--danger) 35%, transparent); }
+.btn-render { border-color: var(--border); color: var(--text); }
+.btn-render:hover { border-color: var(--text-dim); background: var(--surface2); color: var(--text); box-shadow: none; }
 .progress-ring { width: 24px; height: 24px; }
 .progress-ring circle { fill: none; stroke-width: 3; }
 .progress-ring .ring-bg { stroke: var(--border); }
@@ -1159,7 +1193,7 @@ button:disabled {
   margin-bottom: 6px;
 }
 .toggle-row label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-dim);
   min-width: 80px;
   text-transform: uppercase;
@@ -1259,7 +1293,7 @@ button:disabled {
 .layer-tab {
   padding: 4px 10px;
   font-family: 'Space Mono', monospace;
-  font-size: 9px;
+  font-size: 10px;
   border-radius: 0;
   background: var(--bg);
   color: var(--text-dim);
@@ -1271,10 +1305,10 @@ button:disabled {
   transition: all 0.1s;
 }
 .layer-tab:hover { border-color: var(--text-dim); border-bottom-color: var(--layer-color, var(--text-dim)); }
-.layer-tab.active { background: var(--layer-color, var(--accent)); color: #000; border-color: var(--layer-color, var(--accent)); font-weight: 700; }
-.layer-tab.muted { opacity: 0.4; }
-.layer-tab.muted.active { background: var(--layer-color, var(--accent)); opacity: 0.65; }
-.layer-tab.muted::after { content: ' M'; font-size: 8px; opacity: 0.8; }
+.layer-tab.active { background: var(--layer-color, var(--accent)); color: var(--ink-on-color); border-color: var(--layer-color, var(--accent)); font-weight: 700; }
+.layer-tab.muted { opacity: 0.72; }
+.layer-tab.muted.active { background: var(--layer-color, var(--accent)); opacity: 0.82; }
+.layer-tab.muted::after { content: ' M'; font-size: 9px; }
 
 /* Layer peak meter bar — shown at bottom of each layer tab */
 .layer-meter {
@@ -1299,7 +1333,7 @@ button:disabled {
 .layer-subtab {
   padding: 3px 10px;
   font-family: 'Space Mono', monospace;
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   background: transparent;
@@ -1311,6 +1345,7 @@ button:disabled {
 }
 .layer-subtab:hover { color: var(--text); }
 .layer-subtab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+#layer-params .layer-subtab.active { color: var(--active-layer-color, var(--accent)); border-bottom-color: var(--active-layer-color, var(--accent)); }
 
 /* Layer enable toggle */
 .layer-toggle-row {
@@ -1322,7 +1357,7 @@ button:disabled {
   border-bottom: 1px solid var(--border);
 }
 .layer-toggle-row label {
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   color: var(--text-dim);
   letter-spacing: 0.05em;
@@ -1344,9 +1379,9 @@ button:disabled {
   transition: all 0.1s;
 }
 .solo-btn:hover { border-color: var(--accent); color: var(--accent); }
-.solo-btn.active-mute { background: #ff6b2b33; border-color: #ff6b2b; color: #ff6b2b; }
-.snap-btn { font-size: 9px; background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; padding: 0 3px; margin-left: 3px; border-radius: 2px; line-height: 1.4; vertical-align: middle; }
-.snap-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent)1a; }
+.solo-btn.active-mute { background: color-mix(in srgb, var(--danger) 18%, transparent); border-color: var(--danger); color: var(--danger); }
+.snap-btn { font-size: 10px; background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; padding: 0 3px; margin-left: 3px; border-radius: 2px; line-height: 1.4; vertical-align: middle; }
+.snap-btn.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
 /* Progress */
 .progress-bar {
@@ -1372,7 +1407,7 @@ button:disabled {
   margin-bottom: 8px;
 }
 .radio-group label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-dim);
   cursor: pointer;
   display: flex;
@@ -1384,7 +1419,7 @@ button:disabled {
 .radio-group input { accent-color: var(--accent); }
 
 /* Docs modal */
-.btn-info { color: var(--muted); border-color: var(--border); font-size: 12px; font-weight: bold; opacity: 0.5; }
+.btn-info { color: var(--muted); border-color: var(--border); font-size: 12px; font-weight: bold; opacity: 0.78; }
 .btn-info:hover { opacity: 1; color: var(--text); }
 .docs-overlay {
   display: none; position: fixed; inset: 0; z-index: 9999;
@@ -1483,18 +1518,18 @@ button:disabled {
 .candidate-modal .docs-header { justify-content: flex-end; padding: 8px 12px; }
 .candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; overflow-y: auto; }
 .candidate-card { display: flex; flex-direction: column; min-width: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-top: 3px solid var(--candidate-accent, var(--accent)); }
-.candidate-index { color: var(--candidate-accent, var(--accent)); font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; }
-.candidate-role { float: right; padding: 2px 5px; color: var(--candidate-accent, var(--accent)); border: 1px solid var(--candidate-accent, var(--accent)); font-size: 7px; letter-spacing: 0.06em; }
+.candidate-index { color: var(--candidate-accent, var(--accent)); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }
+.candidate-role { float: right; padding: 2px 5px; color: var(--candidate-accent, var(--accent)); border: 1px solid var(--candidate-accent, var(--accent)); font-size: 9px; letter-spacing: 0.06em; }
 .candidate-name { min-height: 42px; margin: 5px 0 8px; color: var(--text); font-size: 14px; line-height: 1.3; text-transform: uppercase; }
 .candidate-fingerprint { display: block; width: 100%; height: 120px; background: var(--surface); border: 1px solid var(--border); }
 .candidate-traits { display: flex; flex-wrap: wrap; gap: 4px; min-height: 48px; margin: 10px 0; align-content: flex-start; }
 .candidate-description { min-height: 70px; margin: 0 0 10px; color: var(--text-dim); font-size: 9px; line-height: 1.55; }
 .candidate-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 8px 0; border-top: 1px solid var(--border); }
 .candidate-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: auto; padding-top: 10px; }
-.candidate-audition, .candidate-use { min-height: 40px; font: 700 9px 'Space Mono', monospace; text-transform: uppercase; cursor: pointer; }
+.candidate-audition, .candidate-use { min-height: 40px; font: 700 10px 'Space Mono', monospace; text-transform: uppercase; cursor: pointer; }
 .candidate-audition { color: var(--accent); background: transparent; border: 1px solid var(--accent); }
-.candidate-audition.playing { color: #000; background: var(--accent); }
-.candidate-use { color: #000; background: var(--accent); border: 1px solid var(--accent); }
+.candidate-audition.playing { color: var(--ink-on-color); background: var(--accent); }
+.candidate-use { color: var(--ink-on-color); background: var(--accent); border: 1px solid var(--accent); }
 @media (max-width: 760px) {
   .candidate-modal { width: 100vw; height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border: 0; border-radius: 0; }
   .candidate-modal .docs-header {
@@ -1549,7 +1584,7 @@ button:disabled {
   font: 10px 'Space Mono', monospace;
   text-transform: uppercase;
 }
-.gallery-sort:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.gallery-sort:focus { outline: 1px solid var(--focus); border-color: var(--accent); }
 .gallery-count {
   min-width: 78px;
   color: var(--text-dim);
@@ -1569,8 +1604,8 @@ button:disabled {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 10px;
   background:
-    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
     var(--bg);
   background-size: 28px 28px;
 }
@@ -1604,13 +1639,13 @@ button:disabled {
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
 }
 .gallery-card.selected { border-color: var(--card-accent, var(--accent)); box-shadow: inset 0 0 0 1px var(--card-accent, var(--accent)); }
-.gallery-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gallery-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .gallery-card-top { display: flex; align-items: flex-start; gap: 10px; }
 .gallery-card-index {
   flex: 0 0 auto;
   color: var(--card-accent, var(--accent));
   font-size: 9px;
-  opacity: 0.75;
+  opacity: 1;
 }
 .gallery-card-name {
   min-height: 38px;
@@ -1640,7 +1675,7 @@ button:disabled {
   font: 12px 'Space Mono', monospace; cursor: pointer; z-index: 2;
   box-shadow: 0 0 15px rgba(0,0,0,0.65);
 }
-.gallery-audition-btn:hover, .gallery-audition-btn.playing { color: #000; background: var(--accent); }
+.gallery-audition-btn:hover, .gallery-audition-btn.playing { color: var(--ink-on-color); background: var(--accent); }
 .gallery-audition-btn.loading { animation: gallery-pulse 0.8s infinite alternate; }
 @keyframes gallery-pulse { to { opacity: 0.45; } }
 .gallery-card-actions { position: absolute; right: 9px; top: 8px; display: flex; gap: 4px; z-index: 3; }
@@ -1648,7 +1683,7 @@ button:disabled {
   width: 26px; height: 26px; padding: 0; color: var(--text-dim); background: var(--bg);
   border: 1px solid var(--border); cursor: pointer; font-size: 13px;
 }
-.gallery-favorite-btn:hover, .gallery-favorite-btn.active { color: #ff5470; border-color: #ff5470; }
+.gallery-favorite-btn:hover, .gallery-favorite-btn.active { color: var(--engine-fm); border-color: var(--engine-fm); }
 .gallery-card-traits {
   display: flex;
   flex-wrap: wrap;
@@ -1663,7 +1698,7 @@ button:disabled {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1682,7 +1717,7 @@ button:disabled {
   display: block;
   margin-bottom: 2px;
   color: var(--text-dim);
-  font-size: 7px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -1697,7 +1732,7 @@ button:disabled {
 .gallery-card-date {
   position: absolute;
   right: 43px; top: 14px;
-  font-size: 8px; color: var(--text-dim);
+  font-size: 9px; color: var(--text-dim);
   text-transform: uppercase;
 }
 .gallery-loading {
@@ -1726,7 +1761,7 @@ button:disabled {
 }
 .gallery-detail-inner { width: 389px; min-height: 100%; padding: 18px; box-sizing: border-box; }
 .gallery-detail-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
-.gallery-detail-kicker { color: var(--accent); font-size: 8px; text-transform: uppercase; letter-spacing: 0.16em; }
+.gallery-detail-kicker { color: var(--accent); font-size: 9px; text-transform: uppercase; letter-spacing: 0.16em; }
 .gallery-detail-title { margin: 5px 0 4px; color: var(--text); font-size: 20px; line-height: 1.2; text-transform: uppercase; }
 .gallery-detail-author { color: var(--text-dim); font-size: 9px; text-transform: uppercase; }
 .gallery-detail-close {
@@ -1747,12 +1782,12 @@ button:disabled {
 .gallery-detail-load, .gallery-detail-copy, .gallery-detail-audition, .gallery-detail-favorite {
   min-height: 42px; font: 700 10px 'Space Mono', monospace; text-transform: uppercase; cursor: pointer;
 }
-.gallery-detail-load { color: #000; background: var(--accent); border: 1px solid var(--accent); }
+.gallery-detail-load { color: var(--ink-on-color); background: var(--accent); border: 1px solid var(--accent); }
 .gallery-detail-copy { padding: 0 12px; color: var(--accent); background: transparent; border: 1px solid var(--accent); }
 .gallery-detail-secondary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .gallery-detail-audition, .gallery-detail-favorite { color: var(--text-lcd); background: var(--bg); border: 1px solid var(--border); }
-.gallery-detail-audition.playing { color: #000; background: var(--accent); border-color: var(--accent); }
-.gallery-detail-favorite.active { color: #ff5470; border-color: #ff5470; }
+.gallery-detail-audition.playing { color: var(--ink-on-color); background: var(--accent); border-color: var(--accent); }
+.gallery-detail-favorite.active { color: var(--engine-fm); border-color: var(--engine-fm); }
 .gallery-lineage { margin-bottom: 16px; padding: 10px; color: var(--text-dim); background: var(--bg); border: 1px solid var(--border); font-size: 9px; line-height: 1.6; }
 .gallery-lineage strong { color: var(--text-lcd); }
 @media (max-width: 700px) {
@@ -1804,7 +1839,7 @@ button:disabled {
   animation: spin 0.7s linear infinite;
 }
 #connection-overlay .retry-btn {
-  margin-top: 16px; padding: 8px 20px; background: var(--accent); color: #000;
+  margin-top: 16px; padding: 8px 20px; background: var(--accent); color: var(--ink-on-color);
   border: none; border-radius: var(--radius); cursor: pointer; font-weight: bold; display: none;
 }
 
@@ -1813,7 +1848,7 @@ button:disabled {
 .journey-step  { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
 .journey-step-num {
   width:18px; height:18px; border-radius:50%; background:var(--accent);
-  color:#000; font-size:10px; font-weight:700;
+  color:var(--ink-on-color); font-size:10px; font-weight:700;
   display:flex; align-items:center; justify-content:center; flex-shrink:0;
   cursor:pointer; transition:transform 0.1s ease;
 }
@@ -1869,7 +1904,7 @@ button:disabled {
 }
 .journey-action-btn:hover { border-color:var(--accent); }
 .journey-action-btn.primary {
-  background:var(--accent); border-color:var(--accent); color:#000; font-weight:600;
+  background:var(--accent); border-color:var(--accent); color:var(--ink-on-color); font-weight:600;
 }
 .journey-action-btn.primary:hover { opacity:0.85; }
 .journey-note { font-size:10px; color:var(--text-dim); margin:0; line-height:1.5; }
@@ -2644,13 +2679,13 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <summary>Tuning</summary>
       <div class="tuning-panel-body">
     <div style="display:flex; gap:5px; justify-content:center; align-items:center; margin-bottom:5px;">
-      <label style="display:flex;align-items:center;gap:3px;font-size:8px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="gen-harmonic-mode" style="accent-color:var(--accent);width:11px;height:11px;cursor:pointer;"> Harm</label>
-      <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:32px;">
+      <label style="display:flex;align-items:center;gap:3px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="gen-harmonic-mode" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;"> Harm</label>
+      <select id="gen-harmonic-key" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px; font-family:'Space Mono',monospace; font-size:10px; width:36px;">
         <option>C</option><option>C#</option><option>D</option><option>D#</option>
         <option>E</option><option>F</option><option>F#</option><option>G</option>
         <option>G#</option><option>A</option><option>A#</option><option>B</option>
       </select>
-      <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:1px 1px; font-family:'Space Mono',monospace; font-size:9px; width:52px;">
+      <select id="gen-harmonic-scale" style="background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px; font-family:'Space Mono',monospace; font-size:10px; width:58px;">
         <option value="major">Maj</option>
         <option value="minor">Min</option>
         <option value="pentatonic_major">P.Maj</option>
@@ -2663,7 +2698,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       </select>
     </div>
     <div style="display:flex; align-items:center; gap:4px; justify-content:center; margin-bottom:6px;">
-      <select id="tuning-system" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:2px 3px; font-family:'Space Mono',monospace; font-size:9px;">
+      <select id="tuning-system" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 4px; font-family:'Space Mono',monospace; font-size:10px;">
         <option value="12-TET">12-TET (Equal)</option>
         <option value="Pythagorean">Pythagorean</option>
         <option value="5-limit JI">5-limit JI</option>
@@ -2671,7 +2706,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <option value="19-TET">19-TET</option>
         <option value="31-TET">31-TET</option>
       </select>
-      <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:9px; padding:2px 5px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
+      <button id="btn-apply-tuning" title="Retune all layer roots to selected system" style="font-size:10px; padding:3px 6px; background:var(--bg); color:var(--text-lcd); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; font-family:'Space Mono',monospace;">↺</button>
     </div>
       </div>
     </details>
@@ -2679,10 +2714,10 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <button class="btn" id="btn-generate">Generate</button>
       <button class="btn btn-outline" id="btn-mutate">Mutate</button>
       <input type="range" id="mutate-amount" min="0.05" max="1.0" step="0.05" value="0.3" style="flex:1; min-width:0;">
-      <span id="mutate-amount-val" style="font-size:8px; color:var(--muted); white-space:nowrap; min-width:22px;">0.30</span>
+      <span id="mutate-amount-val" style="font-size:9px; color:var(--muted); white-space:nowrap; min-width:24px;">0.30</span>
     </div>
     <details id="gen-history-details" style="margin-top:8px; border-top:1px solid var(--border); padding-top:6px;">
-      <summary style="font-size:8px; color:var(--text-dim); cursor:pointer; user-select:none; text-transform:uppercase; letter-spacing:0.05em;">
+      <summary style="font-size:10px; color:var(--text-dim); cursor:pointer; user-select:none; text-transform:uppercase; letter-spacing:0.05em;">
         History (<span id="gen-history-count">0</span>)
       </summary>
       <div id="gen-history" style="display:flex; flex-direction:column; gap:1px; padding:4px 0; max-height:300px; overflow-y:auto;">
@@ -3717,13 +3752,15 @@ function applyParamsToUI(p) {
 let activeLayerIdx = 0;
 let activeLayerSubTab = 'synth';
 
-function getLayerColor(rootHz) {
-  if (rootHz < 50) return '#1a3a7a';
-  if (rootHz < 120) return '#6b2bff';
-  if (rootHz < 300) return '#ff6b2b';
-  if (rootHz < 800) return '#ffaa2b';
-  if (rootHz < 2000) return '#ffd42b';
-  return '#2bffd4';
+function getLayerColor(layer, index = 0) {
+  const type = typeof layer === 'object' ? layer?.type : null;
+  const variables = {
+    fm: 'var(--engine-fm)',
+    subtractive: 'var(--engine-subtractive)',
+    granular: 'var(--engine-granular)',
+    wavetable: 'var(--engine-wavetable)',
+  };
+  return variables[type] || ['var(--engine-fm)', 'var(--engine-subtractive)', 'var(--engine-granular)', 'var(--engine-wavetable)'][index % 4];
 }
 
 // ── Note / pitch utilities ────────────────────────────────────────────────────
@@ -4014,13 +4051,14 @@ function buildJIDegreeOptions(currentDegree) {
 function buildLayerTabs(layers) {
   const tabs = $('layer-tabs');
   tabs.innerHTML = layers.map((l, i) => {
-    const color = getLayerColor(l.root);
+    const color = getLayerColor(l, i);
     return `<button class="layer-tab ${i === activeLayerIdx ? 'active' : ''} ${l.muted ? 'muted' : ''}" data-idx="${i}" style="--layer-color:${color}">${l.name || 'Layer ' + i}<span class="layer-meter" id="layer-meter-${i}"></span></button>`;
   }).join('');
   // Set CSS custom properties for layer colors
   layers.forEach((l, i) => {
-    document.documentElement.style.setProperty(`--layer-${i}`, getLayerColor(l.root));
+    document.documentElement.style.setProperty(`--layer-${i}`, getLayerColor(l, i));
   });
+  document.documentElement.style.setProperty('--active-layer-color', getLayerColor(layers[activeLayerIdx], activeLayerIdx));
   tabs.querySelectorAll('.layer-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.idx);
@@ -4162,7 +4200,7 @@ function showLayerParams(layer) {
         <select id="lp-ji-degree">${buildJIDegreeOptions(layer.tuning_degree || 'unison')}</select>
         ${snapWarn}
       </div>
-      <div class="param-row" style="opacity:0.55;">
+      <div class="param-row">
         <label>Root Hz</label>
         <span style="grid-column:2/4;font-size:10px;color:var(--text-dim);">${rootLabel(layer.root)} <em>(JI derived)</em></span>
       </div>`
@@ -4259,7 +4297,7 @@ function showLayerParams(layer) {
     <div id="fs-panel" style="display:none; grid-column:1/4; background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:6px; margin:2px 0;">
       <div style="display:flex; gap:4px; margin-bottom:4px;">
         <input type="text" id="fs-query" placeholder="search freesound.org (CC0)…" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px; border-radius:3px;">
-        <button id="fs-search-btn" style="background:var(--accent); border:none; color:#000; padding:3px 8px; font-size:10px; cursor:pointer; border-radius:3px; font-weight:bold;">Go</button>
+        <button id="fs-search-btn" style="background:var(--accent); border:none; color:var(--ink-on-color); padding:3px 8px; font-size:10px; cursor:pointer; border-radius:3px; font-weight:bold;">Go</button>
       </div>
       <div style="display:flex; gap:4px; margin-bottom:4px;">
         <input type="text" id="fs-url-input" placeholder="or paste freesound.org/sounds/ID/ URL…" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px; border-radius:3px;">
@@ -4384,7 +4422,7 @@ function showLayerParams(layer) {
     <div class="param-row" style="align-items:start;">
       <label style="padding-top:5px;">Wavetable</label>
       <div style="grid-column:2/4; display:grid; gap:5px; min-width:0;">
-        <select id="lp-wavetable-library" aria-label="Choose an available wavetable" style="width:100%; min-width:0; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:5px 7px; font-family:'Space Mono',monospace; font-size:9px;">
+        <select id="lp-wavetable-library" aria-label="Choose an available wavetable" style="width:100%; min-width:0; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:5px 7px; font-family:'Space Mono',monospace; font-size:10px;">
           <option value="${layer.wavetable_source || ''}" selected>${wavetableCurrentLabel ? `Current · ${wavetableCurrentLabel}` : 'Choose an available wavetable…'}</option>
         </select>
         <div style="display:flex; gap:5px; flex-wrap:wrap;">
@@ -4395,10 +4433,10 @@ function showLayerParams(layer) {
         <input id="lp-wavetable-file" type="file" accept="audio/wav,.wav" hidden>
       </div>
     </div>
-    <div id="lp-wavetable-status" style="font-size:8px;color:var(--text-dim);margin:0 0 5px 57px;">${layer.wavetable_frames ? `${layer.wavetable_frames} frames · ${layer.wavetable_frame_size || 2048} samples` : 'CarveToy format: 256 × 2048 samples'}</div>
+    <div id="lp-wavetable-status" style="font-size:9px;color:var(--text-dim);margin:0 0 5px 57px;">${layer.wavetable_frames ? `${layer.wavetable_frames} frames · ${layer.wavetable_frame_size || 2048} samples` : 'CarveToy format: 256 × 2048 samples'}</div>
     <div style="position:relative; margin:4px 0 8px;">
       <canvas id="wavetable-scope-canvas" aria-label="Current wavetable frame, all-frames terrain, and draggable frame rail" style="display:block;width:100%;height:220px;background:var(--bg);border:1px solid var(--border);border-radius:4px;touch-action:none;cursor:ew-resize;"></canvas>
-      <div style="font-size:8px;color:var(--text-dim);margin-top:2px;text-align:center;">Drag the frame-rail handles to set Scan Start and Scan End</div>
+      <div style="font-size:10px;color:var(--text-dim);line-height:1.45;margin-top:4px;text-align:center;">Drag the frame-rail handles to set Scan Start and Scan End</div>
     </div>
     ${wavetableParams.map(p => `<div class="param-row${p.scanRate ? ' scan-rate-row' : ''}">
       <label>${p.label}</label>
@@ -4423,12 +4461,12 @@ function showLayerParams(layer) {
       <span class="value" id="lp-${p.id}-val">${wavetableValueLabel(p, p.val)}</span>
     </div>`).join('')}
     <details style="margin-top:8px; border:1px solid var(--border); padding:5px 7px;" ${wavetableAudioRateScan ? 'open' : ''}>
-      <summary style="cursor:pointer; color:var(--text-dim); font-size:8px; text-transform:uppercase; letter-spacing:.08em;">Advanced Scan</summary>
-      <label style="display:flex; align-items:center; gap:7px; margin-top:7px; color:var(--text-lcd); font-size:9px; cursor:pointer;">
+      <summary style="cursor:pointer; color:var(--text-dim); font-size:10px; text-transform:uppercase; letter-spacing:.08em;">Advanced Scan</summary>
+      <label style="display:flex; align-items:center; gap:7px; margin-top:7px; color:var(--text-lcd); font-size:10px; cursor:pointer;">
         <input id="lp-wavetable-audio-rate-scan" type="checkbox" ${wavetableAudioRateScan ? 'checked' : ''}>
         Unlock experimental 20–100 Hz
       </label>
-      <div style="font-size:8px; line-height:1.45; color:var(--text-dim); margin-top:5px;">Fast scanning creates bright modulation sidebands. Band-limited playback is applied automatically to reduce aliasing.</div>
+      <div style="font-size:10px; line-height:1.5; color:var(--text-dim); margin-top:5px;">Fast scanning creates bright modulation sidebands. Band-limited playback is applied automatically to reduce aliasing.</div>
     </details>`;
 
   const elevIsActive = (layer.elevation || 0) !== 0 || (layer.elevation_motion || 'static') !== 'static';
@@ -5017,11 +5055,11 @@ function showLayerParams(layer) {
         fsStatus.textContent = `${data.results.length} results (CC0):`;
         fsResults.innerHTML = data.results.map(r => `
           <div data-fs-id="${r.id}" style="display:flex; align-items:center; gap:4px; padding:2px 4px; background:var(--bg); border-radius:3px; font-size:9px; color:var(--text-lcd);">
-            <button class="fs-preview-btn" data-url="${r.preview_url}" style="background:transparent; border:1px solid var(--border); color:var(--accent); padding:1px 4px; font-size:9px; cursor:pointer; border-radius:2px; flex-shrink:0;" title="Preview">▶</button>
+            <button class="fs-preview-btn" data-url="${r.preview_url}" style="background:transparent; border:1px solid var(--border); color:var(--accent); padding:2px 5px; font-size:10px; cursor:pointer; border-radius:2px; flex-shrink:0;" title="Preview">▶</button>
             <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.name} by ${r.username}">${r.name}</span>
             <a href="https://freesound.org/sounds/${r.id}/" target="_blank" rel="noopener" style="color:var(--muted); flex-shrink:0; text-decoration:none;" title="Open on Freesound">🔗</a>
             <span style="color:var(--muted); flex-shrink:0;">${r.duration}s</span>
-            <button class="fs-use-btn" data-id="${r.id}" data-url="${r.preview_url}" data-name="${r.name.replace(/"/g,'')}" data-user="${r.username}" style="background:var(--accent); border:none; color:#000; padding:1px 5px; font-size:9px; cursor:pointer; border-radius:2px; font-weight:bold;" title="Use in layer">✓</button>
+            <button class="fs-use-btn" data-id="${r.id}" data-url="${r.preview_url}" data-name="${r.name.replace(/"/g,'')}" data-user="${r.username}" style="background:var(--accent); border:none; color:var(--ink-on-color); padding:2px 6px; font-size:10px; cursor:pointer; border-radius:2px; font-weight:bold;" title="Use in layer">✓</button>
           </div>`).join('');
 
         // Preview buttons
@@ -6175,9 +6213,10 @@ function _drawWavetableScope(canvas, data, layer, now, startedAt, message = '') 
   const isDark = document.documentElement.dataset.theme !== 'light';
   const text = isDark ? 'rgba(230,235,240,.62)' : 'rgba(25,35,45,.62)';
   const grid = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.09)';
-  const wave = isDark ? 'rgba(150,210,255,.92)' : 'rgba(35,100,185,.92)';
-  const range = isDark ? 'rgba(255,107,43,.16)' : 'rgba(225,85,25,.14)';
-  const accent = '#ff6b2b';
+  const styles = getComputedStyle(document.documentElement);
+  const wave = styles.getPropertyValue('--engine-wavetable').trim() || (isDark ? '#58a9b4' : '#347b86');
+  const range = isDark ? 'rgba(244,119,56,.16)' : 'rgba(201,86,36,.14)';
+  const accent = styles.getPropertyValue('--accent').trim() || '#f47738';
   const left = 9;
   const right = W - 9;
   const waveTop = 19;
@@ -6656,7 +6695,10 @@ function startMeterPolling() {
         const pct = ((clamped + 60) / 60) * 100;
         el.style.width = pct.toFixed(1) + '%';
         // Color: green < -12, amber < -3, red >= -3
-        el.style.background = db >= -3 ? '#ff3333' : db >= -12 ? '#ffaa00' : '#22cc44';
+        const styles = getComputedStyle(document.documentElement);
+        el.style.background = db >= -3
+          ? styles.getPropertyValue('--danger').trim()
+          : db >= -12 ? styles.getPropertyValue('--engine-fm').trim() : styles.getPropertyValue('--success').trim();
       });
     } catch (_) { /* server not ready */ }
   }, 150);
@@ -7222,7 +7264,7 @@ function renderGenerationHistory() {
   countSpan.textContent = generationHistory.length;
   
   if (generationHistory.length === 0) {
-    container.innerHTML = '<div style="font-size:8px; color:var(--muted); padding:6px; text-align:center;">No history yet</div>';
+    container.innerHTML = '<div style="font-size:9px; color:var(--muted); padding:6px; text-align:center;">No history yet</div>';
     return;
   }
   
@@ -7847,23 +7889,15 @@ function galleryRelativeDate(value) {
 }
 
 function galleryCardAccent(preset) {
-  const hz = Number(preset.lowest_hz);
-  if (!Number.isFinite(hz)) return 'var(--accent)';
-  if (hz < 50) return '#6b52ff';
-  if (hz < 100) return '#a45cff';
-  if (hz < 250) return '#ff6b2b';
-  if (hz < 700) return '#ffb12b';
-  return '#2bffd4';
+  const type = preset.synth_types?.[0] || preset.fingerprint?.[0]?.type;
+  return ({ fm: 'var(--engine-fm)', subtractive: 'var(--engine-subtractive)', granular: 'var(--engine-granular)', wavetable: 'var(--engine-wavetable)' })[type] || 'var(--accent)';
 }
 
-function galleryLayerColor(root, index = 0) {
-  const hz = Number(root);
-  if (!Number.isFinite(hz)) return ['#ff6b2b', '#a45cff', '#2bffd4', '#ffb12b'][index % 4];
-  if (hz < 50) return '#6552ff';
-  if (hz < 100) return '#a45cff';
-  if (hz < 250) return '#ff6b2b';
-  if (hz < 700) return '#ffb12b';
-  return '#2bffd4';
+function galleryLayerColor(layer, index = 0) {
+  const type = layer?.type || 'fm';
+  const property = ({ fm: '--engine-fm', subtractive: '--engine-subtractive', granular: '--engine-granular', wavetable: '--engine-wavetable' })[type];
+  const styles = getComputedStyle(document.documentElement);
+  return (property && styles.getPropertyValue(property).trim()) || ['#e6a84a', '#7fa66a', '#a988c7', '#58a9b4'][index % 4];
 }
 
 function galleryHash(value) {
@@ -7900,7 +7934,7 @@ function drawGalleryFingerprint(canvas, preset) {
   ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#090909';
   ctx.fillRect(0, 0, width, height);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line').trim() || 'rgba(233,228,216,0.045)';
   ctx.lineWidth = 1;
   for (let x = 0; x < width; x += Math.max(20, width / 12)) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
@@ -7919,7 +7953,7 @@ function drawGalleryFingerprint(canvas, preset) {
     const amplitude = height * (0.025 + level * 0.045) * stereoWidth;
     const cycles = layer.type === 'granular' ? 9 + index * 2 : layer.type === 'subtractive' ? 3 + index : 5 + index;
     const phase = (galleryHash(`${preset.id}:${index}`) % 628) / 100;
-    const color = galleryLayerColor(root, index);
+    const color = galleryLayerColor(layer, index);
 
     ctx.save();
     ctx.beginPath();
@@ -8430,6 +8464,11 @@ function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || 'dark';
   setTheme(current === 'dark' ? 'light' : 'dark');
   updateGranularScope(); // recolor scope for new theme
+  drawVisibleGalleryFingerprints();
+  document.querySelectorAll('.candidate-fingerprint[data-candidate-index]').forEach(canvas => {
+    const candidate = generationCandidates[Number(canvas.dataset.candidateIndex)];
+    if (candidate) drawGalleryFingerprint(canvas, candidate);
+  });
 }
 // Restore saved theme
 setTheme(localStorage.getItem('mantice-theme') || 'dark');
