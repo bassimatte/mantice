@@ -1,0 +1,321 @@
+meta:
+  name: Magnetic Tape (3)
+  author: Detune Supersaw Supermassive
+seed: null
+duration: 60.0
+spatial_depth: 1.0
+spatial_wet: 0.0
+saturation: 0.3
+master:
+  eq:
+    low_cut_hz: 60.0
+    bass_db: 0.5
+    bass_hz: 100.0
+    lo_mid_db: -1.5
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 1.5
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: 1.5
+    air_hz: 10000.0
+  comp:
+    threshold_db: -18.0
+    ratio: 2.5
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 3.0
+    makeup_db: 4.0
+  output_gain_db: 3.0
+swarm_density: 0.5
+layers:
+- name: Tape Wobble
+  muted: false
+  type: wavetable
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  position_mode: linear
+  position_chaos: 0.3
+  pitch_mode: resample
+  pitch_semitones: 0.0
+  sample_root_hz: null
+  stereo_width: 0.8
+  wavetable_source: shared/wavetables/8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc.wav
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.0
+  wavetable_scan_start: 0.7450980392156863
+  wavetable_scan_end: 1.0
+  wavetable_scan_rate: 0.69823
+  wavetable_scan_mode: pingpong
+  wavetable_tremor_amount: 35.0
+  wavetable_tremor_rate: 5.0
+  wavetable_audio_rate_scan: false
+  wavetable_detune_cents: 50.0
+  wavetable_name: Fm Table Brown Noise Fm Saw Designed Vital
+  wavetable_sha256: 8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc
+  wavetable_source_url: ''
+  wavetable_creator: ''
+  wavetable_license: ''
+  root: 184.9972
+  tuning_degree: unison
+  voices: 8
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.02
+  amp_min: 0.0052
+  amp_max: 0.0156
+  drift: 0.025
+  volume_db: 0.0
+  band: mid
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.004
+  pan: 0.0
+  width: 2.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: hp
+  filter_cutoff: 390.0
+  filter_resonance: 0.1
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  automation: {}
+- name: Tape Wobble copy
+  muted: false
+  type: wavetable
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  position_mode: linear
+  position_chaos: 0.3
+  pitch_mode: resample
+  pitch_semitones: 0.0
+  sample_root_hz: null
+  stereo_width: 0.8
+  wavetable_source: shared/wavetables/8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc.wav
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.0
+  wavetable_scan_start: 0.47843137254901963
+  wavetable_scan_end: 1.0
+  wavetable_scan_rate: 0.38548
+  wavetable_scan_mode: pingpong
+  wavetable_tremor_amount: 38.0
+  wavetable_tremor_rate: 0.01
+  wavetable_audio_rate_scan: false
+  wavetable_detune_cents: 50.0
+  wavetable_name: Fm Table Brown Noise Fm Saw Designed Vital
+  wavetable_sha256: 8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc
+  wavetable_source_url: ''
+  wavetable_creator: ''
+  wavetable_license: ''
+  root: 184.9972
+  tuning_degree: unison
+  voices: 8
+  ratios:
+  - 1
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.02
+  amp_min: 0.0052
+  amp_max: 0.0156
+  drift: 0.025
+  volume_db: -2.0
+  band: mid
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.004
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 2000.0
+  filter_resonance: 1.0
+  filter_lfo_rate: 0.1
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  automation: {}
+- name: Mid
+  muted: false
+  type: wavetable
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  position_mode: linear
+  position_chaos: 0.3
+  pitch_mode: resample
+  pitch_semitones: 0.0
+  sample_root_hz: null
+  stereo_width: 0.8
+  wavetable_source: shared/wavetables/8dc7fe09b19baeb24266906864fdbeb6c81ee6976d6de5366eea65dbe00b8301.wav
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.0
+  wavetable_scan_start: 0.6862745098039216
+  wavetable_scan_end: 1.0
+  wavetable_scan_rate: 0.01
+  wavetable_scan_mode: pingpong
+  wavetable_tremor_amount: 0.0
+  wavetable_tremor_rate: 0.3
+  wavetable_audio_rate_scan: false
+  wavetable_detune_cents: 7.0
+  wavetable_name: Fm Table Sine Fm Saw To Mild Designed Phaseplant
+  wavetable_sha256: 8dc7fe09b19baeb24266906864fdbeb6c81ee6976d6de5366eea65dbe00b8301
+  wavetable_source_url: ''
+  wavetable_creator: ''
+  wavetable_license: ''
+  root: 184.9972
+  tuning_degree: unison
+  voices: 3
+  ratios:
+  - 1.0
+  fm_ratios:
+  - 1.0
+  fm_index: 1.0
+  amp_min: 0.005
+  amp_max: 0.04
+  drift: 0.01
+  volume_db: -15.0
+  band: mid
+  quadrant: center
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.5
+  chorus_depth: 0.005
+  chorus_mix: 0.0
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 450.0
+  filter_resonance: 0.3
+  filter_lfo_rate: 0.01
+  filter_lfo_depth: 0.0
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  automation: {}
+tuning_mode: ji
+tonic_hz: 184.9972113558172
+tuning_system_ji: harmonic_series
+pure_mode: true
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.3
+  decay_trim: 1
+  pre_delay_ms: 0
+  modulation_depth: 0
+earth:
+  enabled: true
+  tectonic_frequency: 18
+  pressure: 0.3
+  movement: 0.01
+air: null
+shimmer: null
+flanger: null
+automation: {}
