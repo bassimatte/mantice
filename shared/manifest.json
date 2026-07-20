@@ -184,6 +184,19 @@
     "created": "2026-06-22T10:34:29.974210Z",
     "name": "Resonant Expanse"
   },
+  "Riparian_Threshold_20260720_7e32c3": {
+    "author": "Lucy",
+    "created": "2026-07-20T13:28:16.483589Z",
+    "name": "Riparian Threshold",
+    "plays": 0,
+    "wavetables": [
+      {
+        "name": "New Cherry Picker",
+        "path": "shared/wavetables/706a0dbec83089e99be206e2a181474aa2a877ef790f5df2daf489848c5f380b.wav",
+        "sha256": "706a0dbec83089e99be206e2a181474aa2a877ef790f5df2daf489848c5f380b"
+      }
+    ]
+  },
   "Shamanic_Flux_20260711_2731d0": {
     "author": "bassimat",
     "created": "2026-07-11T19:10:53.758134Z",
