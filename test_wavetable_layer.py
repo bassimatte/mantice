@@ -64,6 +64,26 @@ class WavetableLayerTests(unittest.TestCase):
             actual = np.concatenate([chunked._frame_positions(625) for _ in range(4)])
             np.testing.assert_allclose(actual, expected, atol=1e-6)
 
+    def test_position_offsets_moving_scan_phase(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self._write_table(root, frames=8)
+            base = {
+                "wavetable_source": "table.wav",
+                "wavetable_scan_mode": "forward",
+                "wavetable_scan_rate": 1.0,
+                "wavetable_scan_start": 0.0,
+                "wavetable_scan_end": 1.0,
+            }
+            at_start = StreamingWavetableLayer(
+                {**base, "wavetable_position": 0.0}, str(root), sample_rate=1000
+            )
+            at_middle = StreamingWavetableLayer(
+                {**base, "wavetable_position": 0.5}, str(root), sample_rate=1000
+            )
+            self.assertAlmostEqual(float(at_start._frame_positions(1)[0]), 0.0, places=5)
+            self.assertAlmostEqual(float(at_middle._frame_positions(1)[0]), 3.5, places=5)
+
     def test_tremor_is_seeded_chunk_continuous_and_range_bounded(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -287,6 +307,14 @@ class WavetableLayerTests(unittest.TestCase):
         self.assertIn("layer.wavetable_scan_start = startFrame / lastFrame", html)
         self.assertIn("layer.wavetable_scan_end = endFrame / lastFrame", html)
         self.assertIn("if (moved) liveReload()", html)
+        self.assertIn("elapsedSeconds * rate + Number(layer.wavetable_position", html)
+
+    def test_wavetable_root_can_lock_to_evenly_spaced_notes(self):
+        html = Path("engine/static/index.html").read_text(encoding="utf-8")
+        self.assertIn('title="Lock frequency to notes"', html)
+        self.assertIn("const wavetableRootLocked = Boolean(layer.rootSnap && !isJI)", html)
+        self.assertIn("min: 16, max: 95, step: 1", html)
+        self.assertIn("midiNoteToHz(displayValue)", html)
 
     def test_ui_offers_the_new_scan_shape_names(self):
         html = Path("engine/static/index.html").read_text(encoding="utf-8")

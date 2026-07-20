@@ -163,13 +163,17 @@ class StreamingWavetableLayer:
         if self.scan_mode == "static" or self.scan_rate <= 0.0:
             frame_positions = np.full(n_samples, self.position * (self.frame_count - 1), dtype=np.float32)
         else:
-            phase = self.scan_phase + np.arange(n_samples, dtype=np.float64) * (self.scan_rate / self.SR)
+            phase_step = self.scan_rate / self.SR
+            running_phase = self.scan_phase + np.arange(n_samples, dtype=np.float64) * phase_step
+            # Position selects the static frame or, while scanning, offsets
+            # the scan phase so the same control always moves the playhead.
+            phase = running_phase + self.position
             if self.scan_mode == "smooth_random":
                 curve = wavetable_smooth_random_curve(phase, self.scan_seed)
-                self.scan_phase = float(phase[-1] + self.scan_rate / self.SR)
+                self.scan_phase = float(running_phase[-1] + phase_step)
             else:
                 curve = wavetable_scan_curve(self.scan_mode, phase)
-                self.scan_phase = float((phase[-1] + self.scan_rate / self.SR) % 1.0)
+                self.scan_phase = float((running_phase[-1] + phase_step) % 1.0)
             normalized = self.scan_start + curve * (self.scan_end - self.scan_start)
             frame_positions = normalized * np.float32(self.frame_count - 1)
 
