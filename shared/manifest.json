@@ -117,6 +117,34 @@
       }
     ]
   },
+  "Magnetic_Tape_2_20260720_c8f830": {
+    "author": "Velvet Scribe",
+    "created": "2026-07-20T03:52:48.124454Z",
+    "name": "Magnetic Tape (2)",
+    "plays": 0,
+    "wavetables": [
+      {
+        "name": "Random_Wavetable_176_Generated_Carvetoy",
+        "path": "shared/wavetables/b18c784bc449cc700992cc300db1fcdd419392c380aaa6d56bcd33eaf137eb66.wav",
+        "sha256": "b18c784bc449cc700992cc300db1fcdd419392c380aaa6d56bcd33eaf137eb66"
+      },
+      {
+        "name": "Random_Wavetable_169_Generated_Carvetoy",
+        "path": "shared/wavetables/8afbcc2fca6506bddc9bef3315f6392a70a4da4a245b508575a42131576411fe.wav",
+        "sha256": "8afbcc2fca6506bddc9bef3315f6392a70a4da4a245b508575a42131576411fe"
+      },
+      {
+        "name": "Spectral_Wavetable_11_Generated_Carvetoy",
+        "path": "shared/wavetables/96e4bac237768e93704294ec0245b1c02287545e0206b718a1c3c6c0631569e1.wav",
+        "sha256": "96e4bac237768e93704294ec0245b1c02287545e0206b718a1c3c6c0631569e1"
+      },
+      {
+        "name": "Weird_Morph_Random_Weird_Morph_73_Generated_Carvetoy",
+        "path": "shared/wavetables/cefcb60e8721734850cae472775f2aada4b61773c518bbc98a4a52bf2f620c92.wav",
+        "sha256": "cefcb60e8721734850cae472775f2aada4b61773c518bbc98a4a52bf2f620c92"
+      }
+    ]
+  },
   "Molten_Membrane_20260521_8cf372": {
     "author": "Basalt Echo",
     "name": "Molten Membrane"
