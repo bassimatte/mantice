@@ -102,6 +102,8 @@ class StreamingWavetableLayer:
             self.scan_start, self.scan_end = self.scan_end, self.scan_start
         self.scan_rate = max(0.0, float(cfg.get("wavetable_scan_rate", 0.01)))
         self.scan_mode = str(cfg.get("wavetable_scan_mode", "pingpong"))
+        if self.scan_mode == "static":
+            self.position = float(np.clip(self.position, self.scan_start, self.scan_end))
         self.scan_seed = int(scan_seed) & 0xFFFFFFFF
         self.scan_phase = 0.0
         self.tremor_amount = float(np.clip(cfg.get("wavetable_tremor_amount", 0.0), 0.0, max(0, frame_count - 1)))

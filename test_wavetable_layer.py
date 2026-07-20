@@ -84,6 +84,20 @@ class WavetableLayerTests(unittest.TestCase):
             self.assertAlmostEqual(float(at_start._frame_positions(1)[0]), 0.0, places=5)
             self.assertAlmostEqual(float(at_middle._frame_positions(1)[0]), 3.5, places=5)
 
+    def test_static_position_is_clamped_to_scan_range(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self._write_table(root, frames=8)
+            layer = StreamingWavetableLayer({
+                "wavetable_source": "table.wav",
+                "wavetable_scan_mode": "static",
+                "wavetable_position": 0.9,
+                "wavetable_scan_start": 0.25,
+                "wavetable_scan_end": 0.75,
+            }, str(root), sample_rate=1000)
+            self.assertAlmostEqual(layer.position, 0.75)
+            np.testing.assert_allclose(layer._frame_positions(4), np.full(4, 5.25), atol=1e-6)
+
     def test_tremor_is_seeded_chunk_continuous_and_range_bounded(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -212,6 +226,19 @@ class WavetableLayerTests(unittest.TestCase):
             self.assertIn("label: 'Scan End', min: 0, max: wavetableLastFrame, step: 1", html)
             self.assertIn("displayValue / wavetableLastFrame", html)
             self.assertIn("target.wavetable_frames = data.frames", html)
+
+    def test_position_ui_uses_static_frames_and_moving_phase(self):
+        local_html = Path("engine/static/index.html").read_text(encoding="utf-8")
+        deployed_html = Path("docs/index.html").read_text(encoding="utf-8")
+        for html in (local_html, deployed_html):
+            self.assertIn("label: 'Position', help: 'Static wavetable frame'", html)
+            self.assertIn("min: wavetableScanStartFrame, max: wavetableScanEndFrame", html)
+            self.assertIn("label: 'Start Phase'", html)
+            self.assertIn("min: 0, max: 100, step: 1", html)
+            self.assertIn("? displayValue / 100", html)
+            self.assertIn("syncStaticWavetablePosition(layer, lastFrame)", html)
+            self.assertIn("displayValue = Math.min(displayValue, wavetableFrame", html)
+            self.assertIn("displayValue = Math.max(displayValue, wavetableFrame", html)
 
     def test_scan_rate_ui_is_split_logarithmic_with_cycle_readout(self):
         html = Path("engine/static/index.html").read_text(encoding="utf-8")
