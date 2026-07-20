@@ -1,0 +1,330 @@
+meta:
+  name: Spectral Timbre (2)
+  author: Lunar Signal
+seed: null
+duration: 60.0
+spatial_depth: 2.3
+spatial_wet: 0.0
+saturation: 0.75
+master:
+  eq:
+    low_cut_hz: 230.0
+    bass_db: 9.5
+    bass_hz: 100.0
+    lo_mid_db: 0.0
+    lo_mid_hz: 250.0
+    lo_mid_q: 1.0
+    hi_mid_db: 7.0
+    hi_mid_hz: 2500.0
+    hi_mid_q: 1.0
+    air_db: 0.0
+    air_hz: 10000.0
+  comp:
+    threshold_db: -18.0
+    ratio: 2.5
+    attack_ms: 50.0
+    release_ms: 200.0
+    knee_db: 3.0
+    makeup_db: 4.0
+  output_gain_db: 3.0
+swarm_density: 0.5
+layers:
+- name: Sub Rumble
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  position_mode: linear
+  position_chaos: 0.3
+  pitch_mode: resample
+  pitch_semitones: 0.0
+  sample_root_hz: null
+  stereo_width: 0.8
+  wavetable_source: ''
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.0
+  wavetable_scan_start: 0.0
+  wavetable_scan_end: 1.0
+  wavetable_scan_rate: 0.01
+  wavetable_scan_mode: pingpong
+  wavetable_tremor_amount: 0.0
+  wavetable_tremor_rate: 0.3
+  wavetable_audio_rate_scan: false
+  wavetable_detune_cents: 7.0
+  wavetable_name: ''
+  wavetable_sha256: ''
+  wavetable_source_url: ''
+  wavetable_creator: ''
+  wavetable_license: ''
+  root: 25.96
+  tuning_degree: unison
+  voices: 12
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.859
+  amp_min: 0.0105
+  amp_max: 0.0504
+  drift: 0.0301
+  volume_db: -4.6
+  band: sub
+  quadrant: front_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.33
+  chorus_depth: 0.0081
+  chorus_mix: 0.28
+  chorus_voices: 2
+  filter_type: lp
+  filter_cutoff: 1924.9
+  filter_resonance: 1.31
+  filter_lfo_rate: 0.159
+  filter_lfo_depth: 0.2
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  automation: {}
+- name: Earth Pulse
+  muted: false
+  type: fm
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  position_mode: linear
+  position_chaos: 0.3
+  pitch_mode: resample
+  pitch_semitones: 0.0
+  sample_root_hz: null
+  stereo_width: 0.8
+  wavetable_source: ''
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.0
+  wavetable_scan_start: 0.0
+  wavetable_scan_end: 1.0
+  wavetable_scan_rate: 0.01
+  wavetable_scan_mode: pingpong
+  wavetable_tremor_amount: 0.0
+  wavetable_tremor_rate: 0.3
+  wavetable_audio_rate_scan: false
+  wavetable_detune_cents: 7.0
+  wavetable_name: ''
+  wavetable_sha256: ''
+  wavetable_source_url: ''
+  wavetable_creator: ''
+  wavetable_license: ''
+  root: 1175.0
+  tuning_degree: unison
+  voices: 12
+  ratios:
+  - 0.5
+  - 1
+  - 1.5
+  - 2.5
+  fm_ratios:
+  - 1
+  fm_index: 0.852
+  amp_min: 0.0034
+  amp_max: 0.0704
+  drift: 0.0235
+  volume_db: 6.0
+  band: sub
+  quadrant: rear_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.54
+  chorus_depth: 0.0091
+  chorus_mix: 0.32
+  chorus_voices: 2
+  filter_type: 'off'
+  filter_cutoff: 3888.4
+  filter_resonance: 1.9
+  filter_lfo_rate: 0.177
+  filter_lfo_depth: 0.05
+  filter_lfo_shape: triangle
+  filter_vowel: a
+  waveform: saw
+  detune_cents: 8.0
+  sub_mix: 0.3
+  distortion_drive: 0.0
+  distortion_type: soft
+  automation: {}
+- name: Dark Current
+  muted: false
+  type: subtractive
+  source: singing_bowl.ogg
+  grain_size: 80.0
+  density: 15.0
+  pitch_spread: 0.3
+  position: 0.5
+  scatter: 0.5
+  envelope: hann
+  position_mode: linear
+  position_chaos: 0.3
+  pitch_mode: resample
+  pitch_semitones: 0.0
+  sample_root_hz: null
+  stereo_width: 0.8
+  wavetable_source: ''
+  wavetable_frame_size: 2048
+  wavetable_frames: 256
+  wavetable_position: 0.0
+  wavetable_scan_start: 0.0
+  wavetable_scan_end: 1.0
+  wavetable_scan_rate: 0.01
+  wavetable_scan_mode: pingpong
+  wavetable_tremor_amount: 0.0
+  wavetable_tremor_rate: 0.3
+  wavetable_audio_rate_scan: false
+  wavetable_detune_cents: 7.0
+  wavetable_name: ''
+  wavetable_sha256: ''
+  wavetable_source_url: ''
+  wavetable_creator: ''
+  wavetable_license: ''
+  root: 55.0
+  tuning_degree: unison
+  voices: 6
+  ratios:
+  - 1
+  - 1.5
+  - 2
+  fm_ratios:
+  - 1
+  fm_index: 0.0
+  amp_min: 0.0073
+  amp_max: 0.0784
+  drift: 0.0378
+  volume_db: -5.7
+  band: sub
+  quadrant: rear_right
+  trajectory_x: drift
+  trajectory_y: none
+  speed: 0.01
+  pan: 0.0
+  width: 1.0
+  spread: 1.0
+  blend: 1.0
+  flanger_wet: 0.0
+  flanger_rate: 0.25
+  flanger_depth: 0.5
+  flanger_feedback: 0.4
+  phaser_wet: 0.0
+  phaser_rate: 0.5
+  phaser_depth: 0.7
+  phaser_center_hz: 800.0
+  phaser_feedback: 0.0
+  phaser_stages: 4
+  harmonics: 4
+  harmonic_decay: 0.7
+  noise_amount: 0.0
+  noise_color: pink
+  elevation: 0.0
+  elevation_motion: static
+  elevation_speed: 0.1
+  elevation_range: 60.0
+  chorus_rate: 0.71
+  chorus_depth: 0.0048
+  chorus_mix: 0.13
+  chorus_voices: 2
+  filter_type: bp
+  filter_cutoff: 1154.8
+  filter_resonance: 2.73
+  filter_lfo_rate: 0.089
+  filter_lfo_depth: 0.58
+  filter_lfo_shape: sine
+  filter_vowel: a
+  waveform: square
+  detune_cents: 13.0
+  sub_mix: 0.32
+  distortion_drive: 0.0
+  distortion_type: soft
+  automation: {}
+tuning_mode: free
+tonic_hz: 220.0
+tuning_system_ji: 5limit_ji
+pure_mode: false
+binaural: null
+reverb:
+  enabled: true
+  space: cathedral
+  mix: 0.7
+  decay_trim: 1
+  pre_delay_ms: 84
+  modulation_depth: 0.55
+earth:
+  enabled: true
+  tectonic_frequency: 21
+  pressure: 0.55
+  movement: 0.028
+air:
+  enabled: true
+  intensity: 0.5
+  movement: 0.0066
+  turbulence: 0.06
+shimmer: null
+flanger: null
+automation: {}
