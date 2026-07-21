@@ -746,6 +746,9 @@ def _ui_params_to_preset(params: dict) -> dict:
 # ── FastAPI App ───────────────────────────────────────────────────────────────
 
 app = FastAPI(title="MANTICE", version="19.0")
+# Set by launch_gui().  Deployed servers import ``app`` directly via uvicorn,
+# so they retain the hosted render memory guard.
+app.state.local_web_interface = False
 
 # CORS — allow GitHub Pages and local dev origins
 app.add_middleware(
@@ -1229,7 +1232,10 @@ async def render_endpoint(request: Request):
         # Render.com free tier: 512MB limit, keep render under ~200MB to be safe
         MAX_MEMORY_MB = 200
         
-        if estimated_total_mb > MAX_MEMORY_MB:
+        # The memory ceiling protects the small hosted service.  A local web
+        # session is allowed to use the resources available on the user's
+        # machine, just like the CLI renderer.
+        if not app.state.local_web_interface and estimated_total_mb > MAX_MEMORY_MB:
             max_duration = int((MAX_MEMORY_MB / estimated_total_mb) * duration)
             error_msg = (
                 f"Render too long: {duration}s would use ~{estimated_total_mb:.0f}MB (limit: {MAX_MEMORY_MB}MB). "
@@ -2378,7 +2384,7 @@ async def render_journey_endpoint(request: Request):
         
         MAX_MEMORY_MB = 200
         
-        if not preview and estimated_total_mb > MAX_MEMORY_MB:
+        if not preview and not app.state.local_web_interface and estimated_total_mb > MAX_MEMORY_MB:
             max_duration = int((MAX_MEMORY_MB / estimated_total_mb) * total_s)
             error_msg = (
                 f"Journey too long: {int(total_s)}s would use ~{estimated_total_mb:.0f}MB (limit: {MAX_MEMORY_MB}MB). "
@@ -2754,6 +2760,10 @@ def launch_gui(host: str = "127.0.0.1", port: int = 8432, open_browser: bool = T
     import signal
     import sys
     import webbrowser
+
+    # Local web renders should have the same duration freedom as the CLI.
+    # Hosted deployments start ``app`` directly and never set this flag.
+    app.state.local_web_interface = True
 
     url = f"http://{host}:{port}"
     print(f"\n  MANTICE Web UI starting at {url}")

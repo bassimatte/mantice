@@ -65,7 +65,14 @@ class FirstGuideTests(unittest.TestCase):
         self.assertIn('id="run-locally-install"', self.static_html)
         self.assertIn("$('btn-render-files').addEventListener('click', openRenderInfo)", self.static_html)
         self.assertIn("document.querySelector('.docs-tab[data-tab=\"tab-run\"]')?.click()", self.static_html)
-        self.assertIn("48 kHz / 24-bit with <code>--hires</code>", self.static_html)
+        self.assertIn("Local app", self.static_html)
+        self.assertIn("Unrestricted web and CLI rendering", self.static_html)
+
+    def test_local_web_hires_render_is_not_duration_limited(self):
+        self.assertIn("const IS_LOCAL_WEB_INTERFACE = !MANTICE_API_BASE", self.static_html)
+        self.assertIn("if (!IS_LOCAL_WEB_INTERFACE && hires && duration > 30)", self.static_html)
+        self.assertIn("$('duration').removeAttribute('max')", self.static_html)
+        self.assertIn("if (IS_LOCAL_WEB_INTERFACE) {\n    $('files-dropdown').classList.remove('open');\n    doRender();", self.static_html)
 
 
 if __name__ == "__main__":

@@ -1979,7 +1979,7 @@ button:disabled {
       </div>
       <div class="settings-row">
         <span class="settings-label">Hi-Res</span>
-        <div class="toggle" id="hires-toggle" title="48kHz / 24-bit (web UI limited to 30s; use python main.py --hires for longer renders)"></div>
+        <div class="toggle" id="hires-toggle" title="48kHz / 24-bit (hosted site: up to 30s; local web interface: unrestricted)"></div>
         <span style="font-size:10px; color:var(--text-dim)">48k / 24b</span>
       </div>
       <div class="settings-row" style="margin-top:4px">
@@ -2344,9 +2344,9 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <h3>Global Settings</h3>
         <table class="docs-table">
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
-          <tr><td>Duration</td><td>1–3600 s</td><td>60</td><td>Total audio length</td></tr>
+          <tr><td>Duration</td><td>5–3600 s hosted; unrestricted locally</td><td>60</td><td>Total audio length</td></tr>
           <tr><td>Standard Export</td><td>WAV / FLAC / OGG / MP3</td><td>22.05 kHz / 16-bit</td><td>Shared website and Python default</td></tr>
-          <tr><td>Hi-Res Export</td><td>toggle / <code>--hires</code></td><td>off</td><td>48 kHz / 24-bit; website renders are limited to 30 seconds</td></tr>
+          <tr><td>Hi-Res Export</td><td>toggle / <code>--hires</code></td><td>off</td><td>48 kHz / 24-bit; hosted renders are limited to 30 seconds, while the local web interface is unrestricted</td></tr>
           <tr><td>Saturation</td><td>0.0–1.0</td><td>0.3</td><td>Master soft saturation — normalized tanh waveshaping for tape-like warmth</td></tr>
           <tr><td>Seed</td><td>any integer</td><td>random</td><td>Reproducible output</td></tr>
         </table>
@@ -3043,10 +3043,10 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <button class="docs-close" id="render-info-close" aria-label="Close">✕</button>
     </div>
     <div class="render-info-body">
-      <p>You can render directly from this website. For longer sessions and unrestricted high-resolution exports, install Mantice and run the Python app locally on your computer.</p>
+      <p>You can render directly from the hosted website. For longer sessions, install Mantice: its local web interface and command-line renderer have no artificial high-resolution duration limit.</p>
       <div class="render-info-quality">
-        <div><strong>Website</strong>22.05 kHz / 16-bit standard<br>48 kHz / 24-bit Hi-Res up to 30 seconds</div>
-        <div><strong>Python app</strong>Long-duration rendering<br>48 kHz / 24-bit with <code>--hires</code></div>
+        <div><strong>Hosted website</strong>22.05 kHz / 16-bit standard<br>48 kHz / 24-bit Hi-Res up to 30 seconds</div>
+        <div><strong>Local app</strong>Unrestricted web and CLI rendering<br>48 kHz / 24-bit Hi-Res</div>
       </div>
       <div class="render-info-actions">
         <button class="btn btn-outline" id="render-info-local">How to install locally</button>
@@ -3298,6 +3298,8 @@ const MANTICE_API_BASE = window.MANTICE_API_BASE || (
     ? 'https://mantice-production.up.railway.app'
     : ''
 );
+const IS_LOCAL_WEB_INTERFACE = !MANTICE_API_BASE &&
+  ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -7204,9 +7206,9 @@ async function doRender() {
   const duration = parseFloat($('duration').value);
   const hires = $('hires-toggle').dataset.state === '1';
   
-  // Limit hi-res renders to 30 seconds (memory constraint on hosted backends)
-  if (hires && duration > 30) {
-    setStatus('Hi-Res limited to 30s (use CLI for longer renders)');
+  // Protect the hosted backend; local web renders use the user's own resources.
+  if (!IS_LOCAL_WEB_INTERFACE && hires && duration > 30) {
+    setStatus('Hosted Hi-Res renders are limited to 30s (run Mantice locally for longer renders)');
     setTimeout(() => setStatus(''), 3000);
     return;
   }
@@ -7312,6 +7314,11 @@ async function doRender() {
 }
 
 function openRenderInfo() {
+  if (IS_LOCAL_WEB_INTERFACE) {
+    $('files-dropdown').classList.remove('open');
+    doRender();
+    return;
+  }
   if ($('first-guide').classList.contains('open')) closeFirstGuide(true);
   $('files-dropdown').classList.remove('open');
   $('render-info-overlay').classList.add('open');
@@ -9912,6 +9919,10 @@ function init() {
   initToggle('earth-toggle', v => { if(currentParams) { pushUndo(); currentParams.earth.enabled = v; markDirty(); } });
   initToggle('air-toggle', v => { if(currentParams) { pushUndo(); currentParams.air.enabled = v; markDirty(); } });
   initToggle('hires-toggle');
+  if (IS_LOCAL_WEB_INTERFACE) {
+    $('duration').removeAttribute('max');
+    $('hires-toggle').title = '48kHz / 24-bit (no artificial duration limit in the local web interface)';
+  }
   initToggle('seed-lock');
 
   // Binaural method radio
