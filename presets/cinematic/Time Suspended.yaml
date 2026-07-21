@@ -19,6 +19,8 @@ global:
   sample_rate: 44100
   bit_depth: 16-bit
 saturation: 0.15
+master:
+  output_gain_db: 5.5
 reverb:
   space: infinite
   mix: 0.6

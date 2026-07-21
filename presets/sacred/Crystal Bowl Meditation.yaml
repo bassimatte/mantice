@@ -33,6 +33,8 @@ earth:
 air:
   enabled: false
 saturation: 0.15
+master:
+  output_gain_db: 5.0
 layers:
 - name: Bowl Close
   enabled: true

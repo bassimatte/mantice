@@ -22,6 +22,8 @@ duration: 60.0
 spatial_depth: 2.0
 spatial_wet: 0.55
 saturation: 0.15
+master:
+  output_gain_db: 6.0
 swarm_density: 0.5
 layers:
 - name: Glacial Texture
@@ -104,8 +106,8 @@ layers:
   - 2
   - 3
   fm_index: 0.6
-  amp_min: 0.005
-  amp_max: 0.02
+  amp_min: 0.02
+  amp_max: 0.08
   drift: 0.008
   mix: 1.0
   band: high
@@ -168,8 +170,8 @@ layers:
   - 1
   - 1.5
   fm_index: 0.15
-  amp_min: 0.008
-  amp_max: 0.032
+  amp_min: 0.064
+  amp_max: 0.256
   drift: 0.008
   mix: 1.0
   band: mid

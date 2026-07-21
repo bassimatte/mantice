@@ -135,6 +135,7 @@ See [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) and [MEMORY_REPORT.md](MEMORY
 - **Binaural Beats** — theta/delta/alpha entrainment; carrier mode (true L/R sine pair) and detune mode (energy-preserving cos²/sin² L/R alternation)
 - **FDN Reverb** — 8-tap feedback delay network with Hadamard mixing, per-line damping, and stereo decorrelation
 - **Master EQ & Compressor** — 5-band EQ plus feedforward compression; defaults are −18 dB / 2.5:1 / +4 dB makeup with 0 dB output gain
+- **Loudness-balanced playback and export** — live preview uses a slow bounded controller; completed renders target −18 LUFS with at most +9 dB gain and a −1 dBTP ceiling
 - **47 Presets** — across 5 categories (essentials, cinematic, experimental, sacred, subharmonic)
 - **Real-time Web UI** — stream, tweak, save, and export from your browser; layer sub-tabs (Synth/Filter/Space/FX)
 - **Generator** — one directly loaded preset from the original six mood algorithms plus Essential-inspired **Classic**, with FM/Sub/Granular engine switches
@@ -187,6 +188,10 @@ runtime `PORT` variable.
 | Knee | `master.comp.knee_db` | 0–12 dB | 3 | Soft-knee width — gradual onset around threshold |
 | Makeup Gain | `master.comp.makeup_db` | -6–12 dB | +4 | Gain applied after compression |
 | Output Gain | `master.output_gain_db` | -6–12 dB | 0 | Final master gain; 0 dB preserves export headroom |
+
+Website and Python exports use bounded loudness normalization by default. Use the
+website's **Original dynamics** setting or `--original-dynamics` in Python to retain
+the preset level while keeping the −1 dBTP safety ceiling.
 
 Missing or partial `master` sections receive these same defaults in the website and Python
 loader. Explicit preset values always win. Offline exports then perform a non-boosting,

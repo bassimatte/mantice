@@ -1982,6 +1982,11 @@ button:disabled {
         <div class="toggle" id="hires-toggle" title="48kHz / 24-bit (hosted site: up to 30s; local web interface: unrestricted)"></div>
         <span style="font-size:10px; color:var(--text-dim)">48k / 24b</span>
       </div>
+      <div class="settings-row">
+        <span class="settings-label">Loudness</span>
+        <div class="toggle on" id="normalize-loudness-toggle" data-state="1" title="Target −18 LUFS with at most +9 dB gain and a −1 dBTP ceiling"></div>
+        <span id="normalize-loudness-label" style="font-size:10px; color:var(--text-dim)">Balanced</span>
+      </div>
       <div class="settings-row" style="margin-top:4px">
         <button class="btn btn-outline btn-render" id="btn-render-files" style="width:100%; font-size:11px; padding:5px 0">⬤ Render &amp; Download</button>
       </div>
@@ -2346,6 +2351,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
           <tr><td>Duration</td><td>5–3600 s hosted; unrestricted locally</td><td>60</td><td>Total audio length</td></tr>
           <tr><td>Standard Export</td><td>WAV / FLAC / OGG / MP3</td><td>22.05 kHz / 16-bit</td><td>Shared website and Python default</td></tr>
+          <tr><td>Loudness</td><td>Balanced / Original dynamics</td><td>Balanced</td><td>Targets −18 LUFS with at most +9 dB upward gain, followed by a −1 dBTP ceiling</td></tr>
           <tr><td>Hi-Res Export</td><td>toggle / <code>--hires</code></td><td>off</td><td>48 kHz / 24-bit; hosted renders are limited to 30 seconds, while the local web interface is unrestricted</td></tr>
           <tr><td>Saturation</td><td>0.0–1.0</td><td>0.3</td><td>Master soft saturation — normalized tanh waveshaping for tape-like warmth</td></tr>
           <tr><td>Seed</td><td>any integer</td><td>random</td><td>Reproducible output</td></tr>
@@ -7234,7 +7240,10 @@ async function doRender() {
     const res = await fetch(apiUrl('/api/render'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params, format: fmt, hires, seed: currentSeed }),
+        body: JSON.stringify({
+          params, format: fmt, hires, seed: currentSeed,
+          normalize_loudness: $('normalize-loudness-toggle').dataset.state === '1',
+        }),
       signal: controller.signal
     });
 
@@ -9919,6 +9928,9 @@ function init() {
   initToggle('earth-toggle', v => { if(currentParams) { pushUndo(); currentParams.earth.enabled = v; markDirty(); } });
   initToggle('air-toggle', v => { if(currentParams) { pushUndo(); currentParams.air.enabled = v; markDirty(); } });
   initToggle('hires-toggle');
+  initToggle('normalize-loudness-toggle', enabled => {
+    $('normalize-loudness-label').textContent = enabled ? 'Balanced' : 'Original dynamics';
+  });
   if (IS_LOCAL_WEB_INTERFACE) {
     $('duration').removeAttribute('max');
     $('hires-toggle').title = '48kHz / 24-bit (no artificial duration limit in the local web interface)';

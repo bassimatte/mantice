@@ -37,6 +37,8 @@ air:
   intensity: 0.15
   turbulence: 0.06
 saturation: 0.15
+master:
+  output_gain_db: 5.5
 layers:
 - name: Earth Tone
   enabled: true

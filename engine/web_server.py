@@ -50,7 +50,7 @@ from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
 from .generator import generate_preset, mutate_preset, mutate_ui_params, save_generated_preset, _NAME_PARTS_A, _NAME_PARTS_B
 from .convolution_reverb import apply_convolution_reverb
-from .post_processing import final_limit_normalize, oversampled_saturate
+from .post_processing import final_limit_normalize, loudness_normalize, oversampled_saturate
 
 # Load .env file if present (for local development with GITHUB_TOKEN, FREESOUND_API_KEY)
 try:
@@ -1219,6 +1219,7 @@ async def render_endpoint(request: Request):
 
         # Determine output quality locally — never mutate global config
         hires = body.get("hires", False)
+        normalize_loudness = bool(body.get("normalize_loudness", True))
         out_sr      = 48_000 if hires else 22_050        # output sample rate
         out_bd      = "PCM_24" if hires else "PCM_16"
         mp3_bitrate = 320 if hires else 192
@@ -1306,7 +1307,12 @@ async def render_endpoint(request: Request):
                 import tempfile
                 
                 # Create ONE engine for the entire render (preserves all state)
-                engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=hires)
+                engine = StreamingDroneEngine(
+                    preset_for_render,
+                    seed=seed,
+                    render_mode=hires,
+                    preview_loudness=False,
+                )
                 render_sr = engine.SR
                 total_samples = int(total_duration * render_sr)
                 chunk_size = 4096
@@ -1373,7 +1379,12 @@ async def render_endpoint(request: Request):
             
             else:
                 # ORIGINAL PATH: Single-pass rendering for short/low-res renders
-                engine = StreamingDroneEngine(preset_for_render, seed=seed, render_mode=hires)
+                engine = StreamingDroneEngine(
+                    preset_for_render,
+                    seed=seed,
+                    render_mode=hires,
+                    preview_loudness=False,
+                )
                 render_sr = engine.SR
                 total_samples = int(preset["duration"] * render_sr)
                 chunk_size = 4096
@@ -1414,9 +1425,14 @@ async def render_endpoint(request: Request):
                     raw = apply_convolution_reverb(raw, space=space, mix=mix, decay_trim=decay_trim, sr=render_sr)
                     log_memory("Reverb complete")
 
-            # Full-buffer true-peak normalize — zero attack lag, zero pumping
-            print("  [render] True-peak normalize (ceiling −1 dBFS)…")
-            raw = final_limit_normalize(raw)
+            # One static loudness gain preserves the drone's internal dynamics.
+            # Original-dynamics mode retains only the true-peak safety ceiling.
+            if normalize_loudness:
+                print("  [render] Loudness normalize (−18 LUFS, max +9 dB, −1 dBTP)…")
+                raw = loudness_normalize(raw, render_sr)
+            else:
+                print("  [render] Original dynamics + true-peak ceiling (−1 dBTP)…")
+                raw = final_limit_normalize(raw)
             log_memory("Normalize complete")
 
             # TPDF dither before quantisation (adds 1 LSB of shaped noise, eliminates truncation distortion)
@@ -2278,7 +2294,9 @@ async def preview_segment(request: Request):
         # Create new engine or reuse existing session
         if not token or reset or token not in _segment_engines:
             token = uuid.uuid4().hex[:16]
-            engine = StreamingDroneEngine(preset, seed=seed, render_mode=True)
+            engine = StreamingDroneEngine(
+                preset, seed=seed, render_mode=True, preview_loudness=True
+            )
             # Evict oldest entry when over the limit (simple LRU approximation)
             if len(_segment_engines) >= _SEGMENT_ENGINE_MAX:
                 oldest = next(iter(_segment_engines))

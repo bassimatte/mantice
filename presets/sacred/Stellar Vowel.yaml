@@ -20,6 +20,8 @@ duration: 60.0
 spatial_depth: 1.6
 spatial_wet: 0.5
 saturation: 0.22
+master:
+  output_gain_db: 10.5
 swarm_density: 0.5
 layers:
 - name: Vowel Carrier

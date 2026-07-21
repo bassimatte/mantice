@@ -8,6 +8,7 @@ Usage:
     python main.py --name "Breathing Cathedral" # run preset by name
     python main.py --duration 90                # override duration (seconds)
     python main.py --hires                      # render at 48kHz/24-bit
+    python main.py --original-dynamics          # skip upward loudness normalization
     python main.py --format flac               # export as FLAC (wav, flac, ogg, mp3)
     python main.py --seed 42                    # global reproducibility seed
     python main.py --auto-template journey      # apply automation template (journey/arc/breathe/meditate/sunrise/wander/trance/shimmer)
@@ -48,7 +49,7 @@ from engine.streaming_engine import StreamingDroneEngine
 from engine.exporter         import export_audio, SUPPORTED_FORMATS
 from engine.generator        import generate_preset, mutate_preset, save_generated_preset, get_available_moods
 from engine.automation       import apply_auto_template, strip_automation, TEMPLATE_NAMES
-from engine.post_processing  import final_limit_normalize, oversampled_saturate
+from engine.post_processing  import final_limit_normalize, loudness_normalize, oversampled_saturate
 from engine.convolution_reverb import apply_convolution_reverb
 from engine                  import config as _engine_config
 
@@ -329,6 +330,7 @@ def run(
     solo_layer: Optional[str] = None,
     auto_template: Optional[str] = None,
     no_automation: bool = False,
+    original_dynamics: bool = False,
 ) -> None:
     ok = failed = 0
     total = len(preset_paths)
@@ -435,8 +437,12 @@ def run(
                 print(f"  [post] Applying convolution reverb: {space} (mix={mix:.2f})...")
                 audio = apply_convolution_reverb(audio, space=space, mix=mix, decay_trim=decay_trim, sr=sr)
 
-            print("  [post] Applying true-peak ceiling (−1 dBFS)...")
-            audio = final_limit_normalize(audio)
+            if original_dynamics:
+                print("  [post] Original dynamics + true-peak ceiling (−1 dBTP)...")
+                audio = final_limit_normalize(audio)
+            else:
+                print("  [post] Loudness normalization (−18 LUFS, max +9 dB, −1 dBTP)...")
+                audio = loudness_normalize(audio, sr)
 
             # Export audio — append layer name if solo
             if solo_layer_name:
@@ -579,6 +585,10 @@ def main() -> None:
     parser.add_argument(
         "--hires", action="store_true",
         help="Render in high-resolution mode (48kHz/24-bit instead of default 22.05kHz/16-bit)",
+    )
+    parser.add_argument(
+        "--original-dynamics", action="store_true",
+        help="Disable upward loudness normalization; retain only the −1 dBTP safety ceiling",
     )
     parser.add_argument(
         "--seed", type=int, default=None,
@@ -835,7 +845,8 @@ def main() -> None:
     # ── Normal render mode ────────────────────────────────────────────────
     run(preset_paths, cli_seed=args.seed, cli_duration=args.duration,
         audio_format=args.format, solo_layer=args.solo,
-        auto_template=args.auto_template, no_automation=args.no_automation)
+        auto_template=args.auto_template, no_automation=args.no_automation,
+        original_dynamics=args.original_dynamics)
 
 
 if __name__ == "__main__":

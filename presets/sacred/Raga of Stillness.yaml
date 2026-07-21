@@ -38,6 +38,8 @@ earth:
 air:
   enabled: true
 saturation: 0.25
+master:
+  output_gain_db: 5.0
 binaural:
   enabled: true
   beat_hz: 6.0

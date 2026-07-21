@@ -33,6 +33,7 @@ from . import config
 from .granular_layer import StreamingGranularLayer
 from .wavetable_layer import StreamingWavetableLayer
 from .master_processing import MasterProcessor
+from .post_processing import StreamingLoudnessController
 from .subharmonic_earth import shape_earth_wave
 from .automation import parse_layer_automation, parse_global_automation
 
@@ -303,6 +304,9 @@ class StreamingLayer:
         nyquist = self.SR * 0.5
         order = 4
         if band == "sub":
+            # Preserve the established spectral identity of legacy presets.
+            # Loudness correction belongs on the broadband master path; silently
+            # widening this band makes familiar drones substantially brighter.
             self.sos = butter(order, min(140 / nyquist, 0.999), btype="low", output="sos")
         elif band == "high":
             low  = max(1500 / nyquist, 0.001)
@@ -1512,9 +1516,16 @@ class StreamingDroneEngine:
         engine.reload(new_preset)  # crossfades to new parameters
     """
 
-    def __init__(self, preset: dict, seed: int = 42, render_mode: bool = False):
+    def __init__(
+        self,
+        preset: dict,
+        seed: int = 42,
+        render_mode: bool = False,
+        preview_loudness: Optional[bool] = None,
+    ):
         self.chunk_size = 2048
         self.render_mode = render_mode  # disables per-chunk peak scaler for offline renders
+        self.preview_loudness = (not render_mode) if preview_loudness is None else bool(preview_loudness)
         # MANT-1: Auto-select sample rate based on render_mode
         # Preview: 22050 Hz (CPU efficient), Render: 48000 Hz (full quality)
         self.SR = config.SAMPLE_RATE if render_mode else config.STREAM_SAMPLE_RATE
@@ -1530,6 +1541,9 @@ class StreamingDroneEngine:
         self._prev_layer_auto = {}  # dict of {layer_idx: {param: prev_value}}
         self._prev_global_auto = {}  # dict of {param: prev_value}
         self._build_from_preset(preset)
+        self._loudness_controller = (
+            StreamingLoudnessController(self.SR) if self.preview_loudness else None
+        )
         self._crossfade_remaining = 0
         self._crossfade_total = 0
         self._old_engine: Optional['StreamingDroneEngine'] = None
@@ -1782,14 +1796,12 @@ class StreamingDroneEngine:
                 self._master.set_output_gain_db(g_ramps["master_output_db"])
         stereo = self._master.process(stereo)
 
-        # Soft limiter — streaming only; render path uses full-buffer final_limit_normalize
-        if not self.render_mode:
-            peak = float(np.max(np.abs(stereo)))
-            target = min(1.0, 0.92 / peak) if peak > 1e-6 else 1.0
-            # Ramp gain smoothly across the chunk — no sudden step at chunk boundary
-            gain_ramp = np.linspace(self._limiter_gain, target, stereo.shape[0], dtype=np.float64)
-            stereo = stereo * gain_ramp[:, np.newaxis]
-            self._limiter_gain = target
+        # Live loudness trim — raises quiet previews slowly, never by more than
+        # +9 dB, and retains conservative peak protection. Offline renders use
+        # one static full-buffer loudness gain instead.
+        if self._loudness_controller is not None:
+            stereo = self._loudness_controller.process(stereo)
+            self._limiter_gain = self._loudness_controller.gain
 
         # Handle crossfade from hot-reload
         if self._crossfade_remaining > 0 and self._old_engine is not None:
@@ -2148,6 +2160,7 @@ class _ShallowCopy:
         # MANT-1: Copy sample rate
         self.SR = engine.SR
         self.render_mode = engine.render_mode
+        self.preview_loudness = engine.preview_loudness
         self.layers  = engine.layers
         self.panners = engine.panners
         self.choruses = engine.choruses
@@ -2167,6 +2180,10 @@ class _ShallowCopy:
         self._dc_zi_R = engine._dc_zi_R.copy()
         self.saturation = engine.saturation
         self._limiter_gain = engine._limiter_gain
+        self._loudness_controller = (
+            engine._loudness_controller.copy_state()
+            if engine._loudness_controller is not None else None
+        )
         self._master = engine._master.copy_state()
         self._reverb  = engine._reverb.copy_state()
         self._shimmer = engine._shimmer.copy_state()
@@ -2210,10 +2227,8 @@ class _ShallowCopy:
 
         stereo = self._master.process(stereo)
 
-        peak = float(np.max(np.abs(stereo)))
-        target = min(1.0, 0.92 / peak) if peak > 1e-6 else 1.0
-        gain_ramp = np.linspace(self._limiter_gain, target, stereo.shape[0], dtype=np.float64)
-        stereo = stereo * gain_ramp[:, np.newaxis]
-        self._limiter_gain = target
+        if self._loudness_controller is not None:
+            stereo = self._loudness_controller.process(stereo)
+            self._limiter_gain = self._loudness_controller.gain
 
         return stereo

@@ -23,6 +23,8 @@ duration: 60.0
 spatial_depth: 1.5
 spatial_wet: 0.35
 saturation: 0.28
+master:
+  output_gain_db: 5.0
 swarm_density: 0.5
 layers:
 - name: Delta Sub
