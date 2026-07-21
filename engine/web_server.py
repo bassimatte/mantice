@@ -418,10 +418,15 @@ def _preset_to_ui_params(preset: dict) -> dict:
                 "wavetable_scan_end": layer.get("wavetable_scan_end", 1.0),
                 "wavetable_scan_rate": layer.get("wavetable_scan_rate", 0.01),
                 "wavetable_scan_mode": layer.get("wavetable_scan_mode", "pingpong"),
+                "wavetable_scan_shape": layer.get("wavetable_scan_shape", ""),
+                "wavetable_scan_direction": layer.get("wavetable_scan_direction", ""),
                 "wavetable_tremor_amount": layer.get("wavetable_tremor_amount", 0.0),
                 "wavetable_tremor_rate": layer.get("wavetable_tremor_rate", 0.3),
                 "wavetable_audio_rate_scan": bool(layer.get("wavetable_audio_rate_scan", False)),
                 "wavetable_detune_cents": layer.get("wavetable_detune_cents", 7.0),
+                "wavetable_unison_mode": layer.get("wavetable_unison_mode", "synthetic"),
+                "wavetable_unison_spread": layer.get("wavetable_unison_spread", 0.8),
+                "wavetable_unison_blend": layer.get("wavetable_unison_blend", 0.75),
                 "wavetable_name": layer.get("wavetable_name", ""),
                 "wavetable_sha256": layer.get("wavetable_sha256", ""),
                 "wavetable_source_url": layer.get("wavetable_source_url", ""),
@@ -600,10 +605,15 @@ def _ui_params_to_preset(params: dict) -> dict:
             "wavetable_scan_end": float(l.get("wavetable_scan_end", 1.0)),
             "wavetable_scan_rate": float(l.get("wavetable_scan_rate", 0.01)),
             "wavetable_scan_mode": l.get("wavetable_scan_mode", "pingpong"),
+            "wavetable_scan_shape": l.get("wavetable_scan_shape", ""),
+            "wavetable_scan_direction": l.get("wavetable_scan_direction", ""),
             "wavetable_tremor_amount": float(l.get("wavetable_tremor_amount", 0.0)),
             "wavetable_tremor_rate": float(l.get("wavetable_tremor_rate", 0.3)),
             "wavetable_audio_rate_scan": bool(l.get("wavetable_audio_rate_scan", False)),
             "wavetable_detune_cents": float(l.get("wavetable_detune_cents", 7.0)),
+            "wavetable_unison_mode": l.get("wavetable_unison_mode", "synthetic"),
+            "wavetable_unison_spread": float(l.get("wavetable_unison_spread", 0.8)),
+            "wavetable_unison_blend": float(l.get("wavetable_unison_blend", 0.75)),
             "wavetable_name": l.get("wavetable_name", ""),
             "wavetable_sha256": l.get("wavetable_sha256", ""),
             "wavetable_source_url": l.get("wavetable_source_url", ""),
@@ -2106,10 +2116,15 @@ async def save_preset_endpoint(request: Request):
                 l_out["wavetable_scan_end"] = float(layer.get("wavetable_scan_end", 1.0))
                 l_out["wavetable_scan_rate"] = float(layer.get("wavetable_scan_rate", 0.01))
                 l_out["wavetable_scan_mode"] = layer.get("wavetable_scan_mode", "pingpong")
+                l_out["wavetable_scan_shape"] = layer.get("wavetable_scan_shape", "")
+                l_out["wavetable_scan_direction"] = layer.get("wavetable_scan_direction", "")
                 l_out["wavetable_tremor_amount"] = float(layer.get("wavetable_tremor_amount", 0.0))
                 l_out["wavetable_tremor_rate"] = float(layer.get("wavetable_tremor_rate", 0.3))
                 l_out["wavetable_audio_rate_scan"] = bool(layer.get("wavetable_audio_rate_scan", False))
                 l_out["wavetable_detune_cents"] = float(layer.get("wavetable_detune_cents", 7.0))
+                l_out["wavetable_unison_mode"] = layer.get("wavetable_unison_mode", "synthetic")
+                l_out["wavetable_unison_spread"] = float(layer.get("wavetable_unison_spread", 0.8))
+                l_out["wavetable_unison_blend"] = float(layer.get("wavetable_unison_blend", 0.75))
                 for metadata_key in ("wavetable_name", "wavetable_sha256", "wavetable_source_url", "wavetable_creator", "wavetable_license"):
                     if layer.get(metadata_key):
                         l_out[metadata_key] = layer[metadata_key]

@@ -1,7 +1,6 @@
 """Streaming wavetable oscillator for imported multi-frame WAV files."""
 
 from pathlib import Path
-import random
 
 import numpy as np
 import soundfile as sf
@@ -89,10 +88,42 @@ class StreamingWavetableLayer:
         detune = max(0.0, float(cfg.get("wavetable_detune_cents", 7.0)))
         offsets = np.linspace(-detune, detune, voices, dtype=np.float32) if voices > 1 else np.zeros(1, dtype=np.float32)
         self.freqs = (root * np.power(2.0, offsets / 1200.0)).astype(np.float32)
-        self.phases = np.array([random.random() for _ in range(voices)], dtype=np.float32)
+
+        # Wavetable unison is built in stereo before the layer panner.  The
+        # previous engine summed randomly phased, randomly weighted voices to
+        # mono, producing unstable combing without genuine stereo spread.
+        self.unison_mode = str(cfg.get("wavetable_unison_mode", "synthetic")).lower()
+        if self.unison_mode not in {"hard", "smooth", "synthetic"}:
+            self.unison_mode = "synthetic"
+        phase_rng = np.random.default_rng((int(scan_seed) ^ 0x51F15EED) & 0xFFFFFFFF)
+        common_phase = np.float32(phase_rng.random())
+        if self.unison_mode == "hard" or voices == 1 or detune <= 1e-6:
+            self.phases = np.full(voices, common_phase, dtype=np.float32)
+        elif self.unison_mode == "smooth":
+            self.phases = phase_rng.random(voices).astype(np.float32)
+        else:
+            self.phases = (common_phase + np.arange(voices, dtype=np.float32) / voices) % 1.0
+
         amp_min = float(cfg.get("amp_min", 0.01))
         amp_max = float(cfg.get("amp_max", 0.05))
-        self.amplitudes = np.array([random.uniform(amp_min, amp_max) for _ in range(voices)], dtype=np.float32)
+        base_amplitude = max(0.0, (amp_min + amp_max) * 0.5)
+        spread = float(np.clip(cfg.get("wavetable_unison_spread", 0.8), 0.0, 1.0))
+        blend = float(np.clip(cfg.get("wavetable_unison_blend", 0.75), 0.0, 1.0))
+        normalized_voice_positions = (
+            np.linspace(-1.0, 1.0, voices, dtype=np.float32)
+            if voices > 1 else np.zeros(1, dtype=np.float32)
+        )
+        blend_weights = 1.0 - (1.0 - blend) * np.abs(normalized_voice_positions)
+        # Preserve the approximate power of the legacy three-voice default,
+        # while keeping perceived energy stable as Voice Count changes.
+        weight_energy = max(1e-8, float(np.sqrt(np.sum(blend_weights ** 2))))
+        self.amplitudes = (
+            blend_weights * (base_amplitude * np.sqrt(3.0) / weight_energy)
+        ).astype(np.float32)
+        pan_positions = 0.5 + normalized_voice_positions * (0.5 * spread)
+        pan_angles = pan_positions * np.float32(np.pi / 2.0)
+        self._voice_left_gains = (self.amplitudes * np.cos(pan_angles)).astype(np.float32)
+        self._voice_right_gains = (self.amplitudes * np.sin(pan_angles)).astype(np.float32)
         self._gain = np.float32(10.0 ** (float(cfg.get("volume_db", 0.0)) / 20.0))
 
         self.position = float(np.clip(cfg.get("wavetable_position", 0.0), 0.0, 1.0))
@@ -102,7 +133,16 @@ class StreamingWavetableLayer:
             self.scan_start, self.scan_end = self.scan_end, self.scan_start
         self.scan_rate = max(0.0, float(cfg.get("wavetable_scan_rate", 0.01)))
         self.scan_mode = str(cfg.get("wavetable_scan_mode", "pingpong"))
-        if self.scan_mode == "static":
+        legacy_shapes = {
+            "static": "static", "forward": "ramp", "reverse": "ramp",
+            "pingpong": "triangle", "sine": "sine", "smooth_random": "smooth_random",
+        }
+        requested_shape = str(cfg.get("wavetable_scan_shape") or legacy_shapes.get(self.scan_mode, "triangle"))
+        self.scan_shape = requested_shape if requested_shape in {"static", "ramp", "triangle", "sine", "smooth_random"} else "triangle"
+        legacy_direction = "reverse" if self.scan_mode == "reverse" else "forward"
+        requested_direction = str(cfg.get("wavetable_scan_direction") or legacy_direction)
+        self.scan_direction = requested_direction if requested_direction in {"forward", "reverse"} else "forward"
+        if self.scan_shape == "static":
             self.position = float(np.clip(self.position, self.scan_start, self.scan_end))
         self.scan_seed = int(scan_seed) & 0xFFFFFFFF
         self.scan_phase = 0.0
@@ -162,7 +202,7 @@ class StreamingWavetableLayer:
     def _frame_positions(self, n_samples: int) -> np.ndarray:
         if self.frame_count == 1:
             return np.zeros(n_samples, dtype=np.float32)
-        if self.scan_mode == "static" or self.scan_rate <= 0.0:
+        if self.scan_shape == "static" or self.scan_rate <= 0.0:
             frame_positions = np.full(n_samples, self.position * (self.frame_count - 1), dtype=np.float32)
         else:
             phase_step = self.scan_rate / self.SR
@@ -170,12 +210,15 @@ class StreamingWavetableLayer:
             # Position selects the static frame or, while scanning, offsets
             # the scan phase so the same control always moves the playhead.
             phase = running_phase + self.position
-            if self.scan_mode == "smooth_random":
+            if self.scan_shape == "smooth_random":
                 curve = wavetable_smooth_random_curve(phase, self.scan_seed)
                 self.scan_phase = float(running_phase[-1] + phase_step)
             else:
-                curve = wavetable_scan_curve(self.scan_mode, phase)
+                shape_mode = {"ramp": "forward", "triangle": "pingpong"}.get(self.scan_shape, self.scan_shape)
+                curve = wavetable_scan_curve(shape_mode, phase)
                 self.scan_phase = float((running_phase[-1] + phase_step) % 1.0)
+            if self.scan_direction == "reverse":
+                curve = 1.0 - curve
             normalized = self.scan_start + curve * (self.scan_end - self.scan_start)
             frame_positions = normalized * np.float32(self.frame_count - 1)
 
@@ -194,7 +237,8 @@ class StreamingWavetableLayer:
         frame0 = np.floor(frame_pos).astype(np.int32)
         frame1 = np.minimum(frame0 + 1, self.frame_count - 1)
         frame_mix = frame_pos - frame0
-        output = np.zeros(n_samples, dtype=np.float32)
+        output_left = np.zeros(n_samples, dtype=np.float32)
+        output_right = np.zeros(n_samples, dtype=np.float32)
 
         for voice, frequency in enumerate(self.freqs):
             voice_table = self._voice_tables[voice]
@@ -205,7 +249,9 @@ class StreamingWavetableLayer:
             sample_mix = sample_pos - np.floor(sample_pos)
             wave0 = voice_table[frame0, sample0] * (1.0 - sample_mix) + voice_table[frame0, sample1] * sample_mix
             wave1 = voice_table[frame1, sample0] * (1.0 - sample_mix) + voice_table[frame1, sample1] * sample_mix
-            output += (wave0 * (1.0 - frame_mix) + wave1 * frame_mix) * self.amplitudes[voice]
+            voice_output = wave0 * (1.0 - frame_mix) + wave1 * frame_mix
+            output_left += voice_output * self._voice_left_gains[voice]
+            output_right += voice_output * self._voice_right_gains[voice]
             self.phases[voice] = np.float32((phase[-1] + frequency / self.SR) % 1.0)
 
-        return output * self._gain
+        return np.column_stack([output_left, output_right]) * self._gain

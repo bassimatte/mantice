@@ -264,10 +264,15 @@ def _normalize_layer_v1(layer: dict) -> dict:
         "wavetable_scan_end":     float(layer.get("wavetable_scan_end", 1.0)),
         "wavetable_scan_rate":    float(layer.get("wavetable_scan_rate", 0.01)),
         "wavetable_scan_mode":    layer.get("wavetable_scan_mode", "pingpong"),
+        "wavetable_scan_shape":   layer.get("wavetable_scan_shape", ""),
+        "wavetable_scan_direction": layer.get("wavetable_scan_direction", ""),
         "wavetable_tremor_amount": float(layer.get("wavetable_tremor_amount", 0.0)),
         "wavetable_tremor_rate":   float(layer.get("wavetable_tremor_rate", 0.3)),
         "wavetable_audio_rate_scan": bool(layer.get("wavetable_audio_rate_scan", False)),
         "wavetable_detune_cents": float(layer.get("wavetable_detune_cents", 7.0)),
+        "wavetable_unison_mode":   layer.get("wavetable_unison_mode", "synthetic"),
+        "wavetable_unison_spread": float(layer.get("wavetable_unison_spread", 0.8)),
+        "wavetable_unison_blend":  float(layer.get("wavetable_unison_blend", 0.75)),
         "wavetable_name":         layer.get("wavetable_name", ""),
         "wavetable_sha256":       layer.get("wavetable_sha256", ""),
         "wavetable_source_url":   layer.get("wavetable_source_url", ""),
@@ -369,10 +374,15 @@ def _normalize_layer_v2(layer: dict) -> dict:
         "wavetable_scan_end": float(layer.get("wavetable_scan_end", 1.0)),
         "wavetable_scan_rate": float(layer.get("wavetable_scan_rate", 0.01)),
         "wavetable_scan_mode": layer.get("wavetable_scan_mode", "pingpong"),
+        "wavetable_scan_shape": layer.get("wavetable_scan_shape", ""),
+        "wavetable_scan_direction": layer.get("wavetable_scan_direction", ""),
         "wavetable_tremor_amount": float(layer.get("wavetable_tremor_amount", 0.0)),
         "wavetable_tremor_rate": float(layer.get("wavetable_tremor_rate", 0.3)),
         "wavetable_audio_rate_scan": bool(layer.get("wavetable_audio_rate_scan", False)),
         "wavetable_detune_cents": float(layer.get("wavetable_detune_cents", 7.0)),
+        "wavetable_unison_mode": layer.get("wavetable_unison_mode", "synthetic"),
+        "wavetable_unison_spread": float(layer.get("wavetable_unison_spread", 0.8)),
+        "wavetable_unison_blend": float(layer.get("wavetable_unison_blend", 0.75)),
         "wavetable_name": layer.get("wavetable_name", ""),
         "wavetable_sha256": layer.get("wavetable_sha256", ""),
         "wavetable_source_url": layer.get("wavetable_source_url", ""),
@@ -500,6 +510,10 @@ def _validate(preset: dict) -> None:
                 errors.append(f"{label}: wavetable_frame_size must be >= 32")
             if layer.get("wavetable_scan_mode") not in {"static", "forward", "reverse", "pingpong", "sine", "smooth_random"}:
                 errors.append(f"{label}: unknown wavetable_scan_mode {layer.get('wavetable_scan_mode')!r}")
+            if layer.get("wavetable_scan_shape") and layer.get("wavetable_scan_shape") not in {"static", "ramp", "triangle", "sine", "smooth_random"}:
+                errors.append(f"{label}: unknown wavetable_scan_shape {layer.get('wavetable_scan_shape')!r}")
+            if layer.get("wavetable_scan_direction") and layer.get("wavetable_scan_direction") not in {"forward", "reverse"}:
+                errors.append(f"{label}: unknown wavetable_scan_direction {layer.get('wavetable_scan_direction')!r}")
 
         if layer["root"] <= 0:
             errors.append(f"{label}: root must be > 0 (got {layer['root']})")

@@ -57,6 +57,9 @@ class GeneratorIntentTests(unittest.TestCase):
                 self.assertTrue(Path("samples", layer["wavetable_source"]).is_file())
                 self.assertIn(layer["wavetable_scan_mode"],
                               {"smooth_random", "sine", "pingpong", "forward", "reverse"})
+                self.assertIn(layer["wavetable_scan_shape"],
+                              {"smooth_random", "sine", "triangle", "ramp"})
+                self.assertIn(layer["wavetable_scan_direction"], {"forward", "reverse"})
                 self.assertGreaterEqual(layer["wavetable_scan_rate"], 0.001)
                 self.assertLessEqual(layer["wavetable_scan_rate"], 0.03)
                 self.assertFalse(layer["wavetable_audio_rate_scan"])

@@ -2488,11 +2488,14 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
           <tr><th>Setting</th><th>Range</th><th>Default</th><th>Description</th></tr>
           <tr><td>WAV Source</td><td>Imported WAV</td><td>—</td><td>Multi-frame wavetable; CarveToy's 256 × 2048 format is supported directly</td></tr>
           <tr><td>Root</td><td>20–2000 Hz</td><td>110 Hz</td><td>Oscillator fundamental frequency</td></tr>
+          <tr><td>Unison Mode</td><td>Hard / Smooth / Synthetic</td><td>Synthetic</td><td>Aligned, seeded-random, or evenly distributed voice phases</td></tr>
+          <tr><td>Detune / Spread / Blend</td><td>0–50 cents / 0–100% / 0–100%</td><td>7 / 80% / 75%</td><td>Sets pitch width, per-voice stereo placement, and the balance of outer voices</td></tr>
           <tr><td>Position / Start Phase</td><td>Frame / 0–100%</td><td>Scan Start / 0%</td><td>Static frame within the scan range, or moving-scan cycle offset</td></tr>
           <tr><td>Scan Start / End</td><td>Frame 0–last</td><td>0 / last</td><td>Limits the evolving range using wavetable frame numbers</td></tr>
           <tr><td>Scan Rate</td><td>0.001–20 Hz, split-log</td><td>0.01 Hz</td><td>Frame traversal speed; 1 Hz sits at the slider midpoint while slow drone rates retain fine control</td></tr>
           <tr><td>Advanced Scan</td><td>20–100 Hz</td><td>Off</td><td>Experimental fast scanning with automatic per-voice FFT band-limiting and a Nyquist guard band</td></tr>
-          <tr><td>Scan Mode</td><td>Static / Ramp Up / Ramp Down / Triangle / Sine / Smooth Random</td><td>Triangle</td><td>Shape used to move through the selected frame range</td></tr>
+          <tr><td>Scan Waveform</td><td>Static / Ramp / Triangle / Sine / Smooth Random</td><td>Triangle</td><td>Shape used to move through the selected frame range</td></tr>
+          <tr><td>Direction</td><td>Forward / Reverse</td><td>Forward</td><td>Chooses whether the waveform begins from Scan Start or Scan End</td></tr>
           <tr><td>Tremor Amount / Rate</td><td>0–last frame / 0.01–5 Hz</td><td>0 / 0.3 Hz</td><td>Independent seeded frame disturbance; Amount 0 disables Tremor</td></tr>
         </table>
         <p class="docs-note">Mantice interpolates within each waveform and between neighboring frames to avoid stepping during slow drone scans. Imported WAVs remain local until sharing; shared presets publish one SHA-256-addressed copy that can be reused safely by multiple presets.</p>
@@ -4405,11 +4408,13 @@ function showLayerParams(layer) {
   const wavetableAudioRateScan = Boolean(layer.wavetable_audio_rate_scan) || Number(layer.wavetable_scan_rate ?? 0.01) > 20;
   const wavetableScanRateMax = wavetableAudioRateScan ? 100 : 20;
   const wavetableFrame = value => Math.round(Math.max(0, Math.min(1, Number(value))) * wavetableLastFrame);
-  const wavetableScanMode = layer.wavetable_scan_mode || 'pingpong';
+  const wavetableScanAxes = resolveWavetableScanAxes(layer);
+  const wavetableScanShape = wavetableScanAxes.shape;
+  const wavetableScanDirection = wavetableScanAxes.direction;
   const wavetableScanStartFrame = wavetableFrame(layer.wavetable_scan_start ?? 0);
   const wavetableScanEndFrame = Math.max(wavetableScanStartFrame, wavetableFrame(layer.wavetable_scan_end ?? 1));
   const wavetableStaticPositionFrame = Math.max(wavetableScanStartFrame, Math.min(wavetableScanEndFrame, wavetableFrame(layer.wavetable_position ?? 0)));
-  if (wavetableScanMode === 'static' && wavetableLastFrame > 0) {
+  if (wavetableScanShape === 'static' && wavetableLastFrame > 0) {
     layer.wavetable_position = wavetableStaticPositionFrame / wavetableLastFrame;
   }
   const wavetableRootLocked = Boolean(layer.rootSnap && !isJI);
@@ -4421,7 +4426,9 @@ function showLayerParams(layer) {
     { id: 'voices', label: 'Voices', min: 1, max: 8, step: 1, val: layer.voices ?? 3 },
     { id: 'volume_db', label: 'Volume (dB)', min: -60, max: 6, step: 0.5, val: layer.volume_db ?? 0 },
     { id: 'wavetable_detune_cents', label: 'Detune (¢)', min: 0, max: 50, step: 1, val: layer.wavetable_detune_cents ?? 7 },
-    wavetableScanMode === 'static'
+    { id: 'wavetable_unison_spread', label: 'Spread', min: 0, max: 100, step: 1, val: Math.round(Number(layer.wavetable_unison_spread ?? 0.8) * 100), percentValue: true, suffix: '%' },
+    { id: 'wavetable_unison_blend', label: 'Blend', min: 0, max: 100, step: 1, val: Math.round(Number(layer.wavetable_unison_blend ?? 0.75) * 100), percentValue: true, suffix: '%' },
+    wavetableScanShape === 'static'
       ? { id: 'wavetable_position', label: 'Position', help: 'Static wavetable frame', min: wavetableScanStartFrame, max: wavetableScanEndFrame, step: 1, val: wavetableStaticPositionFrame, frameNumber: true }
       : { id: 'wavetable_position', label: 'Start Phase', help: 'Starting point within the repeating scan cycle', min: 0, max: 100, step: 1, val: Math.round(Number(layer.wavetable_position ?? 0) * 100), phasePercent: true, suffix: '%' },
     { id: 'wavetable_scan_start', label: 'Scan Start', min: 0, max: wavetableLastFrame, step: 1, val: wavetableFrame(layer.wavetable_scan_start ?? 0), frameNumber: true },
@@ -4459,20 +4466,34 @@ function showLayerParams(layer) {
       <canvas id="wavetable-scope-canvas" aria-label="Current wavetable frame, all-frames terrain, and draggable frame rail" style="display:block;width:100%;height:220px;background:var(--bg);border:1px solid var(--border);border-radius:4px;touch-action:none;cursor:ew-resize;"></canvas>
       <div style="font-size:10px;color:var(--text-dim);line-height:1.45;margin-top:4px;text-align:center;">Drag the frame-rail handles to set Scan Start and Scan End</div>
     </div>
+    <div class="param-row">
+      <label title="How unison voice phases are arranged">Unison Mode</label>
+      <select id="lp-wavetable_unison_mode" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="hard" ${(layer.wavetable_unison_mode || 'synthetic') === 'hard' ? 'selected' : ''}>Hard · aligned</option>
+        <option value="smooth" ${(layer.wavetable_unison_mode || 'synthetic') === 'smooth' ? 'selected' : ''}>Smooth · random</option>
+        <option value="synthetic" ${(layer.wavetable_unison_mode || 'synthetic') === 'synthetic' ? 'selected' : ''}>Synthetic · even</option>
+      </select>
+    </div>
     ${wavetableParams.map(p => `<div class="param-row${p.scanRate ? ' scan-rate-row' : ''}">
       <label${p.help ? ` title="${p.help}"` : ''}>${p.id === 'root' && !isJI ? `Root Hz <button id="lp-root-snap" class="snap-btn${layer.rootSnap ? ' active' : ''}" title="Lock frequency to notes">♩</button>` : p.label}</label>
       <input type="range" id="lp-${p.id}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}">
       <span class="value" id="lp-${p.id}-val">${wavetableValueLabel(p, p.val)}</span>
     </div>`).join('')}
     <div class="param-row">
-      <label>Scan Mode</label>
-      <select id="lp-wavetable_scan_mode" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
-        <option value="static" ${(layer.wavetable_scan_mode || 'pingpong') === 'static' ? 'selected' : ''}>Static frame</option>
-        <option value="forward" ${(layer.wavetable_scan_mode || 'pingpong') === 'forward' ? 'selected' : ''}>Ramp Up</option>
-        <option value="reverse" ${(layer.wavetable_scan_mode || 'pingpong') === 'reverse' ? 'selected' : ''}>Ramp Down</option>
-        <option value="pingpong" ${(layer.wavetable_scan_mode || 'pingpong') === 'pingpong' ? 'selected' : ''}>Triangle</option>
-        <option value="sine" ${(layer.wavetable_scan_mode || 'pingpong') === 'sine' ? 'selected' : ''}>Sine</option>
-        <option value="smooth_random" ${(layer.wavetable_scan_mode || 'pingpong') === 'smooth_random' ? 'selected' : ''}>Smooth Random</option>
+      <label>Scan Waveform</label>
+      <select id="lp-wavetable_scan_shape" style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="static" ${wavetableScanShape === 'static' ? 'selected' : ''}>Static</option>
+        <option value="ramp" ${wavetableScanShape === 'ramp' ? 'selected' : ''}>Ramp</option>
+        <option value="triangle" ${wavetableScanShape === 'triangle' ? 'selected' : ''}>Triangle</option>
+        <option value="sine" ${wavetableScanShape === 'sine' ? 'selected' : ''}>Sine</option>
+        <option value="smooth_random" ${wavetableScanShape === 'smooth_random' ? 'selected' : ''}>Smooth Random</option>
+      </select>
+    </div>
+    <div class="param-row">
+      <label>Direction</label>
+      <select id="lp-wavetable_scan_direction" ${wavetableScanShape === 'static' ? 'disabled' : ''} style="grid-column:2/4; background:var(--bg); border:1px solid var(--border); color:var(--text-lcd); padding:3px 6px; font-family:'Space Mono',monospace; font-size:10px;">
+        <option value="forward" ${wavetableScanDirection === 'forward' ? 'selected' : ''}>Forward · Start → End</option>
+        <option value="reverse" ${wavetableScanDirection === 'reverse' ? 'selected' : ''}>Reverse · End → Start</option>
       </select>
     </div>
     <div class="card-subsection-label" style="margin-top:8px;">Tremor</div>
@@ -5268,7 +5289,7 @@ function showLayerParams(layer) {
       if (!slider) return;
       slider.addEventListener('mousedown', () => pushUndo());
       slider.addEventListener('input', () => {
-        let displayValue = p.id === 'voices' || p.frameNumber || p.phasePercent || (p.id === 'root' && wavetableRootLocked)
+        let displayValue = p.id === 'voices' || p.frameNumber || p.phasePercent || p.percentValue || (p.id === 'root' && wavetableRootLocked)
           ? parseInt(slider.value, 10) : parseFloat(slider.value);
         if (p.id === 'wavetable_scan_start') {
           displayValue = Math.min(displayValue, wavetableFrame(currentParams.layers[activeLayerIdx].wavetable_scan_end ?? 1));
@@ -5283,9 +5304,9 @@ function showLayerParams(layer) {
           ? wavetableSliderToScanRate(displayValue, p.scanRateMax)
           : p.frameNumber
             ? (wavetableLastFrame > 0 ? displayValue / wavetableLastFrame : 0)
-            : p.phasePercent
+            : (p.phasePercent || p.percentValue)
               ? displayValue / 100
-            : displayValue;
+              : displayValue;
         currentParams.layers[activeLayerIdx][p.id] = value;
         $(`lp-${p.id}-val`).textContent = wavetableValueLabel(p, displayValue);
         if (p.id === 'wavetable_scan_start' || p.id === 'wavetable_scan_end') {
@@ -5294,14 +5315,28 @@ function showLayerParams(layer) {
         markDirty();
       });
     });
-    $('lp-wavetable_scan_mode')?.addEventListener('change', event => {
+    $('lp-wavetable_unison_mode')?.addEventListener('change', event => {
+      pushUndo();
+      currentParams.layers[activeLayerIdx].wavetable_unison_mode = event.target.value;
+      markDirty();
+    });
+    $('lp-wavetable_scan_shape')?.addEventListener('change', event => {
       pushUndo();
       const target = currentParams.layers[activeLayerIdx];
-      target.wavetable_scan_mode = event.target.value;
+      target.wavetable_scan_shape = event.target.value;
+      target.wavetable_scan_direction = resolveWavetableScanAxes(target).direction;
+      syncLegacyWavetableScanMode(target);
       syncStaticWavetablePosition(target, wavetableLastFrame);
       showLayerParams(target);
       markDirty();
       liveReload();
+    });
+    $('lp-wavetable_scan_direction')?.addEventListener('change', event => {
+      pushUndo();
+      const target = currentParams.layers[activeLayerIdx];
+      target.wavetable_scan_direction = event.target.value;
+      syncLegacyWavetableScanMode(target);
+      markDirty();
     });
     $('lp-wavetable-audio-rate-scan')?.addEventListener('change', event => {
       pushUndo();
@@ -6159,6 +6194,27 @@ function wavetableScanRateLabel(rate) {
   return `${hzText} Hz · ${duration} cycle`;
 }
 
+function resolveWavetableScanAxes(layer) {
+  const legacy = layer?.wavetable_scan_mode || 'pingpong';
+  const legacyShapes = {
+    static: 'static', forward: 'ramp', reverse: 'ramp',
+    pingpong: 'triangle', sine: 'sine', smooth_random: 'smooth_random',
+  };
+  const requestedShape = layer?.wavetable_scan_shape || legacyShapes[legacy] || 'triangle';
+  const shape = ['static', 'ramp', 'triangle', 'sine', 'smooth_random'].includes(requestedShape)
+    ? requestedShape : 'triangle';
+  const requestedDirection = layer?.wavetable_scan_direction || (legacy === 'reverse' ? 'reverse' : 'forward');
+  const direction = requestedDirection === 'reverse' ? 'reverse' : 'forward';
+  return { shape, direction };
+}
+
+function syncLegacyWavetableScanMode(layer) {
+  const { shape, direction } = resolveWavetableScanAxes(layer);
+  layer.wavetable_scan_mode = shape === 'static' ? 'static'
+    : shape === 'ramp' ? direction
+    : ({ triangle: 'pingpong' })[shape] || shape;
+}
+
 const _wavetableScopeCache = new Map();
 let _wavetableScopeAnimation = 0;
 
@@ -6189,23 +6245,23 @@ function _wavetableVisualFrame(layer, now, startedAt, lastFrame) {
   if (lastFrame <= 0) return 0;
   const start = Math.max(0, Math.min(1, Number(layer.wavetable_scan_start ?? 0)));
   const end = Math.max(start, Math.min(1, Number(layer.wavetable_scan_end ?? 1)));
-  const mode = layer.wavetable_scan_mode || 'pingpong';
+  const { shape, direction } = resolveWavetableScanAxes(layer);
   const rate = Math.max(0, Number(layer.wavetable_scan_rate ?? 0.01));
   const elapsedSeconds = (now - startedAt) / 1000;
   const foundIndex = currentParams?.layers?.indexOf(layer) ?? -1;
   const layerIndex = foundIndex >= 0 ? foundIndex : activeLayerIdx;
   const scanSeed = ((currentSeed >>> 0) + Math.imul(layerIndex, 0x9E3779B9)) >>> 0;
   let frame;
-  if (mode === 'static' || rate <= 0) {
+  if (shape === 'static' || rate <= 0) {
     frame = Number(layer.wavetable_position ?? 0) * lastFrame;
   } else {
     const elapsedCycles = elapsedSeconds * rate + Number(layer.wavetable_position ?? 0);
     const phase = elapsedCycles % 1;
     let curve = phase;
-    if (mode === 'reverse') curve = 1 - phase;
-    else if (mode === 'pingpong') curve = 1 - Math.abs(2 * phase - 1);
-    else if (mode === 'sine') curve = 0.5 - 0.5 * Math.cos(2 * Math.PI * phase);
-    else if (mode === 'smooth_random') curve = _wavetableSmoothRandomAt(elapsedCycles, scanSeed);
+    if (shape === 'triangle') curve = 1 - Math.abs(2 * phase - 1);
+    else if (shape === 'sine') curve = 0.5 - 0.5 * Math.cos(2 * Math.PI * phase);
+    else if (shape === 'smooth_random') curve = _wavetableSmoothRandomAt(elapsedCycles, scanSeed);
+    if (direction === 'reverse') curve = 1 - curve;
     frame = (start + curve * (end - start)) * lastFrame;
   }
   const tremorAmount = Math.max(0, Number(layer.wavetable_tremor_amount ?? 0));
@@ -6517,7 +6573,7 @@ function initWavetableScope(layer, initialFrameCount) {
 }
 
 function syncStaticWavetablePosition(layer, lastFrame) {
-  if (!layer || (layer.wavetable_scan_mode || 'pingpong') !== 'static' || lastFrame <= 0) return;
+  if (!layer || resolveWavetableScanAxes(layer).shape !== 'static' || lastFrame <= 0) return;
   const startFrame = Math.round(Math.max(0, Math.min(1, Number(layer.wavetable_scan_start ?? 0))) * lastFrame);
   const endFrame = Math.max(startFrame, Math.round(Math.max(0, Math.min(1, Number(layer.wavetable_scan_end ?? 1))) * lastFrame));
   const positionFrame = Math.max(startFrame, Math.min(endFrame, Math.round(Number(layer.wavetable_position ?? 0) * lastFrame)));
@@ -7484,13 +7540,16 @@ function describeCandidate(candidate) {
   const foundation = candidate.lowest_hz != null ? `${candidate.lowest_hz} Hz` : 'an unpitched foundation';
   const wavetable = (candidate.params.layers || []).find(layer => layer.type === 'wavetable');
   const wavetableDetail = wavetable
-    ? ` ${(wavetable.wavetable_name || 'Bundled wavetable')} scans frames ${Math.round(Number(wavetable.wavetable_scan_start || 0) * 255)}–${Math.round(Number(wavetable.wavetable_scan_end ?? 1) * 255)} with ${wavetableScanModeLabel(wavetable.wavetable_scan_mode)}${Number(wavetable.wavetable_tremor_amount) > 0 ? ` and ${Math.round(Number(wavetable.wavetable_tremor_amount))}-frame Tremor` : ''}.`
+    ? ` ${(wavetable.wavetable_name || 'Bundled wavetable')} scans frames ${Math.round(Number(wavetable.wavetable_scan_start || 0) * 255)}–${Math.round(Number(wavetable.wavetable_scan_end ?? 1) * 255)} with ${wavetableScanLabel(wavetable)}${Number(wavetable.wavetable_tremor_amount) > 0 ? ` and ${Math.round(Number(wavetable.wavetable_tremor_amount))}-frame Tremor` : ''}.`
     : '';
   return `${structure} ${spectral}, ${weight} field anchored at ${foundation}. ${types || 'Layered'} voices define the spectrum. ${motion} unfolds inside ${space}.${wavetableDetail}`;
 }
 
-function wavetableScanModeLabel(mode) {
-  return ({ smooth_random: 'Smooth Random', sine: 'Sine', pingpong: 'Triangle', forward: 'Ramp Up', reverse: 'Ramp Down', static: 'Static' })[mode] || 'slow motion';
+function wavetableScanLabel(layer) {
+  const { shape, direction } = resolveWavetableScanAxes(layer);
+  if (shape === 'static') return 'Static';
+  const shapeLabel = ({ smooth_random: 'Smooth Random', sine: 'Sine', triangle: 'Triangle', ramp: 'Ramp' })[shape] || 'Motion';
+  return `${shapeLabel} ${direction === 'reverse' ? 'Reverse' : 'Forward'}`;
 }
 
 function scoreCandidate(candidate, targetIntent) {
@@ -7547,7 +7606,7 @@ function candidateDescriptor(params, index, context) {
   const wavetableLayers = layers.filter(layer => layer.type === 'wavetable');
   if (wavetableLayers.length) {
     traits.push(...wavetableLayers.map(layer => layer.wavetable_name).filter(Boolean));
-    if (wavetableLayers.some(layer => layer.wavetable_scan_mode === 'smooth_random')) traits.push('smooth random');
+    if (wavetableLayers.some(layer => resolveWavetableScanAxes(layer).shape === 'smooth_random')) traits.push('smooth random');
     if (wavetableLayers.some(layer => Number(layer.wavetable_tremor_amount) > 0)) traits.push('tremor');
   }
   if (roots.length && Math.min(...roots) < 80) traits.push('sub-heavy');
@@ -7573,6 +7632,7 @@ function candidateDescriptor(params, index, context) {
       volume_db: layer.volume_db || 0, width: layer.width || 1, type: layer.type || 'fm',
       trajectory: layer.spatial_motion?.trajectory_x || 'none', motion_speed: layer.spatial_motion?.speed || 0,
       wavetable_name: layer.wavetable_name || '', scan_mode: layer.wavetable_scan_mode || '',
+      scan_shape: resolveWavetableScanAxes(layer).shape, scan_direction: resolveWavetableScanAxes(layer).direction,
       scan_start: layer.wavetable_scan_start, scan_end: layer.wavetable_scan_end,
       scan_rate: layer.wavetable_scan_rate, tremor_amount: layer.wavetable_tremor_amount || 0,
     })),

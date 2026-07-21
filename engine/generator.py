@@ -558,10 +558,15 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
             if scan_end - scan_start < 0.18:
                 scan_start = max(0.02, scan_end - 0.18)
             scan_rate = 10 ** random.uniform(math.log10(0.001), math.log10(0.03))
-            scan_mode = random.choices(
-                ["smooth_random", "sine", "pingpong", "forward", "reverse"],
-                weights=[42, 25, 20, 7, 6],
+            scan_shape = random.choices(
+                ["smooth_random", "sine", "triangle", "ramp"],
+                weights=[42, 25, 20, 13],
             )[0]
+            scan_direction = random.choice(["forward", "reverse"])
+            scan_mode = (
+                scan_direction if scan_shape == "ramp"
+                else {"triangle": "pingpong"}.get(scan_shape, scan_shape)
+            )
             tremor_enabled = random.random() < 0.4
             layer = {
                 "name":    f"{wavetable_name} Terrain {i + 1}",
@@ -576,10 +581,15 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
                 "wavetable_scan_end": round(scan_end, 4),
                 "wavetable_scan_rate": round(scan_rate, 4),
                 "wavetable_scan_mode": scan_mode,
+                "wavetable_scan_shape": scan_shape,
+                "wavetable_scan_direction": scan_direction,
                 "wavetable_tremor_amount": random.randint(2, 10) if tremor_enabled else 0,
                 "wavetable_tremor_rate": round(random.uniform(0.05, 0.3), 3),
                 "wavetable_audio_rate_scan": False,
                 "wavetable_detune_cents": round(random.uniform(4.0, 14.0), 1),
+                "wavetable_unison_mode": random.choices(["synthetic", "smooth", "hard"], weights=[55, 35, 10])[0],
+                "wavetable_unison_spread": round(random.uniform(0.65, 1.0), 2),
+                "wavetable_unison_blend": round(random.uniform(0.6, 0.9), 2),
                 "synthesis":     {"root": round(root, 2), "voices": voices, "ratios": ratios},
                 "fm":            {"ratios": [1.0], "index": 0.0},
                 "dynamics":      dynamics,
@@ -965,8 +975,20 @@ def mutate_ui_params(params: dict, amount: float = 0.3, seed: Optional[int] = No
             vary(layer, "wavetable_tremor_amount", 0.0, 32.0, 0.3, 0.45, 1)
             vary_log(layer, "wavetable_tremor_rate", 0.01, 2.0, 0.35, 0.45, 3)
             vary(layer, "wavetable_detune_cents", 0.0, 50.0, 0.45, 0.7, 2)
+            vary(layer, "wavetable_unison_spread", 0.0, 1.0, 0.5, 0.65, 3)
+            vary(layer, "wavetable_unison_blend", 0.0, 1.0, 0.45, 0.55, 3)
+            if amount > 0.6 and chance(0.12):
+                layer["wavetable_unison_mode"] = rng.choice(["hard", "smooth", "synthetic"])
             if amount > 0.6 and chance(0.15):
-                layer["wavetable_scan_mode"] = rng.choice(["static", "forward", "reverse", "pingpong", "sine", "smooth_random"])
+                scan_shape = rng.choice(["static", "ramp", "triangle", "sine", "smooth_random"])
+                scan_direction = rng.choice(["forward", "reverse"])
+                layer["wavetable_scan_shape"] = scan_shape
+                layer["wavetable_scan_direction"] = scan_direction
+                layer["wavetable_scan_mode"] = (
+                    "static" if scan_shape == "static"
+                    else scan_direction if scan_shape == "ramp"
+                    else {"triangle": "pingpong"}.get(scan_shape, scan_shape)
+                )
 
     name = str(result.get("name") or "Untitled")
     if not name.endswith(" (mutated)"):

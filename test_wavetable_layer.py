@@ -84,6 +84,39 @@ class WavetableLayerTests(unittest.TestCase):
             self.assertAlmostEqual(float(at_start._frame_positions(1)[0]), 0.0, places=5)
             self.assertAlmostEqual(float(at_middle._frame_positions(1)[0]), 3.5, places=5)
 
+    def test_scan_direction_reverses_every_moving_waveform(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self._write_table(root, frames=8)
+            for shape in ("ramp", "triangle", "sine", "smooth_random"):
+                base = {
+                    "wavetable_source": "table.wav", "wavetable_scan_shape": shape,
+                    "wavetable_scan_rate": 1.0, "wavetable_scan_start": 0.1,
+                    "wavetable_scan_end": 0.9,
+                }
+                forward = StreamingWavetableLayer(
+                    {**base, "wavetable_scan_direction": "forward"}, str(root), 1000, scan_seed=13
+                )
+                reverse = StreamingWavetableLayer(
+                    {**base, "wavetable_scan_direction": "reverse"}, str(root), 1000, scan_seed=13
+                )
+                forward_positions = forward._frame_positions(100)
+                reverse_positions = reverse._frame_positions(100)
+                expected_sum = (0.1 + 0.9) * 7
+                np.testing.assert_allclose(forward_positions + reverse_positions, expected_sum, atol=1e-5)
+
+    def test_legacy_reverse_mode_maps_to_reverse_ramp(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self._write_table(root, frames=8)
+            layer = StreamingWavetableLayer({
+                "wavetable_source": "table.wav", "wavetable_scan_mode": "reverse",
+                "wavetable_scan_rate": 1.0,
+            }, str(root), 1000)
+            self.assertEqual(layer.scan_shape, "ramp")
+            self.assertEqual(layer.scan_direction, "reverse")
+            self.assertAlmostEqual(float(layer._frame_positions(1)[0]), 7.0, places=5)
+
     def test_static_position_is_clamped_to_scan_range(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -156,10 +189,78 @@ class WavetableLayerTests(unittest.TestCase):
             }, str(root), 22050)
             first = layer.next_chunk(2048)
             second = layer.next_chunk(2048)
-            self.assertEqual(first.shape, (2048,))
+            self.assertEqual(first.shape, (2048, 2))
             self.assertTrue(np.isfinite(first).all())
             self.assertGreater(float(np.max(np.abs(first))), 0.001)
-            self.assertLess(abs(float(first[-1] - second[0])), 0.2)
+            self.assertLess(float(np.max(np.abs(first[-1] - second[0]))), 0.2)
+
+    def test_unison_modes_are_seeded_and_distinct(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self._write_table(root)
+            base = {"wavetable_source": "table.wav", "voices": 5}
+            hard = StreamingWavetableLayer(
+                {**base, "wavetable_unison_mode": "hard"}, str(root), 22050, scan_seed=17
+            )
+            smooth = StreamingWavetableLayer(
+                {**base, "wavetable_unison_mode": "smooth"}, str(root), 22050, scan_seed=17
+            )
+            smooth_again = StreamingWavetableLayer(
+                {**base, "wavetable_unison_mode": "smooth"}, str(root), 22050, scan_seed=17
+            )
+            synthetic = StreamingWavetableLayer(
+                {**base, "wavetable_unison_mode": "synthetic"}, str(root), 22050, scan_seed=17
+            )
+            self.assertTrue(np.all(hard.phases == hard.phases[0]))
+            np.testing.assert_array_equal(smooth.phases, smooth_again.phases)
+            self.assertGreater(float(np.ptp(smooth.phases)), 0.1)
+            synthetic_steps = np.diff(np.sort(synthetic.phases))
+            self.assertTrue(np.allclose(synthetic_steps, synthetic_steps[0], atol=1e-6))
+
+    def test_unison_spread_is_real_stereo(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self._write_table(root)
+            base = {
+                "wavetable_source": "table.wav", "voices": 5,
+                "wavetable_detune_cents": 12, "wavetable_unison_mode": "smooth",
+            }
+            mono = StreamingWavetableLayer(
+                {**base, "wavetable_unison_spread": 0}, str(root), 22050, scan_seed=23
+            ).next_chunk(4096)
+            wide = StreamingWavetableLayer(
+                {**base, "wavetable_unison_spread": 1}, str(root), 22050, scan_seed=23
+            ).next_chunk(4096)
+            np.testing.assert_allclose(mono[:, 0], mono[:, 1], atol=1e-7)
+            self.assertGreater(float(np.sqrt(np.mean((wide[:, 0] - wide[:, 1]) ** 2))), 0.001)
+
+    def test_zero_detune_cannot_phase_cancel_synthetic_unison(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self._write_table(root)
+            layer = StreamingWavetableLayer({
+                "wavetable_source": "table.wav", "voices": 5,
+                "wavetable_detune_cents": 0, "wavetable_unison_mode": "synthetic",
+                "wavetable_unison_spread": 0, "wavetable_unison_blend": 1,
+            }, str(root), 22050, scan_seed=31)
+            self.assertTrue(np.all(layer.phases == layer.phases[0]))
+            self.assertGreater(float(np.max(np.abs(layer.next_chunk(2048)))), 0.001)
+
+    def test_unison_energy_is_stable_across_voice_counts(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self._write_table(root)
+            levels = []
+            for voices in (3, 5, 7):
+                layer = StreamingWavetableLayer({
+                    "wavetable_source": "table.wav", "voices": voices,
+                    "wavetable_detune_cents": 15, "wavetable_unison_mode": "smooth",
+                    "wavetable_unison_spread": 0.8, "wavetable_unison_blend": 0.75,
+                    "amp_min": 0.03, "amp_max": 0.03,
+                }, str(root), 22050, scan_seed=29)
+                audio = layer.next_chunk(44100)
+                levels.append(float(np.sqrt(np.mean(np.sum(audio ** 2, axis=1)))))
+            self.assertLess(max(levels) / min(levels), 1.2)
 
     def test_available_wavetables_have_clean_labels_and_frame_metadata(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -193,10 +294,15 @@ class WavetableLayerTests(unittest.TestCase):
                 "wavetable_scan_end": 0.8,
                 "wavetable_scan_rate": 0.005,
                 "wavetable_scan_mode": "forward",
+                "wavetable_scan_shape": "sine",
+                "wavetable_scan_direction": "reverse",
                 "wavetable_tremor_amount": 12,
                 "wavetable_tremor_rate": 0.3,
                 "wavetable_audio_rate_scan": True,
                 "wavetable_detune_cents": 9,
+                "wavetable_unison_mode": "smooth",
+                "wavetable_unison_spread": 0.92,
+                "wavetable_unison_blend": 0.64,
                 "wavetable_sha256": "a" * 64,
                 "wavetable_source_url": "https://www.carvetoy.online/view/example",
                 "wavetable_creator": "Example Artist",
@@ -210,10 +316,15 @@ class WavetableLayerTests(unittest.TestCase):
         self.assertEqual(restored["wavetable_source"], "wavetables/test.wav")
         self.assertEqual(restored["wavetable_frames"], 64)
         self.assertEqual(restored["wavetable_scan_mode"], "forward")
+        self.assertEqual(restored["wavetable_scan_shape"], "sine")
+        self.assertEqual(restored["wavetable_scan_direction"], "reverse")
         self.assertAlmostEqual(restored["wavetable_scan_rate"], 0.005)
         self.assertEqual(restored["wavetable_tremor_amount"], 12)
         self.assertAlmostEqual(restored["wavetable_tremor_rate"], 0.3)
         self.assertTrue(restored["wavetable_audio_rate_scan"])
+        self.assertEqual(restored["wavetable_unison_mode"], "smooth")
+        self.assertAlmostEqual(restored["wavetable_unison_spread"], 0.92)
+        self.assertAlmostEqual(restored["wavetable_unison_blend"], 0.64)
         self.assertEqual(restored["voices"], 4)
         self.assertEqual(restored["wavetable_sha256"], "a" * 64)
         self.assertEqual(restored["wavetable_license"], "CC0")
@@ -343,18 +454,31 @@ class WavetableLayerTests(unittest.TestCase):
         self.assertIn("min: 16, max: 95, step: 1", html)
         self.assertIn("midiNoteToHz(displayValue)", html)
 
+    def test_ui_exposes_wavetable_unison_controls(self):
+        html = Path("engine/static/index.html").read_text(encoding="utf-8")
+        self.assertIn('id="lp-wavetable_unison_mode"', html)
+        self.assertIn("Hard · aligned", html)
+        self.assertIn("Smooth · random", html)
+        self.assertIn("Synthetic · even", html)
+        self.assertIn("id: 'wavetable_unison_spread', label: 'Spread'", html)
+        self.assertIn("id: 'wavetable_unison_blend', label: 'Blend'", html)
+        self.assertIn("p.percentValue", html)
+
     def test_ui_offers_the_new_scan_shape_names(self):
         html = Path("engine/static/index.html").read_text(encoding="utf-8")
-        self.assertIn('<option value="forward"', html)
-        self.assertIn('>Ramp Up</option>', html)
-        self.assertIn('<option value="reverse"', html)
-        self.assertIn('>Ramp Down</option>', html)
+        self.assertIn('id="lp-wavetable_scan_shape"', html)
+        self.assertIn('<option value="ramp"', html)
         self.assertIn('>Triangle</option>', html)
         self.assertIn('<option value="sine"', html)
-        self.assertIn("mode === 'sine'", html)
+        self.assertIn("shape === 'sine'", html)
         self.assertIn('<option value="smooth_random"', html)
         self.assertIn('>Smooth Random</option>', html)
-        self.assertIn("mode === 'smooth_random'", html)
+        self.assertIn("shape === 'smooth_random'", html)
+        self.assertIn('id="lp-wavetable_scan_direction"', html)
+        self.assertIn('Forward · Start → End', html)
+        self.assertIn('Reverse · End → Start', html)
+        self.assertIn("if (direction === 'reverse') curve = 1 - curve", html)
+        self.assertIn("syncLegacyWavetableScanMode(target)", html)
         self.assertIn("id: 'wavetable_tremor_amount'", html)
         self.assertIn("id: 'wavetable_tremor_rate'", html)
         self.assertIn("scanSeed ^ 0xA5A5A5A5", html)
