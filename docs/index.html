@@ -4803,7 +4803,7 @@ function showLayerParams(layer) {
     layer.muted = !layer.muted;
     buildLayerTabs(currentParams.layers);
     markDirty();
-    liveReload();
+    liveReload(FAST_LAYER_XFADE_SECS);
   });
 
   // Solo button
@@ -4818,7 +4818,7 @@ function showLayerParams(layer) {
     }
     buildLayerTabs(currentParams.layers);
     markDirty();
-    liveReload();
+    liveReload(FAST_LAYER_XFADE_SECS);
   });
 
   // Type selector
@@ -6639,6 +6639,7 @@ function markClean() {
   $('dirty-indicator').style.display = 'none';
 }
 
+const FAST_LAYER_XFADE_SECS = 0.05;
 let _liveReloadTimer = null;
 function markDirty() {
   if (!currentParams || !savedParamsSnapshot) return;
@@ -6646,7 +6647,10 @@ function markDirty() {
   $('dirty-indicator').style.display = isDirty ? 'inline' : 'none';
   // Debounced live reload — update the running engine after changes settle
   clearTimeout(_liveReloadTimer);
-  _liveReloadTimer = setTimeout(liveReload, 150);
+  _liveReloadTimer = setTimeout(() => {
+    _liveReloadTimer = null;
+    liveReload();
+  }, 150);
 }
 
 // Flush AudioContext buffer and restart stream with new params — eliminates 2–5s lag
@@ -6673,7 +6677,7 @@ async function _flushAndRestart() {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
   // 4. Fresh AudioContext (clean slate — no old buffered audio)
-  // Match sampleRate to server chunk rate: 2048 samples / 22050 Hz = exactly integer chunk
+  // Match sampleRate to server chunk rate: 1024 samples / 22050 Hz = exactly integer chunk
   // boundaries. Without this, default rate (44100/48000) gives fractional-sample overlap at
   // every chunk edge → audible click in high-frequency layers.
   streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
@@ -6698,9 +6702,18 @@ async function _flushAndRestart() {
 }
 
 // Hot-reload streaming engine with current params if a stream is active
-function liveReload() {
+function liveReload(crossfadeOverride = null) {
+  // Immediate controls call liveReload directly after markDirty(). Cancel the
+  // pending debounce so the same UI action cannot rebuild the engine twice.
+  if (_liveReloadTimer !== null) {
+    clearTimeout(_liveReloadTimer);
+    _liveReloadTimer = null;
+  }
   if (ws && ws.readyState === WebSocket.OPEN && isStreaming) {
-    const xfadeSecs = parseFloat($('live-xfade').value) || 1.0;
+    const requestedXfade = Number(crossfadeOverride);
+    const xfadeSecs = crossfadeOverride !== null && Number.isFinite(requestedXfade)
+      ? Math.max(0.02, requestedXfade)
+      : (parseFloat($('live-xfade').value) || 1.0);
     ws.send(JSON.stringify({ action: 'reload', params: collectParams(), crossfade_secs: xfadeSecs }));
     setStatus('⟲ Crossfading…');
     setLiveIndicator(true);
@@ -6782,7 +6795,7 @@ let nextPlayTime = 0;
 let isStreaming = false;
 let currentSeed = 42;  // seed used for the current/last stream — sent with render
 let chunksBuffered = 0;
-const CHUNK_SIZE = 2048;
+const CHUNK_SIZE = 1024;
 const PRE_BUFFER_CHUNKS = 2;
 const STREAM_SR = 22050;  // must match server STREAM_SAMPLE_RATE; used for gapless chunk scheduling
 let workletNode = null;
@@ -6927,7 +6940,7 @@ async function doPreview() {
   stopAudio();
 
   const serverSR = STREAM_SR;  // matches server STREAM_SAMPLE_RATE
-  // sampleRate: STREAM_SR ensures each 2048-sample chunk maps to exactly 2048 context samples,
+  // sampleRate: STREAM_SR ensures each 1024-sample chunk maps to exactly 1024 context samples,
   // eliminating the fractional-sample overlap/gap that causes clicks in high-frequency layers.
   streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
