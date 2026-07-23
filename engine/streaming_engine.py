@@ -15,6 +15,7 @@ import json
 import os
 import random
 import urllib.request
+from copy import deepcopy
 from typing import Optional, Callable
 
 import numpy as np
@@ -96,6 +97,65 @@ def _ensure_freesound_sample(source_file: str, samples_dir: str) -> str:
 
 # Use lower sample rate for real-time streaming (less CPU)
 SR = config.STREAM_SAMPLE_RATE
+
+
+# Fields that can be changed without rebuilding synthesis voices. The browser
+# performs the same classification before sending a patch; the engine repeats
+# the check because WebSocket payloads are untrusted.
+LIVE_PATCH_LAYER_KEYS = frozenset({
+    "muted", "volume_db",
+    "pan", "width", "quadrant", "trajectory_x", "speed",
+    "elevation", "elevation_motion", "elevation_speed", "elevation_range",
+    "filter_type", "filter_cutoff", "filter_resonance",
+    "filter_lfo_rate", "filter_lfo_depth", "filter_lfo_shape", "filter_vowel",
+    "chorus_rate", "chorus_depth", "chorus_mix", "chorus_voices",
+    "distortion_drive", "distortion_type",
+    "flanger_wet", "flanger_rate", "flanger_depth", "flanger_feedback",
+    "phaser_wet", "phaser_rate", "phaser_depth",
+    "phaser_center_hz", "phaser_feedback", "phaser_stages",
+})
+LIVE_PATCH_GLOBAL_KEYS = frozenset({
+    "saturation", "master", "reverb", "shimmer", "binaural", "earth", "air",
+})
+
+
+def _live_structure(preset: dict) -> dict:
+    """Return only fields that require a complete engine rebuild."""
+    structural = deepcopy(preset)
+    for key in LIVE_PATCH_GLOBAL_KEYS:
+        structural.pop(key, None)
+    for layer in structural.get("layers", []):
+        for key in LIVE_PATCH_LAYER_KEYS:
+            layer.pop(key, None)
+    return structural
+
+
+def _layer_gain_ramp(
+    current: float,
+    target: float,
+    remaining: int,
+    n_samples: int,
+) -> tuple[Optional[np.ndarray], float, int]:
+    """Build a click-free control-gain ramp for one rendered layer chunk."""
+    if remaining <= 0 or abs(target - current) < 1e-7:
+        if abs(target - 1.0) < 1e-7:
+            return None, target, 0
+        return np.full(n_samples, target, dtype=np.float32), target, 0
+
+    ramp_len = min(n_samples, remaining)
+    step = (target - current) / max(remaining, 1)
+    ramp = current + step * np.arange(1, ramp_len + 1, dtype=np.float32)
+    end = float(ramp[-1])
+    if ramp_len < n_samples:
+        ramp = np.concatenate([
+            ramp,
+            np.full(n_samples - ramp_len, target, dtype=np.float32),
+        ])
+        end = target
+    new_remaining = remaining - ramp_len
+    if new_remaining <= 0:
+        end = target
+    return ramp, end, max(0, new_remaining)
 
 
 # ── R3: Oversampling Utilities ───────────────────────────────────────────────
@@ -1548,9 +1608,11 @@ class StreamingDroneEngine:
         self._crossfade_total = 0
         self._old_engine: Optional['StreamingDroneEngine'] = None
         self._pending_reload: Optional[tuple] = None  # (new_preset, crossfade_secs)
+        self._pending_live_controls: Optional[tuple] = None  # (new_preset, ramp_ms)
 
     def _build_from_preset(self, preset: dict) -> None:
-        self.preset = preset
+        self.preset = deepcopy(preset)
+        preset = self.preset
         self.layers = []
         self.panners = []
         self.choruses = []
@@ -1558,6 +1620,8 @@ class StreamingDroneEngine:
         self.distortions = []
         self.flangers = []
         self.phasers = []
+        self._layer_source_indices = []
+        self._layer_base_volume_db = []
         self._peak_meters = []   # per-layer peak in dBFS, smoothly decaying
         self.saturation = float(preset.get("saturation", 0.3))
         self._master = MasterProcessor(preset.get("master", {}), self.SR)
@@ -1651,6 +1715,13 @@ class StreamingDroneEngine:
                 wet=float(layer_cfg.get("phaser_wet", 0.0)),
                 stages=int(layer_cfg.get("phaser_stages", 4)),
             ))
+            self._layer_source_indices.append(layer_index)
+            self._layer_base_volume_db.append(float(layer_cfg.get("volume_db", 0.0)))
+
+        n_active = len(self.layers)
+        self._layer_control_gain = np.ones(n_active, dtype=np.float32)
+        self._layer_control_target = np.ones(n_active, dtype=np.float32)
+        self._layer_control_remaining = np.zeros(n_active, dtype=np.int64)
 
         # Earth engine (simple streaming sine)
         self.earth_cfg = preset.get("earth")
@@ -1706,6 +1777,7 @@ class StreamingDroneEngine:
         if self._pending_reload is not None:
             new_preset, crossfade_secs = self._pending_reload
             self._pending_reload = None
+            self._pending_live_controls = None
             self._old_engine = _ShallowCopy(self)
             self._crossfade_total = int(crossfade_secs * self.SR)
             self._crossfade_remaining = self._crossfade_total
@@ -1717,6 +1789,10 @@ class StreamingDroneEngine:
                 if isinstance(old_layer, StreamingWavetableLayer) and isinstance(new_layer, StreamingWavetableLayer):
                     new_layer.scan_phase = old_layer.scan_phase
                     new_layer.tremor_phase = old_layer.tremor_phase
+        elif self._pending_live_controls is not None:
+            new_preset, ramp_ms = self._pending_live_controls
+            self._pending_live_controls = None
+            self._apply_live_controls(new_preset, ramp_ms)
 
         stereo = np.zeros((n, 2), dtype=np.float32)
 
@@ -1742,9 +1818,22 @@ class StreamingDroneEngine:
             chorused = chorus.next_chunk(panned)    # widen/animate
             flanged  = flanger.next_chunk(chorused)
             phased   = phaser.next_chunk(flanged)
-            stereo  += phased
+            gain_ramp, gain_now, gain_remaining = _layer_gain_ramp(
+                float(self._layer_control_gain[i]),
+                float(self._layer_control_target[i]),
+                int(self._layer_control_remaining[i]),
+                n,
+            )
+            self._layer_control_gain[i] = gain_now
+            self._layer_control_remaining[i] = gain_remaining
+            controlled = (
+                phased
+                if gain_ramp is None
+                else phased * gain_ramp[:, np.newaxis]
+            )
+            stereo += controlled
             # Peak meter: track per-layer peak with ~1.5 dB/chunk decay (~15 dB/sec)
-            chunk_peak_db = 20.0 * np.log10(float(np.max(np.abs(phased))) + 1e-9)
+            chunk_peak_db = 20.0 * np.log10(float(np.max(np.abs(controlled))) + 1e-9)
             if i < len(self._peak_meters):
                 self._peak_meters[i] = max(chunk_peak_db, self._peak_meters[i] - 1.5)
             else:
@@ -2048,6 +2137,198 @@ class StreamingDroneEngine:
         if "saturation" in g:
             self.saturation = float(np.clip(g["saturation"].value_at(t_norm), 0.0, 1.0))
 
+    def queue_live_controls(
+        self,
+        new_preset: dict,
+        ramp_ms: float = 50.0,
+    ) -> tuple[bool, str]:
+        """Queue a live-safe control update for the next audio chunk.
+
+        Structural edits are rejected so the caller can fall back to reload().
+        A layer that was already muted when the engine was constructed has no
+        synthesis slot and likewise needs one full reload before it can sound.
+        """
+        if self._pending_reload is not None:
+            return False, "reload_pending"
+        if _live_structure(self.preset) != _live_structure(new_preset):
+            return False, "structural_change"
+
+        active_sources = set(self._layer_source_indices)
+        for source_index, layer_cfg in enumerate(new_preset.get("layers", [])):
+            if not layer_cfg.get("muted", False) and source_index not in active_sources:
+                return False, "inactive_layer_requires_reload"
+
+        self._pending_live_controls = (
+            deepcopy(new_preset),
+            float(np.clip(ramp_ms, 20.0, 500.0)),
+        )
+        return True, "queued"
+
+    def _apply_live_controls(self, new_preset: dict, ramp_ms: float) -> None:
+        """Apply a validated control snapshot without rebuilding synth voices."""
+        old_preset = self.preset
+        old_layers = old_preset.get("layers", [])
+        new_layers = new_preset.get("layers", [])
+        ramp_samples = max(1, int(self.SR * ramp_ms / 1000.0))
+
+        for slot, source_index in enumerate(self._layer_source_indices):
+            old_cfg = old_layers[source_index]
+            cfg = new_layers[source_index]
+
+            # Layer mix is applied after the complete per-layer effect chain, so
+            # it works consistently for FM, subtractive, granular and wavetable.
+            volume_delta_db = (
+                float(cfg.get("volume_db", 0.0))
+                - float(self._layer_base_volume_db[slot])
+            )
+            target = 0.0 if cfg.get("muted", False) else 10.0 ** (volume_delta_db / 20.0)
+            if abs(target - float(self._layer_control_target[slot])) > 1e-7:
+                self._layer_control_target[slot] = np.float32(target)
+                self._layer_control_remaining[slot] = ramp_samples
+
+            # Spatial placement and motion retain their phase/filter memory.
+            panner = self.panners[slot]
+            pan = float(cfg.get("pan", 0.0))
+            panner.base_pan = (
+                (pan + 1.0) * 0.5
+                if abs(pan) > 1e-9
+                else panner._QUADRANT_PAN.get(cfg.get("quadrant", "center"), 0.5)
+            )
+            panner.width = float(cfg.get("width", 1.0))
+            panner.trajectory_x = cfg.get("trajectory_x", "drift")
+            panner.speed = float(cfg.get("speed", 0.01))
+            panner.elevation = float(cfg.get("elevation", 0.0))
+            panner.elevation_motion = cfg.get("elevation_motion", "static")
+            panner.elevation_speed = float(cfg.get("elevation_speed", 0.1))
+            panner.elevation_range = float(cfg.get("elevation_range", 60.0))
+
+            # Replacing only the filter/effect object is cheap and keeps the
+            # oscillator, granular scheduler and wavetable scan positions alive.
+            filter_type_changed = (
+                cfg.get("filter_type", "off") != old_cfg.get("filter_type", "off")
+                or (
+                    cfg.get("filter_type", "off") == "formant"
+                    and cfg.get("filter_vowel", "a") != old_cfg.get("filter_vowel", "a")
+                )
+            )
+            if filter_type_changed:
+                self.filters[slot] = StreamingLayerFilter(
+                    filter_type=cfg.get("filter_type", "off"),
+                    cutoff=float(cfg.get("filter_cutoff", 2000)),
+                    resonance=float(cfg.get("filter_resonance", 1.0)),
+                    lfo_rate=float(cfg.get("filter_lfo_rate", 0.1)),
+                    lfo_depth=float(cfg.get("filter_lfo_depth", 0.0)),
+                    lfo_shape=cfg.get("filter_lfo_shape", "sine"),
+                    vowel=cfg.get("filter_vowel", "a"),
+                )
+            else:
+                layer_filter = self.filters[slot]
+                new_cutoff = float(cfg.get("filter_cutoff", 2000))
+                cutoff_changed = abs(new_cutoff - layer_filter.base_cutoff) > 1e-7
+                layer_filter.base_cutoff = new_cutoff
+                layer_filter.resonance = float(cfg.get("filter_resonance", 1.0))
+                layer_filter.lfo_rate = float(cfg.get("filter_lfo_rate", 0.1))
+                layer_filter.lfo_depth = float(cfg.get("filter_lfo_depth", 0.0))
+                layer_filter.lfo_shape = cfg.get("filter_lfo_shape", "sine")
+                layer_filter.vowel = cfg.get("filter_vowel", "a")
+                if cutoff_changed:
+                    if layer_filter.filter_type == "comb":
+                        layer_filter._init_comb(new_cutoff)
+                    elif layer_filter.filter_type not in ("off", "formant"):
+                        layer_filter._build_filter(new_cutoff)
+
+            chorus_shape_changed = (
+                float(cfg.get("chorus_depth", 0.005))
+                != float(old_cfg.get("chorus_depth", 0.005))
+                or int(cfg.get("chorus_voices", 2))
+                != int(old_cfg.get("chorus_voices", 2))
+            )
+            if chorus_shape_changed:
+                self.choruses[slot] = StreamingChorus(
+                    rate=float(cfg.get("chorus_rate", 0.5)),
+                    depth=float(cfg.get("chorus_depth", 0.005)),
+                    mix=float(cfg.get("chorus_mix", 0.0)),
+                    voices=int(cfg.get("chorus_voices", 2)),
+                )
+            else:
+                self.choruses[slot].rate = float(cfg.get("chorus_rate", 0.5))
+                self.choruses[slot].mix = float(cfg.get("chorus_mix", 0.0))
+
+            if (
+                float(cfg.get("distortion_drive", 0.0))
+                != float(old_cfg.get("distortion_drive", 0.0))
+                or cfg.get("distortion_type", "soft")
+                != old_cfg.get("distortion_type", "soft")
+            ):
+                self.distortions[slot] = LayerDistortion(
+                    drive=float(cfg.get("distortion_drive", 0.0)),
+                    dist_type=cfg.get("distortion_type", "soft"),
+                )
+
+            flanger = self.flangers[slot]
+            flanger.wet = float(cfg.get("flanger_wet", 0.0))
+            flanger.rate = float(cfg.get("flanger_rate", 0.25))
+            flanger.depth = float(cfg.get("flanger_depth", 0.5))
+            flanger.feedback = float(cfg.get("flanger_feedback", 0.4))
+
+            stages = int(cfg.get("phaser_stages", 4))
+            if stages != self.phasers[slot].stages:
+                self.phasers[slot] = StreamingPhaser(
+                    rate=float(cfg.get("phaser_rate", 0.5)),
+                    depth=float(cfg.get("phaser_depth", 0.7)),
+                    center_hz=float(cfg.get("phaser_center_hz", 800.0)),
+                    feedback=float(cfg.get("phaser_feedback", 0.0)),
+                    wet=float(cfg.get("phaser_wet", 0.0)),
+                    stages=stages,
+                )
+            else:
+                phaser = self.phasers[slot]
+                phaser.wet = float(cfg.get("phaser_wet", 0.0))
+                phaser.rate = float(cfg.get("phaser_rate", 0.5))
+                phaser.depth = float(cfg.get("phaser_depth", 0.7))
+                phaser.center_hz = float(cfg.get("phaser_center_hz", 800.0))
+                phaser.feedback = float(np.clip(
+                    cfg.get("phaser_feedback", 0.0), -0.95, 0.95
+                ))
+
+        self.saturation = float(new_preset.get("saturation", 0.3))
+
+        new_master_cfg = new_preset.get("master", {}) or {}
+        if new_master_cfg != (old_preset.get("master", {}) or {}):
+            replacement = MasterProcessor(new_master_cfg, self.SR)
+            replacement._comp_env = float(self._master._comp_env)
+            self._master = replacement
+
+        old_reverb = old_preset.get("reverb") or {}
+        new_reverb = new_preset.get("reverb") or {}
+        reverb_topology_changed = (
+            new_reverb.get("space", "cathedral")
+            != old_reverb.get("space", "cathedral")
+            or float(new_reverb.get("pre_delay_ms", 0.0))
+            != float(old_reverb.get("pre_delay_ms", 0.0))
+        )
+        if reverb_topology_changed:
+            self._reverb = StreamingFDNReverb(new_reverb, sample_rate=self.SR)
+        else:
+            self._reverb.enabled = bool(new_reverb.get("enabled", False))
+            self._reverb.mix = float(new_reverb.get("mix", 0.3))
+            decay_trim = float(np.clip(new_reverb.get("decay_trim", 1.0), 0.0, 1.0))
+            self._reverb.decay = 0.60 + decay_trim * 0.36
+            self._reverb._H8d = self._reverb._H8 * self._reverb.decay
+            self._reverb.mod_depth = float(new_reverb.get("modulation_depth", 0.0))
+
+        shimmer = new_preset.get("shimmer") or {}
+        self._shimmer.wet = float(shimmer.get("wet", 0.0))
+        self._shimmer.feedback = float(np.clip(shimmer.get("feedback", 0.5), 0.0, 0.95))
+        self._shimmer._speed = 2.0 ** (
+            float(shimmer.get("pitch_semitones", 12.0)) / 12.0
+        )
+
+        self._binaural_cfg = deepcopy(new_preset.get("binaural") or {})
+        self.earth_cfg = deepcopy(new_preset.get("earth"))
+        self.air_cfg = deepcopy(new_preset.get("air"))
+        self.preset = deepcopy(new_preset)
+
     def reload(self, new_preset: dict, crossfade_secs: float = 3.0) -> None:
         """
         Queue a hot-reload to the new preset with a smooth crossfade.
@@ -2055,6 +2336,7 @@ class StreamingDroneEngine:
         between _build_from_preset on the event loop and next_chunk in a thread).
         If called multiple times before the next chunk fires, only the latest wins.
         """
+        self._pending_live_controls = None
         self._pending_reload = (new_preset, crossfade_secs)
 
     def get_peak_meters(self) -> list:
@@ -2168,6 +2450,9 @@ class _ShallowCopy:
         self.distortions = engine.distortions
         self.flangers = engine.flangers
         self.phasers  = engine.phasers
+        self._layer_control_gain = engine._layer_control_gain.copy()
+        self._layer_control_target = engine._layer_control_target.copy()
+        self._layer_control_remaining = engine._layer_control_remaining.copy()
         self.earth_cfg = engine.earth_cfg
         self.air_cfg   = engine.air_cfg
         self.earth_phase = engine.earth_phase
@@ -2198,10 +2483,10 @@ class _ShallowCopy:
 
     def next_chunk(self, n: int) -> np.ndarray:
         stereo = np.zeros((n, 2), dtype=np.float32)
-        for layer, panner, chorus, layer_filter, distortion, flanger, phaser in zip(
+        for i, (layer, panner, chorus, layer_filter, distortion, flanger, phaser) in enumerate(zip(
             self.layers, self.panners, self.choruses, self.filters,
             self.distortions, self.flangers, self.phasers
-        ):
+        )):
             raw       = layer.next_chunk(n)
             filtered  = layer_filter.next_chunk(raw)
             distorted = distortion.process(filtered)
@@ -2209,7 +2494,19 @@ class _ShallowCopy:
             chorused  = chorus.next_chunk(panned)
             flanged   = flanger.next_chunk(chorused)
             phased    = phaser.next_chunk(flanged)
-            stereo   += phased
+            gain_ramp, gain_now, gain_remaining = _layer_gain_ramp(
+                float(self._layer_control_gain[i]),
+                float(self._layer_control_target[i]),
+                int(self._layer_control_remaining[i]),
+                n,
+            )
+            self._layer_control_gain[i] = gain_now
+            self._layer_control_remaining[i] = gain_remaining
+            stereo += (
+                phased
+                if gain_ramp is None
+                else phased * gain_ramp[:, np.newaxis]
+            )
 
         stereo[:, 0], self._dc_zi_L = sosfilt(self._dc_sos, stereo[:, 0], zi=self._dc_zi_L)
         stereo[:, 1], self._dc_zi_R = sosfilt(self._dc_sos, stereo[:, 1], zi=self._dc_zi_R)

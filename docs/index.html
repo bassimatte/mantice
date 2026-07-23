@@ -6640,7 +6640,54 @@ function markClean() {
 }
 
 const FAST_LAYER_XFADE_SECS = 0.05;
+const LIVE_PATCH_RAMP_MS = 50;
+const LIVE_PATCH_LAYER_KEYS = new Set([
+  'muted', 'volume_db',
+  'pan', 'width', 'quadrant', 'trajectory_x', 'speed', 'spatial_motion',
+  'elevation', 'elevation_motion', 'elevation_speed', 'elevation_range',
+  'filter_type', 'filter_cutoff', 'filter_resonance',
+  'filter_lfo_rate', 'filter_lfo_depth', 'filter_lfo_shape', 'filter_vowel',
+  'chorus_rate', 'chorus_depth', 'chorus_mix', 'chorus_voices',
+  'distortion_drive', 'distortion_type',
+  'flanger_wet', 'flanger_rate', 'flanger_depth', 'flanger_feedback',
+  'phaser_wet', 'phaser_rate', 'phaser_depth',
+  'phaser_center_hz', 'phaser_feedback', 'phaser_stages',
+]);
+const LIVE_PATCH_GLOBAL_KEYS = [
+  'saturation', 'master', 'reverb', 'shimmer', 'binaural', 'earth', 'air',
+];
+let _lastLiveParams = null;
 let _liveReloadTimer = null;
+
+function liveStructure(params) {
+  const structural = JSON.parse(JSON.stringify(params));
+  LIVE_PATCH_GLOBAL_KEYS.forEach(key => { delete structural[key]; });
+  (structural.layers || []).forEach(layer => {
+    LIVE_PATCH_LAYER_KEYS.forEach(key => { delete layer[key]; });
+  });
+  return structural;
+}
+
+function canLivePatch(previous, next) {
+  if (!previous || !next) return false;
+  return JSON.stringify(liveStructure(previous)) === JSON.stringify(liveStructure(next));
+}
+
+function sendFullLiveReload(params, crossfadeSecs) {
+  ws.send(JSON.stringify({
+    action: 'reload',
+    params,
+    crossfade_secs: crossfadeSecs,
+  }));
+  _lastLiveParams = JSON.parse(JSON.stringify(params));
+  setStatus('⟲ Crossfading…');
+  setLiveIndicator(true);
+  setTimeout(() => {
+    if (isStreaming) setStatus('Streaming');
+    setLiveIndicator(false);
+  }, Math.round(crossfadeSecs * 1000) + 300);
+}
+
 function markDirty() {
   if (!currentParams || !savedParamsSnapshot) return;
   const isDirty = JSON.stringify(currentParams) !== savedParamsSnapshot;
@@ -6692,7 +6739,9 @@ async function _flushAndRestart() {
   startupGain.connect(streamingCtx.destination);
 
   // 5. Restart server stream with updated params
-  ws.send(JSON.stringify({ action: 'start', params: collectParams(), seed: currentSeed }));
+  const restartParams = collectParams();
+  ws.send(JSON.stringify({ action: 'start', params: restartParams, seed: currentSeed }));
+  _lastLiveParams = JSON.parse(JSON.stringify(restartParams));
   setStatus('Buffering…');
   setLiveIndicator(true);
 
@@ -6710,17 +6759,34 @@ function liveReload(crossfadeOverride = null) {
     _liveReloadTimer = null;
   }
   if (ws && ws.readyState === WebSocket.OPEN && isStreaming) {
+    const params = collectParams();
+    if (!params) return;
+    const unchanged = _lastLiveParams
+      && JSON.stringify(_lastLiveParams) === JSON.stringify(params);
+    if (unchanged) return;
+
     const requestedXfade = Number(crossfadeOverride);
     const xfadeSecs = crossfadeOverride !== null && Number.isFinite(requestedXfade)
       ? Math.max(0.02, requestedXfade)
       : (parseFloat($('live-xfade').value) || 1.0);
-    ws.send(JSON.stringify({ action: 'reload', params: collectParams(), crossfade_secs: xfadeSecs }));
-    setStatus('⟲ Crossfading…');
-    setLiveIndicator(true);
-    setTimeout(() => {
-      if (isStreaming) setStatus('Streaming');
-      setLiveIndicator(false);
-    }, Math.round(xfadeSecs * 1000) + 300);
+
+    if (canLivePatch(_lastLiveParams, params)) {
+      ws.send(JSON.stringify({
+        action: 'patch',
+        params,
+        ramp_ms: LIVE_PATCH_RAMP_MS,
+      }));
+      _lastLiveParams = JSON.parse(JSON.stringify(params));
+      setStatus('↻ Updating…');
+      setLiveIndicator(true);
+      setTimeout(() => {
+        if (isStreaming) setStatus('Streaming');
+        setLiveIndicator(false);
+      }, LIVE_PATCH_RAMP_MS + 150);
+      return;
+    }
+
+    sendFullLiveReload(params, xfadeSecs);
   }
 }
 
@@ -6972,6 +7038,7 @@ async function doPreview() {
     _wsReconnects = 0;  // MANT-18: successful connect resets retry counter
     currentSeed = $('seed-lock').dataset.state === '1' ? parseInt($('seed-value').value) || 42 : Math.floor(Math.random() * 99999);
     ws.send(JSON.stringify({ action: 'start', params, seed: currentSeed }));
+    _lastLiveParams = JSON.parse(JSON.stringify(params));
     isStreaming = true;
     setStatus('Buffering…');
     setLiveIndicator(true);
@@ -6981,6 +7048,14 @@ async function doPreview() {
     if (typeof event.data === 'string') {
       const msg = JSON.parse(event.data);
       if (msg.status === 'stopped') { setStatus('Stopped'); return; }
+      if (msg.status === 'reload_required') {
+        const params = collectParams();
+        if (params) {
+          const xfadeSecs = parseFloat($('live-xfade').value) || 1.0;
+          sendFullLiveReload(params, xfadeSecs);
+        }
+        return;
+      }
       if (msg.error) { setStatus(`Error: ${msg.error}`); return; }
       return;
     }
@@ -7086,6 +7161,7 @@ function stopAudio() {
     ws.close();
   }
   ws = null;
+  _lastLiveParams = null;
   if (streamingCtx && streamingCtx.state !== 'closed') {
     streamingCtx.close().catch(() => {});
   }

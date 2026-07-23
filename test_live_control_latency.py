@@ -1,7 +1,13 @@
 """Regression checks for responsive browser live controls."""
 
+from copy import deepcopy
 from pathlib import Path
 import unittest
+
+import numpy as np
+
+from engine.preset_loader import load_preset
+from engine.streaming_engine import StreamingDroneEngine
 
 
 ROOT = Path(__file__).resolve().parent
@@ -36,6 +42,116 @@ class LiveControlLatencyTests(unittest.TestCase):
         self.assertIn("const CHUNK_SIZE = 1024;", self.html)
         self.assertIn("chunk_size = 1024  # ~46ms", self.server)
         self.assertIn("max_ahead = 2  # ~93ms", self.server)
+
+    def test_browser_routes_safe_changes_through_patch_protocol(self):
+        self.assertIn("function canLivePatch(previous, next)", self.html)
+        self.assertIn("action: 'patch'", self.html)
+        self.assertIn("msg.status === 'reload_required'", self.html)
+        self.assertIn('elif action == "patch":', self.server)
+
+    def test_engine_patches_controls_without_rebuilding_synth_layers(self):
+        preset = load_preset(ROOT / "presets" / "essentials" / "Simple Drone.yaml")
+        engine = StreamingDroneEngine(preset, seed=42, preview_loudness=False)
+        layer_ids = [id(layer) for layer in engine.layers]
+
+        patched = deepcopy(engine.preset)
+        layer = patched["layers"][0]
+        layer.update({
+            "muted": True,
+            "volume_db": -6.0,
+            "pan": 0.75,
+            "width": 1.4,
+            "filter_type": "lp",
+            "filter_cutoff": 900.0,
+            "filter_resonance": 2.0,
+            "chorus_mix": 0.25,
+            "flanger_wet": 0.2,
+            "phaser_wet": 0.15,
+            "distortion_drive": 0.4,
+        })
+        patched["master"]["output_gain_db"] = -2.0
+
+        accepted, reason = engine.queue_live_controls(patched, ramp_ms=50.0)
+        self.assertTrue(accepted, reason)
+        chunk = engine.next_chunk(1024)
+
+        self.assertTrue(np.isfinite(chunk).all())
+        self.assertEqual(layer_ids, [id(layer) for layer in engine.layers])
+        self.assertIsNone(engine._old_engine)
+        self.assertEqual(engine.filters[0].filter_type, "lp")
+        self.assertAlmostEqual(engine.filters[0].base_cutoff, 900.0)
+        self.assertAlmostEqual(engine.panners[0].base_pan, 0.875)
+        self.assertAlmostEqual(engine.panners[0].width, 1.4)
+        self.assertAlmostEqual(engine.choruses[0].mix, 0.25)
+        self.assertAlmostEqual(engine.flangers[0].wet, 0.2)
+        self.assertAlmostEqual(engine.phasers[0].wet, 0.15)
+        self.assertAlmostEqual(engine._layer_control_target[0], 0.0)
+        self.assertAlmostEqual(engine._master._output_gain, 10.0 ** (-2.0 / 20.0))
+
+        # The 50 ms mute ramp completes within two 1024-sample chunks at 22.05 kHz.
+        engine.next_chunk(1024)
+        self.assertAlmostEqual(engine._layer_control_gain[0], 0.0)
+
+        unmuted = deepcopy(engine.preset)
+        unmuted["layers"][0]["muted"] = False
+        accepted, reason = engine.queue_live_controls(unmuted, ramp_ms=50.0)
+        self.assertTrue(accepted, reason)
+        engine.next_chunk(1024)
+        engine.next_chunk(1024)
+        self.assertGreater(engine._layer_control_gain[0], 0.49)
+
+    def test_layer_mix_patch_supports_every_synthesis_engine(self):
+        preset_paths = [
+            ROOT / "presets" / "experimental" / "Gear Meditation.yaml",
+            ROOT / "presets" / "experimental" / "Chopper Siege Engine.yaml",
+        ]
+        observed_types = set()
+        for preset_path in preset_paths:
+            preset = load_preset(preset_path)
+            preset["reverb"] = None
+            engine = StreamingDroneEngine(
+                preset, seed=42, preview_loudness=False
+            )
+            layer_ids = [id(layer) for layer in engine.layers]
+            observed_types.update(
+                cfg.get("type", "fm")
+                for cfg in engine.preset["layers"]
+                if not cfg.get("muted", False)
+            )
+            patched = deepcopy(engine.preset)
+            for layer in patched["layers"]:
+                layer["muted"] = True
+
+            accepted, reason = engine.queue_live_controls(patched)
+            self.assertTrue(accepted, reason)
+            chunk = engine.next_chunk(1024)
+            self.assertTrue(np.isfinite(chunk).all())
+            self.assertEqual(layer_ids, [id(layer) for layer in engine.layers])
+
+        self.assertTrue(
+            {"fm", "subtractive", "granular", "wavetable"}.issubset(observed_types)
+        )
+
+    def test_structural_changes_require_reload(self):
+        preset = load_preset(ROOT / "presets" / "essentials" / "Simple Drone.yaml")
+        engine = StreamingDroneEngine(preset, seed=42, preview_loudness=False)
+        changed = deepcopy(engine.preset)
+        changed["layers"][0]["root"] *= 2.0
+
+        accepted, reason = engine.queue_live_controls(changed)
+        self.assertFalse(accepted)
+        self.assertEqual(reason, "structural_change")
+
+    def test_initially_muted_layer_uses_reload_when_first_unmuted(self):
+        preset = load_preset(ROOT / "presets" / "essentials" / "Simple Drone.yaml")
+        preset["layers"][0]["muted"] = True
+        engine = StreamingDroneEngine(preset, seed=42, preview_loudness=False)
+        changed = deepcopy(engine.preset)
+        changed["layers"][0]["muted"] = False
+
+        accepted, reason = engine.queue_live_controls(changed)
+        self.assertFalse(accepted)
+        self.assertEqual(reason, "inactive_layer_requires_reload")
 
 
 if __name__ == "__main__":

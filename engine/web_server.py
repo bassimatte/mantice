@@ -630,10 +630,16 @@ def _ui_params_to_preset(params: dict) -> dict:
             "drift": float(l.get("drift", 0.002)),
             "volume_db": float(l.get("volume_db", 0.0)),
             "band": l.get("band", "mid"),
-            "quadrant": l.get("quadrant", "center"),
-            "trajectory_x": l.get("trajectory_x", "drift"),
+            "quadrant": (l.get("spatial_motion") or {}).get(
+                "quadrant", l.get("quadrant", "center")
+            ),
+            "trajectory_x": (l.get("spatial_motion") or {}).get(
+                "trajectory_x", l.get("trajectory_x", "drift")
+            ),
             "trajectory_y": l.get("trajectory_y", "none"),
-            "speed": float(l.get("speed", 0.01)),
+            "speed": float((l.get("spatial_motion") or {}).get(
+                "speed", l.get("speed", 0.01)
+            )),
             "pan": float(l.get("pan", 0.0)),
             "width": float(l.get("width", 1.0)),
             "spread": float(l.get("spread", 1.0)),
@@ -2503,7 +2509,7 @@ async def ws_preview(websocket: WebSocket):
 
     Client sends JSON: {"action": "start", "params": {...}} to begin
     Client sends JSON: {"action": "stop"} to stop
-    Server sends binary PCM16 frames (interleaved stereo, 48kHz)
+    Server sends binary PCM16 frames (interleaved stereo, 22.05kHz)
     """
     await websocket.accept()
     stream_id = id(websocket)
@@ -2562,6 +2568,25 @@ async def ws_preview(websocket: WebSocket):
                 elif not engine:
                     await websocket.send_text(json.dumps({
                         "error": "No active stream to reload"
+                    }))
+
+            elif action == "patch":
+                # Lightweight control update: preserve oscillator/grain/scan
+                # state and apply atomically at the next audio chunk boundary.
+                params = data.get("params")
+                if params and engine:
+                    new_preset = _ui_params_to_preset(params)
+                    accepted, reason = engine.queue_live_controls(
+                        new_preset,
+                        ramp_ms=float(data.get("ramp_ms", 50.0)),
+                    )
+                    await websocket.send_text(json.dumps({
+                        "status": "patch_queued" if accepted else "reload_required",
+                        "reason": reason,
+                    }))
+                elif not engine:
+                    await websocket.send_text(json.dumps({
+                        "error": "No active stream to patch"
                     }))
 
     except WebSocketDisconnect:
