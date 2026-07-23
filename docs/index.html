@@ -6727,7 +6727,7 @@ async function _flushAndRestart() {
   // Match sampleRate to server chunk rate: 1024 samples / 22050 Hz = exactly integer chunk
   // boundaries. Without this, default rate (44100/48000) gives fractional-sample overlap at
   // every chunk edge → audible click in high-frequency layers.
-  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
+  streamingCtx = createStreamingAudioContext();
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
   startCtxKeepAlive();
   startMeterPolling();
@@ -6787,6 +6787,20 @@ function liveReload(crossfadeOverride = null) {
     }
 
     sendFullLiveReload(params, xfadeSecs);
+    return;
+  }
+
+  // Compatibility mode cannot patch an already-rendered segment. Re-render
+  // immediately so controls still take effect instead of appearing broken.
+  if (_segPlaying) {
+    const params = collectParams();
+    if (!params) return;
+    const unchanged = _segParams
+      && JSON.stringify(_segParams) === JSON.stringify(params);
+    if (unchanged) return;
+    const seed = _segSeed;
+    setStatus('Applying change — buffering…');
+    doPreviewSegmented({ fallback: true, seed });
   }
 }
 
@@ -6874,11 +6888,18 @@ let _segNextStart = 0;
 let _segPlaying  = false;
 let _segParams   = null;
 let _segSeed     = 42;
+let _segSession  = 0;
 
 // ── WS auto-reconnect state (MANT-18) ────────────────────────────────────────
 let _wsReconnects       = 0;
 const _WS_MAX_RECONNECTS = 5;
-let _autoReconnect      = false; // one-shot flag: true when doPreview is triggered by reconnect logic
+const _MOBILE_WS_MAX_RECONNECTS = 1;
+const _MOBILE_WS_STARTUP_TIMEOUT_MS = 8000;
+let _reconnectTimer      = null;
+let _mobileStartupTimer  = null;
+let _mobileReceivedAudio = false;
+let _mobileFallbackActive = false;
+let _previewWanted       = false;
 let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
 
 // ── Peak meter polling ─────────────────────────────────────────────────────────
@@ -6994,21 +7015,91 @@ async function setupWorklet(ctx) {
   }
 }
 
-async function doPreview() {
-  if (isMobile()) { return doPreviewSegmented(); }  // MANT-17: mobile uses segment player
+function _clearMobileStartupTimer() {
+  if (_mobileStartupTimer) {
+    clearTimeout(_mobileStartupTimer);
+    _mobileStartupTimer = null;
+  }
+}
+
+function createStreamingAudioContext() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  try {
+    return new AudioContextClass({ sampleRate: STREAM_SR });
+  } catch (error) {
+    // Older iOS versions can reject a requested rate. A default-rate context
+    // still resamples the 22.05 kHz AudioBuffers and keeps preview interactive.
+    return new AudioContextClass();
+  }
+}
+
+function _startMobileStartupTimer(socket) {
+  _clearMobileStartupTimer();
+  if (!isMobile()) return;
+  _mobileStartupTimer = setTimeout(() => {
+    _mobileStartupTimer = null;
+    if (_previewWanted && ws === socket && !_mobileReceivedAudio) {
+      _fallbackToSegmented();
+    }
+  }, _MOBILE_WS_STARTUP_TIMEOUT_MS);
+}
+
+function _fallbackToSegmented() {
+  if (_mobileFallbackActive || !_previewWanted) return;
+  const seed = currentSeed;
+  doPreviewSegmented({ fallback: true, seed });
+}
+
+function _handlePreviewConnectionFailure(socket) {
+  if (!_previewWanted || ws !== socket || _reconnectTimer) return;
+  _clearMobileStartupTimer();
+
+  const mobile = isMobile();
+  const maxReconnects = mobile ? _MOBILE_WS_MAX_RECONNECTS : _WS_MAX_RECONNECTS;
+  if (_wsReconnects < maxReconnects) {
+    _wsReconnects++;
+    const delay = mobile ? 750 : Math.min(1500 * _wsReconnects, 8000);
+    setStatus(`Stream lost — reconnecting… (${_wsReconnects}/${maxReconnects})`);
+    _reconnectTimer = setTimeout(() => {
+      _reconnectTimer = null;
+      if (_previewWanted) doPreview({ reconnect: true });
+    }, delay);
+    return;
+  }
+
+  if (mobile) {
+    _fallbackToSegmented();
+  } else {
+    setStatus('Connection error – tap play to retry');
+    stopAudio();
+  }
+}
+
+async function doPreview(options = {}) {
   if (_morphingActive()) { return doJourneyStream(); }  // morphing overrides normal preview
-  if (!_autoReconnect) _wsReconnects = 0;           // MANT-18: manual start resets retry counter
-  _autoReconnect = false;
+  const reconnecting = options && options.reconnect === true;
+  if (!reconnecting) _wsReconnects = 0;
+  const reconnectCount = _wsReconnects;
 
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
 
   stopAudio();
+  _wsReconnects = reconnectCount;
+  _previewWanted = true;
+  _mobileFallbackActive = false;
+  _mobileReceivedAudio = false;
+  const previewSeed = reconnecting
+    ? currentSeed
+    : ($('seed-lock').dataset.state === '1'
+      ? (parseInt($('seed-value').value) || 42)
+      : Math.floor(Math.random() * 99999));
+  currentSeed = previewSeed;
 
   const serverSR = STREAM_SR;  // matches server STREAM_SAMPLE_RATE
   // sampleRate: STREAM_SR ensures each 1024-sample chunk maps to exactly 1024 context samples,
   // eliminating the fractional-sample overlap/gap that causes clicks in high-frequency layers.
-  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
+  streamingCtx = createStreamingAudioContext();
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
 
   // Keep AudioContext alive while waiting for WS/Render cold start (iOS suspends after inactivity)
@@ -7033,11 +7124,12 @@ async function doPreview() {
   setStatus('Connecting…');
   ws = new WebSocket(wsUrl('/ws/preview'));
   ws.binaryType = 'arraybuffer';
+  const previewSocket = ws;
+  _startMobileStartupTimer(previewSocket);
 
   ws.onopen = () => {
-    _wsReconnects = 0;  // MANT-18: successful connect resets retry counter
-    currentSeed = $('seed-lock').dataset.state === '1' ? parseInt($('seed-value').value) || 42 : Math.floor(Math.random() * 99999);
-    ws.send(JSON.stringify({ action: 'start', params, seed: currentSeed }));
+    if (!_previewWanted || ws !== previewSocket) return;
+    ws.send(JSON.stringify({ action: 'start', params, seed: previewSeed }));
     _lastLiveParams = JSON.parse(JSON.stringify(params));
     isStreaming = true;
     setStatus('Buffering…');
@@ -7045,6 +7137,7 @@ async function doPreview() {
   };
 
   ws.onmessage = (event) => {
+    if (!_previewWanted || ws !== previewSocket) return;
     if (typeof event.data === 'string') {
       const msg = JSON.parse(event.data);
       if (msg.status === 'stopped') { setStatus('Stopped'); return; }
@@ -7061,6 +7154,12 @@ async function doPreview() {
     }
 
     if (!streamingCtx || streamingCtx.state === 'closed') return;
+
+    if (!_mobileReceivedAudio) {
+      _mobileReceivedAudio = true;
+      _wsReconnects = 0;
+      _clearMobileStartupTimer();
+    }
 
     // Resume context if iOS suspended it while waiting for data
     if (streamingCtx.state === 'suspended') streamingCtx.resume().catch(() => {});
@@ -7116,49 +7215,35 @@ async function doPreview() {
     }
   };
 
-  // MANT-18: auto-reconnect on error/unexpected close
-  ws.onerror = () => {
-    if (isStreaming && _wsReconnects < _WS_MAX_RECONNECTS) {
-      _wsReconnects++;
-      const delay = Math.min(1500 * _wsReconnects, 8000);
-      setStatus(`Reconnecting… (${_wsReconnects}/${_WS_MAX_RECONNECTS})`);
-      setTimeout(() => { _autoReconnect = true; doPreview(); }, delay);
-    } else {
-      _wsReconnects = 0;
-      setStatus('Connection error – tap play to retry');
-      stopAudio();
-    }
-  };
-  ws.onclose = () => {
-    if (isStreaming) {
-      if (_wsReconnects < _WS_MAX_RECONNECTS) {
-        _wsReconnects++;
-        const delay = Math.min(1500 * _wsReconnects, 8000);
-        setStatus('Stream lost — reconnecting…');
-        setTimeout(() => { _autoReconnect = true; doPreview(); }, delay);
-      } else {
-        setStatus('Stream ended');
-        isStreaming = false;
-        stopCtxKeepAlive();
-      }
-    } else {
-      stopCtxKeepAlive();
-    }
-  };
+  // Desktop retries transient failures; mobile makes one quick retry, then
+  // falls back to render-ahead segments for browsers with fragile WebSockets.
+  ws.onerror = () => _handlePreviewConnectionFailure(previewSocket);
+  ws.onclose = () => _handlePreviewConnectionFailure(previewSocket);
 }
 
 function stopAudio() {
   isStreaming = false;
-  _autoReconnect = false;  // MANT-18: cancel any pending reconnect
+  _previewWanted = false;
+  _mobileFallbackActive = false;
+  _mobileReceivedAudio = false;
+  _clearMobileStartupTimer();
+  if (_reconnectTimer) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+  }
   _wsReconnects  = 0;
   _currentMorphingStep = -1;  // reset morphing step highlight
   stopCtxKeepAlive();
   stopMeterPolling();
   stopAurora();
   stopSpectrum();
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    try { ws.send(JSON.stringify({ action: 'stop' })); } catch(e) {}
-    ws.close();
+  if (ws) {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ action: 'stop' })); } catch(e) {}
+    }
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      try { ws.close(); } catch(e) {}
+    }
   }
   ws = null;
   _lastLiveParams = null;
@@ -7179,6 +7264,7 @@ function stopAudio() {
   playbackCtx = null;
   // MANT-16: segment player cleanup
   _segPlaying = false;
+  _segSession++;
   if (_segToken) {
     fetch(apiUrl('/api/preview-segment/' + _segToken), { method: 'DELETE' }).catch(() => {});
     _segToken = null;
@@ -7201,21 +7287,27 @@ function isMobile() {
   return false;
 }
 
-// ── MANT-16: Segmented render-then-play (mobile/cellular) ────────────────────
-async function doPreviewSegmented() {
+// ── MANT-16: Segmented render-then-play compatibility fallback ───────────────
+async function doPreviewSegmented(options = {}) {
+  const fallback = options && options.fallback === true;
+  const requestedSeed = Number(options && options.seed);
   stopAudio();
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
 
+  _mobileFallbackActive = fallback;
   _segParams = params;
-  _segSeed = $('seed-lock').dataset.state === '1'
-    ? (parseInt($('seed-value').value) || 42)
-    : Math.floor(Math.random() * 99999);
+  _segSeed = Number.isFinite(requestedSeed)
+    ? requestedSeed
+    : ($('seed-lock').dataset.state === '1'
+      ? (parseInt($('seed-value').value) || 42)
+      : Math.floor(Math.random() * 99999));
   currentSeed   = _segSeed;
   _segToken     = null;
   _segNextStart = 0;
   _segPlaying   = true;
   isStreaming   = true;
+  const segmentSession = ++_segSession;
 
   _segCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (_segCtx.state === 'suspended') await _segCtx.resume();
@@ -7228,14 +7320,14 @@ async function doPreviewSegmented() {
   startMeterPolling();
   drawSpectrum();
   startAurora();
-  setStatus('Buffering…');
+  setStatus(fallback ? 'Compatibility mode — buffering…' : 'Buffering…');
   setLiveIndicator(true);
 
-  await _fetchAndPlaySegment(true);
+  await _fetchAndPlaySegment(true, segmentSession);
 }
 
-async function _fetchAndPlaySegment(isFirst) {
-  if (!_segPlaying || !_segCtx) return;
+async function _fetchAndPlaySegment(isFirst, segmentSession) {
+  if (!_segPlaying || !_segCtx || segmentSession !== _segSession) return;
 
   try {
     const resp = await fetch(apiUrl('/api/preview-segment'), {
@@ -7253,10 +7345,10 @@ async function _fetchAndPlaySegment(isFirst) {
 
     _segToken = resp.headers.get('X-Segment-Token') || _segToken;
     const arrayBuf = await resp.arrayBuffer();
-    if (!_segPlaying || !_segCtx) return;  // stopped while fetching
+    if (!_segPlaying || !_segCtx || segmentSession !== _segSession) return;
 
     const audioBuf = await _segCtx.decodeAudioData(arrayBuf);
-    if (!_segPlaying || !_segCtx) return;
+    if (!_segPlaying || !_segCtx || segmentSession !== _segSession) return;
 
     const source = _segCtx.createBufferSource();
     source.buffer = audioBuf;
@@ -7268,7 +7360,7 @@ async function _fetchAndPlaySegment(isFirst) {
     _segNextStart = startAt + audioBuf.duration;
 
     if (isFirst) {
-      setStatus('▶ Playing…');
+      setStatus(_mobileFallbackActive ? '▶ Playing — compatibility mode' : '▶ Playing…');
       setLiveIndicator(false);
     }
 
@@ -7276,13 +7368,21 @@ async function _fetchAndPlaySegment(isFirst) {
 
     // Prefetch next segment 8 s before current ends so the server has render time
     const msTillPrefetch = Math.max(200, (_segNextStart - _segCtx.currentTime - 8) * 1000);
-    setTimeout(() => { if (_segPlaying) _fetchAndPlaySegment(false); }, msTillPrefetch);
+    setTimeout(() => {
+      if (_segPlaying && segmentSession === _segSession) {
+        _fetchAndPlaySegment(false, segmentSession);
+      }
+    }, msTillPrefetch);
 
   } catch(e) {
     console.warn('[seg] fetch error:', e);
-    if (_segPlaying) {
+    if (_segPlaying && segmentSession === _segSession) {
       setStatus('Buffering…');
-      setTimeout(() => { if (_segPlaying) _fetchAndPlaySegment(isFirst); }, 3000);
+      setTimeout(() => {
+        if (_segPlaying && segmentSession === _segSession) {
+          _fetchAndPlaySegment(isFirst, segmentSession);
+        }
+      }, 3000);
     }
   }
 }
@@ -10600,7 +10700,7 @@ async function doJourneyStream() {
   // Re-use the exact same WS streaming infrastructure as doPreview(),
   // but connect to /ws/journey and send journey steps instead of preset params.
   const serverSR = STREAM_SR;
-  streamingCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: STREAM_SR });
+  streamingCtx = createStreamingAudioContext();
   if (streamingCtx.state === 'suspended') await streamingCtx.resume();
 
   startCtxKeepAlive();

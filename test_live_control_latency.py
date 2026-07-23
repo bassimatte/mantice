@@ -49,6 +49,44 @@ class LiveControlLatencyTests(unittest.TestCase):
         self.assertIn("msg.status === 'reload_required'", self.html)
         self.assertIn('elif action == "patch":', self.server)
 
+    def test_mobile_attempts_live_stream_before_segmented_fallback(self):
+        preview_start = self.html.index("async function doPreview(options = {})")
+        preview_body = self.html[preview_start:preview_start + 2600]
+        self.assertNotIn("if (isMobile()) { return doPreviewSegmented(); }", preview_body)
+        self.assertIn("new WebSocket(wsUrl('/ws/preview'))", preview_body)
+        self.assertIn("_startMobileStartupTimer(previewSocket)", preview_body)
+        self.assertIn("const _MOBILE_WS_STARTUP_TIMEOUT_MS = 8000;", self.html)
+        self.assertIn("const _MOBILE_WS_MAX_RECONNECTS = 1;", self.html)
+        self.assertIn("function createStreamingAudioContext()", self.html)
+        self.assertIn("return new AudioContextClass();", self.html)
+
+    def test_mobile_stream_failure_has_segmented_compatibility_mode(self):
+        self.assertIn("function _fallbackToSegmented()", self.html)
+        self.assertIn("doPreviewSegmented({ fallback: true, seed });", self.html)
+        self.assertIn("Compatibility mode — buffering…", self.html)
+        self.assertIn("▶ Playing — compatibility mode", self.html)
+        self.assertIn(
+            "ws.onerror = () => _handlePreviewConnectionFailure(previewSocket)",
+            self.html,
+        )
+        self.assertIn(
+            "ws.onclose = () => _handlePreviewConnectionFailure(previewSocket)",
+            self.html,
+        )
+
+    def test_first_mobile_audio_cancels_startup_fallback(self):
+        message_start = self.html.index("ws.onmessage = (event) =>")
+        message_body = self.html[message_start:message_start + 1500]
+        self.assertIn("_mobileReceivedAudio = true", message_body)
+        self.assertIn("_clearMobileStartupTimer()", message_body)
+
+    def test_segmented_fallback_rebuffers_live_edits_safely(self):
+        reload_start = self.html.index("function liveReload(crossfadeOverride = null)")
+        reload_body = self.html[reload_start:reload_start + 1900]
+        self.assertIn("if (_segPlaying)", reload_body)
+        self.assertIn("doPreviewSegmented({ fallback: true, seed });", reload_body)
+        self.assertIn("segmentSession !== _segSession", self.html)
+
     def test_engine_patches_controls_without_rebuilding_synth_layers(self):
         preset = load_preset(ROOT / "presets" / "essentials" / "Simple Drone.yaml")
         engine = StreamingDroneEngine(preset, seed=42, preview_loudness=False)
