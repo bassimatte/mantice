@@ -108,7 +108,7 @@
     "author": "CT",
     "created": "2026-07-19T16:24:59.895003Z",
     "name": "Magnetic Tape",
-    "plays": 0,
+    "plays": 1,
     "wavetables": [
       {
         "name": "ct-wt-1784477892-spectral_squeeze-256-2048-32",
