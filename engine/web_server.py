@@ -780,6 +780,17 @@ async def index():
     return html_path.read_text(encoding="utf-8")
 
 
+@app.get("/mantice-ui-core.js")
+async def mantice_ui_core():
+    """Serve the extracted UI helpers used by the local/hosted Python UI."""
+    script_path = _STATIC_DIR / "mantice-ui-core.js"
+    return FileResponse(
+        script_path,
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 @app.get("/favicon.ico")
 async def favicon_ico():
     """Serve favicon.ico to avoid 404 errors in browser console."""

@@ -51,6 +51,9 @@ class WorkflowClarityTests(unittest.TestCase):
         self.assertIn(b"function normalizeWorkflow", local_module)
         self.assertIn(b"function contextLabel", local_module)
         self.assertIn('<script src="mantice-ui-core.js"></script>', self.html)
+        server = (ROOT / "engine" / "web_server.py").read_text(encoding="utf-8")
+        self.assertIn('@app.get("/mantice-ui-core.js")', server)
+        self.assertIn('media_type="application/javascript"', server)
 
 
 if __name__ == "__main__":
