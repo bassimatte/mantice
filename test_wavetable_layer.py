@@ -16,9 +16,31 @@ from engine.wavetable_layer import (
 import engine.web_server as web_server
 from engine.web_server import _preset_to_ui_params, _ui_params_to_preset
 from engine.preset_loader import load_preset
+from engine.streaming_engine import StreamingDroneEngine
 
 
 class WavetableLayerTests(unittest.TestCase):
+    def test_repository_backed_shared_wavetables_load_directly(self):
+        shared_dir = Path("shared")
+        wavetable_presets = []
+        for preset_path in shared_dir.glob("*.yaml"):
+            preset = load_preset(preset_path)
+            if any(
+                layer.get("type") == "wavetable"
+                and str(layer.get("wavetable_source", "")).startswith("shared/wavetables/")
+                for layer in preset.get("layers", [])
+            ):
+                wavetable_presets.append((preset_path, preset))
+
+        self.assertGreater(len(wavetable_presets), 0)
+        for preset_path, preset in wavetable_presets:
+            with self.subTest(preset=preset_path.name):
+                engine = StreamingDroneEngine(
+                    preset, seed=42, preview_loudness=False
+                )
+                chunk = engine.next_chunk(1024)
+                self.assertTrue(np.isfinite(chunk).all())
+
     def test_tremor_cartography_showcases_new_wavetable_motion(self):
         preset = load_preset("presets/experimental/Tremor Cartography.yaml")
         wavetable_layers = [layer for layer in preset["layers"] if layer["type"] == "wavetable"]

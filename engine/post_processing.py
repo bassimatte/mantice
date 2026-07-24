@@ -141,6 +141,8 @@ class StreamingLoudnessController:
         self.ceiling = float(ceiling)
         self.gain = 10.0 ** (min(float(initial_gain_db), self.max_gain_db) / 20.0)
         self.energy = None
+        self._peak_envelope = 0.0
+        self._peak_release = np.exp(-1.0 / (self.sr * 0.25))
         self._filters = []
         for b, a in _k_weighting_coefficients(self.sr):
             self._filters.append({
@@ -182,11 +184,27 @@ class StreamingLoudnessController:
         gain_ramp = np.linspace(self.gain, end_gain, len(arr), dtype=np.float64)
         processed = arr * gain_ramp[:, np.newaxis]
 
-        peak = float(np.max(np.abs(processed)))
-        if peak > self.ceiling:
-            peak_scale = self.ceiling / peak
-            processed *= peak_scale
-            end_gain *= peak_scale
+        # Stateful sample-level peak protection. Scaling an entire hot chunk
+        # made its first sample jump away from the previous chunk even when
+        # the loud peak occurred much later. An instant-attack, exponential-
+        # release envelope keeps protection continuous across arbitrary chunk
+        # sizes while still respecting the live ceiling.
+        sample_peaks = np.max(np.abs(processed), axis=1)
+        powers = np.power(
+            self._peak_release,
+            np.arange(1, len(processed) + 1, dtype=np.float64),
+        )
+        normalized = sample_peaks / powers
+        running = np.maximum.accumulate(
+            np.concatenate(([self._peak_envelope], normalized))
+        )[1:]
+        peak_envelope = running * powers
+        peak_gain = np.minimum(
+            1.0,
+            self.ceiling / np.maximum(peak_envelope, 1e-12),
+        )
+        processed *= peak_gain[:, np.newaxis]
+        self._peak_envelope = float(peak_envelope[-1])
         self.gain = max(0.0, float(end_gain))
         return processed.astype(np.asarray(chunk).dtype, copy=False)
 
@@ -196,6 +214,7 @@ class StreamingLoudnessController:
         )
         clone.gain = float(self.gain)
         clone.energy = None if self.energy is None else float(self.energy)
+        clone._peak_envelope = float(self._peak_envelope)
         for clone_stage, stage in zip(clone._filters, self._filters):
             clone_stage["zi"] = stage["zi"].copy()
         return clone
