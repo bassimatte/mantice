@@ -26,6 +26,10 @@ from typing import Optional
 import yaml
 
 from . import config
+from .preset_schema import (
+    CURRENT_PRESET_SCHEMA_VERSION,
+    migrate_preset_document,
+)
 
 
 _DEFAULT_MASTER = {
@@ -417,6 +421,7 @@ def _normalize_layer_v2(layer: dict) -> dict:
 def _from_v1(raw: dict) -> dict:
     meta = raw.get("meta", {})
     return {
+        "schema_version": CURRENT_PRESET_SCHEMA_VERSION,
         "meta":          meta,
         "seed":          raw.get("seed"),
         "duration":      float(raw.get("duration", 60)),
@@ -451,6 +456,7 @@ def _from_v2(raw: dict) -> dict:
     spatial = raw.get("spatial", {})
 
     return {
+        "schema_version": CURRENT_PRESET_SCHEMA_VERSION,
         "meta":          meta,
         "seed":          raw.get("seed"),
         "duration":      float(glb.get("duration_seconds", raw.get("duration", 60))),
@@ -553,7 +559,7 @@ def load_preset_from_yaml_string(yaml_text: str) -> dict:
     Inheritance is NOT resolved (the file is standalone).
     Raises ValueError if the preset is structurally invalid.
     """
-    raw = yaml.safe_load(yaml_text) or {}
+    raw = migrate_preset_document(yaml.safe_load(yaml_text) or {})
     layers = raw.get("layers") or []
     is_v2 = bool(layers) and "synthesis" in layers[0]
     if is_v2 or "global" in raw:
@@ -577,6 +583,7 @@ def load_preset(path) -> dict:
         raw = _load_raw_yaml(path)
         # Resolve inheritance chain (deep-merges parent → child)
         raw = _resolve_inheritance(raw, path)
+        raw = migrate_preset_document(raw)
         # Detect v2 by checking the first layer for a 'synthesis' key
         layers = raw.get("layers") or []
         is_v2 = bool(layers) and "synthesis" in layers[0]
@@ -587,6 +594,7 @@ def load_preset(path) -> dict:
     else:
         with path.open(encoding="utf-8") as f:
             raw = json.load(f)
+        raw = migrate_preset_document(raw)
         preset = _from_v1(raw)
 
     _validate(preset)

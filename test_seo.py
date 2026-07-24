@@ -43,10 +43,43 @@ class SeoTests(unittest.TestCase):
         self.assertIn("Sitemap: https://bassimatte.github.io/mantice/sitemap.xml", robots)
         root = ET.parse("docs/sitemap.xml").getroot()
         namespace = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
-        self.assertEqual(
-            root.findtext("s:url/s:loc", namespaces=namespace),
+        locations = {
+            node.text for node in root.findall("s:url/s:loc", namespace)
+        }
+        self.assertEqual(locations, {
             "https://bassimatte.github.io/mantice/",
+            "https://bassimatte.github.io/mantice/presets/",
+            "https://bassimatte.github.io/mantice/learn/ambient-drone-synthesis.html",
+            "https://bassimatte.github.io/mantice/learn/wavetable-drone.html",
+        })
+
+    def test_discovery_pages_are_semantic_unique_and_internally_linked(self):
+        pages = (
+            "docs/presets/index.html",
+            "docs/learn/ambient-drone-synthesis.html",
+            "docs/learn/wavetable-drone.html",
         )
+        titles = set()
+        for filename in pages:
+            html = Path(filename).read_text(encoding="utf-8")
+            title = re.search(r"<title>([^<]+)</title>", html)
+            canonical = re.search(r'<link rel="canonical" href="([^"]+)">', html)
+            self.assertIsNotNone(title, filename)
+            self.assertIsNotNone(canonical, filename)
+            self.assertNotIn(title.group(1), titles)
+            titles.add(title.group(1))
+            self.assertIn('<meta name="description"', html)
+            self.assertIn('type="application/ld+json"', html)
+            structured = re.search(
+                r'<script type="application/ld\+json">\s*(.*?)\s*</script>',
+                html,
+                re.DOTALL,
+            )
+            json.loads(structured.group(1))
+
+        self.assertIn('href="https://bassimatte.github.io/mantice/presets/"', self.docs_html)
+        self.assertIn('href="https://bassimatte.github.io/mantice/learn/ambient-drone-synthesis.html"', self.docs_html)
+        self.assertIn('href="https://bassimatte.github.io/mantice/learn/wavetable-drone.html"', self.docs_html)
 
     def test_social_card_is_1200_by_630(self):
         docs_card = Path("docs/social-card.png").read_bytes()

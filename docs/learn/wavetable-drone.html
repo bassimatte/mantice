@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Turn a Wavetable into a Deep Drone — Mantice</title>
+  <meta name="description" content="Learn how frame ranges, scan shape, direction, rate, tremor, unison, filtering, and support layers turn a wavetable into an evolving drone.">
+  <link rel="canonical" href="https://bassimatte.github.io/mantice/learn/wavetable-drone.html">
+  <link rel="stylesheet" href="../discovery.css">
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"HowTo","name":"Turn a wavetable into a deep drone","step":[{"@type":"HowToStep","name":"Choose or import a wavetable"},{"@type":"HowToStep","name":"Set the frame range"},{"@type":"HowToStep","name":"Choose waveform and direction"},{"@type":"HowToStep","name":"Add support layers"}]}
+  </script>
+</head>
+<body>
+<nav><a href="../">Mantice</a><a href="../presets/">Preset atlas</a><a href="ambient-drone-synthesis.html">Drone guide</a></nav>
+<main>
+  <p class="eyebrow">Field guide · wavetable</p>
+  <h1>Make the wavetable a landscape, not the whole sound.</h1>
+  <p class="lede">The table supplies changing harmonic material. The drone emerges from pitch, frame range, scan time, unison, filtering, support layers, and space working together.</p>
+  <a class="cta" href="../#preset=presets%2Fexperimental%2FTremor%20Cartography.yaml">Open Tremor Cartography</a>
+  <a class="cta" href="../">Import a wavetable</a>
+
+  <h2>The signal path</h2>
+  <ol class="steps">
+    <li><strong>Select, upload, or create.</strong> Use a bundled table, upload a compatible WAV, or follow the Create link to Carvetoy. Search links to Freesound when you want source material.</li>
+    <li><strong>Choose the frame territory.</strong> Scan Start and End are frame positions across the table. Position uses the same frame scale and remains inside that territory.</li>
+    <li><strong>Separate waveform from direction.</strong> Ramp, Sine, Triangle, and Smooth Random describe the motion. Forward or Reverse describes its direction. A reverse ramp scans from End to Start.</li>
+    <li><strong>Slow it down first.</strong> The split-log Scan Rate control covers 0.001–20 Hz. Begin around 0.003–0.03 Hz for a long-form drone.</li>
+    <li><strong>Add instability deliberately.</strong> Tremor creates intermittent frame shake. Use low Amount and Rate before reaching for audio-rate scanning.</li>
+    <li><strong>Build the body around it.</strong> Add an FM or subtractive anchor below the table, then filter and place the layers independently. This prevents the result from sounding like a raw wavetable audition.</li>
+  </ol>
+
+  <h2>Three useful motion characters</h2>
+  <div class="grid">
+    <section class="card"><h3>Glacial traversal</h3><p>Ramp, either direction, 0.001–0.01 Hz. Best for tables whose frames form a meaningful progression.</p></section>
+    <section class="card"><h3>Breathing field</h3><p>Sine at 0.005–0.04 Hz. The scan eases at both limits and avoids a hard turn.</p></section>
+    <section class="card"><h3>Living terrain</h3><p>Smooth Random with restrained tremor. The path wanders deterministically without stepping between unrelated frames.</p></section>
+  </div>
+
+  <h2>A note on audio-rate scan</h2>
+  <p>The 20–100 Hz range is experimental. It can create strong sidebands and aliasing because the scan becomes part of the audible oscillator. Treat it as a sound-design mode, reduce level, and compare at different sample rates.</p>
+  <footer>Mantice’s wavetable terrain displays the table’s full frame progression while the playhead shows the active position.</footer>
+</main>
+</body>
+</html>

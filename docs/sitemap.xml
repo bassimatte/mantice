@@ -2,6 +2,18 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://bassimatte.github.io/mantice/</loc>
-    <lastmod>2026-07-18</lastmod>
+    <lastmod>2026-07-24</lastmod>
+  </url>
+  <url>
+    <loc>https://bassimatte.github.io/mantice/presets/</loc>
+    <lastmod>2026-07-24</lastmod>
+  </url>
+  <url>
+    <loc>https://bassimatte.github.io/mantice/learn/ambient-drone-synthesis.html</loc>
+    <lastmod>2026-07-24</lastmod>
+  </url>
+  <url>
+    <loc>https://bassimatte.github.io/mantice/learn/wavetable-drone.html</loc>
+    <lastmod>2026-07-24</lastmod>
   </url>
 </urlset>

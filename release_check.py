@@ -26,13 +26,14 @@ def run(label: str, command: list[str]) -> None:
 
 
 def verify_frontend_parity() -> None:
-    local = (ROOT / "engine" / "static" / "index.html").read_bytes()
-    deployed = (ROOT / "docs" / "index.html").read_bytes()
-    if local != deployed:
-        raise SystemExit(
-            "FAILED: frontend parity\n"
-            "engine/static/index.html and docs/index.html differ"
-        )
+    for relative_path in ("index.html", "mantice-ui-core.js"):
+        local = (ROOT / "engine" / "static" / relative_path).read_bytes()
+        deployed = (ROOT / "docs" / relative_path).read_bytes()
+        if local != deployed:
+            raise SystemExit(
+                "FAILED: frontend parity\n"
+                f"engine/static/{relative_path} and docs/{relative_path} differ"
+            )
     print("PASS: frontend parity", flush=True)
 
 
@@ -58,6 +59,8 @@ def main() -> int:
 
     verify_frontend_parity()
     run("unit and integration tests", [sys.executable, "-m", "unittest", "discover", "-v"])
+    run("fixed-seed generator references", [sys.executable, "generator_reference.py"])
+    run("factory-library calibration", [sys.executable, "factory_calibration.py"])
     if not args.skip_sonic_reference:
         run("cross-path sonic references", [sys.executable, "sonic_reference.py"])
     if not args.skip_websocket_smoke:

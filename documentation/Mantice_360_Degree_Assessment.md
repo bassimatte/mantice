@@ -581,12 +581,29 @@ measurement on iOS and Android hardware.
 
 ## P2 — Quality and scale
 
-- version the preset format and add formal migrations;
-- modularise the frontend and backend without changing behaviour;
-- improve generator evaluation with fixed-seed listening tests;
-- calibrate the whole factory library for perceived strength and tonal balance;
-- create crawlable educational and preset pages;
-- decide whether the native plugin is a focused subset or a parity port.
+Implemented on `dev` as a behaviour-preserving quality pass:
+
+- preset documents now carry a semantic schema version; unversioned presets
+  migrate in memory and unsupported future versions fail clearly;
+- gallery discovery metadata moved out of the web server, while the first pure
+  workflow/context helpers moved out of the monolithic frontend;
+- 21 fixed-seed generator candidates now have deterministic fingerprints plus
+  drone-rate, pitch, cost, and diversity checks;
+- all 63 factory presets now pass a short live-opening calibration gate for
+  finite output, audibility, loudness bounds, and headroom, with subjective
+  outliers reported for listening rather than automatically retuned;
+- the static site now includes a crawlable factory preset atlas, an ambient
+  drone synthesis guide, and a wavetable-to-drone guide;
+- the native plugin is explicitly positioned as a focused Mantice performance
+  instrument rather than a parity port. The complete decision and release gates
+  are in `Mantice_Native_Plugin_Product_Decision.md`.
+
+Remaining human work:
+
+- listen to fixed-seed generator candidates and the four factory openings
+  currently flagged by the calibration report;
+- continue extracting frontend/backend responsibilities in small tested steps;
+- measure native-plugin behaviour in real DAWs before any public release.
 
 ## P3 — Expansion
 

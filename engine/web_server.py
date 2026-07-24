@@ -47,11 +47,13 @@ except ImportError:
 
 from . import config
 from .preset_loader import load_preset, load_preset_from_yaml_string
+from .preset_schema import CURRENT_PRESET_SCHEMA_VERSION
 from .streaming_engine import StreamingDroneEngine
 from .exporter import export_audio
 from .generator import generate_preset, mutate_preset, mutate_ui_params, save_generated_preset, _NAME_PARTS_A, _NAME_PARTS_B
 from .convolution_reverb import apply_convolution_reverb
 from .post_processing import final_limit_normalize, loudness_normalize, oversampled_saturate
+from .preset_discovery import summarize_preset
 from .shared_presets import (
     manifest_entry_from_record,
     new_shared_record,
@@ -690,6 +692,7 @@ def _ui_params_to_preset(params: dict) -> dict:
     master_ui = params.get("master", {})
 
     preset = {
+        "schema_version": CURRENT_PRESET_SCHEMA_VERSION,
         "meta": {
             "name": params.get("name", "Untitled"),
         },
@@ -1904,7 +1907,7 @@ async def get_gallery_manifest():
                 available_ids = {path.stem for path in _SHARED_DIR.glob("*.yaml")}
 
         def preset_summary(preset_id: str) -> dict:
-            """Build small, gallery-safe discovery metadata from a local preset."""
+            """Load a shared preset and derive its discovery metadata."""
             params = None
             json_path = _SHARED_DIR / f"{preset_id}.json"
             yaml_path = _SHARED_DIR / f"{preset_id}.yaml"
@@ -1917,92 +1920,7 @@ async def get_gallery_manifest():
                     params = _preset_to_ui_params(raw or {})
             except Exception:
                 params = None
-            if not isinstance(params, dict):
-                return {}
-
-            layers = [layer for layer in (params.get("layers") or []) if isinstance(layer, dict)]
-            roots = []
-            synth_types = []
-            widths = []
-            moving = False
-            fingerprint = []
-            for index, layer in enumerate(layers):
-                root = layer.get("root", layer.get("base_freq"))
-                root_value = None
-                try:
-                    if float(root) > 0:
-                        root_value = float(root)
-                        roots.append(root_value)
-                except (TypeError, ValueError):
-                    pass
-                synth_type = str(layer.get("type") or "fm").lower()
-                if synth_type not in synth_types:
-                    synth_types.append(synth_type)
-                try:
-                    widths.append(float(layer.get("width", 1)))
-                except (TypeError, ValueError):
-                    pass
-                motion = layer.get("spatial_motion") or {}
-                trajectory = str(motion.get("trajectory_x") or "none").lower()
-                moving = moving or trajectory not in ("none", "static", "off")
-                try:
-                    volume_db = float(layer.get("volume_db", 0) or 0)
-                except (TypeError, ValueError):
-                    volume_db = 0
-                try:
-                    width = float(layer.get("width", 1) or 1)
-                except (TypeError, ValueError):
-                    width = 1
-                try:
-                    motion_speed = float(motion.get("speed", 0) or 0)
-                except (TypeError, ValueError):
-                    motion_speed = 0
-                fingerprint.append({
-                    "index": index,
-                    "name": str(layer.get("name") or f"Layer {index + 1}"),
-                    "root": round(root_value, 2) if root_value is not None else None,
-                    "volume_db": round(volume_db, 2),
-                    "width": round(width, 2),
-                    "type": synth_type,
-                    "trajectory": trajectory,
-                    "motion_speed": round(motion_speed, 4),
-                })
-
-            traits = list(synth_types)
-            lowest_hz = min(roots) if roots else None
-            if lowest_hz is not None and lowest_hz < 80:
-                traits.append("sub-heavy")
-            if len(layers) >= 4:
-                traits.append("dense")
-            if widths and sum(widths) / len(widths) > 1.15:
-                traits.append("wide")
-            if moving:
-                traits.append("motion")
-            reverb = params.get("reverb") or {}
-            if reverb.get("enabled") and float(reverb.get("mix", 0) or 0) >= 0.3:
-                traits.append("deep space")
-            shimmer = params.get("shimmer") or {}
-            if float(shimmer.get("wet", 0) or 0) >= 0.08:
-                traits.append("shimmer")
-            binaural = params.get("binaural") or {}
-            if binaural.get("enabled"):
-                traits.append("binaural")
-            tuning = params.get("tuning_system_ji") if params.get("tuning_mode") == "ji" else params.get("tuning_system")
-            if params.get("tuning_mode") == "ji":
-                traits.append("just intonation")
-
-            return {
-                "layer_count": len(layers),
-                "lowest_hz": round(lowest_hz, 1) if lowest_hz is not None else None,
-                "synth_types": synth_types,
-                "traits": list(dict.fromkeys(traits))[:6],
-                "duration": params.get("duration"),
-                "tuning": tuning or "12-TET",
-                "complexity": len(layers) + len(traits),
-                "fingerprint": fingerprint,
-                "reverb_mix": round(float(reverb.get("mix", 0) or 0), 3),
-                "shimmer_wet": round(float(shimmer.get("wet", 0) or 0), 3),
-            }
+            return summarize_preset(params)
 
         # Normalize every legacy/current manifest entry to the canonical record.
         normalized = []

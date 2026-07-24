@@ -44,6 +44,14 @@ class WorkflowClarityTests(unittest.TestCase):
         self.assertIn("currentBrowserQueueMs()", self.html)
         self.assertIn("msg.diagnostics?.generation_ms", self.html)
 
+    def test_workflow_helpers_are_extracted_and_deployment_matches(self):
+        local_module = (ROOT / "engine" / "static" / "mantice-ui-core.js").read_bytes()
+        deployed_module = (ROOT / "docs" / "mantice-ui-core.js").read_bytes()
+        self.assertEqual(local_module, deployed_module)
+        self.assertIn(b"function normalizeWorkflow", local_module)
+        self.assertIn(b"function contextLabel", local_module)
+        self.assertIn('<script src="mantice-ui-core.js"></script>', self.html)
+
 
 if __name__ == "__main__":
     unittest.main()

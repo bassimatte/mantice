@@ -2326,6 +2326,9 @@ button:disabled {
         </div>
 
         <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
+          Explore the <a href="https://bassimatte.github.io/mantice/presets/" style="color: var(--accent);">Preset Atlas</a>,
+          <a href="https://bassimatte.github.io/mantice/learn/ambient-drone-synthesis.html" style="color: var(--accent);">Drone Synthesis Guide</a>,
+          and <a href="https://bassimatte.github.io/mantice/learn/wavetable-drone.html" style="color: var(--accent);">Wavetable Drone Guide</a>.<br>
           Created by <strong>Matteo Bassi</strong> — <a href="https://github.com/bassimatte/mantice" target="_blank" style="color: var(--accent);">github.com/bassimatte/mantice</a>
         </p>
       </div>
@@ -3221,6 +3224,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
   </div>
 </div>
 
+<script src="mantice-ui-core.js"></script>
 <script>
 // ── Zoom ────────────────────────────────────────────────────────────────────
 (function initZoom() {
@@ -3886,27 +3890,21 @@ let activeWorkflow = 'play';
 function updateWorkflowContext() {
   const context = $('workflow-context');
   if (!context) return;
-  const layers = currentParams?.layers || [];
-  if (!layers.length) {
-    context.textContent = 'Load a preset to begin';
-    return;
-  }
-  const layer = layers[Math.min(activeLayerIdx, layers.length - 1)] || {};
-  const presetName = currentParams?.name || 'Current sound';
-  const layerName = layer.name || `Layer ${activeLayerIdx + 1}`;
-  context.textContent = `${presetName} · ${layerName} · ${layers.length} layer${layers.length === 1 ? '' : 's'}`;
+  context.textContent = ManticeUI.contextLabel(currentParams, activeLayerIdx);
 }
 
 function setWorkflow(workflow, persist = true) {
-  activeWorkflow = ['play', 'shape', 'finish'].includes(workflow) ? workflow : 'play';
+  activeWorkflow = ManticeUI.normalizeWorkflow(workflow);
   document.querySelectorAll('[data-workflow-tab]').forEach(button => {
     const selected = button.dataset.workflowTab === activeWorkflow;
     button.classList.toggle('active', selected);
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
   });
   document.querySelectorAll('[data-workflows]').forEach(section => {
-    const workflows = section.dataset.workflows.split(/\s+/);
-    section.classList.toggle('workflow-hidden', !workflows.includes(activeWorkflow));
+    section.classList.toggle(
+      'workflow-hidden',
+      !ManticeUI.workflowContains(section.dataset.workflows, activeWorkflow),
+    );
   });
   updateWorkflowContext();
   if (persist) {
@@ -3915,14 +3913,7 @@ function setWorkflow(workflow, persist = true) {
 }
 
 function getLayerColor(layer, index = 0) {
-  const type = typeof layer === 'object' ? layer?.type : null;
-  const variables = {
-    fm: 'var(--engine-fm)',
-    subtractive: 'var(--engine-subtractive)',
-    granular: 'var(--engine-granular)',
-    wavetable: 'var(--engine-wavetable)',
-  };
-  return variables[type] || ['var(--engine-fm)', 'var(--engine-subtractive)', 'var(--engine-granular)', 'var(--engine-wavetable)'][index % 4];
+  return ManticeUI.layerColor(layer, index);
 }
 
 // ── Note / pitch utilities ────────────────────────────────────────────────────
