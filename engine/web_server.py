@@ -23,6 +23,7 @@ import re
 import base64
 import hashlib
 import threading
+import time
 import uuid
 import urllib.request
 import urllib.error
@@ -51,6 +52,11 @@ from .exporter import export_audio
 from .generator import generate_preset, mutate_preset, mutate_ui_params, save_generated_preset, _NAME_PARTS_A, _NAME_PARTS_B
 from .convolution_reverb import apply_convolution_reverb
 from .post_processing import final_limit_normalize, loudness_normalize, oversampled_saturate
+from .shared_presets import (
+    manifest_entry_from_record,
+    new_shared_record,
+    normalize_shared_record,
+)
 
 # Load .env file if present (for local development with GITHUB_TOKEN, FREESOUND_API_KEY)
 try:
@@ -155,14 +161,19 @@ def _gh_headers(auth: bool = False) -> dict:
 
 
 def _fetch_shared_manifest() -> dict:
-    """Fetch shared/manifest.json from GitHub raw URL. Returns {} on any error."""
+    """Fetch the live manifest, falling back to the bundled canonical snapshot."""
     try:
         req = urllib.request.Request(f"{_GH_RAW_BASE}/shared/manifest.json",
                                      headers={"User-Agent": "Mantice/1.0"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             return json.loads(resp.read().decode())
     except Exception:
-        return {}
+        try:
+            return json.loads(
+                (_SHARED_DIR / "manifest.json").read_text(encoding="utf-8")
+            )
+        except Exception:
+            return {}
 
 
 def _update_shared_manifest(updates: dict) -> None:
@@ -331,14 +342,10 @@ def _find_all_presets() -> list[dict]:
             stem = fname[:-5]
             # Manifest name takes priority; fall back to filename-derived name (without # suffix)
             if stem in manifest:
-                manifest_entry = manifest[stem]
-                # Handle both old (string) and new (object) manifest formats
-                if isinstance(manifest_entry, str):
-                    display_name = manifest_entry
-                elif isinstance(manifest_entry, dict):
-                    display_name = manifest_entry.get("name", stem)
-                else:
-                    display_name = str(manifest_entry)  # Fallback for unexpected types
+                record = normalize_shared_record(stem, manifest[stem])
+                if not record["visible"]:
+                    continue
+                display_name = record["name"]
             else:
                 # Derive clean name from filename without # suffix
                 base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
@@ -360,14 +367,10 @@ def _find_all_presets() -> list[dict]:
                 stem = yaml_file.stem
                 name, tags = _parse(yaml_file)
                 if stem in manifest:
-                    # Handle both old and new manifest formats
-                    manifest_entry = manifest[stem]
-                    if isinstance(manifest_entry, str):
-                        display_name = manifest_entry
-                    elif isinstance(manifest_entry, dict):
-                        display_name = manifest_entry.get("name", stem)
-                    else:
-                        display_name = str(manifest_entry)
+                    record = normalize_shared_record(stem, manifest[stem])
+                    if not record["visible"]:
+                        continue
+                    display_name = record["name"]
                 else:
                     # Derive clean name from filename without # suffix
                     base_name = re.sub(r'_\d{8}_[a-f0-9]+$', '', stem).replace('_', ' ').strip()
@@ -1709,11 +1712,13 @@ async def share_preset_endpoint(request: Request):
         manifest = _fetch_shared_manifest()
         # Handle both old format (string) and new format (dict with metadata)
         existing_names = set()
-        for v in manifest.values():
-            if isinstance(v, str):
-                existing_names.add(v.lower())  # old format: "Preset Name"
-            elif isinstance(v, dict):
-                existing_names.add(v.get("name", "").lower())  # new format: {"name": "...", "author": "..."}
+        for existing_id, value in manifest.items():
+            try:
+                existing_names.add(
+                    normalize_shared_record(existing_id, value)["name"].lower()
+                )
+            except ValueError:
+                continue
         
         # Use the user's preset name if it exists and is meaningful, otherwise generate one
         user_name = params.get("name", "").strip()
@@ -1787,16 +1792,14 @@ async def share_preset_endpoint(request: Request):
             pass  # JSON upload is best-effort; YAML is the source of truth
         # Register preset metadata in manifest for gallery
         try:
-            manifest_entry = {
-                "name": preset_name,
-                "author": author,
-                "created": datetime.utcnow().isoformat() + "Z",
-                "plays": 0,
-            }
-            if parent_id:
-                manifest_entry["parent_id"] = parent_id
-            if wavetable_assets:
-                manifest_entry["wavetables"] = wavetable_assets
+            record = new_shared_record(
+                file_id,
+                name=preset_name,
+                author=author,
+                parent_id=parent_id or None,
+                wavetables=wavetable_assets,
+            )
+            manifest_entry = manifest_entry_from_record(record)
             await loop.run_in_executor(None, lambda: _update_shared_manifest({file_id: manifest_entry}))
         except Exception:
             pass
@@ -1852,22 +1855,20 @@ async def rename_shared_preset(request: Request):
         taken = set()
         for k, v in manifest.items():
             if k != preset_id:
-                if isinstance(v, str):
-                    taken.add(v.lower())
-                elif isinstance(v, dict):
-                    taken.add(v.get("name", "").lower())
+                try:
+                    taken.add(normalize_shared_record(k, v)["name"].lower())
+                except ValueError:
+                    continue
         if new_name.lower() in taken:
             return JSONResponse({"ok": False, "error": "Name already in use"}, status_code=409)
         
         # Preserve existing metadata if present
         existing_entry = manifest.get(preset_id)
-        if isinstance(existing_entry, dict):
-            # Update name but keep other metadata
-            existing_entry["name"] = new_name
-            update_entry = existing_entry
-        else:
-            # Old format or missing - just store the name
-            update_entry = new_name
+        if existing_entry is None:
+            return JSONResponse({"ok": False, "error": "Preset not found"}, status_code=404)
+        record = normalize_shared_record(preset_id, existing_entry)
+        record["name"] = new_name
+        update_entry = manifest_entry_from_record(record)
         
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: _update_shared_manifest({preset_id: update_entry}))
@@ -2003,37 +2004,16 @@ async def get_gallery_manifest():
                 "shimmer_wet": round(float(shimmer.get("wet", 0) or 0), 3),
             }
 
-        def inferred_created(preset_id: str):
-            match = re.search(r"_(\d{8})_[a-f0-9]+$", preset_id)
-            if not match:
-                return None
-            stamp = match.group(1)
-            return f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:]}T00:00:00Z"
-
-        # Normalize to new format (dict with metadata)
+        # Normalize every legacy/current manifest entry to the canonical record.
         normalized = []
         for preset_id, value in manifest.items():
             if available_ids is not None and preset_id not in available_ids:
                 continue
-            if isinstance(value, str):
-                # Old format: just name
-                entry = {
-                    "id": preset_id,
-                    "name": value,
-                    "author": "Anonymous",
-                    "created": inferred_created(preset_id)
-                }
-            elif isinstance(value, dict):
-                # New format: full metadata
-                entry = {
-                    "id": preset_id,
-                    "name": value.get("name", "Untitled"),
-                    "author": value.get("author", "Anonymous"),
-                    "created": value.get("created") or inferred_created(preset_id),
-                    "plays": int(value.get("plays", 0) or 0),
-                    "parent_id": value.get("parent_id"),
-                }
-            else:
+            try:
+                entry = normalize_shared_record(preset_id, value)
+            except ValueError:
+                continue
+            if not entry["visible"]:
                 continue
             entry.update(preset_summary(preset_id))
             normalized.append(entry)
@@ -2066,14 +2046,12 @@ async def record_gallery_play(request: Request):
         existing = manifest.get(preset_id)
         if existing is None:
             return JSONResponse({"ok": False, "error": "Preset not found"}, status_code=404)
-        if isinstance(existing, str):
-            entry = {"name": existing, "author": "Anonymous", "plays": 1}
-        else:
-            entry = dict(existing)
-            entry["plays"] = int(entry.get("plays", 0) or 0) + 1
+        record = normalize_shared_record(preset_id, existing)
+        record["plays"] += 1
+        entry = manifest_entry_from_record(record)
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: _update_shared_manifest({preset_id: entry}))
-        return JSONResponse({"ok": True, "plays": entry["plays"]})
+        return JSONResponse({"ok": True, "plays": record["plays"]})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
@@ -2573,13 +2551,17 @@ async def ws_preview(websocket: WebSocket):
                 params = data.get("params")
                 if params and engine:
                     new_preset = _ui_params_to_preset(params)
+                    request_id = str(data.get("request_id") or uuid.uuid4().hex[:12])[:80]
                     accepted, reason = engine.queue_live_controls(
                         new_preset,
                         ramp_ms=float(data.get("ramp_ms", 50.0)),
+                        request_id=request_id,
                     )
                     await websocket.send_text(json.dumps({
                         "status": "patch_queued" if accepted else "reload_required",
                         "reason": reason,
+                        "request_id": request_id,
+                        "server_received_ms": round(time.time() * 1000, 3),
                     }))
                 elif not engine:
                     await websocket.send_text(json.dumps({
@@ -2605,22 +2587,44 @@ async def _stream_audio(websocket: WebSocket, engine: StreamingDroneEngine, stre
     chunk_duration = chunk_size / sample_rate  # real-time duration of one chunk
     start_time = asyncio.get_event_loop().time()
     chunks_sent = 0
+    last_patch_revision, _ = engine.get_live_patch_state()
     # Allow buffering a few chunks ahead (pre-buffer), then pace to real-time
     max_ahead = 2  # ~93ms at 22050Hz; enough resilience without sluggish controls
 
     try:
         while _active_streams.get(stream_id, False):
             # Generate chunk in thread (avoid blocking event loop)
+            generation_started = time.perf_counter()
             chunk = await loop.run_in_executor(None, engine.next_chunk, chunk_size)
+            generation_ms = (time.perf_counter() - generation_started) * 1000.0
 
             # Convert float64 stereo to int16 PCM bytes
             pcm16 = (np.clip(chunk, -1.0, 1.0) * 32767).astype(np.int16)
             await websocket.send_bytes(pcm16.tobytes())
             chunks_sent += 1
+            patch_revision, patch_id = engine.get_live_patch_state()
+            if patch_revision != last_patch_revision:
+                last_patch_revision = patch_revision
+                await websocket.send_text(json.dumps({
+                    "status": "patch_applied",
+                    "request_id": patch_id,
+                    "revision": patch_revision,
+                    "server_applied_ms": round(time.time() * 1000, 3),
+                }))
             if chunks_sent % 3 == 0:
+                elapsed = asyncio.get_event_loop().time() - start_time
+                ahead_ms = max(
+                    0.0,
+                    (chunks_sent * chunk_duration - elapsed) * 1000.0,
+                )
                 await websocket.send_text(json.dumps({
                     "status": "meters",
                     "layers": engine.get_peak_meters(),
+                    "diagnostics": {
+                        "generation_ms": round(generation_ms, 3),
+                        "ahead_ms": round(ahead_ms, 3),
+                        "chunks_sent": chunks_sent,
+                    },
                 }))
 
             # Pace: don't get too far ahead of real-time playback

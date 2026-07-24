@@ -1655,7 +1655,9 @@ class StreamingDroneEngine:
         self._crossfade_total = 0
         self._old_engine: Optional['StreamingDroneEngine'] = None
         self._pending_reload: Optional[tuple] = None  # (new_preset, crossfade_secs)
-        self._pending_live_controls: Optional[tuple] = None  # (new_preset, ramp_ms)
+        self._pending_live_controls: Optional[tuple] = None  # (preset, ramp_ms, request_id)
+        self._live_patch_revision = 0
+        self._last_applied_patch_id: Optional[str] = None
 
     def _build_from_preset(self, preset: dict) -> None:
         self.preset = deepcopy(preset)
@@ -1837,9 +1839,11 @@ class StreamingDroneEngine:
                     new_layer.scan_phase = old_layer.scan_phase
                     new_layer.tremor_phase = old_layer.tremor_phase
         elif self._pending_live_controls is not None:
-            new_preset, ramp_ms = self._pending_live_controls
+            new_preset, ramp_ms, request_id = self._pending_live_controls
             self._pending_live_controls = None
             self._apply_live_controls(new_preset, ramp_ms)
+            self._live_patch_revision += 1
+            self._last_applied_patch_id = request_id
 
         stereo = np.zeros((n, 2), dtype=np.float32)
 
@@ -2188,6 +2192,7 @@ class StreamingDroneEngine:
         self,
         new_preset: dict,
         ramp_ms: float = 50.0,
+        request_id: Optional[str] = None,
     ) -> tuple[bool, str]:
         """Queue a live-safe control update for the next audio chunk.
 
@@ -2208,8 +2213,13 @@ class StreamingDroneEngine:
         self._pending_live_controls = (
             deepcopy(new_preset),
             float(np.clip(ramp_ms, 20.0, 500.0)),
+            str(request_id)[:80] if request_id else None,
         )
         return True, "queued"
+
+    def get_live_patch_state(self) -> tuple[int, Optional[str]]:
+        """Return the latest patch revision and its caller-provided ID."""
+        return self._live_patch_revision, self._last_applied_patch_id
 
     def _apply_live_controls(self, new_preset: dict, ramp_ms: float) -> None:
         """Apply a validated control snapshot without rebuilding synth voices."""

@@ -9,11 +9,17 @@ from engine.web_server import _active_streams, _stream_audio
 class _FakeEngine:
     SR = 22050
 
+    def __init__(self):
+        self.revision = 0
+
     def next_chunk(self, size):
         return np.zeros((size, 2), dtype=np.float32)
 
     def get_peak_meters(self):
         return [-12.5, -24.0]
+
+    def get_live_patch_state(self):
+        return self.revision, None
 
 
 class _FakeWebSocket:
@@ -41,10 +47,13 @@ class WebSocketMeteringTests(unittest.IsolatedAsyncioTestCase):
             _active_streams.pop(stream_id, None)
 
         self.assertEqual(socket.binary_frames, 3)
-        self.assertEqual(socket.messages, [{
-            "status": "meters",
-            "layers": [-12.5, -24.0],
-        }])
+        self.assertEqual(len(socket.messages), 1)
+        message = socket.messages[0]
+        self.assertEqual(message["status"], "meters")
+        self.assertEqual(message["layers"], [-12.5, -24.0])
+        self.assertGreaterEqual(message["diagnostics"]["generation_ms"], 0.0)
+        self.assertGreaterEqual(message["diagnostics"]["ahead_ms"], 0.0)
+        self.assertEqual(message["diagnostics"]["chunks_sent"], 3)
 
 
 if __name__ == "__main__":
