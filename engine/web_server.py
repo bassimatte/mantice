@@ -74,10 +74,6 @@ _PITCH_CACHE_FILE = _SAMPLES_DIR / "pitch_cache.json"
 # In-memory pitch cache; populated at startup and on-demand
 _pitch_cache: dict = {}
 
-# Global engine for /api/meters endpoint (used by WebSocket preview)
-engine: Optional[StreamingDroneEngine] = None
-
-
 def _load_pitch_cache():
     global _pitch_cache
     try:
@@ -822,11 +818,12 @@ async def get_version():
 
 @app.get("/api/meters")
 async def get_meters():
-    """Return per-layer peak meter levels in dBFS (decaying envelope, ~-100 = silent)."""
-    global engine
-    if engine is None:
-        return JSONResponse({"layers": []})
-    return JSONResponse({"layers": engine.get_peak_meters()})
+    """Legacy endpoint; live per-session meters now travel over the preview socket."""
+    return JSONResponse({
+        "layers": [],
+        "transport": "websocket",
+        "deprecated": True,
+    })
 
 
 @app.get("/api/samples")
@@ -2620,6 +2617,11 @@ async def _stream_audio(websocket: WebSocket, engine: StreamingDroneEngine, stre
             pcm16 = (np.clip(chunk, -1.0, 1.0) * 32767).astype(np.int16)
             await websocket.send_bytes(pcm16.tobytes())
             chunks_sent += 1
+            if chunks_sent % 3 == 0:
+                await websocket.send_text(json.dumps({
+                    "status": "meters",
+                    "layers": engine.get_peak_meters(),
+                }))
 
             # Pace: don't get too far ahead of real-time playback
             elapsed = asyncio.get_event_loop().time() - start_time

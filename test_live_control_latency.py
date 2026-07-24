@@ -49,6 +49,13 @@ class LiveControlLatencyTests(unittest.TestCase):
         self.assertIn("msg.status === 'reload_required'", self.html)
         self.assertIn('elif action == "patch":', self.server)
 
+    def test_layer_meters_use_the_current_preview_websocket(self):
+        self.assertNotIn("fetch('/api/meters')", self.html)
+        self.assertIn("function updateLayerMeters(layers = [])", self.html)
+        self.assertIn("msg.status === 'meters'", self.html)
+        self.assertIn('"status": "meters"', self.server)
+        self.assertIn('"layers": engine.get_peak_meters()', self.server)
+
     def test_mobile_attempts_live_stream_before_segmented_fallback(self):
         preview_start = self.html.index("async function doPreview(options = {})")
         preview_body = self.html[preview_start:preview_start + 2600]

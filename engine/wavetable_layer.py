@@ -6,6 +6,25 @@ import numpy as np
 import soundfile as sf
 
 
+def _resolve_wavetable_path(source: str, samples_dir: str) -> Path:
+    """Resolve bundled/cache tables and immutable repository-backed tables."""
+    samples_root = Path(samples_dir).resolve()
+    if source.startswith("shared/wavetables/"):
+        relative = Path(source)
+        if len(relative.parts) != 3:
+            raise ValueError("Wavetable source is missing or invalid")
+        shared_root = (samples_root.parent / "shared" / "wavetables").resolve()
+        path = (samples_root.parent / relative).resolve()
+        if path.parent != shared_root or not path.is_file():
+            raise ValueError(f"Wavetable not found: {source}")
+        return path
+
+    path = (samples_root / source).resolve()
+    if samples_root not in path.parents or not path.is_file():
+        raise ValueError(f"Wavetable not found: {source}")
+    return path
+
+
 def wavetable_scan_curve(mode: str, phase: np.ndarray) -> np.ndarray:
     """Shape normalized scan phase while preserving legacy mode names."""
     wrapped = np.asarray(phase) % 1.0
@@ -62,10 +81,7 @@ class StreamingWavetableLayer:
         source = str(cfg.get("wavetable_source") or "")
         if not source or ".." in source:
             raise ValueError("Wavetable source is missing or invalid")
-        path = (Path(samples_dir) / source).resolve()
-        samples_root = Path(samples_dir).resolve()
-        if samples_root not in path.parents or not path.is_file():
-            raise ValueError(f"Wavetable not found: {source}")
+        path = _resolve_wavetable_path(source, samples_dir)
 
         audio, _ = sf.read(str(path), dtype="float32", always_2d=True)
         mono = np.mean(audio, axis=1, dtype=np.float32)

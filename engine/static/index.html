@@ -6902,32 +6902,29 @@ let _mobileFallbackActive = false;
 let _previewWanted       = false;
 let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
 
-// ── Peak meter polling ─────────────────────────────────────────────────────────
-let _meterInterval = null;
+// ── Per-session peak meters (delivered by the preview WebSocket) ─────────────
+function updateLayerMeters(layers = []) {
+  layers.forEach((db, i) => {
+    const el = document.getElementById(`layer-meter-${i}`);
+    if (!el) return;
+    // Map dBFS to width: -60 dB = 0%, 0 dB = 100% (clamp -60 to 0)
+    const clamped = Math.max(-60, Math.min(0, Number(db)));
+    const pct = ((clamped + 60) / 60) * 100;
+    el.style.width = pct.toFixed(1) + '%';
+    // Color: green < -12, amber < -3, red >= -3
+    const styles = getComputedStyle(document.documentElement);
+    el.style.background = db >= -3
+      ? styles.getPropertyValue('--danger').trim()
+      : db >= -12 ? styles.getPropertyValue('--engine-fm').trim() : styles.getPropertyValue('--success').trim();
+  });
+}
 function startMeterPolling() {
-  if (_meterInterval) return;
-  _meterInterval = setInterval(async () => {
-    try {
-      const data = await fetch('/api/meters').then(r => r.json());
-      const layers = data.layers || [];
-      layers.forEach((db, i) => {
-        const el = document.getElementById(`layer-meter-${i}`);
-        if (!el) return;
-        // Map dBFS to width: -60 dB = 0%, 0 dB = 100% (clamp -60 to 0)
-        const clamped = Math.max(-60, Math.min(0, db));
-        const pct = ((clamped + 60) / 60) * 100;
-        el.style.width = pct.toFixed(1) + '%';
-        // Color: green < -12, amber < -3, red >= -3
-        const styles = getComputedStyle(document.documentElement);
-        el.style.background = db >= -3
-          ? styles.getPropertyValue('--danger').trim()
-          : db >= -12 ? styles.getPropertyValue('--engine-fm').trim() : styles.getPropertyValue('--success').trim();
-      });
-    } catch (_) { /* server not ready */ }
-  }, 150);
+  stopMeterPolling();
 }
 function stopMeterPolling() {
-  if (_meterInterval) { clearInterval(_meterInterval); _meterInterval = null; }
+  document.querySelectorAll('[id^="layer-meter-"]').forEach(el => {
+    el.style.width = '0%';
+  });
 }
 
 function startCtxKeepAlive() {
@@ -7140,6 +7137,10 @@ async function doPreview(options = {}) {
     if (!_previewWanted || ws !== previewSocket) return;
     if (typeof event.data === 'string') {
       const msg = JSON.parse(event.data);
+      if (msg.status === 'meters') {
+        updateLayerMeters(msg.layers || []);
+        return;
+      }
       if (msg.status === 'stopped') { setStatus('Stopped'); return; }
       if (msg.status === 'reload_required') {
         const params = collectParams();
