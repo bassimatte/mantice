@@ -17,8 +17,6 @@ from typing import Optional, List
 
 import yaml
 
-from .preset_schema import CURRENT_PRESET_SCHEMA_VERSION
-
 
 # ── Mood profiles ─────────────────────────────────────────────────────────────
 # Each mood biases the random distributions toward a sonic character.
@@ -676,7 +674,6 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
         }
 
     preset = {
-        "schema_version": CURRENT_PRESET_SCHEMA_VERSION,
         "meta": {
             "name": name,
             "slug": slug,

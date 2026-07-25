@@ -274,7 +274,6 @@ header .status {
   border-radius: var(--radius);
 }
 .settings-info-btn:hover { border-color: var(--accent); color: var(--accent); }
-.settings-info-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 
 /* ── Files dropdown ─────────────────────────────── */
 .files-menu-wrapper {
@@ -632,87 +631,6 @@ main {
   min-height: 0;
   background: transparent;
 }
-.workflow-nav {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(76px, 1fr)) minmax(120px, auto);
-  gap: 4px;
-  align-items: center;
-  padding: 6px;
-  background: color-mix(in srgb, var(--bg2) 94%, transparent);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(10px);
-}
-.workflow-tab {
-  min-height: 34px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-dim);
-  font: 700 10px/1 'Space Mono', monospace;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-.workflow-tab:hover { color: var(--text); border-color: var(--text-dim); }
-.workflow-tab.active {
-  color: var(--ink-on-color);
-  border-color: var(--accent);
-  background: var(--accent);
-}
-.workflow-context {
-  min-width: 0;
-  padding: 0 6px;
-  color: var(--text-dim);
-  font: 10px/1.3 'Space Mono', monospace;
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.workflow-context strong { color: var(--text-lcd); font-weight: 600; }
-.workflow-hidden { display: none !important; }
-
-.diagnostics-panel {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  z-index: 2400;
-  width: min(300px, calc(100vw - 24px));
-  padding: 9px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--surface2) 96%, transparent);
-  border: 1px solid var(--accent);
-  box-shadow: 0 8px 30px rgba(0,0,0,0.38);
-  font: 10px/1.4 'Space Mono', monospace;
-}
-.diagnostics-panel[hidden] { display: none; }
-.diagnostics-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 7px;
-  color: var(--accent);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.diagnostics-close {
-  padding: 0;
-  border: 0;
-  color: var(--text-dim);
-  background: transparent;
-  cursor: pointer;
-}
-.diagnostics-grid {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 3px 10px;
-}
-.diagnostics-grid span:nth-child(odd) { color: var(--text-dim); }
-.diagnostics-grid span:nth-child(even) { color: var(--text-lcd); text-align: right; }
 
 .card {
   background: var(--surface);
@@ -977,17 +895,6 @@ main {
     box-sizing: border-box;
     height: auto;
   }
-  .workflow-nav {
-    top: 61px;
-    grid-template-columns: repeat(3, 1fr);
-    padding: 4px;
-  }
-  .workflow-context {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 2px 4px 0;
-  }
-  .diagnostics-panel { right: 6px; bottom: 6px; width: calc(100vw - 12px); }
 
   /* Visualizer: only waveform, compact */
   .visualizer-container {
@@ -2108,9 +2015,6 @@ button:disabled {
       <div class="settings-row">
         <button class="settings-info-btn" id="btn-deep-guide">◎ Deep Dive guide</button>
       </div>
-      <div class="settings-row">
-        <button class="settings-info-btn" id="btn-diagnostics">◌ Live diagnostics</button>
-      </div>
       <div class="settings-divider"></div>
       <div class="settings-row" style="justify-content:space-between;">
         <span class="settings-label" style="font-size:10px;">Code</span>
@@ -2123,21 +2027,6 @@ button:disabled {
   </div>
 </header>
 <div id="mobile-now-playing" class="mobile-now-playing"></div>
-<div class="diagnostics-panel" id="diagnostics-panel" hidden>
-  <div class="diagnostics-header">
-    <span>Live diagnostics</span>
-    <button class="diagnostics-close" id="diagnostics-close" aria-label="Close diagnostics">✕</button>
-  </div>
-  <div class="diagnostics-grid">
-    <span>First sound</span><span id="diag-first-audio">—</span>
-    <span>Patch → audio</span><span id="diag-patch-audio">—</span>
-    <span>Server render</span><span id="diag-generation">—</span>
-    <span>Server ahead</span><span id="diag-server-ahead">—</span>
-    <span>Browser queue</span><span id="diag-browser-queue">—</span>
-    <span>Underruns</span><span id="diag-underruns">0</span>
-    <span>Reconnects</span><span id="diag-reconnects">0</span>
-  </div>
-</div>
 
 <!-- Docs Modal -->
 <div class="docs-overlay" id="docs-overlay">
@@ -2326,9 +2215,6 @@ button:disabled {
         </div>
 
         <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
-          Explore the <a href="https://bassimatte.github.io/mantice/presets/" style="color: var(--accent);">Preset Atlas</a>,
-          <a href="https://bassimatte.github.io/mantice/learn/ambient-drone-synthesis.html" style="color: var(--accent);">Drone Synthesis Guide</a>,
-          and <a href="https://bassimatte.github.io/mantice/learn/wavetable-drone.html" style="color: var(--accent);">Wavetable Drone Guide</a>.<br>
           Created by <strong>Matteo Bassi</strong> — <a href="https://github.com/bassimatte/mantice" target="_blank" style="color: var(--accent);">github.com/bassimatte/mantice</a>
         </p>
       </div>
@@ -2868,14 +2754,8 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <main>
-  <nav class="workflow-nav" id="workflow-nav" aria-label="Mantice workflow">
-    <button class="workflow-tab active" data-workflow-tab="play" aria-selected="true">Play</button>
-    <button class="workflow-tab" data-workflow-tab="shape" aria-selected="false">Shape</button>
-    <button class="workflow-tab" data-workflow-tab="finish" aria-selected="false">Finish</button>
-    <div class="workflow-context" id="workflow-context">Load a preset to begin</div>
-  </nav>
   <!-- Visualizer -->
-  <div class="card" id="visualizer-card" data-workflows="play">
+  <div class="card">
     <h2>Visualizer</h2>
     <div class="visualizer-container">
       <canvas id="aurora-canvas"></canvas>
@@ -2884,7 +2764,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
   </div>
 
   <!-- Layer Parameters -->
-  <div class="card card-collapsible" id="layers-card" data-workflows="play shape">
+  <div class="card card-collapsible" id="layers-card">
     <h2 style="margin:0">Layers</h2>
     <!-- JI Tuning panel — sits above layer tabs -->
     <div id="tuning-panel">
@@ -2931,7 +2811,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
   </div>
 
   <!-- Global FX -->
-  <div class="card card-collapsible" id="global-fx-card" data-workflows="shape">
+  <div class="card card-collapsible" id="global-fx-card">
     <h2>Global FX</h2>
     <div class="layer-subtabs" id="global-fx-tabs">
       <button class="layer-subtab active" data-gfx="reverb">Reverb</button>
@@ -3031,7 +2911,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
   </div>
 
   <!-- Master -->
-  <div class="card card-collapsible" id="master-card" data-workflows="finish">
+  <div class="card card-collapsible" id="master-card">
     <h2>Master</h2>
     <div class="param-row">
       <label>Seed</label>
@@ -3149,13 +3029,13 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
   </div>
 
   <!-- Automation -->
-  <div class="card card-collapsible collapsed" id="automation-card" data-workflows="finish">
+  <div class="card card-collapsible collapsed" id="automation-card">
     <h2>Automation <span id="auto-active-badge" style="font-size:10px;color:var(--accent);font-weight:normal;margin-left:4px"></span></h2>
     <div id="automation-body"></div>
   </div>
 
   <!-- Morphing (Preset Journey) -->
-  <div class="card card-collapsible collapsed" id="journey-card" data-workflows="finish">
+  <div class="card card-collapsible collapsed" id="journey-card">
     <h2>Morphing <span id="journey-duration-badge" style="font-size:10px;color:var(--accent);font-weight:normal;margin-left:4px"></span></h2>
     <div id="journey-body"></div>
   </div>
@@ -3224,7 +3104,6 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
   </div>
 </div>
 
-<script src="mantice-ui-core.js"></script>
 <script>
 // ── Zoom ────────────────────────────────────────────────────────────────────
 (function initZoom() {
@@ -3885,35 +3764,16 @@ function applyParamsToUI(p) {
 // ── Layer tabs ──────────────────────────────────────────────────────────────
 let activeLayerIdx = 0;
 let activeLayerSubTab = 'synth';
-let activeWorkflow = 'play';
-
-function updateWorkflowContext() {
-  const context = $('workflow-context');
-  if (!context) return;
-  context.textContent = ManticeUI.contextLabel(currentParams, activeLayerIdx);
-}
-
-function setWorkflow(workflow, persist = true) {
-  activeWorkflow = ManticeUI.normalizeWorkflow(workflow);
-  document.querySelectorAll('[data-workflow-tab]').forEach(button => {
-    const selected = button.dataset.workflowTab === activeWorkflow;
-    button.classList.toggle('active', selected);
-    button.setAttribute('aria-selected', selected ? 'true' : 'false');
-  });
-  document.querySelectorAll('[data-workflows]').forEach(section => {
-    section.classList.toggle(
-      'workflow-hidden',
-      !ManticeUI.workflowContains(section.dataset.workflows, activeWorkflow),
-    );
-  });
-  updateWorkflowContext();
-  if (persist) {
-    try { localStorage.setItem('mantice-workflow', activeWorkflow); } catch (_) {}
-  }
-}
 
 function getLayerColor(layer, index = 0) {
-  return ManticeUI.layerColor(layer, index);
+  const type = typeof layer === 'object' ? layer?.type : null;
+  const variables = {
+    fm: 'var(--engine-fm)',
+    subtractive: 'var(--engine-subtractive)',
+    granular: 'var(--engine-granular)',
+    wavetable: 'var(--engine-wavetable)',
+  };
+  return variables[type] || ['var(--engine-fm)', 'var(--engine-subtractive)', 'var(--engine-granular)', 'var(--engine-wavetable)'][index % 4];
 }
 
 // ── Note / pitch utilities ────────────────────────────────────────────────────
@@ -4218,7 +4078,6 @@ function buildLayerTabs(layers) {
     document.documentElement.style.setProperty(`--layer-${i}`, getLayerColor(l, i));
   });
   document.documentElement.style.setProperty('--active-layer-color', getLayerColor(layers[activeLayerIdx], activeLayerIdx));
-  updateWorkflowContext();
   tabs.querySelectorAll('.layer-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.idx);
@@ -6912,14 +6771,10 @@ function liveReload(crossfadeOverride = null) {
       : (parseFloat($('live-xfade').value) || 1.0);
 
     if (canLivePatch(_lastLiveParams, params)) {
-      const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-      liveDiagnostics.pendingPatches.set(requestId, performance.now());
-      setTimeout(() => liveDiagnostics.pendingPatches.delete(requestId), 10000);
       ws.send(JSON.stringify({
         action: 'patch',
         params,
         ramp_ms: LIVE_PATCH_RAMP_MS,
-        request_id: requestId,
       }));
       _lastLiveParams = JSON.parse(JSON.stringify(params));
       setStatus('↻ Updating…');
@@ -7046,84 +6901,33 @@ let _mobileReceivedAudio = false;
 let _mobileFallbackActive = false;
 let _previewWanted       = false;
 let startupGain = null;   // GainNode that ramps 0→1 at the first played chunk (prevents play-click)
-let diagnosticsEnabled = false;
-const liveDiagnostics = {
-  startedAt: 0,
-  firstAudioMs: null,
-  patchAudioMs: null,
-  generationMs: null,
-  serverAheadMs: null,
-  browserQueueMs: null,
-  underruns: 0,
-  reconnects: 0,
-  pendingPatches: new Map(),
-};
 
-function diagnosticsValue(value, suffix = ' ms') {
-  return Number.isFinite(value) ? `${Math.round(value)}${suffix}` : '—';
-}
-
-function currentBrowserQueueMs() {
-  if (!streamingCtx || !Number.isFinite(nextPlayTime)) return 0;
-  return Math.max(0, (nextPlayTime - streamingCtx.currentTime) * 1000);
-}
-
-function updateDiagnosticsPanel() {
-  if (!diagnosticsEnabled) return;
-  liveDiagnostics.browserQueueMs = currentBrowserQueueMs();
-  $('diag-first-audio').textContent = diagnosticsValue(liveDiagnostics.firstAudioMs);
-  $('diag-patch-audio').textContent = diagnosticsValue(liveDiagnostics.patchAudioMs);
-  $('diag-generation').textContent = diagnosticsValue(liveDiagnostics.generationMs);
-  $('diag-server-ahead').textContent = diagnosticsValue(liveDiagnostics.serverAheadMs);
-  $('diag-browser-queue').textContent = diagnosticsValue(liveDiagnostics.browserQueueMs);
-  $('diag-underruns').textContent = String(liveDiagnostics.underruns);
-  $('diag-reconnects').textContent = String(liveDiagnostics.reconnects);
-}
-
-function setDiagnosticsEnabled(enabled) {
-  diagnosticsEnabled = Boolean(enabled);
-  $('diagnostics-panel').hidden = !diagnosticsEnabled;
-  $('btn-diagnostics').classList.toggle('active', diagnosticsEnabled);
-  try { localStorage.setItem('mantice-live-diagnostics', diagnosticsEnabled ? '1' : '0'); } catch (_) {}
-  updateDiagnosticsPanel();
-}
-
-function resetLiveDiagnostics() {
-  liveDiagnostics.startedAt = performance.now();
-  liveDiagnostics.firstAudioMs = null;
-  liveDiagnostics.patchAudioMs = null;
-  liveDiagnostics.generationMs = null;
-  liveDiagnostics.serverAheadMs = null;
-  liveDiagnostics.browserQueueMs = null;
-  liveDiagnostics.underruns = 0;
-  liveDiagnostics.reconnects = 0;
-  liveDiagnostics.pendingPatches.clear();
-  updateDiagnosticsPanel();
-}
-
-// ── Per-session peak meters (delivered by the preview WebSocket) ─────────────
-function updateLayerMeters(layers = []) {
-  layers.forEach((db, i) => {
-    const el = document.getElementById(`layer-meter-${i}`);
-    if (!el) return;
-    // Map dBFS to width: -60 dB = 0%, 0 dB = 100% (clamp -60 to 0)
-    const clamped = Math.max(-60, Math.min(0, Number(db)));
-    const pct = ((clamped + 60) / 60) * 100;
-    el.style.width = pct.toFixed(1) + '%';
-    // Color: green < -12, amber < -3, red >= -3
-    const styles = getComputedStyle(document.documentElement);
-    el.style.background = db >= -3
-      ? styles.getPropertyValue('--danger').trim()
-      : db >= -12 ? styles.getPropertyValue('--engine-fm').trim() : styles.getPropertyValue('--success').trim();
-  });
-}
+// ── Peak meter polling ─────────────────────────────────────────────────────────
+let _meterInterval = null;
 function startMeterPolling() {
-  stopMeterPolling();
+  if (_meterInterval) return;
+  _meterInterval = setInterval(async () => {
+    try {
+      const data = await fetch('/api/meters').then(r => r.json());
+      const layers = data.layers || [];
+      layers.forEach((db, i) => {
+        const el = document.getElementById(`layer-meter-${i}`);
+        if (!el) return;
+        // Map dBFS to width: -60 dB = 0%, 0 dB = 100% (clamp -60 to 0)
+        const clamped = Math.max(-60, Math.min(0, db));
+        const pct = ((clamped + 60) / 60) * 100;
+        el.style.width = pct.toFixed(1) + '%';
+        // Color: green < -12, amber < -3, red >= -3
+        const styles = getComputedStyle(document.documentElement);
+        el.style.background = db >= -3
+          ? styles.getPropertyValue('--danger').trim()
+          : db >= -12 ? styles.getPropertyValue('--engine-fm').trim() : styles.getPropertyValue('--success').trim();
+      });
+    } catch (_) { /* server not ready */ }
+  }, 150);
 }
 function stopMeterPolling() {
-  document.querySelectorAll('[id^="layer-meter-"]').forEach(el => {
-    el.style.width = '0%';
-  });
+  if (_meterInterval) { clearInterval(_meterInterval); _meterInterval = null; }
 }
 
 function startCtxKeepAlive() {
@@ -7254,8 +7058,6 @@ function _handlePreviewConnectionFailure(socket) {
   const maxReconnects = mobile ? _MOBILE_WS_MAX_RECONNECTS : _WS_MAX_RECONNECTS;
   if (_wsReconnects < maxReconnects) {
     _wsReconnects++;
-    liveDiagnostics.reconnects = _wsReconnects;
-    updateDiagnosticsPanel();
     const delay = mobile ? 750 : Math.min(1500 * _wsReconnects, 8000);
     setStatus(`Stream lost — reconnecting… (${_wsReconnects}/${maxReconnects})`);
     _reconnectTimer = setTimeout(() => {
@@ -7276,10 +7078,7 @@ function _handlePreviewConnectionFailure(socket) {
 async function doPreview(options = {}) {
   if (_morphingActive()) { return doJourneyStream(); }  // morphing overrides normal preview
   const reconnecting = options && options.reconnect === true;
-  if (!reconnecting) {
-    _wsReconnects = 0;
-    resetLiveDiagnostics();
-  }
+  if (!reconnecting) _wsReconnects = 0;
   const reconnectCount = _wsReconnects;
 
   const params = collectParams();
@@ -7341,22 +7140,6 @@ async function doPreview(options = {}) {
     if (!_previewWanted || ws !== previewSocket) return;
     if (typeof event.data === 'string') {
       const msg = JSON.parse(event.data);
-      if (msg.status === 'meters') {
-        updateLayerMeters(msg.layers || []);
-        liveDiagnostics.generationMs = Number(msg.diagnostics?.generation_ms);
-        liveDiagnostics.serverAheadMs = Number(msg.diagnostics?.ahead_ms);
-        updateDiagnosticsPanel();
-        return;
-      }
-      if (msg.status === 'patch_applied') {
-        const sentAt = liveDiagnostics.pendingPatches.get(msg.request_id);
-        if (Number.isFinite(sentAt)) {
-          liveDiagnostics.patchAudioMs = performance.now() - sentAt + currentBrowserQueueMs();
-          liveDiagnostics.pendingPatches.delete(msg.request_id);
-          updateDiagnosticsPanel();
-        }
-        return;
-      }
       if (msg.status === 'stopped') { setStatus('Stopped'); return; }
       if (msg.status === 'reload_required') {
         const params = collectParams();
@@ -7375,9 +7158,6 @@ async function doPreview(options = {}) {
     if (!_mobileReceivedAudio) {
       _mobileReceivedAudio = true;
       _wsReconnects = 0;
-      liveDiagnostics.firstAudioMs = performance.now() - liveDiagnostics.startedAt;
-      liveDiagnostics.reconnects = 0;
-      updateDiagnosticsPanel();
       _clearMobileStartupTimer();
     }
 
@@ -7423,12 +7203,9 @@ async function doPreview(options = {}) {
         source.buffer = buffer;
         source.connect(spectrumAnalyser || streamingCtx.destination);
         const now = streamingCtx.currentTime;
-        if (nextPlayTime < now) {
+        if (nextPlayTime < now)
           // MANT-18: recovery gap instead of hard-snap — brief smooth pause, not a click
           nextPlayTime = now + PRE_BUFFER_CHUNKS * (CHUNK_SIZE / STREAM_SR) + 0.05;
-          liveDiagnostics.underruns++;
-          updateDiagnosticsPanel();
-        }
         source.start(nextPlayTime);
         nextPlayTime += buffer.duration;
         // Release node after playback to prevent memory buildup
@@ -10014,8 +9791,6 @@ const FIRST_GUIDE_STEPS = [
 ];
 
 function openDeepDiveCard(id) {
-  if (id === 'layers-card' || id === 'global-fx-card') setWorkflow('shape', false);
-  if (id === 'master-card' || id === 'automation-card' || id === 'journey-card') setWorkflow('finish', false);
   $(id)?.classList.remove('collapsed');
 }
 
@@ -10091,7 +9866,6 @@ let firstGuidePositionHandler = null;
 let activeGuideSteps = FIRST_GUIDE_STEPS;
 let activeGuideName = 'First Breath';
 let activeGuideIsFirst = true;
-let guidePreviousWorkflow = 'play';
 
 function firstGuideStoreComplete() {
   try { localStorage.setItem(FIRST_GUIDE_STORAGE_KEY, '1'); } catch (_) {}
@@ -10153,7 +9927,6 @@ function closeFirstGuide(alwaysComplete = false) {
   $('first-guide-focus').style.display = 'none';
   $('files-dropdown')?.classList.remove('open');
   document.querySelector('aside')?.classList.remove('sidebar-open');
-  setWorkflow(guidePreviousWorkflow, false);
   if (firstGuidePositionHandler) {
     window.removeEventListener('resize', firstGuidePositionHandler);
     window.removeEventListener('scroll', firstGuidePositionHandler, true);
@@ -10167,8 +9940,6 @@ function openGuide(steps, name, isFirst = false) {
   activeGuideSteps = steps;
   activeGuideName = name;
   activeGuideIsFirst = isFirst;
-  guidePreviousWorkflow = activeWorkflow;
-  if (isFirst) setWorkflow('play', false);
   firstGuideIndex = 0;
   firstGuideCompletedActions = new Set();
   $('first-guide-dismiss').parentElement.style.display = isFirst ? '' : 'none';
@@ -10225,22 +9996,6 @@ function init() {
   loadPresetList();
   initGenerationHistory();
   initParamSliderUX();
-  document.querySelectorAll('[data-workflow-tab]').forEach(button => {
-    button.addEventListener('click', () => setWorkflow(button.dataset.workflowTab));
-  });
-  let savedWorkflow = 'play';
-  try { savedWorkflow = localStorage.getItem('mantice-workflow') || 'play'; } catch (_) {}
-  setWorkflow(savedWorkflow, false);
-
-  let savedDiagnostics = false;
-  try { savedDiagnostics = localStorage.getItem('mantice-live-diagnostics') === '1'; } catch (_) {}
-  const diagnosticsFromUrl = new URLSearchParams(location.search).get('diagnostics') === '1';
-  setDiagnosticsEnabled(savedDiagnostics || diagnosticsFromUrl);
-  $('btn-diagnostics').addEventListener('click', () => {
-    setDiagnosticsEnabled(!diagnosticsEnabled);
-    $('settings-dropdown').classList.remove('open');
-  });
-  $('diagnostics-close').addEventListener('click', () => setDiagnosticsEnabled(false));
 
   // Fetch running commit SHA and update the version link in settings.
   // Primary: /api/version from the backend (exact deployed SHA).

@@ -2,16 +2,9 @@ import unittest
 from pathlib import Path
 
 from engine.generator import generate_preset
-from engine.preset_schema import CURRENT_PRESET_SCHEMA_VERSION
 
 
 class GeneratorIntentTests(unittest.TestCase):
-    def test_generated_presets_declare_current_schema(self):
-        self.assertEqual(
-            generate_preset("minimal", seed=7)["schema_version"],
-            CURRENT_PRESET_SCHEMA_VERSION,
-        )
-
     def test_classic_generates_essential_style_drones(self):
         for seed in range(20):
             preset = generate_preset("classic", seed=seed)

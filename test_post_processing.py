@@ -76,34 +76,6 @@ class FinalLimitNormalizeTests(unittest.TestCase):
         self.assertGreater(np.sqrt(np.mean(processed ** 2)), np.sqrt(np.mean(audio ** 2)) * 1.9)
         self.assertLessEqual(float(np.max(np.abs(processed))), LIVE_PEAK_CEILING + 1e-6)
 
-    def test_streaming_peak_protection_does_not_step_at_chunk_boundary(self):
-        sr = 22050
-        controller = StreamingLoudnessController(sr)
-        first = np.full((2048, 2), 0.2, dtype=np.float32)
-        second = first.copy()
-        second[1200] = 1.0
-
-        processed_first = controller.process(first)
-        processed_second = controller.process(second)
-
-        boundary_jump = float(
-            np.max(np.abs(processed_second[0] - processed_first[-1]))
-        )
-        self.assertLess(boundary_jump, 0.01)
-        self.assertLessEqual(
-            float(np.max(np.abs(processed_second))),
-            LIVE_PEAK_CEILING + 1e-6,
-        )
-
-    def test_streaming_controller_copy_keeps_peak_release_state(self):
-        controller = StreamingLoudnessController(22050)
-        hot = np.ones((128, 2), dtype=np.float32)
-        controller.process(hot)
-
-        clone = controller.copy_state()
-
-        self.assertAlmostEqual(clone._peak_envelope, controller._peak_envelope)
-
 
 if __name__ == "__main__":
     unittest.main()

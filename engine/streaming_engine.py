@@ -1357,7 +1357,6 @@ class StreamingFDNReverb:
     _N_LINES       = 8
     _BASE_SR       = 22050  # Sample rate the delay tables are tuned for
     _MAX_PRE_DELAY_MS = 150.0  # Maximum pre-delay in milliseconds
-    _STATE_LIMIT = 8.0  # emergency-only guard; normal reverb state stays far below this
 
     def __init__(self, reverb_cfg: dict, sample_rate: int = None):
         self.SR = sample_rate or SR  # Use passed SR or fallback to module default
@@ -1389,6 +1388,9 @@ class StreamingFDNReverb:
             [int(d * scale_factor) for d in base_delays], dtype=np.int32
         )
         self.max_d  = int(self.delays.max()) + 1
+
+        # Precomputed Hadamard × decay (applied every chunk)
+        self._H8d = self._H8 * self.decay
 
         # Damping coefficient and filter state (1-pole lowpass, per line)
         d = self._DAMP.get(space, 0.30)
@@ -1434,23 +1436,6 @@ class StreamingFDNReverb:
         if not self.enabled or self.mix < 0.001:
             return stereo
 
-        stereo = np.nan_to_num(
-            np.asarray(stereo),
-            nan=0.0,
-            posinf=self._STATE_LIMIT,
-            neginf=-self._STATE_LIMIT,
-        )
-        np.clip(stereo, -self._STATE_LIMIT, self._STATE_LIMIT, out=stereo)
-        if not np.isfinite(self.buf).all():
-            np.nan_to_num(
-                self.buf,
-                copy=False,
-                nan=0.0,
-                posinf=self._STATE_LIMIT,
-                neginf=-self._STATE_LIMIT,
-            )
-            np.clip(self.buf, -self._STATE_LIMIT, self._STATE_LIMIT, out=self.buf)
-
         n = len(stereo)
         # Stereo reverb: process L and R independently with small cross-coupling
         in_L = stereo[:, 0].astype(np.float64)
@@ -1488,20 +1473,8 @@ class StreamingFDNReverb:
             v[j] = self.buf[j].take((rs + arange_n) % self.max_d)
 
         # ── Hadamard mix + input injection ───────────────────────────────
-        # An explicit eight-line butterfly avoids platform BLAS floating-point
-        # status warnings and uses the current decay value when it is automated.
-        a0, a1 = v[0] + v[1], v[0] - v[1]
-        a2, a3 = v[2] + v[3], v[2] - v[3]
-        a4, a5 = v[4] + v[5], v[4] - v[5]
-        a6, a7 = v[6] + v[7], v[6] - v[7]
-        b0, b1, b2, b3 = a0 + a2, a1 + a3, a0 - a2, a1 - a3
-        b4, b5, b6, b7 = a4 + a6, a5 + a7, a4 - a6, a5 - a7
-        u = np.stack((
-            b0 + b4, b1 + b5, b2 + b6, b3 + b7,
-            b0 - b4, b1 - b5, b2 - b6, b3 - b7,
-        ))
-        u *= float(np.clip(self.decay, 0.0, 0.96)) / np.sqrt(8.0)
         # R2: Split input to L and R, with small cross-coupling for coherence
+        u = self._H8d @ v                          # (8, n) vectorised
         u += fdn_in_L[np.newaxis, :] * 0.125         # L input to even lines
         u += fdn_in_R[np.newaxis, :] * 0.125         # R input to odd lines
 
@@ -1511,22 +1484,8 @@ class StreamingFDNReverb:
                 self._damp_b, self._damp_a, u[j],
                 zi=self._damp_zi[j:j+1]   # shape (1,) — correct for lfilter zi
             )
-            np.nan_to_num(
-                u_j,
-                copy=False,
-                nan=0.0,
-                posinf=self._STATE_LIMIT,
-                neginf=-self._STATE_LIMIT,
-            )
-            if np.max(np.abs(u_j), initial=0.0) > self._STATE_LIMIT:
-                u_j = self._STATE_LIMIT * np.tanh(u_j / self._STATE_LIMIT)
             u[j] = u_j
-            self._damp_zi[j] = float(np.nan_to_num(
-                zi_out[0],
-                nan=0.0,
-                posinf=self._STATE_LIMIT,
-                neginf=-self._STATE_LIMIT,
-            ))
+            self._damp_zi[j] = zi_out[0]
 
         # ── Write feedback back to delay lines ───────────────────────────
         wp = self.write_ptr
@@ -1544,13 +1503,7 @@ class StreamingFDNReverb:
         wet_R = (v[1] + v[3] + v[5] + v[7]) * scale
         wet   = np.column_stack([wet_L, wet_R]).astype(np.float32)
 
-        output = stereo * (1.0 - self.mix) + wet * self.mix
-        return np.nan_to_num(
-            output,
-            nan=0.0,
-            posinf=self._STATE_LIMIT,
-            neginf=-self._STATE_LIMIT,
-        ).astype(np.float32)
+        return (stereo * (1.0 - self.mix) + wet * self.mix).astype(np.float32)
 
     @property
     def _lfo_depth_max(self) -> float:
@@ -1655,9 +1608,7 @@ class StreamingDroneEngine:
         self._crossfade_total = 0
         self._old_engine: Optional['StreamingDroneEngine'] = None
         self._pending_reload: Optional[tuple] = None  # (new_preset, crossfade_secs)
-        self._pending_live_controls: Optional[tuple] = None  # (preset, ramp_ms, request_id)
-        self._live_patch_revision = 0
-        self._last_applied_patch_id: Optional[str] = None
+        self._pending_live_controls: Optional[tuple] = None  # (new_preset, ramp_ms)
 
     def _build_from_preset(self, preset: dict) -> None:
         self.preset = deepcopy(preset)
@@ -1839,11 +1790,9 @@ class StreamingDroneEngine:
                     new_layer.scan_phase = old_layer.scan_phase
                     new_layer.tremor_phase = old_layer.tremor_phase
         elif self._pending_live_controls is not None:
-            new_preset, ramp_ms, request_id = self._pending_live_controls
+            new_preset, ramp_ms = self._pending_live_controls
             self._pending_live_controls = None
             self._apply_live_controls(new_preset, ramp_ms)
-            self._live_patch_revision += 1
-            self._last_applied_patch_id = request_id
 
         stereo = np.zeros((n, 2), dtype=np.float32)
 
@@ -2192,7 +2141,6 @@ class StreamingDroneEngine:
         self,
         new_preset: dict,
         ramp_ms: float = 50.0,
-        request_id: Optional[str] = None,
     ) -> tuple[bool, str]:
         """Queue a live-safe control update for the next audio chunk.
 
@@ -2213,13 +2161,8 @@ class StreamingDroneEngine:
         self._pending_live_controls = (
             deepcopy(new_preset),
             float(np.clip(ramp_ms, 20.0, 500.0)),
-            str(request_id)[:80] if request_id else None,
         )
         return True, "queued"
-
-    def get_live_patch_state(self) -> tuple[int, Optional[str]]:
-        """Return the latest patch revision and its caller-provided ID."""
-        return self._live_patch_revision, self._last_applied_patch_id
 
     def _apply_live_controls(self, new_preset: dict, ramp_ms: float) -> None:
         """Apply a validated control snapshot without rebuilding synth voices."""
@@ -2371,6 +2314,7 @@ class StreamingDroneEngine:
             self._reverb.mix = float(new_reverb.get("mix", 0.3))
             decay_trim = float(np.clip(new_reverb.get("decay_trim", 1.0), 0.0, 1.0))
             self._reverb.decay = 0.60 + decay_trim * 0.36
+            self._reverb._H8d = self._reverb._H8 * self._reverb.decay
             self._reverb.mod_depth = float(new_reverb.get("modulation_depth", 0.0))
 
         shimmer = new_preset.get("shimmer") or {}

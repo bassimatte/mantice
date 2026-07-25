@@ -49,20 +49,6 @@ class LiveControlLatencyTests(unittest.TestCase):
         self.assertIn("msg.status === 'reload_required'", self.html)
         self.assertIn('elif action == "patch":', self.server)
 
-    def test_layer_meters_use_the_current_preview_websocket(self):
-        self.assertNotIn("fetch('/api/meters')", self.html)
-        self.assertIn("function updateLayerMeters(layers = [])", self.html)
-        self.assertIn("msg.status === 'meters'", self.html)
-        self.assertIn('"status": "meters"', self.server)
-        self.assertIn('"layers": engine.get_peak_meters()', self.server)
-        self.assertIn('"generation_ms": round(generation_ms, 3)', self.server)
-        self.assertIn('"ahead_ms": round(ahead_ms, 3)', self.server)
-
-    def test_live_patch_reports_when_it_reaches_an_audio_chunk(self):
-        self.assertIn("request_id=request_id", self.server)
-        self.assertIn('"status": "patch_applied"', self.server)
-        self.assertIn("engine.get_live_patch_state()", self.server)
-
     def test_mobile_attempts_live_stream_before_segmented_fallback(self):
         preview_start = self.html.index("async function doPreview(options = {})")
         preview_body = self.html[preview_start:preview_start + 2600]
@@ -90,18 +76,13 @@ class LiveControlLatencyTests(unittest.TestCase):
 
     def test_first_mobile_audio_cancels_startup_fallback(self):
         message_start = self.html.index("ws.onmessage = (event) =>")
-        message_end = self.html.index(
-            "ws.onerror = () => _handlePreviewConnectionFailure(previewSocket)",
-            message_start,
-        )
-        message_body = self.html[message_start:message_end]
+        message_body = self.html[message_start:message_start + 1500]
         self.assertIn("_mobileReceivedAudio = true", message_body)
         self.assertIn("_clearMobileStartupTimer()", message_body)
 
     def test_segmented_fallback_rebuffers_live_edits_safely(self):
         reload_start = self.html.index("function liveReload(crossfadeOverride = null)")
-        reload_end = self.html.index("// ── Keyboard Shortcuts", reload_start)
-        reload_body = self.html[reload_start:reload_end]
+        reload_body = self.html[reload_start:reload_start + 1900]
         self.assertIn("if (_segPlaying)", reload_body)
         self.assertIn("doPreviewSegmented({ fallback: true, seed });", reload_body)
         self.assertIn("segmentSession !== _segSession", self.html)
@@ -156,24 +137,6 @@ class LiveControlLatencyTests(unittest.TestCase):
         engine.next_chunk(1024)
         engine.next_chunk(1024)
         self.assertGreater(engine._layer_control_gain[0], 0.49)
-
-    def test_engine_acknowledges_the_chunk_that_applies_a_live_patch(self):
-        preset = load_preset(ROOT / "presets" / "essentials" / "Simple Drone.yaml")
-        engine = StreamingDroneEngine(preset, seed=42, preview_loudness=False)
-        changed = deepcopy(engine.preset)
-        changed["layers"][0]["muted"] = True
-
-        accepted, reason = engine.queue_live_controls(
-            changed,
-            request_id="patch-test-1",
-        )
-        before = engine.get_live_patch_state()
-        engine.next_chunk(1024)
-        after = engine.get_live_patch_state()
-
-        self.assertTrue(accepted, reason)
-        self.assertEqual(before, (0, None))
-        self.assertEqual(after, (1, "patch-test-1"))
 
     def test_layer_mix_patch_supports_every_synthesis_engine(self):
         preset_paths = [

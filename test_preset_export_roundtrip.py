@@ -3,42 +3,10 @@ import unittest
 import yaml
 
 from engine.preset_loader import load_preset_from_yaml_string
-from engine.preset_schema import CURRENT_PRESET_SCHEMA_VERSION
 from engine.web_server import _ui_params_to_preset
 
 
 class WebsitePresetExportTests(unittest.TestCase):
-    def test_unversioned_legacy_preset_migrates_to_current_schema(self):
-        loaded = load_preset_from_yaml_string(yaml.safe_dump({
-            "name": "Legacy named preset",
-            "master": {"eq": {"mid_db": -2.5, "mid_hz": 310, "mid_q": 0.8}},
-            "layers": [{"type": "fm", "root": 110.0}],
-        }))
-
-        self.assertEqual(loaded["schema_version"], CURRENT_PRESET_SCHEMA_VERSION)
-        self.assertEqual(loaded["meta"]["name"], "Legacy named preset")
-        self.assertEqual(loaded["master"]["eq"]["lo_mid_db"], -2.5)
-        self.assertEqual(loaded["master"]["eq"]["lo_mid_hz"], 310)
-        self.assertEqual(loaded["master"]["eq"]["lo_mid_q"], 0.8)
-        self.assertNotIn("mid_db", loaded["master"]["eq"])
-
-    def test_unknown_future_schema_fails_clearly(self):
-        with self.assertRaisesRegex(ValueError, "newer than this Mantice build"):
-            load_preset_from_yaml_string(yaml.safe_dump({
-                "schema_version": CURRENT_PRESET_SCHEMA_VERSION + 1,
-                "layers": [{"type": "fm", "root": 110.0}],
-            }))
-
-    def test_new_website_export_declares_current_schema(self):
-        exported = _ui_params_to_preset({
-            "name": "Versioned",
-            "layers": [{"type": "fm", "root": 110.0}],
-        })
-        self.assertEqual(
-            exported["schema_version"],
-            CURRENT_PRESET_SCHEMA_VERSION,
-        )
-
     def test_missing_master_uses_website_defaults(self):
         loaded = load_preset_from_yaml_string(yaml.safe_dump({
             "name": "Legacy preset",
