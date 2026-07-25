@@ -1,42 +1,47 @@
 {
   "Aeolian_Resonance_20260528_9884aa": {
     "author": "Velvet Comet",
-    "name": "Aeolian Resonance"
+    "name": "Aeolian Resonance",
+    "plays": 1
   },
   "Aeolian_Resonance_2_20260622_fe7d7b": {
     "author": "Matteo Bassi",
     "created": "2026-06-22T09:30:48.685352Z",
     "name": "Aeolian Continuum",
-    "plays": 1
+    "plays": 2
   },
   "Alchemical_Terminus_20260622_9675df": {
     "author": "Matteo Bassi",
     "created": "2026-06-22T10:44:34.525526Z",
-    "name": "Alchemical Terminus"
+    "name": "Alchemical Terminus",
+    "plays": 1
   },
   "Arcane_Canopy_20260528_2ec68f": {
     "author": "Moss Circuit",
-    "name": "Arcane Canopy"
+    "name": "Arcane Canopy",
+    "plays": 1
   },
   "Burning_Monolith_20260524_8bbd4b": {
     "author": "Ember Static",
-    "name": "Burning Monolith"
+    "name": "Burning Monolith",
+    "plays": 1
   },
   "Burning_Monolith_20260524_cdfc5f": {
     "author": "Oblique Signal",
-    "name": "Obsidian Surge"
+    "name": "Obsidian Surge",
+    "plays": 1
   },
   "Chthonic_Corridor_20260709_c52d82": {
     "author": "bassimat",
     "created": "2026-07-09T20:27:51.659388Z",
     "name": "Chthonic Corridor",
-    "plays": 1
+    "plays": 2
   },
   "Cinnabar_Nexus_20260719_3df296": {
     "author": "Mark",
     "created": "2026-07-19T19:29:50.890645Z",
     "name": "Cinnabar Nexus",
-    "plays": 0,
+    "plays": 1,
     "wavetables": [
       {
         "name": "Chopper",
@@ -47,32 +52,36 @@
   },
   "Crystal_Current_20260529_9da3f1": {
     "author": "Glass Orchard",
-    "name": "Crystal Current"
+    "name": "Crystal Current",
+    "plays": 1
   },
   "Crystal_Frequency_20260522_81dc09": {
     "author": "Prism Nomad",
-    "name": "Crystal Frequency"
+    "name": "Crystal Frequency",
+    "plays": 1
   },
   "Ethereal_Machine_20260711_b0a1ca": {
     "author": "bassimat",
     "created": "2026-07-11T19:10:12.260111Z",
     "name": "Ethereal Machine",
-    "plays": 1
+    "plays": 2
   },
   "Frozen_Monolith_20260524_3fecc8": {
     "author": "Polar Relay",
-    "name": "Frozen Monolith"
+    "name": "Frozen Monolith",
+    "plays": 1
   },
   "Harmonic_Chamber_20260529_c8a05e": {
     "author": "Matteo Bassi",
     "created": "2026-05-29T20:31:13.716212Z",
-    "name": "Harmonic Chamber"
+    "name": "Harmonic Chamber",
+    "plays": 1
   },
   "Hermetic_Oscillation_20260714_4325e1": {
     "author": "d8i",
     "created": "2026-07-14T06:10:04.718109Z",
     "name": "Hermetic Oscillation",
-    "plays": 2
+    "plays": 3
   },
   "Infinite_Cathedral_20260524_9abe90": {
     "author": "Endless Choir",
@@ -81,34 +90,38 @@
   "Iron_Drift_20260525_4a292b": {
     "author": "Rust Meridian",
     "name": "Iron Drift",
-    "plays": 1
+    "plays": 2
   },
   "Iron_Drift_20260525_a1119e": {
     "author": "Lunar Voltage",
     "name": "Astral Flux",
-    "plays": 1
+    "plays": 3
   },
   "Iron_Drift_20260525_a42ab0": {
     "author": "Ice Lantern",
-    "name": "Glacial Undertow"
+    "name": "Glacial Undertow",
+    "plays": 2
   },
   "Iron_Drift_20260525_a86fe3": {
     "author": "Nebula Loom",
-    "name": "Nebular Surge"
+    "name": "Nebular Surge",
+    "plays": 1
   },
   "Iron_Drift_20260525_c80172": {
     "author": "Quantum Thicket",
-    "name": "Quantum Drift"
+    "name": "Quantum Drift",
+    "plays": 1
   },
   "Magnetic_Horizon_20260523_ff5ce7": {
     "author": "Copper Halo",
-    "name": "Magnetic Horizon"
+    "name": "Magnetic Horizon",
+    "plays": 1
   },
   "Magnetic_Tape_20260719_c095c1": {
     "author": "CT",
     "created": "2026-07-19T16:24:59.895003Z",
     "name": "Magnetic Tape",
-    "plays": 0,
+    "plays": 1,
     "wavetables": [
       {
         "name": "ct-wt-1784477892-spectral_squeeze-256-2048-32",
@@ -121,7 +134,7 @@
     "author": "Velvet Scribe",
     "created": "2026-07-20T03:52:48.124454Z",
     "name": "Magnetic Tape (2)",
-    "plays": 0,
+    "plays": 1,
     "wavetables": [
       {
         "name": "Random_Wavetable_176_Generated_Carvetoy",
@@ -149,7 +162,7 @@
     "author": "Detune Supersaw Supermassive",
     "created": "2026-07-20T14:36:38.006954Z",
     "name": "Magnetic Tape (3)",
-    "plays": 3,
+    "plays": 4,
     "wavetables": [
       {
         "name": "Fm Table Brown Noise Fm Saw Designed Vital",
@@ -174,44 +187,52 @@
   },
   "Molten_Membrane_20260523_5cb2f8": {
     "author": "Cinder Bloom",
-    "name": "Ember Resonance"
+    "name": "Ember Resonance",
+    "plays": 2
   },
   "Obsidian_Chamber_20260524_bb126d": {
     "author": "Nocturne Engine",
-    "name": "Obsidian Chamber"
+    "name": "Obsidian Chamber",
+    "plays": 1
   },
   "Obsidian_Undertone_20260529_636db0": {
     "author": "Shadow Tuner",
     "created": "2026-05-29T19:29:09.421465Z",
-    "name": "Obsidian Undertone"
+    "name": "Obsidian Undertone",
+    "plays": 1
   },
   "Obsidian_Vortex_20260523_88dce8": {
     "author": "Black Current",
-    "name": "Obsidian Vortex"
+    "name": "Obsidian Vortex",
+    "plays": 1
   },
   "Phantom_Membrane_20260523_6ff9d0": {
     "author": "Ghost Lattice",
-    "name": "Phantom Membrane"
+    "name": "Phantom Membrane",
+    "plays": 1
   },
   "Photonic_Expanse_20260622_1413a0": {
     "author": "Matteo Bassi",
     "created": "2026-06-22T18:17:56.700501Z",
-    "name": "Photonic Expanse"
+    "name": "Photonic Expanse",
+    "plays": 1
   },
   "Rare_Membrane_20260523_5cb2f8": {
     "author": "Odd Harmonic",
-    "name": "Rare Membrane"
+    "name": "Rare Membrane",
+    "plays": 1
   },
   "Resonant_Expanse_20260622_3f32ad": {
     "author": "Matteo Bassi",
     "created": "2026-06-22T10:34:29.974210Z",
-    "name": "Resonant Expanse"
+    "name": "Resonant Expanse",
+    "plays": 1
   },
   "Riparian_Threshold_20260720_7e32c3": {
     "author": "Lucy",
     "created": "2026-07-20T13:28:16.483589Z",
     "name": "Riparian Threshold",
-    "plays": 0,
+    "plays": 1,
     "wavetables": [
       {
         "name": "New Cherry Picker",
@@ -224,71 +245,84 @@
     "author": "bassimat",
     "created": "2026-07-20T20:36:45.940540Z",
     "name": "Sacred Codex",
-    "plays": 0
+    "plays": 1
   },
   "Shamanic_Flux_20260711_2731d0": {
     "author": "bassimat",
     "created": "2026-07-11T19:10:53.758134Z",
     "name": "Shamanic Flux",
-    "plays": 1
+    "plays": 2
   },
   "Sidereal_Sanctum_20260526_083344": {
     "author": "Orbit Scribe",
     "name": "Sidereal Sanctum",
-    "plays": 1
+    "plays": 2
   },
   "Silent_Chamber_20260523_7d6e74": {
     "author": "Quiet Vector",
-    "name": "Silent Chamber"
+    "name": "Silent Chamber",
+    "plays": 1
   },
   "Solar_Pulse_20260522_47b854": {
     "author": "Helio Drift",
-    "name": "Solar Pulse"
+    "name": "Solar Pulse",
+    "plays": 1
   },
   "Solar_Surge_20260720_c39d1f": {
     "author": "Luke56",
     "created": "2026-07-20T13:29:27.858877Z",
     "name": "Solar Surge",
-    "plays": 1
+    "plays": 3
   },
   "Solar_Whisper_20260524_975345": {
     "author": "Soft Corona",
-    "name": "Solar Whisper"
+    "name": "Solar Whisper",
+    "plays": 1
   },
   "Spectral_Field_20260523_5ddf8c": {
     "author": "Phase Gardener",
-    "name": "Spectral Field"
+    "name": "Spectral Field",
+    "plays": 1
   },
   "Spectral_Labyrinth_20260713_148942": {
     "author": "bassimat",
     "created": "2026-07-13T12:28:53.270324Z",
     "name": "Spectral Labyrinth",
-    "plays": 4
+    "plays": 5
   },
   "Spectral_Timbre_20260529_2925d7": {
     "author": "Matteo Bassi",
     "created": "2026-05-29T19:30:53.272988Z",
-    "name": "Spectral Timbre"
+    "name": "Spectral Timbre",
+    "plays": 1
   },
   "Spectral_Timbre_2_20260720_be5b34": {
     "author": "Lunar Signal",
     "created": "2026-07-20T12:09:07.558566Z",
     "name": "Spectral Timbre (2)",
+    "plays": 1
+  },
+  "Spectral_Timbre_3_20260725_e6ea33": {
+    "author": "NEARFIELD",
+    "created": "2026-07-25T11:04:49.765896Z",
+    "name": "Spectral Timbre (3)",
     "plays": 0
   },
   "Tectonic_Pulse_20260524_143cc9": {
     "author": "Faultline Radio",
-    "name": "Tectonic Pulse"
+    "name": "Tectonic Pulse",
+    "plays": 1
   },
   "Vedic_Mandala_20260622_0592b6": {
     "author": "Matteo Bassi",
     "created": "2026-06-22T09:33:43.006623Z",
     "name": "Vedic Mandala",
-    "plays": 1
+    "plays": 2
   },
   "Vedic_Undertone_20260709_0a0b17": {
     "author": "bassimat",
     "created": "2026-07-09T20:31:55.262430Z",
-    "name": "Vedic Undertone"
+    "name": "Vedic Undertone",
+    "plays": 1
   }
 }
