@@ -8001,6 +8001,20 @@ async function doSharePreset() {
   }
 
   // Modified or generated preset → upload as new shared preset
+  const params = collectParams();
+  const nameSuggestion = await api('/api/share-name-suggestion?name=' + encodeURIComponent(params.name || ''));
+  let sharedPresetName = prompt(
+    nameSuggestion?.collision
+      ? 'That preset name already exists. Choose a fresh name:'
+      : 'Choose a unique preset name:',
+    nameSuggestion?.suggested_name || params.name || 'New Drone'
+  );
+  if (sharedPresetName === null) {
+    setStatus('Share cancelled');
+    return;
+  }
+  sharedPresetName = sharedPresetName.trim() || nameSuggestion?.suggested_name || 'New Drone';
+
   // Offer a fresh alias so every shared artifact has a memorable creator.
   const creatorAdjectives = ['Velvet', 'Lunar', 'Quiet', 'Oblique', 'Astral', 'Moss', 'Copper', 'Polar', 'Soft', 'Phantom', 'Amber', 'Hidden'];
   const creatorNouns = ['Circuit', 'Nomad', 'Signal', 'Orchard', 'Relay', 'Lattice', 'Comet', 'Scribe', 'Bloom', 'Vector', 'Loom', 'Tuner'];
@@ -8026,13 +8040,25 @@ async function doSharePreset() {
   
   setStatus('Sharing…');
   try {
-    const params = collectParams();
     const parentId = currentSharedId || null;
-    const data = await api('/api/share', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params, author: username, parent_id: parentId })
-    });
+    let data;
+    while (true) {
+      data = await api('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ params, name: sharedPresetName, author: username, parent_id: parentId })
+      });
+      if (data?.code !== 'duplicate_name') break;
+      const replacement = prompt(
+        'That name was just taken. Choose another unique name:',
+        data.suggested_name || 'New Drone'
+      );
+      if (replacement === null) {
+        setStatus('Share cancelled');
+        return;
+      }
+      sharedPresetName = replacement.trim() || data.suggested_name || 'New Drone';
+    }
     if (!data.ok) { 
       // Better error message for missing GitHub token
       if (data.error && data.error.includes('not configured')) {

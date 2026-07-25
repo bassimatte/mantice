@@ -133,7 +133,7 @@
   "Magnetic_Tape_2_20260720_c8f830": {
     "author": "Velvet Scribe",
     "created": "2026-07-20T03:52:48.124454Z",
-    "name": "Magnetic Tape (2)",
+    "name": "Carvetoy Tape Quartet",
     "plays": 1,
     "wavetables": [
       {
@@ -161,7 +161,7 @@
   "Magnetic_Tape_3_20260720_f86541": {
     "author": "Detune Supersaw Supermassive",
     "created": "2026-07-20T14:36:38.006954Z",
-    "name": "Magnetic Tape (3)",
+    "name": "Brown Noise Tape Array",
     "plays": 4,
     "wavetables": [
       {
@@ -299,13 +299,13 @@
   "Spectral_Timbre_2_20260720_be5b34": {
     "author": "Lunar Signal",
     "created": "2026-07-20T12:09:07.558566Z",
-    "name": "Spectral Timbre (2)",
+    "name": "Lunar Spectral Pressure",
     "plays": 1
   },
   "Spectral_Timbre_3_20260725_e6ea33": {
     "author": "NEARFIELD",
     "created": "2026-07-25T11:04:49.765896Z",
-    "name": "Spectral Timbre (3)",
+    "name": "Nearfield Granular Spectrum",
     "plays": 0
   },
   "Tectonic_Pulse_20260524_143cc9": {

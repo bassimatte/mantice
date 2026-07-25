@@ -162,7 +162,53 @@ def _fetch_shared_manifest() -> dict:
         with urllib.request.urlopen(req, timeout=6) as resp:
             return json.loads(resp.read().decode())
     except Exception:
-        return {}
+        try:
+            return json.loads((_SHARED_DIR / "manifest.json").read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+
+
+_GENERIC_SHARED_NAMES = {"", "mantice", "untitled", "untitled preset"}
+
+
+def _shared_name_set(manifest: dict, *, exclude_id: str = "") -> set[str]:
+    """Return normalized display names from old- and new-format manifest entries."""
+    names: set[str] = set()
+    for preset_id, entry in manifest.items():
+        if preset_id == exclude_id:
+            continue
+        if isinstance(entry, str):
+            name = entry
+        elif isinstance(entry, dict):
+            name = entry.get("name", "")
+        else:
+            name = ""
+        normalized = str(name).strip().casefold()
+        if normalized:
+            names.add(normalized)
+    return names
+
+
+def _fresh_shared_preset_name(manifest: dict, *, exclude_id: str = "") -> str:
+    """Generate a memorable name that is not already present in the manifest."""
+    from .generator import _random_name
+
+    existing_names = _shared_name_set(manifest, exclude_id=exclude_id)
+    for _ in range(100):
+        candidate = _random_name().strip()
+        if candidate and candidate.casefold() not in existing_names:
+            return candidate
+    # The random vocabulary is finite. Keep the fallback readable and collision-proof.
+    while True:
+        candidate = f"Mantice Texture {uuid.uuid4().hex[:8].upper()}"
+        if candidate.casefold() not in existing_names:
+            return candidate
+
+
+def _requested_shared_name(value: object) -> str:
+    """Normalize a user-provided name, treating stock placeholders as empty."""
+    name = str(value or "").strip()
+    return "" if name.casefold() in _GENERIC_SHARED_NAMES else name
 
 
 def _update_shared_manifest(updates: dict) -> None:
@@ -1683,6 +1729,25 @@ async def export_preset_endpoint(request: Request):
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
+@app.get("/api/share-name-suggestion")
+async def share_name_suggestion(name: str = ""):
+    """Return an editable, unique display-name suggestion for a new shared preset."""
+    manifest = _fetch_shared_manifest()
+    requested_name = _requested_shared_name(name)
+    existing_names = _shared_name_set(manifest)
+    collision = bool(requested_name and requested_name.casefold() in existing_names)
+    suggested_name = (
+        _fresh_shared_preset_name(manifest)
+        if not requested_name or collision
+        else requested_name
+    )
+    return JSONResponse({
+        "ok": True,
+        "suggested_name": suggested_name,
+        "collision": collision,
+    })
+
+
 @app.post("/api/share")
 async def share_preset_endpoint(request: Request):
     """Save current preset YAML to the shared/ folder in the GitHub repo and return its ID."""
@@ -1704,36 +1769,17 @@ async def share_preset_endpoint(request: Request):
     try:
         import yaml as _yaml
         preset_data = _ui_params_to_preset(params)
-        from .generator import _random_name
-        # Fetch existing names from manifest to avoid duplicates (best-effort)
         manifest = _fetch_shared_manifest()
-        # Handle both old format (string) and new format (dict with metadata)
-        existing_names = set()
-        for v in manifest.values():
-            if isinstance(v, str):
-                existing_names.add(v.lower())  # old format: "Preset Name"
-            elif isinstance(v, dict):
-                existing_names.add(v.get("name", "").lower())  # new format: {"name": "...", "author": "..."}
-        
-        # Use the user's preset name if it exists and is meaningful, otherwise generate one
-        user_name = params.get("name", "").strip()
-        generic_names = ['MANTICE', 'Untitled', 'untitled', '']
-        if user_name and user_name not in generic_names:
-            # User has a meaningful name, use it (add suffix if duplicate)
-            preset_name = user_name
-            if preset_name.lower() in existing_names:
-                # Add a numeric suffix to avoid collision
-                for i in range(2, 100):
-                    candidate = f"{preset_name} ({i})"
-                    if candidate.lower() not in existing_names:
-                        preset_name = candidate
-                        break
-        else:
-            # No meaningful name, generate a random one (up to 20 attempts)
-            for _ in range(20):
-                preset_name = _random_name()
-                if preset_name.lower() not in existing_names:
-                    break
+        existing_names = _shared_name_set(manifest)
+        requested_name = _requested_shared_name(body.get("name", params.get("name", "")))
+        if requested_name and requested_name.casefold() in existing_names:
+            return JSONResponse({
+                "ok": False,
+                "error": "That preset name is already in the gallery",
+                "code": "duplicate_name",
+                "suggested_name": _fresh_shared_preset_name(manifest),
+            }, status_code=409)
+        preset_name = requested_name or _fresh_shared_preset_name(manifest)
         
         preset_data["meta"]["name"] = preset_name
         preset_data["meta"]["author"] = author  # NEW: Store author in YAML metadata
@@ -1848,16 +1894,14 @@ async def rename_shared_preset(request: Request):
         return JSONResponse({"ok": False, "error": "Invalid id"}, status_code=400)
     try:
         manifest = _fetch_shared_manifest()
-        # Handle both old format (string) and new format (dict with metadata)
-        taken = set()
-        for k, v in manifest.items():
-            if k != preset_id:
-                if isinstance(v, str):
-                    taken.add(v.lower())
-                elif isinstance(v, dict):
-                    taken.add(v.get("name", "").lower())
-        if new_name.lower() in taken:
-            return JSONResponse({"ok": False, "error": "Name already in use"}, status_code=409)
+        taken = _shared_name_set(manifest, exclude_id=preset_id)
+        if new_name.casefold() in taken:
+            return JSONResponse({
+                "ok": False,
+                "error": "Name already in use",
+                "code": "duplicate_name",
+                "suggested_name": _fresh_shared_preset_name(manifest, exclude_id=preset_id),
+            }, status_code=409)
         
         # Preserve existing metadata if present
         existing_entry = manifest.get(preset_id)
