@@ -165,6 +165,65 @@ header {
   left: calc(220px + (100% - 220px) / 2);
   transform: translateX(-50%);
 }
+.monitor-volume {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 142px;
+}
+.monitor-mobile { display: none; }
+.monitor-mute {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+.monitor-mute:hover,
+.monitor-mute:focus-visible {
+  color: var(--accent);
+  border-color: var(--border);
+  outline: none;
+}
+.monitor-volume input[type="range"] {
+  width: 82px;
+  height: 26px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.monitor-level {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 6px;
+  height: 20px;
+  overflow: hidden;
+  background: var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, var(--text-dim));
+}
+.monitor-level-fill {
+  width: 100%;
+  height: 0;
+  background: var(--success);
+  transition: height 60ms linear, background-color 100ms linear;
+}
+.monitor-level.warm .monitor-level-fill { background: var(--engine-fm); }
+.monitor-level.hot .monitor-level-fill { background: var(--danger); }
+.monitor-volume-value {
+  width: 38px;
+  color: var(--text-dim);
+  font-size: 9px;
+  text-align: right;
+  white-space: nowrap;
+}
+.monitor-volume.boosted .monitor-volume-value,
+.monitor-volume.boosted .monitor-mute {
+  color: var(--engine-fm);
+}
 header .status {
   margin-left: auto;
 }
@@ -856,6 +915,22 @@ main {
     flex: 1;
     justify-content: center;
   }
+  .monitor-desktop { display: none; }
+  .monitor-mobile {
+    display: flex;
+    min-width: 112px;
+    justify-content: flex-end;
+  }
+  .monitor-mobile input[type="range"] {
+    width: 72px;
+    min-height: 32px;
+    touch-action: pan-y;
+  }
+  .monitor-mobile .monitor-volume-value { display: none; }
+  .monitor-mobile .monitor-mute {
+    width: 32px;
+    height: 32px;
+  }
   header .status { display: none; }
   .now-playing { display: none; }
   .zoom-btn { display: none; }
@@ -869,7 +944,9 @@ main {
 
   /* Preset name bar below header */
   .mobile-now-playing {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     position: sticky;
     top: 40px;
     z-index: 899;
@@ -882,6 +959,13 @@ main {
     padding: 3px 8px;
     min-height: 18px;
     line-height: 18px;
+  }
+  #mobile-now-playing {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Now-playing and status hidden on mobile (save space) */
@@ -1943,6 +2027,12 @@ button:disabled {
   <div class="header-transport">
     <button class="transport-btn btn-preview" id="btn-preview" title="Play [A]">▶</button>
     <button class="transport-btn btn-stop" id="btn-stop" title="Stop [S]">⏹</button>
+    <div class="monitor-volume monitor-desktop" title="Listening volume only — presets and downloads are unchanged">
+      <button class="monitor-mute" type="button" data-monitor-mute aria-label="Mute monitor" aria-pressed="false">🔊</button>
+      <input type="range" min="-40" max="6" step="1" value="0" data-monitor-volume aria-label="Monitor volume">
+      <span class="monitor-level" data-monitor-level role="meter" aria-label="Monitor output level" aria-valuemin="-60" aria-valuemax="0" aria-valuenow="-60"><span class="monitor-level-fill"></span></span>
+      <span class="monitor-volume-value" data-monitor-value>0 dB</span>
+    </div>
     <span id="live-indicator" title="Applying changes…"></span>
     <svg class="progress-ring" id="progress-ring" viewBox="0 0 64 64" style="display:none">
       <circle class="ring-bg" cx="32" cy="32" r="28"/>
@@ -2026,7 +2116,15 @@ button:disabled {
     </div>
   </div>
 </header>
-<div id="mobile-now-playing" class="mobile-now-playing"></div>
+<div class="mobile-now-playing">
+  <span id="mobile-now-playing"></span>
+  <div class="monitor-volume monitor-mobile" title="Listening volume only — presets and downloads are unchanged">
+    <button class="monitor-mute" type="button" data-monitor-mute aria-label="Mute monitor" aria-pressed="false">🔊</button>
+    <input type="range" min="-40" max="6" step="1" value="0" data-monitor-volume aria-label="Monitor volume">
+    <span class="monitor-level" data-monitor-level role="meter" aria-label="Monitor output level" aria-valuemin="-60" aria-valuemax="0" aria-valuenow="-60"><span class="monitor-level-fill"></span></span>
+    <span class="monitor-volume-value" data-monitor-value>0 dB</span>
+  </div>
+</div>
 
 <!-- Docs Modal -->
 <div class="docs-overlay" id="docs-overlay">
@@ -5700,6 +5798,157 @@ let renderedBuffer = null;
 let playbackCtx = null;
 let playbackSource = null;
 
+// Browser-only listening level. It never enters collectParams(), preset files,
+// backend rendering, or downloads.
+const MONITOR_VOLUME_KEY = 'mantice_monitor_volume_db_v1';
+const MONITOR_MUTED_KEY = 'mantice_monitor_muted_v1';
+let monitorVolumeDb = 0;
+let monitorMuted = false;
+try {
+  const savedMonitorDb = Number(localStorage.getItem(MONITOR_VOLUME_KEY));
+  if (Number.isFinite(savedMonitorDb)) monitorVolumeDb = Math.max(-40, Math.min(6, savedMonitorDb));
+  monitorMuted = localStorage.getItem(MONITOR_MUTED_KEY) === '1';
+} catch (_) {}
+
+const monitorOutputsByContext = new WeakMap();
+const activeMonitorOutputs = new Set();
+let monitorMeterAnimation = null;
+let monitorDisplayedPeak = 0;
+
+function monitorLinearGain() {
+  return monitorMuted ? 0 : Math.pow(10, monitorVolumeDb / 20);
+}
+
+function monitorInputFor(context) {
+  const existing = monitorOutputsByContext.get(context);
+  if (existing) return existing.gain;
+
+  const gain = context.createGain();
+  gain.gain.value = monitorLinearGain();
+  const limiter = context.createDynamicsCompressor();
+  limiter.threshold.value = -1;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.12;
+  const meter = context.createAnalyser();
+  meter.fftSize = 256;
+  meter.smoothingTimeConstant = 0;
+  gain.connect(limiter);
+  limiter.connect(meter);
+  meter.connect(context.destination);
+
+  const output = {
+    context,
+    gain,
+    limiter,
+    meter,
+    meterData: new Float32Array(meter.fftSize),
+  };
+  monitorOutputsByContext.set(context, output);
+  activeMonitorOutputs.add(output);
+  ensureMonitorMeterRunning();
+  return gain;
+}
+
+function ensureMonitorMeterRunning() {
+  if (monitorMeterAnimation === null) {
+    monitorMeterAnimation = requestAnimationFrame(drawMonitorLevel);
+  }
+}
+
+function drawMonitorLevel() {
+  let peak = 0;
+  let hasOpenContext = false;
+  activeMonitorOutputs.forEach(output => {
+    if (output.context.state === 'closed') {
+      activeMonitorOutputs.delete(output);
+      return;
+    }
+    hasOpenContext = true;
+    output.meter.getFloatTimeDomainData(output.meterData);
+    for (let i = 0; i < output.meterData.length; i++) {
+      peak = Math.max(peak, Math.abs(output.meterData[i]));
+    }
+  });
+
+  // Immediate attack with a gentle visual release keeps drone levels legible.
+  monitorDisplayedPeak = Math.max(peak, monitorDisplayedPeak * 0.88);
+  const db = Math.max(-60, Math.min(0, 20 * Math.log10(Math.max(monitorDisplayedPeak, 0.001))));
+  const percent = ((db + 60) / 60) * 100;
+  document.querySelectorAll('[data-monitor-level]').forEach(level => {
+    level.querySelector('.monitor-level-fill').style.height = `${percent.toFixed(1)}%`;
+    level.classList.toggle('warm', db >= -12 && db < -3);
+    level.classList.toggle('hot', db >= -3);
+    level.setAttribute('aria-valuenow', db.toFixed(1));
+    level.setAttribute('aria-valuetext', `${db.toFixed(1)} decibels full scale`);
+    level.title = `Monitor output ${db.toFixed(1)} dBFS`;
+  });
+
+  monitorMeterAnimation = hasOpenContext
+    ? requestAnimationFrame(drawMonitorLevel)
+    : null;
+}
+
+function applyMonitorVolume() {
+  const target = monitorLinearGain();
+  activeMonitorOutputs.forEach(output => {
+    if (output.context.state === 'closed') {
+      activeMonitorOutputs.delete(output);
+      return;
+    }
+    try {
+      output.gain.gain.cancelScheduledValues(output.context.currentTime);
+      output.gain.gain.setTargetAtTime(target, output.context.currentTime, 0.015);
+    } catch (_) {}
+  });
+  ensureMonitorMeterRunning();
+}
+
+function syncMonitorVolumeUI() {
+  document.querySelectorAll('[data-monitor-volume]').forEach(input => {
+    input.value = String(monitorVolumeDb);
+    input.setAttribute('aria-valuetext', monitorMuted ? 'Muted' : `${monitorVolumeDb} decibels`);
+  });
+  document.querySelectorAll('[data-monitor-value]').forEach(value => {
+    value.textContent = monitorMuted
+      ? 'MUTE'
+      : `${monitorVolumeDb > 0 ? '+' : ''}${monitorVolumeDb} dB`;
+  });
+  document.querySelectorAll('[data-monitor-mute]').forEach(button => {
+    button.textContent = monitorMuted ? '🔇' : monitorVolumeDb <= -20 ? '🔈' : '🔊';
+    button.setAttribute('aria-pressed', String(monitorMuted));
+    button.setAttribute('aria-label', monitorMuted ? 'Unmute monitor' : 'Mute monitor');
+  });
+  document.querySelectorAll('.monitor-volume').forEach(control => {
+    control.classList.toggle('boosted', !monitorMuted && monitorVolumeDb > 0);
+  });
+}
+
+function initMonitorVolume() {
+  document.querySelectorAll('[data-monitor-volume]').forEach(input => {
+    input.addEventListener('input', () => {
+      monitorVolumeDb = Math.max(-40, Math.min(6, Number(input.value) || 0));
+      monitorMuted = false;
+      try {
+        localStorage.setItem(MONITOR_VOLUME_KEY, String(monitorVolumeDb));
+        localStorage.setItem(MONITOR_MUTED_KEY, '0');
+      } catch (_) {}
+      syncMonitorVolumeUI();
+      applyMonitorVolume();
+    });
+  });
+  document.querySelectorAll('[data-monitor-mute]').forEach(button => {
+    button.addEventListener('click', () => {
+      monitorMuted = !monitorMuted;
+      try { localStorage.setItem(MONITOR_MUTED_KEY, monitorMuted ? '1' : '0'); } catch (_) {}
+      syncMonitorVolumeUI();
+      applyMonitorVolume();
+    });
+  });
+  syncMonitorVolumeUI();
+}
+
 // Layer colors for aurora ribbons (matching existing layer color scheme)
 const AURORA_COLORS = [
   [26, 58, 122],   // sub — deep blue
@@ -6736,7 +6985,7 @@ async function _flushAndRestart() {
   startupGain = streamingCtx.createGain();
   startupGain.gain.value = 0;
   streamAnalyser.connect(startupGain);
-  startupGain.connect(streamingCtx.destination);
+  startupGain.connect(monitorInputFor(streamingCtx));
 
   // 5. Restart server stream with updated params
   const restartParams = collectParams();
@@ -6860,7 +7109,7 @@ async function doPlay() {
   playbackSource = playbackCtx.createBufferSource();
   playbackSource.buffer = renderedBuffer;
   playbackSource.connect(analyser);
-  analyser.connect(playbackCtx.destination);
+  analyser.connect(monitorInputFor(playbackCtx));
   playbackSource.onended = () => { setStatus('PLAYBACK ENDED'); stopAurora(); stopSpectrum(); };
   playbackSource.start(0);
   drawSpectrum();
@@ -7110,7 +7359,7 @@ async function doPreview(options = {}) {
   startupGain = streamingCtx.createGain();
   startupGain.gain.value = 0;          // start silent — ramp scheduled on first chunk
   streamAnalyser.connect(startupGain);
-  startupGain.connect(streamingCtx.destination);
+  startupGain.connect(monitorInputFor(streamingCtx));
   drawSpectrum();
   startAurora();
 
@@ -7202,7 +7451,7 @@ async function doPreview(options = {}) {
       if (chunksBuffered >= PRE_BUFFER_CHUNKS) {
         const source = streamingCtx.createBufferSource();
         source.buffer = buffer;
-        source.connect(spectrumAnalyser || streamingCtx.destination);
+        source.connect(spectrumAnalyser || monitorInputFor(streamingCtx));
         const now = streamingCtx.currentTime;
         if (nextPlayTime < now)
           // MANT-18: recovery gap instead of hard-snap — brief smooth pause, not a click
@@ -7316,7 +7565,7 @@ async function doPreviewSegmented(options = {}) {
   // Mobile uses segmented playback instead of the WebSocket stream, so it
   // needs its own analyser graph to drive both visualizers.
   const segmentAnalyser = startSpectrum(_segCtx);
-  segmentAnalyser.connect(_segCtx.destination);
+  segmentAnalyser.connect(monitorInputFor(_segCtx));
 
   startMeterPolling();
   drawSpectrum();
@@ -8195,7 +8444,7 @@ async function auditionGalleryPreset(preset) {
     if (!galleryAudition || galleryAudition.id !== preset.id) return;
     const source = context.createBufferSource();
     source.buffer = buffer;
-    source.connect(context.destination);
+    source.connect(monitorInputFor(context));
     galleryAudition.source = source;
     galleryAudition.token = token;
     const startedAt = context.currentTime;
@@ -10020,6 +10269,7 @@ function initFirstGuide() {
 }
 
 function init() {
+  initMonitorVolume();
   loadPresetList();
   initGenerationHistory();
   initParamSliderUX();
@@ -10656,7 +10906,7 @@ async function doJourneyPreview() {
     const audioBuf = await ctx.decodeAudioData(arrayBuf);
     const source = ctx.createBufferSource();
     source.buffer = audioBuf;
-    source.connect(ctx.destination);
+    source.connect(monitorInputFor(ctx));
     source.start();
     setStatus('▶ Playing journey preview…');
     source.onended = () => {
@@ -10739,7 +10989,7 @@ async function doJourneyStream() {
   startupGain = streamingCtx.createGain();
   startupGain.gain.value = 0;
   streamAnalyser.connect(startupGain);
-  startupGain.connect(streamingCtx.destination);
+  startupGain.connect(monitorInputFor(streamingCtx));
   drawSpectrum();
   startAurora();
 
@@ -10802,7 +11052,7 @@ async function doJourneyStream() {
     if (chunksBuffered >= PRE_BUFFER_CHUNKS) {
       const source = streamingCtx.createBufferSource();
       source.buffer = buffer;
-      source.connect(spectrumAnalyser || streamingCtx.destination);
+      source.connect(spectrumAnalyser || monitorInputFor(streamingCtx));
       const now = streamingCtx.currentTime;
       if (nextPlayTime < now)
         nextPlayTime = now + PRE_BUFFER_CHUNKS * (CHUNK_SIZE / STREAM_SR) + 0.05;
