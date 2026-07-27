@@ -222,6 +222,34 @@
     "name": "Rare Membrane",
     "plays": 1
   },
+  "Reezy_Glory__Drone_20260727_88fadf": {
+    "author": "Reezy Glory Drone",
+    "created": "2026-07-27T01:34:56.580015Z",
+    "name": "Reezy Glory  Drone",
+    "plays": 0,
+    "wavetables": [
+      {
+        "name": "Fm Table Brown Noise Fm Saw Designed Vital",
+        "path": "shared/wavetables/8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc.wav",
+        "sha256": "8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc"
+      },
+      {
+        "name": "Fm Table Brown Noise Fm Saw Designed Vital",
+        "path": "shared/wavetables/8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc.wav",
+        "sha256": "8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc"
+      },
+      {
+        "name": "Fm Table Brown Noise Fm Saw Designed Vital",
+        "path": "shared/wavetables/8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc.wav",
+        "sha256": "8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc"
+      },
+      {
+        "name": "Fm Table Sine Fm Saw To Mild Designed Phaseplant",
+        "path": "shared/wavetables/8dc7fe09b19baeb24266906864fdbeb6c81ee6976d6de5366eea65dbe00b8301.wav",
+        "sha256": "8dc7fe09b19baeb24266906864fdbeb6c81ee6976d6de5366eea65dbe00b8301"
+      }
+    ]
+  },
   "Resonant_Expanse_20260622_3f32ad": {
     "author": "Matteo Bassi",
     "created": "2026-06-22T10:34:29.974210Z",
