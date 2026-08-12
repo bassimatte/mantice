@@ -4376,7 +4376,7 @@ function doAddLayer() {
     blend: 1.0,
     flanger_wet: 0, flanger_rate: 0.25, flanger_depth: 0.5, flanger_feedback: 0.4,
     phaser_wet: 0, phaser_rate: 0.5, phaser_depth: 0.7, phaser_center_hz: 800, phaser_feedback: 0, phaser_stages: 4,
-    spatial_motion: { quadrant: 'front', speed: 0.005, trajectory_x: 'sine', trajectory_y: 'cosine' }
+    spatial_motion: { quadrant: 'center', speed: 0.005, trajectory_x: 'pendulum', trajectory_y: 'none' }
   };
   currentParams.layers.push(newLayer);
   activeLayerIdx = currentParams.layers.length - 1;
