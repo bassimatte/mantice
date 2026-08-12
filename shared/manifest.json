@@ -19,12 +19,12 @@
   "Arcane_Canopy_20260528_2ec68f": {
     "author": "Moss Circuit",
     "name": "Arcane Canopy",
-    "plays": 1
+    "plays": 2
   },
   "Burning_Monolith_20260524_8bbd4b": {
     "author": "Ember Static",
     "name": "Burning Monolith",
-    "plays": 1
+    "plays": 2
   },
   "Burning_Monolith_20260524_cdfc5f": {
     "author": "Oblique Signal",
@@ -64,7 +64,7 @@
     "author": "bassimat",
     "created": "2026-07-11T19:10:12.260111Z",
     "name": "Ethereal Machine",
-    "plays": 2
+    "plays": 3
   },
   "Frozen_Monolith_20260524_3fecc8": {
     "author": "Polar Relay",
@@ -75,13 +75,13 @@
     "author": "Matteo Bassi",
     "created": "2026-05-29T20:31:13.716212Z",
     "name": "Harmonic Chamber",
-    "plays": 1
+    "plays": 2
   },
   "Hermetic_Oscillation_20260714_4325e1": {
     "author": "d8i",
     "created": "2026-07-14T06:10:04.718109Z",
     "name": "Hermetic Oscillation",
-    "plays": 3
+    "plays": 4
   },
   "Infinite_Cathedral_20260524_9abe90": {
     "author": "Endless Choir",
@@ -121,7 +121,7 @@
     "author": "CT",
     "created": "2026-07-19T16:24:59.895003Z",
     "name": "Magnetic Tape",
-    "plays": 1,
+    "plays": 2,
     "wavetables": [
       {
         "name": "ct-wt-1784477892-spectral_squeeze-256-2048-32",
@@ -183,12 +183,13 @@
   },
   "Molten_Membrane_20260521_8cf372": {
     "author": "Basalt Echo",
-    "name": "Molten Membrane"
+    "name": "Molten Membrane",
+    "plays": 1
   },
   "Molten_Membrane_20260523_5cb2f8": {
     "author": "Cinder Bloom",
     "name": "Ember Resonance",
-    "plays": 2
+    "plays": 3
   },
   "Obsidian_Chamber_20260524_bb126d": {
     "author": "Nocturne Engine",
@@ -215,18 +216,52 @@
     "author": "Matteo Bassi",
     "created": "2026-06-22T18:17:56.700501Z",
     "name": "Photonic Expanse",
-    "plays": 1
+    "plays": 2
   },
   "Rare_Membrane_20260523_5cb2f8": {
     "author": "Odd Harmonic",
     "name": "Rare Membrane",
     "plays": 1
   },
+  "Reezy_Glory__Drone_20260727_88fadf": {
+    "author": "Reezy Glory Drone",
+    "created": "2026-07-27T01:34:56.580015Z",
+    "name": "Reezy Glory  Drone",
+    "plays": 2,
+    "wavetables": [
+      {
+        "name": "Fm Table Brown Noise Fm Saw Designed Vital",
+        "path": "shared/wavetables/8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc.wav",
+        "sha256": "8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc"
+      },
+      {
+        "name": "Fm Table Brown Noise Fm Saw Designed Vital",
+        "path": "shared/wavetables/8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc.wav",
+        "sha256": "8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc"
+      },
+      {
+        "name": "Fm Table Brown Noise Fm Saw Designed Vital",
+        "path": "shared/wavetables/8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc.wav",
+        "sha256": "8fe6ab69faa761a3b88aaeb0cac61c9300da5fbe1816266c0c1a2fa50d308ecc"
+      },
+      {
+        "name": "Fm Table Sine Fm Saw To Mild Designed Phaseplant",
+        "path": "shared/wavetables/8dc7fe09b19baeb24266906864fdbeb6c81ee6976d6de5366eea65dbe00b8301.wav",
+        "sha256": "8dc7fe09b19baeb24266906864fdbeb6c81ee6976d6de5366eea65dbe00b8301"
+      }
+    ]
+  },
   "Resonant_Expanse_20260622_3f32ad": {
     "author": "Matteo Bassi",
     "created": "2026-06-22T10:34:29.974210Z",
     "name": "Resonant Expanse",
     "plays": 1
+  },
+  "Resonant_Field_20260812_d2d6da": {
+    "author": "Matteo Bassi",
+    "created": "2026-08-12T19:09:41.600198Z",
+    "name": "Resonant Field",
+    "plays": 0
   },
   "Riparian_Threshold_20260720_7e32c3": {
     "author": "Lucy",
@@ -245,7 +280,7 @@
     "author": "bassimat",
     "created": "2026-07-20T20:36:45.940540Z",
     "name": "Sacred Codex",
-    "plays": 1
+    "plays": 2
   },
   "Shamanic_Flux_20260711_2731d0": {
     "author": "bassimat",
@@ -272,7 +307,7 @@
     "author": "Luke56",
     "created": "2026-07-20T13:29:27.858877Z",
     "name": "Solar Surge",
-    "plays": 3
+    "plays": 4
   },
   "Solar_Whisper_20260524_975345": {
     "author": "Soft Corona",
@@ -300,7 +335,7 @@
     "author": "Lunar Signal",
     "created": "2026-07-20T12:09:07.558566Z",
     "name": "Lunar Spectral Pressure",
-    "plays": 1
+    "plays": 2
   },
   "Spectral_Timbre_3_20260725_e6ea33": {
     "author": "NEARFIELD",
@@ -311,7 +346,7 @@
   "Tectonic_Pulse_20260524_143cc9": {
     "author": "Faultline Radio",
     "name": "Tectonic Pulse",
-    "plays": 1
+    "plays": 2
   },
   "Vedic_Mandala_20260622_0592b6": {
     "author": "Matteo Bassi",
