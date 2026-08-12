@@ -20,6 +20,15 @@ from engine.streaming_engine import StreamingDroneEngine
 
 
 class WavetableLayerTests(unittest.TestCase):
+    def test_new_browser_layers_use_python_compatible_spatial_defaults(self):
+        expected = (
+            "spatial_motion: { quadrant: 'center', speed: 0.005, "
+            "trajectory_x: 'pendulum', trajectory_y: 'none' }"
+        )
+        for frontend in ("engine/static/index.html", "docs/index.html"):
+            with self.subTest(frontend=frontend):
+                self.assertIn(expected, Path(frontend).read_text(encoding="utf-8"))
+
     def test_repository_backed_shared_wavetables_load_directly(self):
         shared_dir = Path("shared")
         wavetable_presets = []

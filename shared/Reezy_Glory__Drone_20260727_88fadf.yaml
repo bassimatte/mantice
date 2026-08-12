@@ -365,8 +365,8 @@ layers:
   drift: 0.01
   volume_db: 0.0
   band: mid
-  quadrant: front
-  trajectory_x: sine
+  quadrant: center
+  trajectory_x: pendulum
   trajectory_y: none
   speed: 0.005
   pan: 0.0

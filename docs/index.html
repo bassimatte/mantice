@@ -2139,6 +2139,7 @@ button:disabled {
       <button class="docs-tab" data-tab="tab-run">Run Locally</button>
       <button class="docs-tab" data-tab="tab-settings">Settings</button>
       <button class="docs-tab" data-tab="tab-shortcuts">Shortcuts</button>
+      <button class="docs-tab" data-tab="tab-privacy">Privacy</button>
       <button class="docs-tab" data-tab="tab-credits">Credits</button>
     </div>
     <div class="docs-body">
@@ -2710,6 +2711,16 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
           <tr><td>🎛 Collapse cards</td><td>Click any section header (Settings, Binaural, Reverb, Earth&Air) to collapse/expand</td></tr>
           <tr><td>📱 Mobile</td><td>Use the ☰ hamburger menu on small screens to toggle the sidebar</td></tr>
         </table>
+      </div>
+
+      <!-- ═══ TAB: Privacy ═══ -->
+      <div class="docs-panel" id="tab-privacy">
+        <h3>Privacy</h3>
+        <div class="philosophy-section">
+          <p>The public MANTICE website uses <a href="https://umami.is/" target="_blank" rel="noopener" style="color:var(--accent)">Umami</a> for anonymous, aggregate usage statistics. Umami does not use cookies, fingerprint visitors, or track people across websites.</p>
+          <p>MANTICE records only predefined actions such as starting audio, loading a category of preset, completing a generation, opening the gallery, using a wavetable source, or completing a render. It does not send preset names, creator names, sound parameters, imported filenames, search text, audio, samples, wavetables, or free-form user content.</p>
+          <p>Analytics runs only on the official <code>bassimatte.github.io</code> website. Local browser and Python installations, repository forks, and preview deployments are not tracked. URL query strings and fragments are excluded, and browser Do Not Track preferences are respected.</p>
+        </div>
       </div>
 
       <!-- ═══ TAB: Credits ═══ -->
@@ -3406,6 +3417,112 @@ const MANTICE_API_BASE = window.MANTICE_API_BASE || (
 const IS_LOCAL_WEB_INTERFACE = !MANTICE_API_BASE &&
   ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 
+// ── Privacy-safe product analytics ─────────────────────────────────────────
+// Umami is intentionally hosted-site-only. Local installs, repository
+// forks, imported names, preset IDs, search text, and parameter values never
+// leave the browser through this wrapper.
+const MANTICE_ANALYTICS_HOST = 'bassimatte.github.io';
+const MANTICE_ANALYTICS_PATH = '/mantice';
+// Public, non-secret identifier copied from Umami: Settings -> Websites -> Edit.
+const MANTICE_UMAMI_WEBSITE_ID = 'b2300e0b-bc69-49d7-ad05-06f980b5ed38';
+const MANTICE_UMAMI_SCRIPT_URL = 'https://cloud.umami.is/script.js';
+const MANTICE_ANALYTICS_SCHEMA = Object.freeze({
+  audio_started: {
+    source: ['official', 'community', 'local', 'gallery', 'generator', 'mutation', 'unknown'],
+    playback: ['stream', 'segmented'],
+  },
+  preset_loaded: {
+    source: ['official', 'community', 'local', 'gallery'],
+    category: ['essential', 'cinematic', 'subharmonic', 'sacred', 'experimental', 'community', 'local', 'other'],
+  },
+  generator_completed: {
+    mood: ['minimal', 'dark', 'bright', 'cinematic', 'classic', 'industrial', 'nature', 'custom', 'other'],
+    fm: ['on', 'off'], subtractive: ['on', 'off'], granular: ['on', 'off'], wavetable: ['on', 'off'],
+  },
+  candidate_selected: { texture: ['A', 'B', 'C'] },
+  mutation_completed: { amount: ['subtle', 'medium', 'strong'] },
+  gallery_opened: { sort: ['newest', 'oldest', 'name', 'complexity', 'lowest', 'popular', 'remixed', 'favorites'] },
+  gallery_auditioned: { kind: ['community', 'candidate'] },
+  gallery_favorite_changed: { action: ['added', 'removed'] },
+  wavetable_action: { method: ['builtin', 'upload', 'create', 'search'] },
+  render_completed: {
+    format: ['wav', 'flac', 'ogg', 'mp3'], quality: ['standard', 'hires'],
+    duration: ['short', 'medium', 'long'], normalized: ['on', 'off'],
+  },
+  preset_file_action: { action: ['imported', 'exported'] },
+  preset_shared: { mode: ['existing_link', 'new_upload'], source: ['official', 'community', 'edited', 'generated'] },
+  guide_completed: { guide: ['first_breath', 'deep_dive'] },
+});
+
+const pendingAnalyticsEvents = [];
+
+function analyticsIsConfigured() {
+  const isCanonicalPage = location.hostname === MANTICE_ANALYTICS_HOST &&
+    (location.pathname === MANTICE_ANALYTICS_PATH ||
+      location.pathname.startsWith(`${MANTICE_ANALYTICS_PATH}/`));
+  return isCanonicalPage &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      .test(MANTICE_UMAMI_WEBSITE_ID);
+}
+
+function sendAnalyticsEvent(eventName, properties) {
+  if (typeof window.umami?.track !== 'function') return false;
+  window.umami.track(eventName, properties);
+  return true;
+}
+
+function initAnalytics() {
+  if (!analyticsIsConfigured() || document.querySelector('script[data-mantice-analytics]')) return false;
+  const script = document.createElement('script');
+  script.defer = true;
+  script.src = MANTICE_UMAMI_SCRIPT_URL;
+  script.dataset.websiteId = MANTICE_UMAMI_WEBSITE_ID;
+  script.dataset.domains = MANTICE_ANALYTICS_HOST;
+  script.dataset.excludeSearch = 'true';
+  script.dataset.excludeHash = 'true';
+  script.dataset.doNotTrack = 'true';
+  script.dataset.manticeAnalytics = 'umami';
+  script.addEventListener('load', () => {
+    pendingAnalyticsEvents.splice(0).forEach(({ eventName, properties }) => {
+      sendAnalyticsEvent(eventName, properties);
+    });
+  });
+  document.head.appendChild(script);
+  return true;
+}
+
+function trackUsage(eventName, properties = {}) {
+  if (!analyticsIsConfigured()) return false;
+  const schema = MANTICE_ANALYTICS_SCHEMA[eventName];
+  if (!schema) return false;
+  const props = {};
+  Object.entries(schema).forEach(([key, allowed]) => {
+    const value = String(properties[key] ?? '');
+    if (allowed.includes(value)) props[key] = value;
+  });
+  if (!sendAnalyticsEvent(eventName, props) && pendingAnalyticsEvents.length < 20) {
+    pendingAnalyticsEvents.push({ eventName, properties: props });
+  }
+  return true;
+}
+
+initAnalytics();
+
+function analyticsCategory(value) {
+  const category = String(value || '').toLowerCase();
+  return MANTICE_ANALYTICS_SCHEMA.preset_loaded.category.includes(category) ? category : 'other';
+}
+
+function analyticsDuration(seconds) {
+  const duration = Number(seconds) || 0;
+  if (duration <= 30) return 'short';
+  if (duration <= 180) return 'medium';
+  return 'long';
+}
+
+let currentAnalyticsSource = 'unknown';
+let audioStartTracked = false;
+
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
 }
@@ -3494,6 +3611,8 @@ async function loadPresetList() {
         renderPresetList();
         applyParamsToUI(currentParams);
         markClean();
+        currentAnalyticsSource = 'community';
+        trackUsage('preset_loaded', { source: 'community', category: 'community' });
         setStatus('🔗 Shared preset loaded: ' + displayName);
         return;
       } else {
@@ -3522,7 +3641,11 @@ async function loadPresetList() {
     const isMobile = window.innerWidth <= 768;
     const defaultName = 'Magnetic Tape';
     const defaultPreset = allPresets.find(p => p.name === defaultName) || allPresets[0];
-    loadPreset(defaultPreset.path, document.querySelector(`.preset-item[data-path="${defaultPreset.path}"]`));
+    loadPreset(
+      defaultPreset.path,
+      document.querySelector(`.preset-item[data-path="${defaultPreset.path}"]`),
+      { track: false },
+    );
   }
 }
 
@@ -3638,6 +3761,8 @@ function renderPresetList() {
         
         applyParamsToUI(currentParams);
         markClean();
+        currentAnalyticsSource = 'community';
+        trackUsage('preset_loaded', { source: 'community', category: 'community' });
         updateNowPlaying();
         setStatus('Shared preset loaded');
       });
@@ -3672,6 +3797,8 @@ function renderPresetList() {
       
       applyParamsToUI(currentParams);
       markClean();
+      currentAnalyticsSource = 'local';
+      trackUsage('preset_loaded', { source: 'local', category: 'local' });
       updateNowPlaying(entry.name);
       setStatus('Local preset loaded: ' + entry.name);
     });
@@ -3679,7 +3806,7 @@ function renderPresetList() {
 }
 
 // ── Load a preset ───────────────────────────────────────────────────────────
-async function loadPreset(path, el) {
+async function loadPreset(path, el, analyticsOptions = {}) {
   document.querySelectorAll('.preset-item').forEach(e => e.classList.remove('active'));
   if (el) el.classList.add('active');
 
@@ -3702,6 +3829,14 @@ async function loadPreset(path, el) {
   markClean();
   undoStack.length = 0;
   redoStack.length = 0;
+  const presetEntry = allPresets.find(preset => preset.path === path);
+  currentAnalyticsSource = 'official';
+  if (analyticsOptions.track !== false) {
+    trackUsage('preset_loaded', {
+      source: 'official',
+      category: analyticsCategory(presetEntry?.category),
+    });
+  }
   updateNowPlaying();
   setStatus('Preset loaded');
 }
@@ -3731,6 +3866,8 @@ async function loadCommunityPreset(id, el) {
   markClean();
   undoStack.length = 0;
   redoStack.length = 0;
+  currentAnalyticsSource = 'community';
+  trackUsage('preset_loaded', { source: 'community', category: 'community' });
   updateNowPlaying();
   setStatus('Community preset loaded: ' + displayName);
 }
@@ -4239,7 +4376,7 @@ function doAddLayer() {
     blend: 1.0,
     flanger_wet: 0, flanger_rate: 0.25, flanger_depth: 0.5, flanger_feedback: 0.4,
     phaser_wet: 0, phaser_rate: 0.5, phaser_depth: 0.7, phaser_center_hz: 800, phaser_feedback: 0, phaser_stages: 4,
-    spatial_motion: { quadrant: 'front', speed: 0.005, trajectory_x: 'sine', trajectory_y: 'cosine' }
+    spatial_motion: { quadrant: 'center', speed: 0.005, trajectory_x: 'pendulum', trajectory_y: 'none' }
   };
   currentParams.layers.push(newLayer);
   activeLayerIdx = currentParams.layers.length - 1;
@@ -4562,8 +4699,8 @@ function showLayerParams(layer) {
         </select>
         <div style="display:flex; gap:5px; flex-wrap:wrap;">
           <button id="lp-wavetable-import" class="btn btn-outline" type="button" title="Upload a WAV wavetable" style="margin:0; padding:4px 8px; flex:1 1 64px;">Upload</button>
-          <a href="https://www.carvetoy.online/" target="_blank" rel="noopener" class="btn btn-outline" title="Create a wavetable with CarveToy" style="margin:0; padding:4px 8px; flex:1 1 64px; text-align:center; text-decoration:none;">Create ↗</a>
-          <a href="https://freesound.org/search/?q=wavetable" target="_blank" rel="noopener" class="btn btn-outline" title="Search Freesound for wavetables" style="margin:0; padding:4px 8px; flex:1 1 64px; text-align:center; text-decoration:none;">Search ↗</a>
+          <a id="lp-wavetable-create" href="https://www.carvetoy.online/" target="_blank" rel="noopener" class="btn btn-outline" title="Create a wavetable with CarveToy" style="margin:0; padding:4px 8px; flex:1 1 64px; text-align:center; text-decoration:none;">Create ↗</a>
+          <a id="lp-wavetable-search" href="https://freesound.org/search/?q=wavetable" target="_blank" rel="noopener" class="btn btn-outline" title="Search Freesound for wavetables" style="margin:0; padding:4px 8px; flex:1 1 64px; text-align:center; text-decoration:none;">Search ↗</a>
         </div>
         <input id="lp-wavetable-file" type="file" accept="audio/wav,.wav" hidden>
       </div>
@@ -5509,9 +5646,12 @@ function showLayerParams(layer) {
         showLayerParams(target);
         markDirty();
         liveReload();
+        trackUsage('wavetable_action', { method: 'builtin' });
       });
     }
     $('lp-wavetable-import')?.addEventListener('click', () => $('lp-wavetable-file').click());
+    $('lp-wavetable-create')?.addEventListener('click', () => trackUsage('wavetable_action', { method: 'create' }));
+    $('lp-wavetable-search')?.addEventListener('click', () => trackUsage('wavetable_action', { method: 'search' }));
     $('lp-wavetable-file')?.addEventListener('change', async event => {
       const file = event.target.files?.[0];
       if (!file) return;
@@ -5544,6 +5684,7 @@ function showLayerParams(layer) {
         showLayerParams(target);
         markDirty();
         liveReload();
+        trackUsage('wavetable_action', { method: 'upload' });
       } catch (error) {
         status.textContent = `Import failed: ${error.message}`;
       } finally {
@@ -7325,7 +7466,10 @@ function _handlePreviewConnectionFailure(socket) {
 async function doPreview(options = {}) {
   if (_morphingActive()) { return doJourneyStream(); }  // morphing overrides normal preview
   const reconnecting = options && options.reconnect === true;
-  if (!reconnecting) _wsReconnects = 0;
+  if (!reconnecting) {
+    _wsReconnects = 0;
+    audioStartTracked = false;
+  }
   const reconnectCount = _wsReconnects;
 
   const params = collectParams();
@@ -7441,6 +7585,10 @@ async function doPreview(options = {}) {
         nextPlayTime = streamingCtx.currentTime + 0.05;
         setStatus('▶ Streaming…');
         setLiveIndicator(false);
+        if (!audioStartTracked) {
+          audioStartTracked = true;
+          trackUsage('audio_started', { source: currentAnalyticsSource, playback: 'stream' });
+        }
         stopCtxKeepAlive(); // real audio flowing, no longer need keepalive
         // Smooth fade-in: 0 → 1 over 80ms to avoid the hard silence→audio click
         if (startupGain) {
@@ -7542,6 +7690,7 @@ function isMobile() {
 async function doPreviewSegmented(options = {}) {
   const fallback = options && options.fallback === true;
   const requestedSeed = Number(options && options.seed);
+  if (!fallback) audioStartTracked = false;
   stopAudio();
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
@@ -7611,6 +7760,10 @@ async function _fetchAndPlaySegment(isFirst, segmentSession) {
     _segNextStart = startAt + audioBuf.duration;
 
     if (isFirst) {
+      if (!audioStartTracked) {
+        audioStartTracked = true;
+        trackUsage('audio_started', { source: currentAnalyticsSource, playback: 'segmented' });
+      }
       setStatus(_mobileFallbackActive ? '▶ Playing — compatibility mode' : '▶ Playing…');
       setLiveIndicator(false);
     }
@@ -7753,6 +7906,12 @@ async function doRender() {
     // Don't auto-start streaming after render - let user click Play manually
 
     const sizeMB = (blob.size / (1024*1024)).toFixed(1);
+    trackUsage('render_completed', {
+      format: String(fmt).toLowerCase(),
+      quality: hires ? 'hires' : 'standard',
+      duration: analyticsDuration(duration),
+      normalized: $('normalize-loudness-toggle').dataset.state === '1' ? 'on' : 'off',
+    });
     setStatus(`✓ Downloaded: ${filename} (${sizeMB} MB)`);
     setTimeout(() => { setProgress(0); }, 3000);
   } catch (e) {
@@ -8150,6 +8309,8 @@ async function chooseGenerationCandidate(index) {
   });
   applyParamsToUI(currentParams);
   markClean();
+  currentAnalyticsSource = 'generator';
+  trackUsage('candidate_selected', { texture: ['A', 'B', 'C'][index] || 'A' });
   updateNowPlaying();
   $('generation-candidates-overlay').classList.remove('open');
   setStatus('Texture selected — previewing…');
@@ -8186,6 +8347,16 @@ async function doGenerate() {
     });
     applyParamsToUI(currentParams);
     markClean();
+    currentAnalyticsSource = 'generator';
+    const analyticsMood = MANTICE_ANALYTICS_SCHEMA.generator_completed.mood.includes(selectedMood)
+      ? selectedMood : 'other';
+    trackUsage('generator_completed', {
+      mood: analyticsMood,
+      fm: allowedTypes.includes('fm') ? 'on' : 'off',
+      subtractive: allowedTypes.includes('subtractive') ? 'on' : 'off',
+      granular: allowedTypes.includes('granular') ? 'on' : 'off',
+      wavetable: allowedTypes.includes('wavetable') ? 'on' : 'off',
+    });
     updateNowPlaying();
     setStatus('Generated — previewing…');
     stopAudio();
@@ -8219,6 +8390,10 @@ async function doMutate() {
     });
     applyParamsToUI(currentParams);
     markClean(); // treat mutated params as new baseline — prevents spurious liveReload
+    currentAnalyticsSource = 'mutation';
+    trackUsage('mutation_completed', {
+      amount: amount < 0.25 ? 'subtle' : amount < 0.6 ? 'medium' : 'strong',
+    });
     updateNowPlaying();
     setStatus('Mutated — previewing…');
     stopAudio();
@@ -8237,6 +8412,7 @@ async function doSharePreset() {
   if (currentSharedId && isClean) {
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + currentSharedId;
     await navigator.clipboard.writeText(shareUrl);
+    trackUsage('preset_shared', { mode: 'existing_link', source: 'community' });
     setStatus('🔗 Link copied! — #shared=' + currentSharedId);
     return;
   }
@@ -8245,6 +8421,7 @@ async function doSharePreset() {
   if (currentPresetPath && isClean) {
     const shareUrl = window.location.origin + window.location.pathname + '#preset=' + encodeURIComponent(currentPresetPath);
     await navigator.clipboard.writeText(shareUrl);
+    trackUsage('preset_shared', { mode: 'existing_link', source: 'official' });
     const name = allPresets.find(p => p.path === currentPresetPath)?.name || currentPresetPath;
     setStatus('🔗 Link copied! — ' + name);
     return;
@@ -8339,6 +8516,10 @@ async function doSharePreset() {
     if ($('gallery-overlay').classList.contains('open')) renderGallery(galleryPresets);
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + data.id;
     await navigator.clipboard.writeText(shareUrl);
+    trackUsage('preset_shared', {
+      mode: 'new_upload',
+      source: ['generator', 'mutation'].includes(currentAnalyticsSource) ? 'generated' : 'edited',
+    });
     setStatus('🔗 Link copied! — #shared=' + data.id);
   } catch (e) {
     setStatus('Share error: ' + e.message);
@@ -8400,9 +8581,11 @@ function setGalleryAuditionButtons(preset, state) {
 }
 
 function toggleGalleryFavorite(preset) {
-  if (isGalleryFavorite(preset.id)) galleryFavorites.delete(preset.id);
+  const removing = isGalleryFavorite(preset.id);
+  if (removing) galleryFavorites.delete(preset.id);
   else galleryFavorites.add(preset.id);
   localStorage.setItem('mantice_gallery_favorites', JSON.stringify([...galleryFavorites]));
+  trackUsage('gallery_favorite_changed', { action: removing ? 'removed' : 'added' });
   syncGalleryFavoriteButtons(preset.id);
   if (gallerySort === 'favorites') filterGallery();
 }
@@ -8450,6 +8633,7 @@ async function auditionGalleryPreset(preset) {
     galleryAudition.token = token;
     const startedAt = context.currentTime;
     source.start();
+    trackUsage('gallery_auditioned', { kind: preset.isCandidate ? 'candidate' : 'community' });
     setGalleryAuditionButtons(preset, 'playing');
     galleryAudition.timer = setInterval(() => {
       const progress = Math.min(1, (context.currentTime - startedAt) / buffer.duration);
@@ -8626,6 +8810,8 @@ async function loadGalleryPreset(preset) {
     _currentMorphingStep = -1;
     applyParamsToUI(currentParams);
     markClean();
+    currentAnalyticsSource = 'gallery';
+    trackUsage('preset_loaded', { source: 'gallery', category: 'community' });
     updateNowPlaying();
     window.location.hash = 'shared=' + preset.id;
     $('gallery-overlay').classList.remove('open');
@@ -8710,6 +8896,7 @@ function openGalleryDetail(preset, card) {
 async function openGallery() {
   $('gallery-overlay').classList.add('open');
   $('files-dropdown').classList.remove('open');
+  trackUsage('gallery_opened', { sort: gallerySort });
   
   // Fetch once, but retain optimistic shares that GitHub may not expose yet.
   if (!galleryLoaded) {
@@ -8865,6 +9052,9 @@ async function handleImportPresetFile() {
     currentSharedId = null;
     applyParamsToUI(currentParams);
     markClean();
+    currentAnalyticsSource = 'local';
+    trackUsage('preset_file_action', { action: 'imported' });
+    trackUsage('preset_loaded', { source: 'local', category: 'local' });
     updateNowPlaying(rawName);
     setStatus('📂 Loaded from file: ' + rawName);
     doPreview();
@@ -8891,6 +9081,7 @@ async function doExportPreset() {
     a.download = name.replace(/[^a-zA-Z0-9 \-_]/g, '').trim() + '.yaml';
     a.click();
     URL.revokeObjectURL(url);
+    trackUsage('preset_file_action', { action: 'exported' });
     setStatus('Preset exported');
   } catch (e) {
     setStatus('Export error: ' + e.message);
@@ -10200,6 +10391,9 @@ function renderFirstGuideStep() {
 
 function closeFirstGuide(alwaysComplete = false) {
   if (activeGuideIsFirst && (alwaysComplete || $('first-guide-dismiss').checked)) firstGuideStoreComplete();
+  if (alwaysComplete) {
+    trackUsage('guide_completed', { guide: activeGuideIsFirst ? 'first_breath' : 'deep_dive' });
+  }
   $('first-guide').classList.remove('open', 'no-target');
   $('first-guide-focus').style.display = 'none';
   $('files-dropdown')?.classList.remove('open');
