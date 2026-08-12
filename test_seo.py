@@ -19,6 +19,11 @@ class SeoTests(unittest.TestCase):
         html = self.docs_html
         self.assertIn("<title>Mantice — Free Online Ambient Drone Synthesizer</title>", html)
         self.assertIn('<meta name="description"', html)
+        self.assertIn(
+            '<meta name="google-site-verification" '
+            'content="pp3jhptIHkhnjku-p-0sm3J4XAJzQlE7WiNZ2JwKUNA">',
+            html,
+        )
         self.assertIn('<link rel="canonical" href="https://bassimatte.github.io/mantice/">', html)
         self.assertIn('<meta property="og:image" content="https://bassimatte.github.io/mantice/social-card.png">', html)
         self.assertIn('<meta name="twitter:card" content="summary_large_image">', html)
