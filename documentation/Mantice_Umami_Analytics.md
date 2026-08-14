@@ -39,6 +39,8 @@ The application does not send:
 
 Every custom property is checked against an explicit allowlist before being sent. URL query strings and fragments are excluded, and the tracker respects the browser's Do Not Track setting.
 
+Every MANTICE page view and custom event is tagged `mantice` through Umami's tracker-level `data-tag` setting. This keeps MANTICE traffic separate from Campana and any other application reporting into the same Umami account.
+
 Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary for aggregate product analytics and would expand the privacy surface.
 
 ## Events
@@ -72,14 +74,14 @@ Events represent completed outcomes where practical, not mere button presses. Hi
    ```
 
 4. In **Settings → Websites**, edit MANTICE and copy its Website ID. This UUID is public tracker configuration, not an API key.
-5. Replace the empty value of `MANTICE_UMAMI_WEBSITE_ID` in both:
+5. Confirm that `MANTICE_UMAMI_WEBSITE_ID` contains the public Website ID and `MANTICE_ANALYTICS_TAG` is set to `mantice` in both:
    - `engine/static/index.html`
    - `docs/index.html`
 6. Do not add an Umami API key to the repository or browser code.
 7. Do not enable session replay or heatmaps.
 8. Deploy, open the public MANTICE page, and verify a page view in Umami's realtime view.
 
-The code dynamically loads the official `https://cloud.umami.is/script.js` tracker only when both the Website ID and canonical hostname are valid. Search parameters and URL fragments are excluded from automatic page views.
+The code dynamically loads the official `https://cloud.umami.is/script.js` tracker only when both the Website ID and canonical hostname are valid. It attaches `data-tag="mantice"` to the tracker, while search parameters and URL fragments are excluded from automatic page views.
 
 Official references:
 
@@ -111,6 +113,8 @@ Pageview
 ```
 
 Useful breakdown properties include `source`, `category`, `mood`, `wavetable`, `method`, `format`, `quality`, `duration`, and `mode`.
+
+When the Umami account contains multiple applications, filter reports by tag `mantice` before interpreting MANTICE adoption or workflow counts.
 
 ## Interpretation cautions
 

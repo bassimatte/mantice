@@ -3423,6 +3423,7 @@ const IS_LOCAL_WEB_INTERFACE = !MANTICE_API_BASE &&
 // leave the browser through this wrapper.
 const MANTICE_ANALYTICS_HOST = 'bassimatte.github.io';
 const MANTICE_ANALYTICS_PATH = '/mantice';
+const MANTICE_ANALYTICS_TAG = 'mantice';
 // Public, non-secret identifier copied from Umami: Settings -> Websites -> Edit.
 const MANTICE_UMAMI_WEBSITE_ID = 'b2300e0b-bc69-49d7-ad05-06f980b5ed38';
 const MANTICE_UMAMI_SCRIPT_URL = 'https://cloud.umami.is/script.js';
@@ -3477,6 +3478,7 @@ function initAnalytics() {
   script.defer = true;
   script.src = MANTICE_UMAMI_SCRIPT_URL;
   script.dataset.websiteId = MANTICE_UMAMI_WEBSITE_ID;
+  script.dataset.tag = MANTICE_ANALYTICS_TAG;
   script.dataset.domains = MANTICE_ANALYTICS_HOST;
   script.dataset.excludeSearch = 'true';
   script.dataset.excludeHash = 'true';

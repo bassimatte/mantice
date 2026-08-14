@@ -31,6 +31,10 @@ class AnalyticsTests(unittest.TestCase):
         self.assertIn("if (!analyticsIsConfigured()) return false;", self.static_html)
         self.assertIn("script.dataset.websiteId = MANTICE_UMAMI_WEBSITE_ID;", self.static_html)
 
+    def test_umami_tags_all_mantice_traffic(self):
+        self.assertIn("const MANTICE_ANALYTICS_TAG = 'mantice';", self.static_html)
+        self.assertIn("script.dataset.tag = MANTICE_ANALYTICS_TAG;", self.static_html)
+
     def test_umami_privacy_controls_are_enabled(self):
         self.assertIn("script.dataset.excludeSearch = 'true';", self.static_html)
         self.assertIn("script.dataset.excludeHash = 'true';", self.static_html)
