@@ -39,7 +39,7 @@ The application does not send:
 
 Every custom property is checked against an explicit allowlist before being sent. URL query strings and fragments are excluded, and the tracker respects the browser's Do Not Track setting.
 
-Every MANTICE page view and custom event is tagged `mantice` through Umami's tracker-level `data-tag` setting. This keeps MANTICE traffic separate from Campana and any other application reporting into the same Umami account.
+Every MANTICE page view and custom event is tagged `mantice` through Umami's tracker-level `data-tag` setting. Custom event names also use the `mantice_` prefix. Together, these keep MANTICE traffic separate from Campana and any other application reporting into the same Umami account.
 
 Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary for aggregate product analytics and would expand the privacy surface.
 
@@ -47,19 +47,19 @@ Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary
 
 | Event | Meaning | Allowed properties |
 |---|---|---|
-| `audio_started` | Audio successfully began playing | `source`, `playback` |
-| `preset_loaded` | A preset was successfully loaded | `source`, `category` |
-| `generator_completed` | Generation returned a usable result | `mood`, four synthesis-type toggles |
-| `candidate_selected` | A generated candidate was selected | `texture` |
-| `mutation_completed` | Mutation returned a usable result | `amount` bucket |
-| `gallery_opened` | The gallery was opened | `sort` |
-| `gallery_auditioned` | A gallery or candidate preview began | `kind` |
-| `gallery_favorite_changed` | A local favorite was added or removed | `action` |
-| `wavetable_action` | A built-in table was chosen, a WAV import succeeded, or an external creation/search resource was opened | `method` |
-| `render_completed` | Audio was rendered and downloaded successfully | `format`, `quality`, duration bucket, normalization state |
-| `preset_file_action` | A preset file import or export completed | `action` |
-| `preset_shared` | A share link was copied or a new shared preset was uploaded | `mode`, `source` |
-| `guide_completed` | A guide reached its completion path | `guide` |
+| `mantice_audio_started` | Audio successfully began playing | `source`, `playback` |
+| `mantice_preset_loaded` | A preset was successfully loaded | `source`, `category` |
+| `mantice_generator_completed` | Generation returned a usable result | `mood`, four synthesis-type toggles |
+| `mantice_candidate_selected` | A generated candidate was selected | `texture` |
+| `mantice_mutation_completed` | Mutation returned a usable result | `amount` bucket |
+| `mantice_gallery_opened` | The gallery was opened | `sort` |
+| `mantice_gallery_auditioned` | A gallery or candidate preview began | `kind` |
+| `mantice_gallery_favorite_changed` | A local favorite was added or removed | `action` |
+| `mantice_wavetable_action` | A built-in table was chosen, a WAV import succeeded, or an external creation/search resource was opened | `method` |
+| `mantice_render_completed` | Audio was rendered and downloaded successfully | `format`, `quality`, duration bucket, normalization state |
+| `mantice_preset_file_action` | A preset file import or export completed | `action` |
+| `mantice_preset_shared` | A share link was copied or a new shared preset was uploaded | `mode`, `source` |
+| `mantice_guide_completed` | A guide reached its completion path | `guide` |
 
 Events represent completed outcomes where practical, not mere button presses. High-frequency controls such as sliders are deliberately excluded.
 
@@ -74,14 +74,14 @@ Events represent completed outcomes where practical, not mere button presses. Hi
    ```
 
 4. In **Settings → Websites**, edit MANTICE and copy its Website ID. This UUID is public tracker configuration, not an API key.
-5. Confirm that `MANTICE_UMAMI_WEBSITE_ID` contains the public Website ID and `MANTICE_ANALYTICS_TAG` is set to `mantice` in both:
+5. Confirm that `MANTICE_UMAMI_WEBSITE_ID` contains the public Website ID, `MANTICE_ANALYTICS_TAG` is `mantice`, and `MANTICE_ANALYTICS_EVENT_PREFIX` is `mantice_` in both:
    - `engine/static/index.html`
    - `docs/index.html`
 6. Do not add an Umami API key to the repository or browser code.
 7. Do not enable session replay or heatmaps.
 8. Deploy, open the public MANTICE page, and verify a page view in Umami's realtime view.
 
-The code dynamically loads the official `https://cloud.umami.is/script.js` tracker only when both the Website ID and canonical hostname are valid. It attaches `data-tag="mantice"` to the tracker, while search parameters and URL fragments are excluded from automatic page views.
+The code dynamically loads the official `https://cloud.umami.is/script.js` tracker only when both the Website ID and canonical hostname are valid. It attaches `data-tag="mantice"` to the tracker and prefixes custom event names with `mantice_`, while search parameters and URL fragments are excluded from automatic page views.
 
 Official references:
 
@@ -93,23 +93,23 @@ Official references:
 
 Start with these event counts:
 
-1. `audio_started`
-2. `preset_loaded`
-3. `generator_completed`
-4. `mutation_completed`
-5. `gallery_opened`
-6. `wavetable_action`
-7. `render_completed`
-8. `preset_shared`
+1. `mantice_audio_started`
+2. `mantice_preset_loaded`
+3. `mantice_generator_completed`
+4. `mantice_mutation_completed`
+5. `mantice_gallery_opened`
+6. `mantice_wavetable_action`
+7. `mantice_render_completed`
+8. `mantice_preset_shared`
 
 Suggested first funnel:
 
 ```text
 Pageview
-  → preset_loaded
-  → audio_started
-  → generator_completed or mutation_completed
-  → render_completed or preset_shared
+  → mantice_preset_loaded
+  → mantice_audio_started
+  → mantice_generator_completed or mantice_mutation_completed
+  → mantice_render_completed or mantice_preset_shared
 ```
 
 Useful breakdown properties include `source`, `category`, `mood`, `wavetable`, `method`, `format`, `quality`, `duration`, and `mode`.

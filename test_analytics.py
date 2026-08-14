@@ -35,6 +35,14 @@ class AnalyticsTests(unittest.TestCase):
         self.assertIn("const MANTICE_ANALYTICS_TAG = 'mantice';", self.static_html)
         self.assertIn("script.dataset.tag = MANTICE_ANALYTICS_TAG;", self.static_html)
 
+    def test_umami_prefixes_all_custom_event_names(self):
+        self.assertIn("const MANTICE_ANALYTICS_EVENT_PREFIX = 'mantice_';", self.static_html)
+        self.assertIn(
+            "window.umami.track(`${MANTICE_ANALYTICS_EVENT_PREFIX}${eventName}`, properties);",
+            self.static_html,
+        )
+        self.assertNotIn("window.umami.track(eventName, properties);", self.static_html)
+
     def test_umami_privacy_controls_are_enabled(self):
         self.assertIn("script.dataset.excludeSearch = 'true';", self.static_html)
         self.assertIn("script.dataset.excludeHash = 'true';", self.static_html)
@@ -68,7 +76,7 @@ class AnalyticsTests(unittest.TestCase):
             self.assertRegex(self.static_html, rf"trackUsage\('{event}'")
 
         self.assertIn("if (typeof window.umami?.track !== 'function') return false;", self.static_html)
-        self.assertIn("window.umami.track(eventName, properties);", self.static_html)
+        self.assertIn("window.umami.track(`${MANTICE_ANALYTICS_EVENT_PREFIX}${eventName}`, properties);", self.static_html)
         self.assertIn("if (allowed.includes(value)) props[key] = value;", self.static_html)
 
     def test_sensitive_dynamic_values_are_not_sent(self):
