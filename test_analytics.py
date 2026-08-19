@@ -64,13 +64,20 @@ class AnalyticsTests(unittest.TestCase):
         schema = schema_match.group(1)
         for event in (
             "audio_started",
+            "playback_milestone",
             "preset_loaded",
             "generator_completed",
             "mutation_completed",
             "gallery_opened",
             "wavetable_action",
+            "sample_action",
             "render_completed",
             "preset_shared",
+            "workflow_started",
+            "workflow_failed",
+            "feature_used",
+            "guide_started",
+            "journey_action",
         ):
             self.assertIn(f"{event}:", schema)
             self.assertRegex(self.static_html, rf"trackUsage\('{event}'")
@@ -78,6 +85,36 @@ class AnalyticsTests(unittest.TestCase):
         self.assertIn("if (typeof window.umami?.track !== 'function') return false;", self.static_html)
         self.assertIn("window.umami.track(`${MANTICE_ANALYTICS_EVENT_PREFIX}${eventName}`, properties);", self.static_html)
         self.assertIn("if (allowed.includes(value)) props[key] = value;", self.static_html)
+
+    def test_reliability_properties_are_coarse_buckets(self):
+        self.assertIn("startup: ['fast', 'medium', 'slow']", self.static_html)
+        self.assertIn("duration: ['30s', '2m', '5m']", self.static_html)
+        self.assertIn(
+            "reason: ['validation', 'network', 'server', 'decode', 'unsupported', 'unknown']",
+            self.static_html,
+        )
+        self.assertIn("if (milliseconds < 1000) return 'fast';", self.static_html)
+        self.assertIn("if (milliseconds < 3000) return 'medium';", self.static_html)
+
+    def test_listening_milestones_and_features_are_session_bounded(self):
+        self.assertIn("const playbackMilestonesSeen = new Set();", self.static_html)
+        self.assertIn("const analyticsFeaturesSeen = new Set();", self.static_html)
+        self.assertIn("playbackMilestonesSeen.has(duration)", self.static_html)
+        self.assertIn("analyticsFeaturesSeen.has(feature)", self.static_html)
+        for duration, delay in (("30s", 30000), ("2m", 120000), ("5m", 300000)):
+            self.assertIn(f"['{duration}', {delay}]", self.static_html)
+        self.assertNotIn("setInterval(() => {\n      trackUsage('playback_milestone'", self.static_html)
+
+    def test_workflow_funnels_cover_major_actions(self):
+        for workflow in ("generate", "mutate", "render", "share", "wavetable_upload"):
+            self.assertIn(
+                f"trackUsage('workflow_started', {{ workflow: '{workflow}' }})",
+                self.static_html,
+            )
+            self.assertRegex(
+                self.static_html,
+                rf"trackUsage\('workflow_failed',\s*\{{\s*workflow: '{workflow}',\s*reason:",
+            )
 
     def test_sensitive_dynamic_values_are_not_sent(self):
         calls = re.findall(

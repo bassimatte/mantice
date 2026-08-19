@@ -7,9 +7,12 @@ Measure aggregate adoption and reliability of MANTICE's major workflows without 
 The questions this setup should answer are:
 
 - How many visitors actually start audio?
+- How quickly does audio begin, and how many sessions keep listening for 30 seconds, 2 minutes, or 5 minutes?
 - Do people use official presets, community presets, or the gallery?
 - Which major synthesis types are enabled when generation succeeds?
-- How often are Generate, Mutate, Gallery, Wavetable, Render, Share, and the guides used?
+- Where do Generate, Mutate, Render, Share, and Wavetable upload workflows fail?
+- Which deeper sound-design features are adopted at least once in a page session?
+- How often are Gallery, sample sourcing, Wavetable, guides, and Journeys used?
 - Which export formats and quality levels are completed?
 
 It is not intended to reconstruct individual identities or collect preset content.
@@ -35,6 +38,7 @@ The application does not send:
 - Freesound search queries
 - Free-form user text
 - Exact error messages
+- Exact startup times or continuous interaction traces
 - Identifiers supplied by MANTICE
 
 Every custom property is checked against an explicit allowlist before being sent. URL query strings and fragments are excluded, and the tracker respects the browser's Do Not Track setting.
@@ -47,7 +51,8 @@ Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary
 
 | Event | Meaning | Allowed properties |
 |---|---|---|
-| `mantice_audio_started` | Audio successfully began playing | `source`, `playback` |
+| `mantice_audio_started` | Audio successfully began playing | `source`, `playback`, coarse `startup` bucket |
+| `mantice_playback_milestone` | Continuous playback reached a once-per-page milestone | `duration`, `source` |
 | `mantice_preset_loaded` | A preset was successfully loaded | `source`, `category` |
 | `mantice_generator_completed` | Generation returned a usable result | `mood`, four synthesis-type toggles |
 | `mantice_candidate_selected` | A generated candidate was selected | `texture` |
@@ -56,12 +61,18 @@ Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary
 | `mantice_gallery_auditioned` | A gallery or candidate preview began | `kind` |
 | `mantice_gallery_favorite_changed` | A local favorite was added or removed | `action` |
 | `mantice_wavetable_action` | A built-in table was chosen, a WAV import succeeded, or an external creation/search resource was opened | `method` |
+| `mantice_sample_action` | A built-in sample or Freesound source was selected for a granular layer | `method` |
 | `mantice_render_completed` | Audio was rendered and downloaded successfully | `format`, `quality`, duration bucket, normalization state |
 | `mantice_preset_file_action` | A preset file import or export completed | `action` |
 | `mantice_preset_shared` | A share link was copied or a new shared preset was uploaded | `mode`, `source` |
+| `mantice_workflow_started` | A major product workflow was intentionally started | `workflow` |
+| `mantice_workflow_failed` | A major workflow ended at a known failure boundary | `workflow`, coarse `reason` bucket |
+| `mantice_feature_used` | A deeper feature was first used in the current page session | `feature` |
+| `mantice_guide_started` | A guide opened | `guide` |
 | `mantice_guide_completed` | A guide reached its completion path | `guide` |
+| `mantice_journey_action` | A Journey preview, stream, or render successfully started/completed as appropriate | `action` |
 
-Events represent completed outcomes where practical, not mere button presses. High-frequency controls such as sliders are deliberately excluded.
+Events represent completed outcomes where practical. The two funnel events deliberately record the start and failure boundary of five major workflows; cancellations are not failures. Playback milestones and feature adoption are emitted at most once per milestone or feature in a page session. High-frequency controls such as sliders are deliberately excluded.
 
 ## Umami Cloud setup
 
@@ -101,6 +112,9 @@ Start with these event counts:
 6. `mantice_wavetable_action`
 7. `mantice_render_completed`
 8. `mantice_preset_shared`
+9. `mantice_playback_milestone`
+10. `mantice_workflow_failed`
+11. `mantice_feature_used`
 
 Suggested first funnel:
 
@@ -112,7 +126,18 @@ Pageview
   → mantice_render_completed or mantice_preset_shared
 ```
 
-Useful breakdown properties include `source`, `category`, `mood`, `wavetable`, `method`, `format`, `quality`, `duration`, and `mode`.
+Useful breakdown properties include `source`, `startup`, `category`, `mood`, `wavetable`, `method`, `workflow`, `reason`, `feature`, `format`, `quality`, `duration`, and `mode`.
+
+Build separate conversion funnels for each major workflow:
+
+```text
+mantice_workflow_started (filter by workflow)
+  → its matching completion event
+```
+
+Compare matching `mantice_workflow_failed` counts by the same `workflow` and coarse `reason`. Do not sum every workflow into a single conversion rate: Generate, Render, Share, and Wavetable upload have different user intent and completion costs.
+
+For retention of attention rather than return visits, compare `mantice_audio_started` with the `30s`, `2m`, and `5m` `mantice_playback_milestone` buckets. These milestones require uninterrupted playback and are emitted only once per page session.
 
 When the Umami account contains multiple applications, filter reports by tag `mantice` before interpreting MANTICE adoption or workflow counts.
 

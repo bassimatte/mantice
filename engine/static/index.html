@@ -2718,7 +2718,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
         <h3>Privacy</h3>
         <div class="philosophy-section">
           <p>The public MANTICE website uses <a href="https://umami.is/" target="_blank" rel="noopener" style="color:var(--accent)">Umami</a> for anonymous, aggregate usage statistics. Umami does not use cookies, fingerprint visitors, or track people across websites.</p>
-          <p>MANTICE records only predefined actions such as starting audio, loading a category of preset, completing a generation, opening the gallery, using a wavetable source, or completing a render. It does not send preset names, creator names, sound parameters, imported filenames, search text, audio, samples, wavetables, or free-form user content.</p>
+          <p>MANTICE records only predefined actions and coarse categories: for example starting audio, reaching listening milestones, loading a preset category, completing or failing a major workflow, opening the gallery, first using a major feature, or completing a render. Performance and failure data is bucketed; exact timings and error messages are not sent. MANTICE does not send preset names, creator names, sound parameters, imported filenames, search text, audio, samples, wavetables, or free-form user content.</p>
           <p>Analytics runs only on the official <code>bassimatte.github.io</code> website. Local browser and Python installations, repository forks, and preview deployments are not tracked. URL query strings and fragments are excluded, and browser Do Not Track preferences are respected.</p>
         </div>
       </div>
@@ -3430,8 +3430,13 @@ const MANTICE_UMAMI_WEBSITE_ID = 'b2300e0b-bc69-49d7-ad05-06f980b5ed38';
 const MANTICE_UMAMI_SCRIPT_URL = 'https://cloud.umami.is/script.js';
 const MANTICE_ANALYTICS_SCHEMA = Object.freeze({
   audio_started: {
-    source: ['official', 'community', 'local', 'gallery', 'generator', 'mutation', 'unknown'],
-    playback: ['stream', 'segmented'],
+    source: ['official', 'community', 'local', 'gallery', 'generator', 'mutation', 'journey', 'unknown'],
+    playback: ['stream', 'segmented', 'rendered', 'journey_preview', 'journey_stream'],
+    startup: ['fast', 'medium', 'slow'],
+  },
+  playback_milestone: {
+    duration: ['30s', '2m', '5m'],
+    source: ['official', 'community', 'local', 'gallery', 'generator', 'mutation', 'journey', 'unknown'],
   },
   preset_loaded: {
     source: ['official', 'community', 'local', 'gallery'],
@@ -3447,13 +3452,24 @@ const MANTICE_ANALYTICS_SCHEMA = Object.freeze({
   gallery_auditioned: { kind: ['community', 'candidate'] },
   gallery_favorite_changed: { action: ['added', 'removed'] },
   wavetable_action: { method: ['builtin', 'upload', 'create', 'search'] },
+  sample_action: { method: ['builtin', 'freesound'] },
   render_completed: {
     format: ['wav', 'flac', 'ogg', 'mp3'], quality: ['standard', 'hires'],
     duration: ['short', 'medium', 'long'], normalized: ['on', 'off'],
   },
   preset_file_action: { action: ['imported', 'exported'] },
   preset_shared: { mode: ['existing_link', 'new_upload'], source: ['official', 'community', 'edited', 'generated'] },
+  workflow_started: { workflow: ['generate', 'mutate', 'render', 'share', 'wavetable_upload'] },
+  workflow_failed: {
+    workflow: ['generate', 'mutate', 'render', 'share', 'wavetable_upload'],
+    reason: ['validation', 'network', 'server', 'decode', 'unsupported', 'unknown'],
+  },
+  feature_used: {
+    feature: ['layer_added', 'layer_copied', 'granular', 'wavetable', 'harmonic_tuning', 'automation', 'morphing', 'journey', 'binaural', 'shimmer', 'layer_mix'],
+  },
+  guide_started: { guide: ['first_breath', 'deep_dive'] },
   guide_completed: { guide: ['first_breath', 'deep_dive'] },
+  journey_action: { action: ['preview', 'stream', 'render'] },
 });
 
 const pendingAnalyticsEvents = [];
@@ -3525,6 +3541,65 @@ function analyticsDuration(seconds) {
 
 let currentAnalyticsSource = 'unknown';
 let audioStartTracked = false;
+let audioStartRequestedAt = 0;
+let playbackMilestoneTimers = [];
+const playbackMilestonesSeen = new Set();
+const analyticsFeaturesSeen = new Set();
+
+function analyticsSource(value) {
+  return MANTICE_ANALYTICS_SCHEMA.playback_milestone.source.includes(value) ? value : 'unknown';
+}
+
+function markAudioStartRequested() {
+  audioStartRequestedAt = performance.now();
+}
+
+function analyticsStartup(milliseconds) {
+  if (milliseconds < 1000) return 'fast';
+  if (milliseconds < 3000) return 'medium';
+  return 'slow';
+}
+
+function stopPlaybackMilestones() {
+  playbackMilestoneTimers.forEach(timer => clearTimeout(timer));
+  playbackMilestoneTimers = [];
+}
+
+function startPlaybackMilestones(source) {
+  stopPlaybackMilestones();
+  const safeSource = analyticsSource(source);
+  [['30s', 30000], ['2m', 120000], ['5m', 300000]].forEach(([duration, delay]) => {
+    if (playbackMilestonesSeen.has(duration)) return;
+    playbackMilestoneTimers.push(setTimeout(() => {
+      playbackMilestonesSeen.add(duration);
+      trackUsage('playback_milestone', { duration, source: safeSource });
+    }, delay));
+  });
+}
+
+function registerAudioPlaybackStarted(source, playback) {
+  const safeSource = analyticsSource(source);
+  if (!audioStartTracked) {
+    audioStartTracked = true;
+    const elapsed = Math.max(0, performance.now() - audioStartRequestedAt);
+    trackUsage('audio_started', {
+      source: safeSource,
+      playback,
+      startup: analyticsStartup(elapsed),
+    });
+  }
+  startPlaybackMilestones(safeSource);
+}
+
+function trackFeatureUsed(feature) {
+  if (analyticsFeaturesSeen.has(feature)) return;
+  analyticsFeaturesSeen.add(feature);
+  trackUsage('feature_used', { feature });
+}
+
+function analyticsApiFailureReason(data) {
+  return /backend unavailable/i.test(String(data?.error || '')) ? 'network' : 'server';
+}
 
 function apiUrl(path) {
   return MANTICE_API_BASE ? `${MANTICE_API_BASE}${path}` : path;
@@ -4082,6 +4157,7 @@ function _applyTuningOffsets(params, tuning) {
 function applyTuning() {
   const tuning = $('tuning-system').value;
   if (!TUNING_SYSTEMS[tuning] || !currentParams) return;
+  trackFeatureUsed('harmonic_tuning');
   pushUndo();
   _applyTuningOffsets(currentParams, tuning);
   buildLayerTabs(currentParams.layers);
@@ -4247,6 +4323,7 @@ function updateJITonicDisplay() {
 /** Switch between Free and JI tuning modes. */
 function setTuningMode(mode) {
   if (!currentParams) return;
+  if (mode === 'ji') trackFeatureUsed('harmonic_tuning');
   pushUndo();
 
   if (mode === 'ji') {
@@ -4382,6 +4459,7 @@ function doAddLayer() {
     spatial_motion: { quadrant: 'center', speed: 0.005, trajectory_x: 'pendulum', trajectory_y: 'none' }
   };
   currentParams.layers.push(newLayer);
+  trackFeatureUsed('layer_added');
   activeLayerIdx = currentParams.layers.length - 1;
   buildLayerTabs(currentParams.layers);
   markDirty();
@@ -4395,6 +4473,7 @@ function doCopyLayer() {
   copy.name = src.name + ' copy';
   // Insert immediately after the current layer
   currentParams.layers.splice(activeLayerIdx + 1, 0, copy);
+  trackFeatureUsed('layer_copied');
   activeLayerIdx = activeLayerIdx + 1;
   buildLayerTabs(currentParams.layers);
   markDirty();
@@ -5037,6 +5116,7 @@ function showLayerParams(layer) {
 
   // Mute button
   $('layer-mute-btn').addEventListener('click', () => {
+    trackFeatureUsed('layer_mix');
     pushUndo();
     const layer = currentParams.layers[activeLayerIdx];
     layer.muted = !layer.muted;
@@ -5047,6 +5127,7 @@ function showLayerParams(layer) {
 
   // Solo button
   $('layer-solo-btn').addEventListener('click', () => {
+    trackFeatureUsed('layer_mix');
     const isSoloed = currentParams.layers.every((l, i) => i === activeLayerIdx ? !l.muted : l.muted);
     if (isSoloed) {
       // Un-solo: unmute all layers
@@ -5063,7 +5144,9 @@ function showLayerParams(layer) {
   // Type selector
   $('lp-type').addEventListener('change', () => {
     pushUndo();
-    currentParams.layers[activeLayerIdx].type = $('lp-type').value;
+    const selectedType = $('lp-type').value;
+    currentParams.layers[activeLayerIdx].type = selectedType;
+    if (selectedType === 'granular' || selectedType === 'wavetable') trackFeatureUsed(selectedType);
     showLayerParams(currentParams.layers[activeLayerIdx]);
     markDirty();
   });
@@ -5287,6 +5370,8 @@ function showLayerParams(layer) {
     const sourceSel = $('lp-source');
     if (sourceSel) {
       sourceSel.addEventListener('change', () => {
+        const sampleLabel = sourceSel.selectedOptions?.[0]?.textContent || '';
+        trackUsage('sample_action', { method: sampleLabel.startsWith('FS:') ? 'freesound' : 'builtin' });
         pushUndo();
         currentParams.layers[activeLayerIdx].source = sourceSel.value;
         // Auto-fetch detected pitch for this sample
@@ -5393,6 +5478,7 @@ function showLayerParams(layer) {
               }
               pushUndo();
               currentParams.layers[activeLayerIdx].source = newFile;
+              trackUsage('sample_action', { method: 'freesound' });
               markDirty();
               updateGranularScope();
               // Collapse search panel
@@ -5434,6 +5520,7 @@ function showLayerParams(layer) {
         }
         pushUndo();
         currentParams.layers[activeLayerIdx].source = data.filename;
+        trackUsage('sample_action', { method: 'freesound' });
         markDirty();
         updateGranularScope();
         if (fsPanel) { fsPanel.style.display = 'none'; fsOpenBtn.style.background = 'var(--bg)'; fsOpenBtn.style.color = 'var(--accent)'; }
@@ -5658,17 +5745,21 @@ function showLayerParams(layer) {
     $('lp-wavetable-file')?.addEventListener('change', async event => {
       const file = event.target.files?.[0];
       if (!file) return;
+      trackUsage('workflow_started', { workflow: 'wavetable_upload' });
       const status = $('lp-wavetable-status');
       status.textContent = 'Importing…';
+      let failureReason = 'network';
       try {
         const safeName = file.name.replace(/[^A-Za-z0-9_.-]/g, '_');
         const response = await fetch(apiUrl('/api/wavetables/import'), {
           method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Filename': safeName }, body: file,
         });
+        failureReason = 'decode';
         const responseText = await response.text();
         let data = {};
         try { data = responseText ? JSON.parse(responseText) : {}; } catch (_) {}
         if (!response.ok || !data.ok) {
+          failureReason = response.status >= 500 || response.status === 404 ? 'server' : 'unsupported';
           if (response.status === 404) throw new Error('Import API unavailable — restart the local Mantice server');
           throw new Error(data.error || data.detail || responseText || `Import failed (HTTP ${response.status})`);
         }
@@ -5689,6 +5780,7 @@ function showLayerParams(layer) {
         liveReload();
         trackUsage('wavetable_action', { method: 'upload' });
       } catch (error) {
+        trackUsage('workflow_failed', { workflow: 'wavetable_upload', reason: failureReason });
         status.textContent = `Import failed: ${error.message}`;
       } finally {
         event.target.value = '';
@@ -7246,6 +7338,8 @@ async function doPlay() {
   if (!renderedBuffer) { setStatus('RENDER FIRST'); return; }
 
   stopAudio();
+  audioStartTracked = false;
+  markAudioStartRequested();
 
   playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (playbackCtx.state === 'suspended') await playbackCtx.resume();
@@ -7255,8 +7349,14 @@ async function doPlay() {
   playbackSource.buffer = renderedBuffer;
   playbackSource.connect(analyser);
   analyser.connect(monitorInputFor(playbackCtx));
-  playbackSource.onended = () => { setStatus('PLAYBACK ENDED'); stopAurora(); stopSpectrum(); };
+  playbackSource.onended = () => {
+    stopPlaybackMilestones();
+    setStatus('PLAYBACK ENDED');
+    stopAurora();
+    stopSpectrum();
+  };
   playbackSource.start(0);
+  registerAudioPlaybackStarted(currentAnalyticsSource, 'rendered');
   drawSpectrum();
   startAurora();
   setStatus('▶ PLAYING RENDERED AUDIO…');
@@ -7472,6 +7572,7 @@ async function doPreview(options = {}) {
   if (!reconnecting) {
     _wsReconnects = 0;
     audioStartTracked = false;
+    markAudioStartRequested();
   }
   const reconnectCount = _wsReconnects;
 
@@ -7588,10 +7689,7 @@ async function doPreview(options = {}) {
         nextPlayTime = streamingCtx.currentTime + 0.05;
         setStatus('▶ Streaming…');
         setLiveIndicator(false);
-        if (!audioStartTracked) {
-          audioStartTracked = true;
-          trackUsage('audio_started', { source: currentAnalyticsSource, playback: 'stream' });
-        }
+        registerAudioPlaybackStarted(currentAnalyticsSource, 'stream');
         stopCtxKeepAlive(); // real audio flowing, no longer need keepalive
         // Smooth fade-in: 0 → 1 over 80ms to avoid the hard silence→audio click
         if (startupGain) {
@@ -7624,6 +7722,7 @@ async function doPreview(options = {}) {
 }
 
 function stopAudio() {
+  stopPlaybackMilestones();
   isStreaming = false;
   _previewWanted = false;
   _mobileFallbackActive = false;
@@ -7693,7 +7792,10 @@ function isMobile() {
 async function doPreviewSegmented(options = {}) {
   const fallback = options && options.fallback === true;
   const requestedSeed = Number(options && options.seed);
-  if (!fallback) audioStartTracked = false;
+  if (!fallback) {
+    audioStartTracked = false;
+    markAudioStartRequested();
+  }
   stopAudio();
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
@@ -7763,10 +7865,7 @@ async function _fetchAndPlaySegment(isFirst, segmentSession) {
     _segNextStart = startAt + audioBuf.duration;
 
     if (isFirst) {
-      if (!audioStartTracked) {
-        audioStartTracked = true;
-        trackUsage('audio_started', { source: currentAnalyticsSource, playback: 'segmented' });
-      }
+      registerAudioPlaybackStarted(currentAnalyticsSource, 'segmented');
       setStatus(_mobileFallbackActive ? '▶ Playing — compatibility mode' : '▶ Playing…');
       setLiveIndicator(false);
     }
@@ -7799,8 +7898,14 @@ async function doRender() {
   // If morphing is active, route to journey render
   if (_morphingActive()) { return doJourneyRender(); }
 
+  trackUsage('workflow_started', { workflow: 'render' });
+
   const params = collectParams();
-  if (!params) { setStatus('Load a preset first'); return; }
+  if (!params) {
+    trackUsage('workflow_failed', { workflow: 'render', reason: 'validation' });
+    setStatus('Load a preset first');
+    return;
+  }
 
   // Stop any running preview
   stopAudio();
@@ -7810,6 +7915,7 @@ async function doRender() {
   
   // Protect the hosted backend; local web renders use the user's own resources.
   if (!IS_LOCAL_WEB_INTERFACE && hires && duration > 30) {
+    trackUsage('workflow_failed', { workflow: 'render', reason: 'unsupported' });
     setStatus('Hosted Hi-Res renders are limited to 30s (run Mantice locally for longer renders)');
     setTimeout(() => setStatus(''), 3000);
     return;
@@ -7829,6 +7935,7 @@ async function doRender() {
   }, 1000);
 
   const fmt = $('format').value;
+  let renderPhase = 'request';
   // hires already declared above for validation
   try {
     const controller = new AbortController();
@@ -7850,6 +7957,10 @@ async function doRender() {
       try { const err = await res.json(); errMsg = err.error || errMsg; } catch(e) {}
       setStatus(`RENDER FAILED: ${errMsg}`);
       setProgress(0);
+      trackUsage('workflow_failed', {
+        workflow: 'render',
+        reason: res.status >= 500 ? 'server' : 'validation',
+      });
       return;
     }
 
@@ -7861,6 +7972,7 @@ async function doRender() {
     if (blob.size === 0) {
       setStatus('RENDER FAILED: empty response');
       setProgress(0);
+      trackUsage('workflow_failed', { workflow: 'render', reason: 'server' });
       return;
     }
 
@@ -7900,6 +8012,7 @@ async function doRender() {
 
     // Decode audio for waveform display and playback
     renderedBlob = blob;
+    renderPhase = 'decode';
     const arrayBuf = await blob.arrayBuffer();
     const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
     renderedBuffer = await decodeCtx.decodeAudioData(arrayBuf);
@@ -7921,6 +8034,10 @@ async function doRender() {
     clearInterval(progressInterval);
     setStatus(`RENDER ERROR: ${e.message}`);
     setProgress(0);
+    trackUsage('workflow_failed', {
+      workflow: 'render',
+      reason: renderPhase === 'decode' ? 'decode' : 'network',
+    });
   }
 }
 
@@ -8322,12 +8439,17 @@ async function chooseGenerationCandidate(index) {
 }
 
 async function doGenerate() {
+  trackUsage('workflow_started', { workflow: 'generate' });
   const allowedTypes = [];
   if ($('gen-type-fm').checked) allowedTypes.push('fm');
   if ($('gen-type-subtractive').checked) allowedTypes.push('subtractive');
   if ($('gen-type-granular').checked) allowedTypes.push('granular');
   if ($('gen-type-wavetable').checked) allowedTypes.push('wavetable');
-  if (!allowedTypes.length) { setStatus('Select at least one synthesis type.'); return; }
+  if (!allowedTypes.length) {
+    trackUsage('workflow_failed', { workflow: 'generate', reason: 'validation' });
+    setStatus('Select at least one synthesis type.');
+    return;
+  }
   setStatus('Generating…');
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
   const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
@@ -8365,12 +8487,18 @@ async function doGenerate() {
     stopAudio();
     doPreview();
   } else {
+    trackUsage('workflow_failed', { workflow: 'generate', reason: analyticsApiFailureReason(data) });
     setStatus(`Error: ${data?.error || 'Backend unavailable'}`);
   }
 }
 
 async function doMutate() {
-  if (!currentParams) { setStatus('Load a preset first'); return; }
+  trackUsage('workflow_started', { workflow: 'mutate' });
+  if (!currentParams) {
+    trackUsage('workflow_failed', { workflow: 'mutate', reason: 'validation' });
+    setStatus('Load a preset first');
+    return;
+  }
   const amount = parseFloat($('mutate-amount').value);
   const parentId = activeHistoryNodeId;
   setStatus('Mutating…');
@@ -8402,19 +8530,31 @@ async function doMutate() {
     stopAudio();
     doPreview();
   } else {
+    trackUsage('workflow_failed', { workflow: 'mutate', reason: analyticsApiFailureReason(data) });
     setStatus(`Error: ${data?.error || 'Backend unavailable'}`);
   }
 }
 
 // ── Export preset ────────────────────────────────────────────────────────────
 async function doSharePreset() {
-  if (!currentParams) { setStatus('No preset loaded'); return; }
+  trackUsage('workflow_started', { workflow: 'share' });
+  if (!currentParams) {
+    trackUsage('workflow_failed', { workflow: 'share', reason: 'validation' });
+    setStatus('No preset loaded');
+    return;
+  }
   const isClean = savedParamsSnapshot && JSON.stringify(currentParams) === savedParamsSnapshot;
 
   // Unmodified community preset → reuse existing link
   if (currentSharedId && isClean) {
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + currentSharedId;
-    await navigator.clipboard.writeText(shareUrl);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch (_) {
+      trackUsage('workflow_failed', { workflow: 'share', reason: 'unknown' });
+      setStatus('Could not copy share link');
+      return;
+    }
     trackUsage('preset_shared', { mode: 'existing_link', source: 'community' });
     setStatus('🔗 Link copied! — #shared=' + currentSharedId);
     return;
@@ -8423,7 +8563,13 @@ async function doSharePreset() {
   // Unmodified official preset → direct #preset= link (no backend call, no copy)
   if (currentPresetPath && isClean) {
     const shareUrl = window.location.origin + window.location.pathname + '#preset=' + encodeURIComponent(currentPresetPath);
-    await navigator.clipboard.writeText(shareUrl);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch (_) {
+      trackUsage('workflow_failed', { workflow: 'share', reason: 'unknown' });
+      setStatus('Could not copy share link');
+      return;
+    }
     trackUsage('preset_shared', { mode: 'existing_link', source: 'official' });
     const name = allPresets.find(p => p.path === currentPresetPath)?.name || currentPresetPath;
     setStatus('🔗 Link copied! — ' + name);
@@ -8469,6 +8615,7 @@ async function doSharePreset() {
   }
   
   setStatus('Sharing…');
+  let shareFailureReason = 'network';
   try {
     const parentId = currentSharedId || null;
     let data;
@@ -8490,6 +8637,7 @@ async function doSharePreset() {
       sharedPresetName = replacement.trim() || data.suggested_name || 'New Drone';
     }
     if (!data.ok) { 
+      trackUsage('workflow_failed', { workflow: 'share', reason: analyticsApiFailureReason(data) });
       // Better error message for missing GitHub token
       if (data.error && data.error.includes('not configured')) {
         setStatus('⚠️ Sharing disabled on local server (requires GITHUB_TOKEN env variable)');
@@ -8518,6 +8666,7 @@ async function doSharePreset() {
     else galleryPresets.push(galleryEntry);
     if ($('gallery-overlay').classList.contains('open')) renderGallery(galleryPresets);
     const shareUrl = window.location.origin + window.location.pathname + '#shared=' + data.id;
+    shareFailureReason = 'unknown';
     await navigator.clipboard.writeText(shareUrl);
     trackUsage('preset_shared', {
       mode: 'new_upload',
@@ -8525,6 +8674,7 @@ async function doSharePreset() {
     });
     setStatus('🔗 Link copied! — #shared=' + data.id);
   } catch (e) {
+    trackUsage('workflow_failed', { workflow: 'share', reason: shareFailureReason });
     setStatus('Share error: ' + e.message);
   }
 }
@@ -10038,6 +10188,7 @@ const MORPH_TEMPLATES = [
  * If fewer than 2 matches, applies timing to existing steps without replacing them.
  */
 async function applyMorphTemplate(tpl) {
+  trackFeatureUsed('morphing');
   // Stop any playing audio first
   stopAudio();
   
@@ -10090,6 +10241,7 @@ async function applyMorphTemplate(tpl) {
 function applyAutoTemplate(template) {
   const src = _autoSource();
   if (!src) return;
+  trackFeatureUsed('automation');
   // Clear all existing automation first so templates don't stack
   src.automation = {};
   (src.layers || []).forEach(layer => { layer.automation = {}; });
@@ -10193,7 +10345,10 @@ function renderAutomationCard() {
   body.appendChild(globalLabel);
   for (const def of GLOBAL_AUTO_PARAMS) {
     const paramDef = { ...def, presetVal: getGlobalAutoPresetVal(def.key) };
-    body.appendChild(makeAutoRow(paramDef, src.automation[def.key], cfg => { src.automation[def.key] = cfg; }));
+    body.appendChild(makeAutoRow(paramDef, src.automation[def.key], cfg => {
+      trackFeatureUsed('automation');
+      src.automation[def.key] = cfg;
+    }));
   }
 
   (src.layers || []).forEach((layer, i) => {
@@ -10204,7 +10359,10 @@ function renderAutomationCard() {
     body.appendChild(lbl);
     for (const def of LAYER_AUTO_PARAMS) {
       const paramDef = { ...def, presetVal: getLayerAutoPresetVal(def.key, i) };
-      body.appendChild(makeAutoRow(paramDef, layer.automation[def.key], cfg => { layer.automation[def.key] = cfg; }, { layerIdx: i, key: def.key }));
+      body.appendChild(makeAutoRow(paramDef, layer.automation[def.key], cfg => {
+        trackFeatureUsed('automation');
+        layer.automation[def.key] = cfg;
+      }, { layerIdx: i, key: def.key }));
     }
   });
   updateAutoBadge();
@@ -10414,6 +10572,7 @@ function openGuide(steps, name, isFirst = false) {
   activeGuideSteps = steps;
   activeGuideName = name;
   activeGuideIsFirst = isFirst;
+  trackUsage('guide_started', { guide: isFirst ? 'first_breath' : 'deep_dive' });
   firstGuideIndex = 0;
   firstGuideCompletedActions = new Set();
   $('first-guide-dismiss').parentElement.style.display = isFirst ? '' : 'none';
@@ -10587,7 +10746,10 @@ function init() {
   });
 
   // Toggles (with undo)
-  initToggle('binaural-toggle', v => { if(currentParams) { pushUndo(); currentParams.binaural.enabled = v; markDirty(); } });
+  initToggle('binaural-toggle', v => {
+    if (v) trackFeatureUsed('binaural');
+    if(currentParams) { pushUndo(); currentParams.binaural.enabled = v; markDirty(); }
+  });
   initToggle('reverb-toggle', v => { if(currentParams) { pushUndo(); currentParams.reverb.enabled = v; markDirty(); } });
   initToggle('earth-toggle', v => { if(currentParams) { pushUndo(); currentParams.earth.enabled = v; markDirty(); } });
   initToggle('air-toggle', v => { if(currentParams) { pushUndo(); currentParams.air.enabled = v; markDirty(); } });
@@ -10638,11 +10800,15 @@ function init() {
   sliderPairs.forEach(([sliderId, valId, decimals]) => {
     linkSlider(sliderId, valId, v => parseFloat(v).toFixed(decimals));
   });
+  $('shimmer-wet').addEventListener('change', () => {
+    if (parseFloat($('shimmer-wet').value) > 0) trackFeatureUsed('shimmer');
+  });
   linkSlider('reverb-pre-delay', 'reverb-pre-delay-val', v => parseInt(v) + ' ms');
 
   // Tuning system (legacy cents-offset, sidebar generator)
   $('btn-apply-tuning').addEventListener('click', applyTuning);
   $('tuning-system').addEventListener('change', () => {
+    trackFeatureUsed('harmonic_tuning');
     if (currentParams) currentParams.tuning_system = $('tuning-system').value;
   });
 
@@ -11023,6 +11189,7 @@ function renderJourneyCard() {
   addBtn.className = 'journey-add-btn';
   addBtn.textContent = '+ Add Preset';
   addBtn.onclick = () => {
+    trackFeatureUsed('morphing');
     currentJourney.steps.push({ presetPath: '', presetName: '', holdMin: 10, morphMin: 2, presetParams: null });
     renderJourneyCard();
   };
@@ -11084,9 +11251,12 @@ let _journeyPreviewCtx = null;
 async function doJourneyPreview() {
   const payload = _journeyPayload(true);
   if (!payload.steps.length) { setStatus('Add at least one preset to preview'); return; }
+  trackFeatureUsed('journey');
   // Stop existing preview
   if (_journeyPreviewCtx) { try { _journeyPreviewCtx.close(); } catch(_){} _journeyPreviewCtx = null; }
   stopAudio();
+  audioStartTracked = false;
+  markAudioStartRequested();
   setStatus('Rendering journey preview…');
   try {
     const res = await fetch(apiUrl('/api/render-journey'), {
@@ -11106,8 +11276,11 @@ async function doJourneyPreview() {
     source.buffer = audioBuf;
     source.connect(monitorInputFor(ctx));
     source.start();
+    registerAudioPlaybackStarted('journey', 'journey_preview');
+    trackUsage('journey_action', { action: 'preview' });
     setStatus('▶ Playing journey preview…');
     source.onended = () => {
+      stopPlaybackMilestones();
       ctx.close();
       if (_journeyPreviewCtx === ctx) _journeyPreviewCtx = null;
       setStatus('READY');
@@ -11121,6 +11294,7 @@ async function doJourneyPreview() {
 async function doJourneyRender() {
   const payload = _journeyPayload(false);
   if (!payload.steps.length) { setStatus('Add at least one preset to render'); return; }
+  trackFeatureUsed('journey');
   if (_journeyPreviewCtx) { try { _journeyPreviewCtx.close(); } catch(_){} _journeyPreviewCtx = null; }
   stopAudio();
   const totalS = _journeyTotalSeconds();
@@ -11153,6 +11327,7 @@ async function doJourneyRender() {
     a.download = fn;
     a.click();
     URL.revokeObjectURL(url);
+    trackUsage('journey_action', { action: 'render' });
     setProgress(100);
     setStatus('Journey rendered! ✓');
     setTimeout(() => setProgress(0), 3000);
@@ -11167,10 +11342,13 @@ async function doJourneyRender() {
 async function doJourneyStream() {
   const steps = _journeyPayload(false).steps;
   if (!steps.length) { setStatus('Add at least one preset to stream'); return; }
+  trackFeatureUsed('journey');
 
   // Stop any existing journey preview AudioContext
   if (_journeyPreviewCtx) { try { _journeyPreviewCtx.close(); } catch(_){} _journeyPreviewCtx = null; }
   stopAudio();
+  audioStartTracked = false;
+  markAudioStartRequested();
 
   // Re-use the exact same WS streaming infrastructure as doPreview(),
   // but connect to /ws/journey and send journey steps instead of preset params.
@@ -11215,7 +11393,7 @@ async function doJourneyStream() {
         _updateMorphingStepHighlight();  // efficient update without full re-render
         return;
       }
-      if (msg.status === 'done')    { setStatus('Journey complete'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
+      if (msg.status === 'done')    { stopPlaybackMilestones(); setStatus('Journey complete'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
       if (msg.status === 'stopped') { setStatus('Stopped'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
       if (msg.error) { setStatus('Stream error: ' + msg.error); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
       return;
@@ -11241,6 +11419,8 @@ async function doJourneyStream() {
       nextPlayTime = streamingCtx.currentTime + 0.05;
       setStatus('▶ Streaming journey…');
       setLiveIndicator(false);
+      registerAudioPlaybackStarted('journey', 'journey_stream');
+      trackUsage('journey_action', { action: 'stream' });
       stopCtxKeepAlive();
       if (startupGain) {
         startupGain.gain.setValueAtTime(0, nextPlayTime);
