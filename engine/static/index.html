@@ -3485,6 +3485,11 @@ const MANTICE_ANALYTICS_SCHEMA = Object.freeze({
     playback: ['stream', 'segmented', 'rendered', 'journey_preview', 'journey_stream'],
     startup: ['fast', 'medium', 'slow'],
   },
+  playback_requested: { playback: ['stream', 'segmented', 'rendered'] },
+  playback_failed: {
+    playback: ['stream', 'segmented', 'rendered'],
+    reason: ['network', 'decode', 'timeout', 'unsupported', 'unknown'],
+  },
   playback_milestone: {
     duration: ['30s', '2m', '5m'],
     source: ['official', 'community', 'local', 'gallery', 'generator', 'mutation', 'journey', 'unknown'],
@@ -3604,6 +3609,7 @@ function analyticsDuration(seconds) {
 let currentAnalyticsSource = 'unknown';
 let audioStartTracked = false;
 let audioStartRequestedAt = 0;
+let activePlaybackAttempt = null;
 let playbackMilestoneTimers = [];
 const playbackMilestonesSeen = new Set();
 const analyticsFeaturesSeen = new Set();
@@ -3614,6 +3620,26 @@ function analyticsSource(value) {
 
 function markAudioStartRequested() {
   audioStartRequestedAt = performance.now();
+}
+
+function registerPlaybackRequested(playback) {
+  activePlaybackAttempt = { playback, failed: false };
+  trackUsage('playback_requested', { playback });
+}
+
+function registerPlaybackFailed(playback, reason) {
+  if (!activePlaybackAttempt || activePlaybackAttempt.playback !== playback || activePlaybackAttempt.failed) return;
+  activePlaybackAttempt.failed = true;
+  trackUsage('playback_failed', { playback, reason });
+}
+
+function analyticsPlaybackFailureReason(error, fallback = 'unknown') {
+  const message = String(error?.message || error || '').toLowerCase();
+  if (error?.name === 'EncodingError' || /decode|audio data/.test(message)) return 'decode';
+  if (error?.name === 'TimeoutError' || /timeout|timed out/.test(message)) return 'timeout';
+  if (/not supported|unsupported|not implemented/.test(message)) return 'unsupported';
+  if (/network|failed to fetch|connection|websocket|offline/.test(message)) return 'network';
+  return fallback;
 }
 
 function analyticsStartup(milliseconds) {
@@ -7402,26 +7428,35 @@ async function doPlay() {
   stopAudio();
   audioStartTracked = false;
   markAudioStartRequested();
+  registerPlaybackRequested('rendered');
 
-  playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (playbackCtx.state === 'suspended') await playbackCtx.resume();
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error('AudioContext unsupported');
+    playbackCtx = new AudioContextClass();
+    if (playbackCtx.state === 'suspended') await playbackCtx.resume();
 
-  const analyser = startSpectrum(playbackCtx);
-  playbackSource = playbackCtx.createBufferSource();
-  playbackSource.buffer = renderedBuffer;
-  playbackSource.connect(analyser);
-  analyser.connect(monitorInputFor(playbackCtx));
-  playbackSource.onended = () => {
-    stopPlaybackMilestones();
-    setStatus('PLAYBACK ENDED');
-    stopAurora();
-    stopSpectrum();
-  };
-  playbackSource.start(0);
-  registerAudioPlaybackStarted(currentAnalyticsSource, 'rendered');
-  drawSpectrum();
-  startAurora();
-  setStatus('▶ PLAYING RENDERED AUDIO…');
+    const analyser = startSpectrum(playbackCtx);
+    playbackSource = playbackCtx.createBufferSource();
+    playbackSource.buffer = renderedBuffer;
+    playbackSource.connect(analyser);
+    analyser.connect(monitorInputFor(playbackCtx));
+    playbackSource.onended = () => {
+      stopPlaybackMilestones();
+      setStatus('PLAYBACK ENDED');
+      stopAurora();
+      stopSpectrum();
+    };
+    playbackSource.start(0);
+    registerAudioPlaybackStarted(currentAnalyticsSource, 'rendered');
+    drawSpectrum();
+    startAurora();
+    setStatus('▶ PLAYING RENDERED AUDIO…');
+  } catch (error) {
+    registerPlaybackFailed('rendered', analyticsPlaybackFailureReason(error, 'unknown'));
+    stopAudio();
+    setStatus('Rendered playback unavailable');
+  }
 }
 
 // ── WebSocket Streaming Audio ────────────────────────────────────────────────
@@ -7592,13 +7627,14 @@ function _startMobileStartupTimer(socket) {
   _mobileStartupTimer = setTimeout(() => {
     _mobileStartupTimer = null;
     if (_previewWanted && ws === socket && !_mobileReceivedAudio) {
-      _fallbackToSegmented();
+      _fallbackToSegmented('timeout');
     }
   }, _MOBILE_WS_STARTUP_TIMEOUT_MS);
 }
 
-function _fallbackToSegmented() {
+function _fallbackToSegmented(reason = 'network') {
   if (_mobileFallbackActive || !_previewWanted) return;
+  registerPlaybackFailed('stream', reason);
   const seed = currentSeed;
   doPreviewSegmented({ fallback: true, seed });
 }
@@ -7621,10 +7657,11 @@ function _handlePreviewConnectionFailure(socket) {
   }
 
   if (mobile) {
-    _fallbackToSegmented();
+    _fallbackToSegmented('network');
   } else {
-    setStatus('Connection error – tap play to retry');
+    registerPlaybackFailed('stream', 'network');
     stopAudio();
+    setStatus('Connection error – tap play to retry');
   }
 }
 
@@ -7640,6 +7677,7 @@ async function doPreview(options = {}) {
 
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
+  if (!reconnecting) registerPlaybackRequested('stream');
 
   stopAudio();
   _wsReconnects = reconnectCount;
@@ -7656,8 +7694,15 @@ async function doPreview(options = {}) {
   const serverSR = STREAM_SR;  // matches server STREAM_SAMPLE_RATE
   // sampleRate: STREAM_SR ensures each 1024-sample chunk maps to exactly 1024 context samples,
   // eliminating the fractional-sample overlap/gap that causes clicks in high-frequency layers.
-  streamingCtx = createStreamingAudioContext();
-  if (streamingCtx.state === 'suspended') await streamingCtx.resume();
+  try {
+    streamingCtx = createStreamingAudioContext();
+    if (streamingCtx.state === 'suspended') await streamingCtx.resume();
+  } catch (error) {
+    registerPlaybackFailed('stream', analyticsPlaybackFailureReason(error, 'unsupported'));
+    stopAudio();
+    setStatus('Audio streaming is unavailable in this browser');
+    return;
+  }
 
   // Keep AudioContext alive while waiting for WS/Render cold start (iOS suspends after inactivity)
   startCtxKeepAlive();
@@ -7679,7 +7724,14 @@ async function doPreview(options = {}) {
   workletNode = null;
 
   setStatus('Connecting…');
-  ws = new WebSocket(wsUrl('/ws/preview'));
+  try {
+    ws = new WebSocket(wsUrl('/ws/preview'));
+  } catch (error) {
+    registerPlaybackFailed('stream', analyticsPlaybackFailureReason(error, 'network'));
+    stopAudio();
+    setStatus('Connection error – tap play to retry');
+    return;
+  }
   ws.binaryType = 'arraybuffer';
   const previewSocket = ws;
   _startMobileStartupTimer(previewSocket);
@@ -7710,7 +7762,11 @@ async function doPreview(options = {}) {
         }
         return;
       }
-      if (msg.error) { setStatus(`Error: ${msg.error}`); return; }
+      if (msg.error) {
+        registerPlaybackFailed('stream', 'unknown');
+        setStatus(`Error: ${msg.error}`);
+        return;
+      }
       return;
     }
 
@@ -7861,6 +7917,7 @@ async function doPreviewSegmented(options = {}) {
   stopAudio();
   const params = collectParams();
   if (!params) { setStatus('Load a preset first'); return; }
+  registerPlaybackRequested('segmented');
 
   _mobileFallbackActive = fallback;
   _segParams = params;
@@ -7876,8 +7933,17 @@ async function doPreviewSegmented(options = {}) {
   isStreaming   = true;
   const segmentSession = ++_segSession;
 
-  _segCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (_segCtx.state === 'suspended') await _segCtx.resume();
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error('AudioContext unsupported');
+    _segCtx = new AudioContextClass();
+    if (_segCtx.state === 'suspended') await _segCtx.resume();
+  } catch (error) {
+    registerPlaybackFailed('segmented', analyticsPlaybackFailureReason(error, 'unsupported'));
+    stopAudio();
+    setStatus('Compatibility playback is unavailable in this browser');
+    return;
+  }
 
   // Mobile uses segmented playback instead of the WebSocket stream, so it
   // needs its own analyser graph to drive both visualizers.
@@ -7896,6 +7962,7 @@ async function doPreviewSegmented(options = {}) {
 async function _fetchAndPlaySegment(isFirst, segmentSession) {
   if (!_segPlaying || !_segCtx || segmentSession !== _segSession) return;
 
+  let failureStage = 'network';
   try {
     const resp = await fetch(apiUrl('/api/preview-segment'), {
       method:  'POST',
@@ -7908,12 +7975,17 @@ async function _fetchAndPlaySegment(isFirst, segmentSession) {
       }),
     });
 
-    if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+    if (!resp.ok) {
+      const error = new Error(`Server error ${resp.status}`);
+      error.analyticsReason = resp.status === 415 ? 'unsupported' : 'unknown';
+      throw error;
+    }
 
     _segToken = resp.headers.get('X-Segment-Token') || _segToken;
     const arrayBuf = await resp.arrayBuffer();
     if (!_segPlaying || !_segCtx || segmentSession !== _segSession) return;
 
+    failureStage = 'decode';
     const audioBuf = await _segCtx.decodeAudioData(arrayBuf);
     if (!_segPlaying || !_segCtx || segmentSession !== _segSession) return;
 
@@ -7944,6 +8016,8 @@ async function _fetchAndPlaySegment(isFirst, segmentSession) {
 
   } catch(e) {
     console.warn('[seg] fetch error:', e);
+    const fallbackReason = failureStage === 'decode' ? 'decode' : 'network';
+    registerPlaybackFailed('segmented', e.analyticsReason || analyticsPlaybackFailureReason(e, fallbackReason));
     if (_segPlaying && segmentSession === _segSession) {
       setStatus('Buffering…');
       setTimeout(() => {
@@ -11599,7 +11673,9 @@ async function doJourneyPreview() {
   stopAudio();
   audioStartTracked = false;
   markAudioStartRequested();
+  registerPlaybackRequested('rendered');
   setStatus('Rendering journey preview…');
+  let failureStage = 'network';
   try {
     const res = await fetch(apiUrl('/api/render-journey'), {
       method: 'POST',
@@ -11611,7 +11687,14 @@ async function doJourneyPreview() {
       throw new Error(err.error || res.statusText);
     }
     const arrayBuf = await res.arrayBuffer();
-    const ctx = new AudioContext();
+    failureStage = 'decode';
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      const error = new Error('AudioContext unsupported');
+      error.analyticsReason = 'unsupported';
+      throw error;
+    }
+    const ctx = new AudioContextClass();
     _journeyPreviewCtx = ctx;
     const audioBuf = await ctx.decodeAudioData(arrayBuf);
     const source = ctx.createBufferSource();
@@ -11629,6 +11712,8 @@ async function doJourneyPreview() {
     };
   } catch (e) {
     console.error('[journey preview]', e);
+    const fallbackReason = failureStage === 'decode' ? 'decode' : 'network';
+    registerPlaybackFailed('rendered', e.analyticsReason || analyticsPlaybackFailureReason(e, fallbackReason));
     setStatus('Preview failed: ' + e.message);
   }
 }
@@ -11691,12 +11776,20 @@ async function doJourneyStream() {
   stopAudio();
   audioStartTracked = false;
   markAudioStartRequested();
+  registerPlaybackRequested('stream');
 
   // Re-use the exact same WS streaming infrastructure as doPreview(),
   // but connect to /ws/journey and send journey steps instead of preset params.
   const serverSR = STREAM_SR;
-  streamingCtx = createStreamingAudioContext();
-  if (streamingCtx.state === 'suspended') await streamingCtx.resume();
+  try {
+    streamingCtx = createStreamingAudioContext();
+    if (streamingCtx.state === 'suspended') await streamingCtx.resume();
+  } catch (error) {
+    registerPlaybackFailed('stream', analyticsPlaybackFailureReason(error, 'unsupported'));
+    stopAudio();
+    setStatus('Journey streaming is unavailable in this browser');
+    return;
+  }
 
   startCtxKeepAlive();
   startMeterPolling();
@@ -11712,7 +11805,14 @@ async function doJourneyStream() {
   startAurora();
 
   setStatus('Connecting journey…');
-  ws = new WebSocket(wsUrl('/ws/journey'));
+  try {
+    ws = new WebSocket(wsUrl('/ws/journey'));
+  } catch (error) {
+    registerPlaybackFailed('stream', analyticsPlaybackFailureReason(error, 'network'));
+    stopAudio();
+    setStatus('Journey stream error — tap Stream to retry');
+    return;
+  }
   ws.binaryType = 'arraybuffer';
 
   ws.onopen = () => {
@@ -11737,7 +11837,13 @@ async function doJourneyStream() {
       }
       if (msg.status === 'done')    { stopPlaybackMilestones(); setStatus('Journey complete'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
       if (msg.status === 'stopped') { setStatus('Stopped'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
-      if (msg.error) { setStatus('Stream error: ' + msg.error); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
+      if (msg.error) {
+        registerPlaybackFailed('stream', 'unknown');
+        setStatus('Stream error: ' + msg.error);
+        _currentMorphingStep = -1;
+        _updateMorphingStepHighlight();
+        return;
+      }
       return;
     }
     if (!streamingCtx || streamingCtx.state === 'closed') return;
@@ -11782,7 +11888,11 @@ async function doJourneyStream() {
     }
   };
 
-  ws.onerror = () => { setStatus('Journey stream error — tap Stream to retry'); stopAudio(); };
+  ws.onerror = () => {
+    registerPlaybackFailed('stream', 'network');
+    stopAudio();
+    setStatus('Journey stream error — tap Stream to retry');
+  };
   ws.onclose = () => { if (isStreaming) { isStreaming = false; setLiveIndicator(false); } };
 }
 

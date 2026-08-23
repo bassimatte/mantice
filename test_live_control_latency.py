@@ -68,7 +68,8 @@ class LiveControlLatencyTests(unittest.TestCase):
         self.assertIn("return new AudioContextClass();", self.html)
 
     def test_mobile_stream_failure_has_segmented_compatibility_mode(self):
-        self.assertIn("function _fallbackToSegmented()", self.html)
+        self.assertIn("function _fallbackToSegmented(reason = 'network')", self.html)
+        self.assertIn("registerPlaybackFailed('stream', reason)", self.html)
         self.assertIn("doPreviewSegmented({ fallback: true, seed });", self.html)
         self.assertIn("Compatibility mode — buffering…", self.html)
         self.assertIn("▶ Playing — compatibility mode", self.html)

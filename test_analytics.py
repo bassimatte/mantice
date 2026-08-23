@@ -64,6 +64,8 @@ class AnalyticsTests(unittest.TestCase):
         schema = schema_match.group(1)
         for event in (
             "audio_started",
+            "playback_requested",
+            "playback_failed",
             "playback_milestone",
             "preset_loaded",
             "generator_completed",
@@ -90,12 +92,29 @@ class AnalyticsTests(unittest.TestCase):
     def test_reliability_properties_are_coarse_buckets(self):
         self.assertIn("startup: ['fast', 'medium', 'slow']", self.static_html)
         self.assertIn("duration: ['30s', '2m', '5m']", self.static_html)
+        self.assertIn("playback: ['stream', 'segmented', 'rendered']", self.static_html)
+        self.assertIn(
+            "reason: ['network', 'decode', 'timeout', 'unsupported', 'unknown']",
+            self.static_html,
+        )
         self.assertIn(
             "reason: ['validation', 'network', 'server', 'decode', 'unsupported', 'unknown']",
             self.static_html,
         )
         self.assertIn("if (milliseconds < 1000) return 'fast';", self.static_html)
         self.assertIn("if (milliseconds < 3000) return 'medium';", self.static_html)
+
+    def test_playback_funnel_covers_each_transport_and_deduplicates_failures(self):
+        for playback in ("stream", "segmented", "rendered"):
+            self.assertIn(f"registerPlaybackRequested('{playback}')", self.static_html)
+            self.assertRegex(
+                self.static_html,
+                rf"registerPlaybackFailed\('{playback}',",
+            )
+        self.assertIn("activePlaybackAttempt = { playback, failed: false };", self.static_html)
+        self.assertIn("activePlaybackAttempt.failed", self.static_html)
+        self.assertIn("_fallbackToSegmented('timeout')", self.static_html)
+        self.assertIn("_fallbackToSegmented('network')", self.static_html)
 
     def test_listening_milestones_and_features_are_session_bounded(self):
         self.assertIn("const playbackMilestonesSeen = new Set();", self.static_html)

@@ -7,6 +7,7 @@ Measure aggregate adoption and reliability of MANTICE's major workflows without 
 The questions this setup should answer are:
 
 - How many visitors actually start audio?
+- How many playback requests succeed, fail, or recover through mobile compatibility mode?
 - How quickly does audio begin, and how many sessions keep listening for 30 seconds, 2 minutes, or 5 minutes?
 - Do people use official presets, community presets, or the gallery?
 - Which major synthesis types are enabled when generation succeeds?
@@ -52,6 +53,8 @@ Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary
 | Event | Meaning | Allowed properties |
 |---|---|---|
 | `mantice_audio_started` | Audio successfully began playing | `source`, `playback`, coarse `startup` bucket |
+| `mantice_playback_requested` | A valid Stream, Segmented, or rendered-audio playback attempt began | `playback` |
+| `mantice_playback_failed` | A playback transport encountered a terminal or recoverable failure; a successful fallback is recorded as a new request | `playback`, coarse `reason` bucket |
 | `mantice_playback_milestone` | Continuous playback reached a once-per-page milestone | `duration`, `source` |
 | `mantice_preset_loaded` | A preset was successfully loaded | `source`, `category` |
 | `mantice_generator_completed` | Generation returned a usable result | `mood`, four synthesis-type toggles |
@@ -73,7 +76,7 @@ Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary
 | `mantice_guide_completed` | A guide chapter reached its completion path | `guide`, allowlisted `chapter` |
 | `mantice_journey_action` | A Journey preview, stream, or render successfully started/completed as appropriate | `action` |
 
-Events represent completed outcomes where practical. The two funnel events deliberately record the start and failure boundary of five major workflows; cancellations are not failures. Playback milestones and feature adoption are emitted at most once per milestone or feature in a page session. High-frequency controls such as sliders are deliberately excluded.
+Events represent completed outcomes where practical. The two workflow funnel events deliberately record the start and failure boundary of five major workflows; cancellations are not failures. Playback uses its own requested/started/failed funnel. A Stream timeout or network failure followed by Segmented compatibility mode is represented as a failed Stream attempt and a new Segmented request, so recovered mobile sessions remain visible. Duplicate browser error signals for the same attempt are suppressed. Playback milestones and feature adoption are emitted at most once per milestone or feature in a page session. High-frequency controls such as sliders are deliberately excluded.
 
 ## Umami Cloud setup
 
@@ -106,22 +109,25 @@ Official references:
 Start with these event counts:
 
 1. `mantice_audio_started`
-2. `mantice_preset_loaded`
-3. `mantice_generator_completed`
-4. `mantice_mutation_completed`
-5. `mantice_gallery_opened`
-6. `mantice_wavetable_action`
-7. `mantice_render_completed`
-8. `mantice_preset_shared`
-9. `mantice_playback_milestone`
-10. `mantice_workflow_failed`
-11. `mantice_feature_used`
+2. `mantice_playback_requested`
+3. `mantice_playback_failed`
+4. `mantice_preset_loaded`
+5. `mantice_generator_completed`
+6. `mantice_mutation_completed`
+7. `mantice_gallery_opened`
+8. `mantice_wavetable_action`
+9. `mantice_render_completed`
+10. `mantice_preset_shared`
+11. `mantice_playback_milestone`
+12. `mantice_workflow_failed`
+13. `mantice_feature_used`
 
 Suggested first funnel:
 
 ```text
 Pageview
   → mantice_preset_loaded
+  → mantice_playback_requested
   → mantice_audio_started
   → mantice_generator_completed or mantice_mutation_completed
   → mantice_render_completed or mantice_preset_shared
@@ -139,6 +145,8 @@ mantice_workflow_started (filter by workflow)
 Compare matching `mantice_workflow_failed` counts by the same `workflow` and coarse `reason`. Do not sum every workflow into a single conversion rate: Generate, Render, Share, and Wavetable upload have different user intent and completion costs.
 
 For retention of attention rather than return visits, compare `mantice_audio_started` with the `30s`, `2m`, and `5m` `mantice_playback_milestone` buckets. These milestones require uninterrupted playback and are emitted only once per page session.
+
+For playback reliability, compare `mantice_playback_requested` with `mantice_audio_started`, broken down by `playback`. Then inspect `mantice_playback_failed` by `reason`. A failed `stream` followed by a `segmented` request indicates compatibility fallback rather than complete session loss.
 
 For onboarding, compare `mantice_guide_started` with `mantice_guide_completed` by `chapter`. Use `mantice_guide_step_reached` to identify the first step where a chapter loses readers. Step numbers and chapter IDs are fixed allowlisted buckets; guide copy and control values are never sent.
 
