@@ -76,6 +76,21 @@ class SeoTests(unittest.TestCase):
         width, height = struct.unpack(">II", docs_card[16:24])
         self.assertEqual((width, height), (1200, 630))
 
+    def test_icon_assets_are_deployed_at_the_expected_sizes(self):
+        self.assertIn('<link rel="apple-touch-icon" href="mantice-icon.png">', self.docs_html)
+
+        for filename, expected_size in (("mantice-icon.png", (512, 512)), ("favicon.png", (32, 32))):
+            docs_icon = Path("docs", filename).read_bytes()
+            static_icon = Path("engine/static", filename).read_bytes()
+            self.assertEqual(docs_icon, static_icon)
+            self.assertEqual(docs_icon[:8], b"\x89PNG\r\n\x1a\n")
+            self.assertEqual(struct.unpack(">II", docs_icon[16:24]), expected_size)
+
+        self.assertEqual(
+            Path("docs/favicon.ico").read_bytes(),
+            Path("engine/static/favicon.ico").read_bytes(),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
