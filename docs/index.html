@@ -43,7 +43,11 @@
   "author": {
     "@type": "Person",
     "name": "Matteo Bassi",
-    "url": "https://github.com/bassimatte"
+    "url": "https://bassimatte.github.io/",
+    "sameAs": [
+      "https://github.com/bassimatte",
+      "https://freesound.org/people/bassimat/"
+    ]
   },
   "codeRepository": "https://github.com/bassimatte/mantice",
   "featureList": [
@@ -240,6 +244,15 @@ header h1 {
   color: var(--text-dim);
   letter-spacing: 0.05em;
   font-weight: 400;
+}
+.creator-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.creator-link:hover,
+.creator-link:focus-visible {
+  color: var(--accent);
 }
 header .status {
   margin-left: auto;
@@ -2037,7 +2050,12 @@ button:disabled {
 <header>
   <div class="header-brand">
     <h1>MANTICE</h1>
-    <span class="header-byline">ambient drone synth · Matteo Bassi</span>
+    <span class="header-byline">
+      ambient drone synth ·
+      <a class="creator-link" href="https://bassimatte.github.io/">
+        Matteo Bassi
+      </a>
+    </span>
     <span class="dirty-badge" id="dirty-indicator" style="display:none">MODIFIED</span>
   </div>
   <button class="hamburger" id="btn-hamburger">☰</button>
@@ -2330,8 +2348,22 @@ button:disabled {
           directly by Python without rebuilding the file.</p>
         </div>
 
-        <p class="docs-note" style="margin-top: 20px; font-style: normal; text-align: center;">
-          Created by <strong>Matteo Bassi</strong> — <a href="https://github.com/bassimatte/mantice" target="_blank" style="color: var(--accent);">github.com/bassimatte/mantice</a>
+        <p class="docs-note" style="margin-top:20px; font-style:normal; text-align:center;">
+          Created by
+          <a href="https://bassimatte.github.io/" style="color:var(--accent)">
+            Matteo Bassi
+          </a>
+          ·
+          <a href="https://bassimatte.github.io/#instruments" style="color:var(--accent)">
+            More tools by Matteo Bassi ↗
+          </a>
+          ·
+          <a href="https://github.com/bassimatte/mantice"
+             target="_blank"
+             rel="noopener"
+             style="color:var(--accent)">
+            Source code ↗
+          </a>
         </p>
       </div>
 

@@ -40,6 +40,21 @@ class SeoTests(unittest.TestCase):
         self.assertEqual(data["@type"], "SoftwareApplication")
         self.assertEqual(data["url"], "https://bassimatte.github.io/mantice/")
         self.assertEqual(data["offers"]["price"], "0")
+        self.assertEqual(data["author"]["url"], "https://bassimatte.github.io/")
+        self.assertEqual(
+            data["author"]["sameAs"],
+            [
+                "https://github.com/bassimatte",
+                "https://freesound.org/people/bassimat/",
+            ],
+        )
+
+    def test_creator_links_use_the_canonical_homepage(self):
+        self.assertIn('class="creator-link" href="https://bassimatte.github.io/"', self.docs_html)
+        self.assertIn(".creator-link:focus-visible", self.docs_html)
+        self.assertIn("More tools by Matteo Bassi ↗", self.docs_html)
+        self.assertIn('href="https://bassimatte.github.io/#instruments"', self.docs_html)
+        self.assertIn("Source code ↗", self.docs_html)
 
     def test_crawl_files_point_to_the_canonical_homepage(self):
         robots = Path("docs/robots.txt").read_text(encoding="utf-8")
