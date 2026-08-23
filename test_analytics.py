@@ -77,6 +77,7 @@ class AnalyticsTests(unittest.TestCase):
             "workflow_failed",
             "feature_used",
             "guide_started",
+            "guide_step_reached",
             "journey_action",
         ):
             self.assertIn(f"{event}:", schema)
@@ -115,6 +116,14 @@ class AnalyticsTests(unittest.TestCase):
                 self.static_html,
                 rf"trackUsage\('workflow_failed',\s*\{{\s*workflow: '{workflow}',\s*reason:",
             )
+
+    def test_guides_report_privacy_safe_chapter_progress(self):
+        for chapter in ("core", "overview", "sound_engines", "movement_effects",
+                        "wavetable_granular", "automation_journeys"):
+            self.assertIn(f"'{chapter}'", self.static_html)
+        self.assertIn("trackUsage('guide_step_reached'", self.static_html)
+        self.assertIn("step: String(firstGuideIndex + 1)", self.static_html)
+        self.assertIn("guideStepsTracked.has(stepKey)", self.static_html)
 
     def test_sensitive_dynamic_values_are_not_sent(self):
         calls = re.findall(

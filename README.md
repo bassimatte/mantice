@@ -509,7 +509,7 @@ layers:
 - **Parameter Automation** — breakpoint timeline per parameter with lin/exp/S curves and 5 global templates
 - **Just Intonation mode** — exact-fraction layer roots from a single tonic; zero-beating pure intervals
 - **Settings reference** — ⓘ button opens in-app docs modal
-- **Guided tours** — First Breath introduces the core workflow; the optional Deep Dive maps layers, tuning, FX, mastering, automation, morphing, and export
+- **Guided tours** — First Breath introduces the core workflow; four optional, hands-on Deep Dive chapters cover sound engines and tuning, movement and effects, wavetable and granular synthesis, and automation and Journeys
 
 ### Keyboard Shortcuts
 

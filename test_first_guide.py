@@ -19,19 +19,33 @@ class FirstGuideTests(unittest.TestCase):
 
     def test_deep_dive_is_optional_and_covers_advanced_workflow(self):
         self.assertIn('id="btn-deep-guide"', self.static_html)
-        self.assertIn("const DEEP_DIVE_STEPS = [", self.static_html)
+        self.assertIn("const DEEP_DIVE_CHAPTERS = [", self.static_html)
+        self.assertIn("const DEEP_DIVE_MENU_STEPS = [{", self.static_html)
         self.assertIn("function openDeepDiveGuide()", self.static_html)
-        for selector in ("#layers-card > h2", "#tuning-panel", "#global-fx-card > h2",
-                         "#master-card > h2", "#automation-card > h2",
-                         "#journey-card > h2", "#btn-files"):
+        self.assertIn("function openDeepDiveChapter(chapterId)", self.static_html)
+        for chapter in ("sound_engines", "movement_effects", "wavetable_granular",
+                        "automation_journeys"):
+            self.assertIn(f"id: '{chapter}'", self.static_html)
+        for selector in ("#tuning-panel", "#global-fx-card > h2", "#master-card > h2",
+                         "#automation-card > h2", "#journey-card > h2", "#btn-files"):
             self.assertIn(selector, self.static_html)
         self.assertIn("Choose a synthesis engine", self.static_html)
-        self.assertIn("FM for pure-to-metallic spectra", self.static_html)
+        self.assertIn("FM moves from pure to metallic spectra", self.static_html)
         self.assertIn("Shape each layer", self.static_html)
         self.assertIn("distortion, chorus, flanger and phaser", self.static_html)
         self.assertIn("openDeepDiveLayerTab('synth')", self.static_html)
-        self.assertIn("openDeepDiveLayerTab('fx')", self.static_html)
-        self.assertIn("activeGuideIsFirst &&", self.static_html)
+        self.assertIn("renderDeepDiveChapterMenu(chapters)", self.static_html)
+
+    def test_deep_dive_chapters_have_real_interactive_tasks(self):
+        for action in ("#layer-solo-btn", "#lp-type", "#tuning-ji-btn", "#binaural-toggle",
+                       "#lp-wavetable_scan_direction", "#fs-open-btn",
+                       "#automation-body .auto-quickset-btn", "#journey-body .journey-add-btn"):
+            self.assertIn(f"action: '{action}'", self.static_html)
+        self.assertIn("actionValue: 'wavetable'", self.static_html)
+        self.assertIn("actionValue: 'granular'", self.static_html)
+        self.assertIn("step.isSatisfied?.()", self.static_html)
+        self.assertIn("bindFirstGuideAction(step)", self.static_html)
+        self.assertIn("if (!targets.length) {", self.static_html)
 
     def test_guide_uses_real_sound_controls(self):
         self.assertIn("const FIRST_GUIDE_STEPS = [", self.static_html)
@@ -42,18 +56,33 @@ class FirstGuideTests(unittest.TestCase):
         for selector in ("#btn-preview", ".gen-type-row", "#btn-generate",
                          "#btn-share", "#btn-export"):
             self.assertIn(selector, self.static_html)
-        self.assertIn("firstGuideIndex === 5) closeFirstGuide(true)", self.static_html)
-        self.assertIn("firstGuideIndex === 6) closeFirstGuide(true)", self.static_html)
+        self.assertIn("title: 'Generate a new drone'", self.static_html)
+        self.assertIn("action: '#btn-generate'", self.static_html)
+        self.assertIn("advanceOnAction: true", self.static_html)
+        self.assertIn("firstGuideIndex++", self.static_html)
+        self.assertNotIn("firstGuideIndex === 5) closeFirstGuide(true)", self.static_html)
+        self.assertIn("completeGuideOnAction: true", self.static_html)
         self.assertIn("Settings → Deep Dive guide", self.static_html)
 
     def test_spotlight_is_outside_body_zoom_and_tracks_scroll(self):
         self.assertIn("document.documentElement.appendChild($('first-guide'))", self.static_html)
         self.assertIn("window.addEventListener('scroll', firstGuidePositionHandler, true)", self.static_html)
         self.assertIn("window.removeEventListener('scroll', firstGuidePositionHandler, true)", self.static_html)
+        self.assertIn("new ResizeObserver(scheduleFirstGuidePosition)", self.static_html)
+        self.assertIn("firstGuideResizeObserver.observe(document.body)", self.static_html)
 
     def test_guide_keeps_mantice_typography_outside_body(self):
         self.assertIn(".first-guide { display: none;", self.static_html)
         self.assertIn("font-family: 'Space Mono', monospace", self.static_html)
+
+    def test_guide_focus_and_announcements_are_accessible(self):
+        self.assertIn('aria-modal="false"', self.static_html)
+        self.assertIn('id="first-guide-announcer" aria-live="polite"', self.static_html)
+        self.assertIn('id="first-guide-title" tabindex="-1"', self.static_html)
+        self.assertIn("guidePreviouslyFocused = document.activeElement", self.static_html)
+        self.assertIn("focusTarget?.isConnected", self.static_html)
+        self.assertIn("function trapFirstGuideFocus(event)", self.static_html)
+        self.assertIn("const actionTargets = actionSelector", self.static_html)
 
     def test_mobile_uses_bottom_sheet(self):
         self.assertIn(".first-guide-card { left:0; right:0; top:auto; bottom:0", self.static_html)

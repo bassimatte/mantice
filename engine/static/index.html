@@ -1575,6 +1575,7 @@ button:disabled {
 .first-guide-close { position:absolute; right:10px; top:8px; border:0; background:none; color:var(--text-dim); font-size:18px; cursor:pointer; }
 .first-guide-kicker { color:var(--accent); font:700 9px 'Space Mono',monospace; letter-spacing:.15em; text-transform:uppercase; }
 .first-guide-card h2 { margin:8px 26px 8px 0; color:var(--text); font-size:20px; }
+.first-guide-card h2:focus { outline:none; }
 .first-guide-card p { min-height:54px; margin:0 0 14px; color:var(--text-dim); font-size:12px; line-height:1.65; }
 .first-guide-dots { display:flex; gap:6px; margin:0 0 16px; }
 .first-guide-dot { width:6px; height:6px; border-radius:50%; background:var(--border); }
@@ -1585,9 +1586,24 @@ button:disabled {
 .first-guide-next:disabled { opacity:.45; cursor:default; }
 .first-guide-dismiss { display:flex; align-items:center; gap:6px; margin-top:14px; color:var(--text-dim); font-size:10px; }
 .first-guide-dismiss input { accent-color:var(--accent); }
+.first-guide-chapters { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:2px 0 16px; }
+.first-guide-chapters[hidden] { display:none; }
+.first-guide-chapter {
+  min-height:82px; padding:10px; text-align:left; cursor:pointer;
+  color:var(--text); background:var(--bg); border:1px solid var(--border); border-radius:6px;
+  font:10px 'Space Mono',monospace;
+}
+.first-guide-chapter:hover, .first-guide-chapter:focus-visible { border-color:var(--accent); outline:none; }
+.first-guide-chapter strong { display:block; margin-bottom:5px; color:var(--accent); font-size:11px; }
+.first-guide-chapter span { display:block; color:var(--text-dim); line-height:1.45; }
+.guide-sr-only {
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
 @media (max-width:760px) {
   .first-guide-card { left:0; right:0; top:auto; bottom:0; transform:none; width:auto; border-radius:14px 14px 0 0; padding:18px 18px max(18px, env(safe-area-inset-bottom)); }
   .first-guide-card p { min-height:48px; }
+  .first-guide-chapters { grid-template-columns:1fr; max-height:46vh; overflow-y:auto; }
 }
 
 /* ── Gallery Modal ──────────────────────────── */
@@ -2104,7 +2120,7 @@ button:disabled {
         <button class="settings-info-btn" id="btn-first-guide">◉ First Breath guide</button>
       </div>
       <div class="settings-row">
-        <button class="settings-info-btn" id="btn-deep-guide">◎ Deep Dive guide</button>
+        <button class="settings-info-btn" id="btn-deep-guide">◎ Deep Dive guides</button>
       </div>
       <div class="settings-divider"></div>
       <div class="settings-row" style="justify-content:space-between;">
@@ -2761,20 +2777,22 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
 </div>
 
 <!-- First-time guide -->
-<div class="first-guide" id="first-guide" role="dialog" aria-modal="true" aria-labelledby="first-guide-title">
+<div class="first-guide" id="first-guide" role="dialog" aria-modal="false" aria-labelledby="first-guide-title" aria-describedby="first-guide-copy">
   <div class="first-guide-focus" id="first-guide-focus"></div>
   <div class="first-guide-card">
     <button class="first-guide-close" id="first-guide-close" aria-label="Close guide">✕</button>
     <div class="first-guide-kicker" id="first-guide-kicker">First Breath · 1 of 7</div>
-    <h2 id="first-guide-title">Welcome to Mantice</h2>
+    <h2 id="first-guide-title" tabindex="-1">Welcome to Mantice</h2>
     <p id="first-guide-copy"></p>
+    <div class="first-guide-chapters" id="first-guide-chapters" hidden></div>
     <div class="first-guide-dots" id="first-guide-dots" aria-hidden="true"></div>
-    <div class="first-guide-actions">
+    <div class="first-guide-actions" id="first-guide-actions">
       <button class="btn btn-outline" id="first-guide-back">Back</button>
       <button class="btn btn-outline" id="first-guide-explore">Explore freely</button>
       <button class="btn first-guide-next" id="first-guide-next">Next</button>
     </div>
     <label class="first-guide-dismiss"><input type="checkbox" id="first-guide-dismiss" checked> Don’t show automatically again</label>
+    <div class="guide-sr-only" id="first-guide-announcer" aria-live="polite" aria-atomic="true"></div>
   </div>
 </div>
 
@@ -3467,8 +3485,19 @@ const MANTICE_ANALYTICS_SCHEMA = Object.freeze({
   feature_used: {
     feature: ['layer_added', 'layer_copied', 'granular', 'wavetable', 'harmonic_tuning', 'automation', 'morphing', 'journey', 'binaural', 'shimmer', 'layer_mix'],
   },
-  guide_started: { guide: ['first_breath', 'deep_dive'] },
-  guide_completed: { guide: ['first_breath', 'deep_dive'] },
+  guide_started: {
+    guide: ['first_breath', 'deep_dive'],
+    chapter: ['core', 'overview', 'sound_engines', 'movement_effects', 'wavetable_granular', 'automation_journeys'],
+  },
+  guide_step_reached: {
+    guide: ['first_breath', 'deep_dive'],
+    chapter: ['core', 'overview', 'sound_engines', 'movement_effects', 'wavetable_granular', 'automation_journeys'],
+    step: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+  },
+  guide_completed: {
+    guide: ['first_breath', 'deep_dive'],
+    chapter: ['core', 'overview', 'sound_engines', 'movement_effects', 'wavetable_granular', 'automation_journeys'],
+  },
   journey_action: { action: ['preview', 'stream', 'render'] },
 });
 
@@ -10406,16 +10435,22 @@ const FIRST_GUIDE_STEPS = [
     sidebar: true
   },
   {
-    title: 'Discover three textures',
-    copy: 'Generate creates one preset directly from the selected mood and engine choices, loads it, and starts previewing it.',
+    title: 'Generate a new drone',
+    copy: 'Press Generate to create one preset from the selected mood and engine choices. Mantice loads it and starts previewing it, then you can continue to the final step.',
     selectors: ['#btn-generate'],
-    sidebar: true
+    sidebar: true,
+    action: '#btn-generate',
+    actionLabel: 'Press Generate',
+    advanceOnAction: true
   },
   {
     title: 'Keep your drone',
     copy: 'Open Files to download the audio and its YAML preset, or Share it with the gallery. When you are ready for layers, synthesis, effects, tuning, automation and morphing, open Settings → Deep Dive guide.',
     selectors: ['#btn-share', '#btn-export'],
-    enter: () => $('files-dropdown')?.classList.add('open')
+    enter: () => $('files-dropdown')?.classList.add('open'),
+    action: '#btn-share, #btn-export',
+    actionRequired: false,
+    completeGuideOnAction: true
   }
 ];
 
@@ -10428,66 +10463,200 @@ function openDeepDiveLayerTab(name) {
   document.querySelector(`#layer-params .layer-subtab[data-subtab="${name}"]`)?.click();
 }
 
-const DEEP_DIVE_STEPS = [
+function openDeepDiveGlobalFx(name = 'binaural') {
+  openDeepDiveCard('global-fx-card');
+  document.querySelector(`#global-fx-tabs .layer-subtab[data-gfx="${name}"]`)?.click();
+}
+
+function openDeepDiveAutomation() {
+  openDeepDiveCard('automation-card');
+  if ($('automation-body')) renderAutomationCard();
+}
+
+function openDeepDiveJourney() {
+  openDeepDiveCard('journey-card');
+  renderJourneyCard();
+}
+
+const DEEP_DIVE_SOUND_ENGINE_STEPS = [
   {
-    title: 'Go deeper into Mantice',
-    copy: 'This optional tour maps the deeper sound-design workflow. It changes no parameters, so you can use it with any preset.'
+    title: 'Sound engines and tuning',
+    copy: 'This chapter explores how layers become an ensemble, how each synthesis engine creates tone, and how tuning relates their pitches.'
   },
   {
-    title: 'Build with layers',
-    copy: 'Each layer is an independent instrument with its own engine, pitch, dynamics, placement and effects. Layer tabs choose the voice you are editing; add, mute or solo layers to arrange the ensemble.',
-    selectors: ['#layers-card > h2'],
-    enter: () => openDeepDiveCard('layers-card')
+    title: 'Mix the ensemble',
+    copy: 'Each layer is an independent instrument. Try Solo to hear the active layer by itself; click it again later to restore the full ensemble.',
+    selectors: ['#layer-mute-btn', '#layer-solo-btn', '#layer-add-btn', '#layer-copy-btn'],
+    enter: () => openDeepDiveLayerTab('synth'),
+    action: '#layer-solo-btn',
+    actionLabel: 'Try Solo'
   },
   {
     title: 'Choose a synthesis engine',
-    copy: 'Synth offers four engines: FM for pure-to-metallic spectra; Subtractive for waveform, detune and sub-bass weight; Granular for clouds built from recorded sound; and Wavetable for slowly scanning imported waveform frames. Root, voices and ratios establish the pitch structure.',
-    selectors: ['#layer-params .layer-subtab[data-subtab="synth"]'],
-    enter: () => openDeepDiveLayerTab('synth')
-  },
-  {
-    title: 'Shape each layer',
-    copy: 'Filter provides LP, HP, BP, Comb and Formant shaping with cutoff LFO movement. Space controls pan, width, trajectory and elevation. FX adds distortion, chorus, flanger and phaser after synthesis and filtering.',
-    selectors: ['#layer-params .layer-subtab[data-subtab="filter"]', '#layer-params .layer-subtab[data-subtab="space"]', '#layer-params .layer-subtab[data-subtab="fx"]'],
-    enter: () => openDeepDiveLayerTab('fx')
+    copy: 'FM moves from pure to metallic spectra; Subtractive builds detuned waveform weight; Granular turns samples into clouds; Wavetable scans evolving waveform frames. Change the engine to compare its controls.',
+    selectors: ['#layer-params .layer-subtab[data-subtab="synth"]', '#lp-type'],
+    enter: () => openDeepDiveLayerTab('synth'),
+    action: '#lp-type',
+    actionEvent: 'change',
+    actionLabel: 'Change Engine'
   },
   {
     title: 'Tune the relationships',
-    copy: 'Free mode keeps independent frequencies. JI derives every layer from one tonic using pure intervals, while the tuning system controls how generated notes are quantized.',
+    copy: 'Free mode keeps independent frequencies. JI derives every layer from one tonic using pure intervals. Try JI to hear and edit the layers as one harmonic system.',
     selectors: ['#tuning-panel'],
-    enter: () => openDeepDiveCard('layers-card')
+    enter: () => openDeepDiveCard('layers-card'),
+    action: '#tuning-ji-btn',
+    actionLabel: 'Try JI'
+  }
+];
+
+const DEEP_DIVE_MOVEMENT_EFFECTS_STEPS = [
+  {
+    title: 'Movement and effects',
+    copy: 'This chapter follows sound from each layer’s filter and spatial motion through the shared effects and master output.'
+  },
+  {
+    title: 'Shape each layer',
+    copy: 'Filter provides LP, HP, BP, Comb and Formant shaping. Space controls pan, width, trajectories and elevation. Open FX to reach distortion, chorus, flanger and phaser.',
+    selectors: ['#layer-params .layer-subtab[data-subtab="filter"]', '#layer-params .layer-subtab[data-subtab="space"]', '#layer-params .layer-subtab[data-subtab="fx"]'],
+    enter: () => openDeepDiveCard('layers-card'),
+    action: '#layer-params .layer-subtab[data-subtab="fx"]',
+    actionLabel: 'Open Layer FX'
   },
   {
     title: 'Place the sound in a world',
-    copy: 'Global FX combines binaural processing, reverb, shimmer, Earth and Air. These stages define the shared environment around all layers.',
-    selectors: ['#global-fx-card > h2'],
-    enter: () => openDeepDiveCard('global-fx-card')
+    copy: 'Global FX surrounds all layers with binaural movement, reverb, shimmer, Earth and Air. Toggle Binaural to try a shared spatial treatment.',
+    selectors: ['#global-fx-card > h2', '#binaural-toggle'],
+    enter: () => openDeepDiveGlobalFx('binaural'),
+    action: '#binaural-toggle',
+    actionLabel: 'Toggle Binaural'
   },
   {
     title: 'Control the master bus',
-    copy: 'Master EQ balances the spectrum, compression controls peaks and density, and saturation adds warmth. The 0 dB output default preserves export headroom.',
-    selectors: ['#master-card > h2'],
+    copy: 'Master EQ balances the spectrum, compression controls peaks and density, saturation adds warmth, and Output Gain preserves export headroom. The monitor volume changes only what you hear locally.',
+    selectors: ['#master-card > h2', '#output-gain'],
     enter: () => openDeepDiveCard('master-card')
   },
   {
+    title: 'Listen to the result',
+    copy: 'Press Play to hear the current drone with its complete effects chain. Stop returns you to silence without changing the preset.',
+    selectors: ['#btn-preview', '#btn-stop'],
+    action: '#btn-preview',
+    actionLabel: 'Press Play'
+  }
+];
+
+const DEEP_DIVE_WAVETABLE_GRANULAR_STEPS = [
+  {
+    title: 'Wavetable and granular',
+    copy: 'This chapter explores Mantice’s sample-based engines: moving through wavetable frames and dissolving recorded sound into granular clouds.'
+  },
+  {
+    title: 'Choose Wavetable',
+    copy: 'Select Wavetable as the active layer engine. You can then choose a bundled table, upload a WAV, create one with CarveToy, or search Freesound.',
+    selectors: ['#lp-type'],
+    enter: () => openDeepDiveLayerTab('synth'),
+    action: '#lp-type',
+    actionEvent: 'change',
+    actionValue: 'wavetable',
+    actionLabel: 'Select Wavetable',
+    isSatisfied: () => $('lp-type')?.value === 'wavetable'
+  },
+  {
+    title: 'Read the wavetable terrain',
+    copy: 'The terrain shows all frames while the cursor shows the frame currently being read. Scan Start and End limit the region; Shape and Direction define how Mantice travels through it. Change Direction to compare the motion.',
+    selectors: ['#wavetable-scope-canvas', '#lp-wavetable_scan_shape', '#lp-wavetable_scan_direction', '#lp-wavetable_scan_rate'],
+    enter: () => openDeepDiveLayerTab('synth'),
+    action: '#lp-wavetable_scan_direction',
+    actionEvent: 'change',
+    actionLabel: 'Change Direction'
+  },
+  {
+    title: 'Shape motion and width',
+    copy: 'Scan Rate moves from near-static cycles into experimental audio rates. Tremor adds occasional frame shake. Unison mode, detune, spread and blend determine whether the table feels precise, smooth or wide.',
+    selectors: ['#lp-wavetable_scan_rate', '#lp-wavetable_tremor_amount', '#lp-wavetable_tremor_rate', '#lp-wavetable_unison_mode']
+  },
+  {
+    title: 'Choose Granular',
+    copy: 'Now select Granular. Grain size, density, position, scatter and pitch spread reshape a source recording into a cloud rather than a conventional sample playback.',
+    selectors: ['#lp-type'],
+    action: '#lp-type',
+    actionEvent: 'change',
+    actionValue: 'granular',
+    actionLabel: 'Select Granular',
+    isSatisfied: () => $('lp-type')?.value === 'granular'
+  },
+  {
+    title: 'Find a source',
+    copy: 'The Source menu contains samples already available to Mantice. Open the search panel to find a CC0 Freesound recording or paste a Freesound sound link.',
+    selectors: ['#lp-source', '#fs-open-btn'],
+    enter: () => openDeepDiveLayerTab('synth'),
+    action: '#fs-open-btn',
+    actionLabel: 'Open Sample Search'
+  }
+];
+
+const DEEP_DIVE_AUTOMATION_JOURNEYS_STEPS = [
+  {
+    title: 'Automation and journeys',
+    copy: 'This chapter creates drone-scale evolution inside one preset, then connects multiple presets into a longer composition.'
+  },
+  {
     title: 'Create long-form evolution',
-    copy: 'Automation moves parameters over the render using breakpoints, curves and slow random walks. Templates provide coherent starting shapes for drone-scale movement.',
-    selectors: ['#automation-card > h2'],
-    enter: () => openDeepDiveCard('automation-card')
+    copy: 'Automation moves parameters through breakpoints or slow random walks. Apply any Quick Set to create a coherent starting movement across the current preset.',
+    selectors: ['#automation-card > h2', '#automation-body .auto-quickset-btn'],
+    enter: openDeepDiveAutomation,
+    action: '#automation-body .auto-quickset-btn',
+    actionLabel: 'Apply a Quick Set'
   },
   {
-    title: 'Branch into journeys',
-    copy: 'Morphing sequences several presets and crossfades between them. Use it for evolving compositions that travel through distinct drone states.',
-    selectors: ['#journey-card > h2'],
-    enter: () => openDeepDiveCard('journey-card')
+    title: 'Build a journey',
+    copy: 'Morphing sequences presets and crossfades between them. Add a preset step, then choose its preset, hold time and transition time.',
+    selectors: ['#journey-card > h2', '#journey-body .journey-add-btn'],
+    enter: openDeepDiveJourney,
+    action: '#journey-body .journey-add-btn',
+    actionLabel: 'Add a Preset Step'
   },
   {
-    title: 'Render, share and return',
-    copy: 'Files contains audio rendering, preset download, sharing and the gallery. Standard export is 22.05 kHz/16-bit; Hi-Res is 48 kHz/24-bit.',
-    selectors: ['#btn-files'],
+    title: 'Preview, stream or render',
+    copy: 'With at least two configured steps, the top Play control streams the Journey and Render creates the complete composition. Loop and Ping-pong keep moving between presets; Once makes a fixed arc.',
+    selectors: ['#btn-preview', '#btn-files'],
     enter: () => $('files-dropdown')?.classList.add('open')
   }
 ];
+
+const DEEP_DIVE_CHAPTERS = [
+  {
+    id: 'sound_engines',
+    title: 'Sound Engines & Tuning',
+    summary: 'Layers, soloing, FM/Sub/Granular/Wavetable choices and harmonic relationships.',
+    steps: DEEP_DIVE_SOUND_ENGINE_STEPS,
+  },
+  {
+    id: 'movement_effects',
+    title: 'Movement & Effects',
+    summary: 'Layer shaping, spatial motion, global effects, mastering and monitoring.',
+    steps: DEEP_DIVE_MOVEMENT_EFFECTS_STEPS,
+  },
+  {
+    id: 'wavetable_granular',
+    title: 'Wavetable & Granular',
+    summary: 'Terrain, scanning, Tremor, unison, sample sources and Freesound.',
+    steps: DEEP_DIVE_WAVETABLE_GRANULAR_STEPS,
+  },
+  {
+    id: 'automation_journeys',
+    title: 'Automation & Journeys',
+    summary: 'Slow parameter evolution, morphing steps and long-form rendering.',
+    steps: DEEP_DIVE_AUTOMATION_JOURNEYS_STEPS,
+  },
+];
+
+const DEEP_DIVE_MENU_STEPS = [{
+  title: 'Choose a Deep Dive',
+  copy: 'Pick one focused chapter. Each chapter is optional, hands-on, and can be reopened from Settings whenever you want to explore another part of Mantice.',
+  chapters: DEEP_DIVE_CHAPTERS,
+}];
 
 let firstGuideIndex = 0;
 let firstGuideCompletedActions = new Set();
@@ -10495,6 +10664,12 @@ let firstGuidePositionHandler = null;
 let activeGuideSteps = FIRST_GUIDE_STEPS;
 let activeGuideName = 'First Breath';
 let activeGuideIsFirst = true;
+let activeGuideChapter = 'core';
+let guideStepsTracked = new Set();
+let guidePreviouslyFocused = null;
+let firstGuideActionCleanup = null;
+let firstGuideResizeObserver = null;
+let firstGuidePositionFrame = null;
 
 function firstGuideStoreComplete() {
   try { localStorage.setItem(FIRST_GUIDE_STORAGE_KEY, '1'); } catch (_) {}
@@ -10524,6 +10699,89 @@ function positionFirstGuideFocus() {
   });
 }
 
+function scheduleFirstGuidePosition() {
+  if (firstGuidePositionFrame) cancelAnimationFrame(firstGuidePositionFrame);
+  firstGuidePositionFrame = requestAnimationFrame(() => {
+    firstGuidePositionFrame = null;
+    if ($('first-guide').classList.contains('open')) positionFirstGuideFocus();
+  });
+}
+
+function observeFirstGuideLayout(elements) {
+  firstGuideResizeObserver?.disconnect();
+  firstGuideResizeObserver = null;
+  if (typeof ResizeObserver !== 'function') return;
+  firstGuideResizeObserver = new ResizeObserver(scheduleFirstGuidePosition);
+  firstGuideResizeObserver.observe(document.body);
+  firstGuideResizeObserver.observe($('first-guide').querySelector('.first-guide-card'));
+  elements.forEach(element => firstGuideResizeObserver.observe(element));
+}
+
+function activeGuideAnalyticsProperties() {
+  return {
+    guide: activeGuideIsFirst ? 'first_breath' : 'deep_dive',
+    chapter: activeGuideChapter,
+  };
+}
+
+function completeFirstGuideAction() {
+  firstGuideCompletedActions.add(firstGuideIndex);
+  const next = $('first-guide-next');
+  next.disabled = false;
+  next.textContent = firstGuideIndex === activeGuideSteps.length - 1 ? 'Finish' : 'Next';
+}
+
+function bindFirstGuideAction(step) {
+  firstGuideActionCleanup?.();
+  firstGuideActionCleanup = null;
+  if (!step.action) return;
+  const targets = [...document.querySelectorAll(step.action)];
+  if (!targets.length) {
+    completeFirstGuideAction();
+    return;
+  }
+  const eventName = step.actionEvent || 'click';
+  const handler = event => {
+    if (!$('first-guide').classList.contains('open')) return;
+    if (step.actionValue != null && String(event.currentTarget.value) !== String(step.actionValue)) return;
+    if (step.completeGuideOnAction) {
+      closeFirstGuide(true);
+      return;
+    }
+    completeFirstGuideAction();
+    if (step.advanceOnAction && firstGuideIndex < activeGuideSteps.length - 1) {
+      const completedIndex = firstGuideIndex;
+      setTimeout(() => {
+        if ($('first-guide').classList.contains('open') && firstGuideIndex === completedIndex) {
+          firstGuideIndex++;
+          renderFirstGuideStep();
+        }
+      }, 350);
+    }
+    scheduleFirstGuidePosition();
+  };
+  targets.forEach(target => target.addEventListener(eventName, handler));
+  firstGuideActionCleanup = () => targets.forEach(target => target.removeEventListener(eventName, handler));
+  if (step.isSatisfied?.()) completeFirstGuideAction();
+}
+
+function renderDeepDiveChapterMenu(chapters) {
+  const container = $('first-guide-chapters');
+  container.replaceChildren();
+  chapters.forEach(chapter => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'first-guide-chapter';
+    const title = document.createElement('strong');
+    title.textContent = chapter.title;
+    const summary = document.createElement('span');
+    summary.textContent = chapter.summary;
+    button.append(title, summary);
+    button.addEventListener('click', () => openDeepDiveChapter(chapter.id));
+    container.appendChild(button);
+  });
+}
+
 function renderFirstGuideStep() {
   const step = activeGuideSteps[firstGuideIndex];
   if (step.sidebar && innerWidth <= 760) document.querySelector('aside')?.classList.add('sidebar-open');
@@ -10535,57 +10793,121 @@ function renderFirstGuideStep() {
   $('first-guide-kicker').textContent = `${activeGuideName} · ${firstGuideIndex + 1} of ${activeGuideSteps.length}`;
   $('first-guide-title').textContent = step.title;
   $('first-guide-copy').textContent = step.copy;
-  $('first-guide-back').style.visibility = firstGuideIndex ? 'visible' : 'hidden';
+  $('first-guide-announcer').textContent = `${step.title}. ${step.copy}`;
+  const chapters = Array.isArray(step.chapters) ? step.chapters : [];
+  const isChapterMenu = chapters.length > 0;
+  $('first-guide-actions').style.display = isChapterMenu ? 'none' : '';
+  $('first-guide-chapters').hidden = !isChapterMenu;
+  if (isChapterMenu) renderDeepDiveChapterMenu(chapters);
+  $('first-guide-back').style.visibility = !isChapterMenu && firstGuideIndex ? 'visible' : 'hidden';
   $('first-guide-explore').style.display = activeGuideIsFirst && !firstGuideIndex ? '' : 'none';
   const next = $('first-guide-next');
+  next.style.display = isChapterMenu ? 'none' : '';
   next.textContent = firstGuideIndex === activeGuideSteps.length - 1 ? 'Finish' : 'Next';
-  next.disabled = Boolean(step.action && !firstGuideCompletedActions.has(firstGuideIndex));
+  next.disabled = Boolean(step.action && step.actionRequired !== false && !firstGuideCompletedActions.has(firstGuideIndex));
   if (next.disabled) next.textContent = step.actionLabel || 'Try it first';
+  $('first-guide-dots').style.display = isChapterMenu ? 'none' : '';
   $('first-guide-dots').innerHTML = activeGuideSteps.map((_, index) =>
     `<span class="first-guide-dot${index === firstGuideIndex ? ' active' : ''}"></span>`).join('');
 
-  const firstTarget = step.selectors?.map(selector => document.querySelector(selector)).find(Boolean);
+  const targetElements = (step.selectors || []).map(selector => document.querySelector(selector)).filter(Boolean);
+  const firstTarget = targetElements[0];
   firstTarget?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-  requestAnimationFrame(positionFirstGuideFocus);
-  setTimeout(positionFirstGuideFocus, 280);
+  bindFirstGuideAction(step);
+  observeFirstGuideLayout(targetElements);
+  const stepKey = `${activeGuideChapter}:${firstGuideIndex + 1}`;
+  if (!guideStepsTracked.has(stepKey)) {
+    guideStepsTracked.add(stepKey);
+    trackUsage('guide_step_reached', {
+      ...activeGuideAnalyticsProperties(),
+      step: String(firstGuideIndex + 1),
+    });
+  }
+  scheduleFirstGuidePosition();
+  setTimeout(scheduleFirstGuidePosition, 280);
+  requestAnimationFrame(() => $('first-guide-title').focus());
 }
 
 function closeFirstGuide(alwaysComplete = false) {
   if (activeGuideIsFirst && (alwaysComplete || $('first-guide-dismiss').checked)) firstGuideStoreComplete();
   if (alwaysComplete) {
-    trackUsage('guide_completed', { guide: activeGuideIsFirst ? 'first_breath' : 'deep_dive' });
+    trackUsage('guide_completed', activeGuideAnalyticsProperties());
   }
   $('first-guide').classList.remove('open', 'no-target');
   $('first-guide-focus').style.display = 'none';
+  $('first-guide-chapters').replaceChildren();
   $('files-dropdown')?.classList.remove('open');
   document.querySelector('aside')?.classList.remove('sidebar-open');
+  firstGuideActionCleanup?.();
+  firstGuideActionCleanup = null;
+  firstGuideResizeObserver?.disconnect();
+  firstGuideResizeObserver = null;
+  if (firstGuidePositionFrame) cancelAnimationFrame(firstGuidePositionFrame);
+  firstGuidePositionFrame = null;
   if (firstGuidePositionHandler) {
     window.removeEventListener('resize', firstGuidePositionHandler);
     window.removeEventListener('scroll', firstGuidePositionHandler, true);
   }
   firstGuidePositionHandler = null;
+  const focusTarget = guidePreviouslyFocused;
+  guidePreviouslyFocused = null;
+  if (focusTarget?.isConnected) requestAnimationFrame(() => focusTarget.focus());
 }
 
-function openGuide(steps, name, isFirst = false) {
+function openGuide(steps, name, isFirst = false, chapter = isFirst ? 'core' : 'overview') {
+  const wasOpen = $('first-guide').classList.contains('open');
+  if (!wasOpen) guidePreviouslyFocused = document.activeElement;
   $('docs-overlay')?.classList.remove('open');
   $('settings-dropdown')?.classList.remove('open');
   activeGuideSteps = steps;
   activeGuideName = name;
   activeGuideIsFirst = isFirst;
-  trackUsage('guide_started', { guide: isFirst ? 'first_breath' : 'deep_dive' });
+  activeGuideChapter = chapter;
+  trackUsage('guide_started', activeGuideAnalyticsProperties());
   firstGuideIndex = 0;
   firstGuideCompletedActions = new Set();
+  guideStepsTracked = new Set();
   $('first-guide-dismiss').parentElement.style.display = isFirst ? '' : 'none';
   $('first-guide').classList.add('open');
-  firstGuidePositionHandler = positionFirstGuideFocus;
-  window.addEventListener('resize', firstGuidePositionHandler);
-  window.addEventListener('scroll', firstGuidePositionHandler, true);
+  if (!wasOpen) {
+    firstGuidePositionHandler = scheduleFirstGuidePosition;
+    window.addEventListener('resize', firstGuidePositionHandler);
+    window.addEventListener('scroll', firstGuidePositionHandler, true);
+  }
   renderFirstGuideStep();
-  $('first-guide-next').focus();
 }
 
-function openFirstGuide() { openGuide(FIRST_GUIDE_STEPS, 'First Breath', true); }
-function openDeepDiveGuide() { openGuide(DEEP_DIVE_STEPS, 'Deep Dive', false); }
+function openFirstGuide() { openGuide(FIRST_GUIDE_STEPS, 'First Breath', true, 'core'); }
+function openDeepDiveGuide() { openGuide(DEEP_DIVE_MENU_STEPS, 'Deep Dive', false, 'overview'); }
+
+function openDeepDiveChapter(chapterId) {
+  const chapter = DEEP_DIVE_CHAPTERS.find(candidate => candidate.id === chapterId);
+  if (!chapter) return;
+  openGuide(chapter.steps, `Deep Dive · ${chapter.title}`, false, chapter.id);
+}
+
+function firstGuideFocusableElements() {
+  const cardFocusable = [...$('first-guide').querySelectorAll(
+    '.first-guide-card button:not([disabled]):not([hidden]), .first-guide-card input:not([disabled]), .first-guide-card [tabindex]:not([tabindex="-1"])'
+  )].filter(element => getComputedStyle(element).display !== 'none');
+  const actionSelector = activeGuideSteps[firstGuideIndex]?.action;
+  const actionTargets = actionSelector
+    ? [...document.querySelectorAll(actionSelector)].filter(element => !element.disabled && getComputedStyle(element).display !== 'none')
+    : [];
+  return [...actionTargets, ...cardFocusable];
+}
+
+function trapFirstGuideFocus(event) {
+  if (event.key !== 'Tab' || !$('first-guide').classList.contains('open')) return;
+  const focusable = firstGuideFocusableElements();
+  if (!focusable.length) return;
+  const currentIndex = focusable.indexOf(document.activeElement);
+  const nextIndex = event.shiftKey
+    ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
+    : (currentIndex < 0 || currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
+  event.preventDefault();
+  focusable[nextIndex].focus();
+}
 
 function initFirstGuide() {
   // The application uses CSS zoom on <body>. Moving the fixed guide beside
@@ -10602,23 +10924,10 @@ function initFirstGuide() {
     if (firstGuideIndex === activeGuideSteps.length - 1) closeFirstGuide(true);
     else { firstGuideIndex++; renderFirstGuideStep(); }
   });
-  FIRST_GUIDE_STEPS.forEach((step, index) => {
-    if (!step.action) return;
-    document.querySelector(step.action)?.addEventListener('click', () => {
-      if (!$('first-guide').classList.contains('open') || activeGuideSteps !== FIRST_GUIDE_STEPS || firstGuideIndex !== index) return;
-      firstGuideCompletedActions.add(index);
-      $('first-guide-next').disabled = false;
-      $('first-guide-next').textContent = 'Next';
-    });
-  });
-  $('btn-generate').addEventListener('click', () => {
-    if ($('first-guide').classList.contains('open') && activeGuideSteps === FIRST_GUIDE_STEPS && firstGuideIndex === 5) closeFirstGuide(true);
-  });
-  ['btn-share', 'btn-export'].forEach(id => $(id).addEventListener('click', () => {
-    if ($('first-guide').classList.contains('open') && activeGuideSteps === FIRST_GUIDE_STEPS && firstGuideIndex === 6) closeFirstGuide(true);
-  }));
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && $('first-guide').classList.contains('open')) closeFirstGuide(false);
+    if (!$('first-guide').classList.contains('open')) return;
+    if (event.key === 'Escape') closeFirstGuide(false);
+    else trapFirstGuideFocus(event);
   });
 
   const isSharedLink = window.location.hash.includes('shared=');

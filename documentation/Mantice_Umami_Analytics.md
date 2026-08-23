@@ -68,8 +68,9 @@ Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary
 | `mantice_workflow_started` | A major product workflow was intentionally started | `workflow` |
 | `mantice_workflow_failed` | A major workflow ended at a known failure boundary | `workflow`, coarse `reason` bucket |
 | `mantice_feature_used` | A deeper feature was first used in the current page session | `feature` |
-| `mantice_guide_started` | A guide opened | `guide` |
-| `mantice_guide_completed` | A guide reached its completion path | `guide` |
+| `mantice_guide_started` | First Breath, the Deep Dive chooser, or a Deep Dive chapter opened | `guide`, allowlisted `chapter` |
+| `mantice_guide_step_reached` | A numbered guide step was reached for the first time in the current guide run | `guide`, allowlisted `chapter`, numbered `step` bucket |
+| `mantice_guide_completed` | A guide chapter reached its completion path | `guide`, allowlisted `chapter` |
 | `mantice_journey_action` | A Journey preview, stream, or render successfully started/completed as appropriate | `action` |
 
 Events represent completed outcomes where practical. The two funnel events deliberately record the start and failure boundary of five major workflows; cancellations are not failures. Playback milestones and feature adoption are emitted at most once per milestone or feature in a page session. High-frequency controls such as sliders are deliberately excluded.
@@ -138,6 +139,8 @@ mantice_workflow_started (filter by workflow)
 Compare matching `mantice_workflow_failed` counts by the same `workflow` and coarse `reason`. Do not sum every workflow into a single conversion rate: Generate, Render, Share, and Wavetable upload have different user intent and completion costs.
 
 For retention of attention rather than return visits, compare `mantice_audio_started` with the `30s`, `2m`, and `5m` `mantice_playback_milestone` buckets. These milestones require uninterrupted playback and are emitted only once per page session.
+
+For onboarding, compare `mantice_guide_started` with `mantice_guide_completed` by `chapter`. Use `mantice_guide_step_reached` to identify the first step where a chapter loses readers. Step numbers and chapter IDs are fixed allowlisted buckets; guide copy and control values are never sent.
 
 When the Umami account contains multiple applications, filter reports by tag `mantice` before interpreting MANTICE adoption or workflow counts.
 
