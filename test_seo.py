@@ -56,6 +56,22 @@ class SeoTests(unittest.TestCase):
         self.assertIn('href="https://bassimatte.github.io/#instruments"', self.docs_html)
         self.assertIn("Source code ↗", self.docs_html)
 
+    def test_visible_about_section_explains_the_instrument(self):
+        html = self.docs_html
+        about_index = html.index('id="about-mantice-title"')
+        self.assertGreater(about_index, html.index('id="journey-card"'))
+        self.assertLess(about_index, html.index("</main>"))
+        for text in (
+            "About the instrument",
+            "What Mantice creates",
+            "How it works",
+            "What you can use it for",
+            "Listen to Mantice sounds ↗",
+            "View source ↗",
+            "More tools by Matteo Bassi ↗",
+        ):
+            self.assertIn(text, html)
+
     def test_crawl_files_point_to_the_canonical_homepage(self):
         robots = Path("docs/robots.txt").read_text(encoding="utf-8")
         self.assertIn("User-agent: *", robots)
