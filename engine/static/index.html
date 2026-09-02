@@ -1630,6 +1630,22 @@ button:disabled {
 .render-info-quality strong { display:block; margin-bottom:4px; color:var(--accent); font-size:10px; text-transform:uppercase; }
 .render-info-actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
 @media (max-width:560px) { .render-info-quality { grid-template-columns:1fr; } .render-info-actions .btn { flex:1 1 100%; } }
+.support-modal { width:min(520px, 92vw); }
+.support-modal .docs-header h2 { letter-spacing:0.04em; }
+.support-body { padding:22px; color:var(--text); }
+.support-kicker { margin:0 0 14px; color:var(--accent); font-size:9px; letter-spacing:0.14em; text-transform:uppercase; }
+.support-copy { margin:0; color:var(--text); font-size:13px; line-height:1.7; }
+.support-note { margin:13px 0 0; color:var(--text-dim); font-size:11px; line-height:1.6; }
+.support-actions { display:flex; gap:8px; margin-top:20px; }
+.support-actions .btn { flex:1; text-align:center; text-decoration:none; }
+.support-optout { display:block; margin:14px auto 0; padding:4px; border:0; background:none; color:var(--text-dim); font:9px 'Space Mono',monospace; text-decoration:underline; cursor:pointer; }
+.support-optout:hover, .support-optout:focus-visible { color:var(--accent); }
+@media (max-width:560px) {
+  #support-overlay { align-items:flex-end; }
+  .support-modal { width:100vw; max-width:none; margin:0; border-right:0; border-bottom:0; border-left:0; }
+  .support-actions { flex-direction:column; }
+  .support-actions .btn { min-height:42px; }
+}
 .candidate-modal .docs-header { justify-content: flex-end; padding: 8px 12px; }
 .candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px; overflow-y: auto; }
 .candidate-card { display: flex; flex-direction: column; min-width: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-top: 3px solid var(--candidate-accent, var(--accent)); }
@@ -2206,6 +2222,9 @@ button:disabled {
       </div>
       <div class="settings-row">
         <button class="settings-info-btn" id="btn-deep-guide">◎ Deep Dive guides</button>
+      </div>
+      <div class="settings-row">
+        <a class="settings-info-btn" id="btn-support-settings" href="https://bassimatte.github.io/support/" target="_blank" rel="noopener" style="text-decoration:none;">♡ Support Mantice</a>
       </div>
       <div class="settings-divider"></div>
       <div class="settings-row" style="justify-content:space-between;">
@@ -2835,6 +2854,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
           <p>The public MANTICE website uses <a href="https://umami.is/" target="_blank" rel="noopener" style="color:var(--accent)">Umami</a> for anonymous, aggregate usage statistics. Umami does not use cookies, fingerprint visitors, or track people across websites.</p>
           <p>MANTICE records only predefined actions and coarse categories: for example starting audio, reaching listening milestones, loading a preset category, completing or failing a major workflow, opening the gallery, first using a major feature, or completing a render. Performance and failure data is bucketed; exact timings and error messages are not sent. MANTICE does not send preset names, creator names, sound parameters, imported filenames, search text, audio, samples, wavetables, or free-form user content.</p>
           <p>Analytics runs only on the official <code>bassimatte.github.io</code> website. Local browser and Python installations, repository forks, and preview deployments are not tracked. URL query strings and fragments are excluded, and browser Do Not Track preferences are respected.</p>
+          <p>The official website keeps a small support-reminder state in your browser after substantial hosted playback or rendering. That state stays on your device, is never sent to analytics, does not identify you, and can be disabled permanently with <em>Don’t ask again</em>.</p>
         </div>
       </div>
 
@@ -3285,11 +3305,32 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
           <a href="https://freesound.org/people/bassimat/packs/45706/" target="_blank" rel="noopener">Listen to Mantice sounds ↗</a>
           <a href="https://github.com/bassimatte/mantice" target="_blank" rel="noopener">View source ↗</a>
           <a href="https://bassimatte.github.io/#instruments">More tools by Matteo Bassi ↗</a>
+          <a id="support-about-link" href="https://bassimatte.github.io/support/" target="_blank" rel="noopener">Support Mantice ↗</a>
         </div>
       </div>
     </div>
   </section>
 </main>
+
+<!-- Voluntary support request — appears only after substantial hosted use -->
+<div class="docs-overlay" id="support-overlay" aria-hidden="true">
+  <div class="docs-modal support-modal" role="dialog" aria-modal="true" aria-labelledby="support-title" aria-describedby="support-copy">
+    <div class="docs-header">
+      <h2 id="support-title">Help keep Mantice online</h2>
+      <button class="docs-close" id="support-close" aria-label="Close support request">✕</button>
+    </div>
+    <div class="support-body">
+      <p class="support-kicker">Free · open source · no ads</p>
+      <p class="support-copy" id="support-copy">Streaming and rendering audio use a paid server. If Mantice has been useful to you, a small contribution helps cover those costs and keeps it freely available to everyone.</p>
+      <p class="support-note">Supporting is entirely optional. Nothing is locked, and your completed action is never interrupted.</p>
+      <div class="support-actions">
+        <a class="btn" id="support-open" href="https://bassimatte.github.io/support/" target="_blank" rel="noopener">Support Mantice ↗</a>
+        <button class="btn btn-outline" id="support-later">Not now</button>
+      </div>
+      <button class="support-optout" id="support-optout">Don’t ask again</button>
+    </div>
+  </div>
+</div>
 
 <!-- Website render information -->
 <div class="docs-overlay" id="render-info-overlay">
@@ -3626,6 +3667,9 @@ const MANTICE_ANALYTICS_SCHEMA = Object.freeze({
     chapter: ['core', 'overview', 'sound_engines', 'movement_effects', 'wavetable_granular', 'automation_journeys'],
   },
   journey_action: { action: ['preview', 'stream', 'render'] },
+  support_prompt_shown: { trigger: ['listening', 'render'] },
+  support_action: { action: ['opened', 'later', 'closed', 'opted_out'] },
+  support_link_opened: { source: ['prompt', 'about', 'settings'] },
 });
 
 const pendingAnalyticsEvents = [];
@@ -3682,6 +3726,154 @@ function trackUsage(eventName, properties = {}) {
 }
 
 initAnalytics();
+
+// ── Voluntary support prompt ────────────────────────────────────────────────
+// The counter is local to this browser. It estimates hosted synthesis work;
+// it is never sent to analytics and never changes access to the instrument.
+const MANTICE_SUPPORT_URL = 'https://bassimatte.github.io/support/';
+const MANTICE_SUPPORT_STATE_KEY = 'mantice_support_v1';
+const SUPPORT_INITIAL_UNITS = 15;
+const SUPPORT_SNOOZE_UNITS = 20;
+const SUPPORT_SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
+const SUPPORT_THANKS_MS = 365 * 24 * 60 * 60 * 1000;
+const SUPPORT_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const SUPPORT_MAX_SHOWS_PER_YEAR = 2;
+let supportPlaybackStartedAt = 0;
+let supportPromptTimer = null;
+
+function supportPromptIsHosted() {
+  return Boolean(MANTICE_API_BASE) && location.hostname === MANTICE_ANALYTICS_HOST &&
+    (location.pathname === MANTICE_ANALYTICS_PATH ||
+      location.pathname.startsWith(`${MANTICE_ANALYTICS_PATH}/`));
+}
+
+function defaultSupportState() {
+  return {
+    units: 0,
+    nextUnits: SUPPORT_INITIAL_UNITS,
+    snoozeUntil: 0,
+    suppressUntil: 0,
+    optedOut: false,
+    shownAt: [],
+  };
+}
+
+function readSupportState() {
+  if (!supportPromptIsHosted()) return null;
+  try {
+    const stored = JSON.parse(localStorage.getItem(MANTICE_SUPPORT_STATE_KEY) || '{}');
+    const state = { ...defaultSupportState(), ...stored };
+    state.units = Math.max(0, Number(state.units) || 0);
+    state.nextUnits = Math.max(SUPPORT_INITIAL_UNITS, Number(state.nextUnits) || SUPPORT_INITIAL_UNITS);
+    state.snoozeUntil = Math.max(0, Number(state.snoozeUntil) || 0);
+    state.suppressUntil = Math.max(0, Number(state.suppressUntil) || 0);
+    state.optedOut = state.optedOut === true;
+    state.shownAt = Array.isArray(state.shownAt)
+      ? state.shownAt.map(Number).filter(Number.isFinite)
+      : [];
+    return state;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeSupportState(state) {
+  try {
+    localStorage.setItem(MANTICE_SUPPORT_STATE_KEY, JSON.stringify(state));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function addSupportUnits(units) {
+  const amount = Number(units);
+  if (!Number.isFinite(amount) || amount <= 0) return false;
+  const state = readSupportState();
+  if (!state) return false;
+  state.units += amount;
+  return writeSupportState(state);
+}
+
+function startSupportPlaybackMeter(playback) {
+  finishSupportPlaybackMeter();
+  if (!supportPromptIsHosted() || !['stream', 'segmented', 'journey_stream'].includes(playback)) return;
+  supportPlaybackStartedAt = Date.now();
+}
+
+function finishSupportPlaybackMeter() {
+  if (!supportPlaybackStartedAt) return 0;
+  const elapsedMinutes = Math.max(0, Date.now() - supportPlaybackStartedAt) / 60000;
+  supportPlaybackStartedAt = 0;
+  addSupportUnits(elapsedMinutes);
+  return elapsedMinutes;
+}
+
+function supportPromptCanShow(state) {
+  const now = Date.now();
+  state.shownAt = state.shownAt.filter(timestamp => timestamp > now - SUPPORT_YEAR_MS);
+  return !state.optedOut &&
+    now >= state.snoozeUntil &&
+    now >= state.suppressUntil &&
+    state.units >= state.nextUnits &&
+    state.shownAt.length < SUPPORT_MAX_SHOWS_PER_YEAR;
+}
+
+function closeSupportPrompt() {
+  const overlay = $('support-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function showSupportPrompt(trigger) {
+  const state = readSupportState();
+  const overlay = $('support-overlay');
+  if (!state || !overlay || overlay.classList.contains('open') || !supportPromptCanShow(state)) return false;
+  if (document.querySelector('.docs-overlay.open, .first-guide.open')) return false;
+  state.shownAt.push(Date.now());
+  if (!writeSupportState(state)) return false;
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  trackUsage('support_prompt_shown', { trigger });
+  setTimeout(() => $('support-close')?.focus(), 0);
+  return true;
+}
+
+function maybeShowSupportPrompt(trigger = 'listening') {
+  if (!supportPromptIsHosted()) return false;
+  if (supportPromptTimer) clearTimeout(supportPromptTimer);
+  supportPromptTimer = setTimeout(() => {
+    supportPromptTimer = null;
+    if (isStreaming || _segPlaying || playbackSource || galleryAudition || _journeyPreviewCtx) return;
+    showSupportPrompt(trigger);
+  }, 600);
+  return true;
+}
+
+function deferSupportPrompt(action = 'later') {
+  const overlay = $('support-overlay');
+  if (!overlay?.classList.contains('open')) return;
+  const state = readSupportState();
+  if (state) {
+    if (action === 'opted_out') {
+      state.optedOut = true;
+    } else if (action === 'opened') {
+      state.suppressUntil = Date.now() + SUPPORT_THANKS_MS;
+    } else {
+      state.snoozeUntil = Date.now() + SUPPORT_SNOOZE_MS;
+      state.nextUnits = Math.max(state.nextUnits, state.units + SUPPORT_SNOOZE_UNITS);
+    }
+    writeSupportState(state);
+  }
+  trackUsage('support_action', { action });
+  closeSupportPrompt();
+}
+
+function stopAudioAndMaybeSupport() {
+  stopAudio();
+  maybeShowSupportPrompt('listening');
+}
 
 function analyticsCategory(value) {
   const category = String(value || '').toLowerCase();
@@ -3766,6 +3958,7 @@ function registerAudioPlaybackStarted(source, playback) {
     });
   }
   startPlaybackMilestones(safeSource);
+  startSupportPlaybackMeter(playback);
 }
 
 function trackFeatureUsed(feature) {
@@ -7486,7 +7679,7 @@ function initKeyboardShortcuts() {
       case 's':
       case 'S':
         if (e.ctrlKey || e.metaKey) { e.preventDefault(); doSavePreset(); }
-        else { e.preventDefault(); stopAudio(); }
+        else { e.preventDefault(); stopAudioAndMaybeSupport(); }
         break;
       case 'p':
       case 'P':
@@ -7929,6 +8122,7 @@ async function doPreview(options = {}) {
 }
 
 function stopAudio() {
+  finishSupportPlaybackMeter();
   stopPlaybackMilestones();
   isStreaming = false;
   _previewWanted = false;
@@ -8253,6 +8447,8 @@ async function doRender() {
       duration: analyticsDuration(duration),
       normalized: $('normalize-loudness-toggle').dataset.state === '1' ? 'on' : 'off',
     });
+    addSupportUnits((duration / 60) * (hires ? 2 : 1));
+    maybeShowSupportPrompt('render');
     setStatus(`✓ Downloaded: ${filename} (${sizeMB} MB)`);
     setTimeout(() => { setProgress(0); }, 3000);
   } catch (e) {
@@ -9012,6 +9208,7 @@ async function auditionGalleryPreset(preset) {
     const startedAt = context.currentTime;
     source.start();
     trackUsage('gallery_auditioned', { kind: preset.isCandidate ? 'candidate' : 'community' });
+    addSupportUnits(0.15);
     setGalleryAuditionButtons(preset, 'playing');
     galleryAudition.timer = setInterval(() => {
       const progress = Math.min(1, (context.currentTime - startedAt) / buffer.duration);
@@ -11164,7 +11361,7 @@ function init() {
 
   // Transport buttons
   $('btn-preview').addEventListener('click', doPreview);
-  $('btn-stop').addEventListener('click', stopAudio);
+  $('btn-stop').addEventListener('click', stopAudioAndMaybeSupport);
 
   // Docs modal
   $('docs-close').addEventListener('click', () => $('docs-overlay').classList.remove('open'));
@@ -11192,6 +11389,33 @@ function init() {
     $('docs-overlay').classList.add('open');
   });
   initFirstGuide();
+
+  // Voluntary support links and prompt. Dismissal never affects functionality.
+  ['support-open', 'support-about-link', 'btn-support-settings'].forEach(id => {
+    $(id).href = MANTICE_SUPPORT_URL;
+  });
+  $('support-close').addEventListener('click', () => deferSupportPrompt('closed'));
+  $('support-later').addEventListener('click', () => deferSupportPrompt('later'));
+  $('support-optout').addEventListener('click', () => deferSupportPrompt('opted_out'));
+  $('support-open').addEventListener('click', () => {
+    trackUsage('support_link_opened', { source: 'prompt' });
+    deferSupportPrompt('opened');
+  });
+  $('support-about-link').addEventListener('click', () => {
+    trackUsage('support_link_opened', { source: 'about' });
+  });
+  $('btn-support-settings').addEventListener('click', () => {
+    trackUsage('support_link_opened', { source: 'settings' });
+  });
+  $('support-overlay').addEventListener('click', event => {
+    if (event.target === $('support-overlay')) deferSupportPrompt('closed');
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && $('support-overlay').classList.contains('open')) {
+      deferSupportPrompt('closed');
+    }
+  });
+  window.addEventListener('pagehide', finishSupportPlaybackMeter);
 
   // Docs tab switching
   document.querySelectorAll('.docs-tab').forEach(tab => {
@@ -11792,12 +12016,14 @@ async function doJourneyPreview() {
     source.start();
     registerAudioPlaybackStarted('journey', 'journey_preview');
     trackUsage('journey_action', { action: 'preview' });
+    addSupportUnits(audioBuf.duration / 60);
     setStatus('▶ Playing journey preview…');
     source.onended = () => {
       stopPlaybackMilestones();
       ctx.close();
       if (_journeyPreviewCtx === ctx) _journeyPreviewCtx = null;
       setStatus('READY');
+      maybeShowSupportPrompt('listening');
     };
   } catch (e) {
     console.error('[journey preview]', e);
@@ -11844,6 +12070,8 @@ async function doJourneyRender() {
     a.click();
     URL.revokeObjectURL(url);
     trackUsage('journey_action', { action: 'render' });
+    addSupportUnits(totalS / 60);
+    maybeShowSupportPrompt('render');
     setProgress(100);
     setStatus('Journey rendered! ✓');
     setTimeout(() => setProgress(0), 3000);
@@ -11924,7 +12152,7 @@ async function doJourneyStream() {
         _updateMorphingStepHighlight();  // efficient update without full re-render
         return;
       }
-      if (msg.status === 'done')    { stopPlaybackMilestones(); setStatus('Journey complete'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
+      if (msg.status === 'done')    { finishSupportPlaybackMeter(); stopPlaybackMilestones(); setStatus('Journey complete'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); maybeShowSupportPrompt('listening'); return; }
       if (msg.status === 'stopped') { setStatus('Stopped'); _currentMorphingStep = -1; _updateMorphingStepHighlight(); return; }
       if (msg.error) {
         registerPlaybackFailed('stream', 'unknown');

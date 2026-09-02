@@ -81,6 +81,9 @@ class AnalyticsTests(unittest.TestCase):
             "guide_started",
             "guide_step_reached",
             "journey_action",
+            "support_prompt_shown",
+            "support_action",
+            "support_link_opened",
         ):
             self.assertIn(f"{event}:", schema)
             self.assertRegex(self.static_html, rf"trackUsage\('{event}'")
@@ -152,7 +155,7 @@ class AnalyticsTests(unittest.TestCase):
         )
         self.assertTrue(calls)
         property_text = "\n".join(properties for _, properties in calls)
-        for forbidden_key in ("name:", "id:", "query:", "filename:", "params:", "error:"):
+        for forbidden_key in ("name:", "id:", "query:", "filename:", "params:", "error:", "units:"):
             self.assertNotIn(forbidden_key, property_text)
 
 

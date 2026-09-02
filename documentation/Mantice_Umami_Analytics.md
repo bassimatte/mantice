@@ -41,6 +41,7 @@ The application does not send:
 - Exact error messages
 - Exact startup times or continuous interaction traces
 - Identifiers supplied by MANTICE
+- The local support-reminder score or dismissal state
 
 Every custom property is checked against an explicit allowlist before being sent. URL query strings and fragments are excluded, and the tracker respects the browser's Do Not Track setting.
 
@@ -75,8 +76,13 @@ Do not enable Umami session replay or heatmaps for MANTICE. They are unnecessary
 | `mantice_guide_step_reached` | A numbered guide step was reached for the first time in the current guide run | `guide`, allowlisted `chapter`, numbered `step` bucket |
 | `mantice_guide_completed` | A guide chapter reached its completion path | `guide`, allowlisted `chapter` |
 | `mantice_journey_action` | A Journey preview, stream, or render successfully started/completed as appropriate | `action` |
+| `mantice_support_prompt_shown` | The optional support request became visible after substantial hosted use | `trigger` |
+| `mantice_support_action` | The user opened the support page, selected “Not now”, closed the prompt, or permanently opted out | `action` (`opened`, `later`, `closed`, or `opted_out`) |
+| `mantice_support_link_opened` | A permanent or prompted support link was opened | `source` |
 
 Events represent completed outcomes where practical. The two workflow funnel events deliberately record the start and failure boundary of five major workflows; cancellations are not failures. Playback uses its own requested/started/failed funnel. A Stream timeout or network failure followed by Segmented compatibility mode is represented as a failed Stream attempt and a new Segmented request, so recovered mobile sessions remain visible. Duplicate browser error signals for the same attempt are suppressed. Playback milestones and feature adoption are emitted at most once per milestone or feature in a page session. High-frequency controls such as sliders are deliberately excluded.
+
+The support prompt uses a separate browser-local score based only on hosted server work: elapsed hosted playback, successful renders, and short preview equivalents. The score, thresholds, and timestamps are never analytics properties. The prompt first becomes eligible after 15 units, “Not now” or closing the prompt postpones it for both 14 days and 20 more units, and it can appear at most twice in a rolling year. “Don’t ask again” is permanent for that browser. It never appears in local installations and never blocks or delays the action that earned the score.
 
 ## Umami Cloud setup
 
@@ -149,6 +155,8 @@ For retention of attention rather than return visits, compare `mantice_audio_sta
 For playback reliability, compare `mantice_playback_requested` with `mantice_audio_started`, broken down by `playback`. Then inspect `mantice_playback_failed` by `reason`. A failed `stream` followed by a `segmented` request indicates compatibility fallback rather than complete session loss.
 
 For onboarding, compare `mantice_guide_started` with `mantice_guide_completed` by `chapter`. Use `mantice_guide_step_reached` to identify the first step where a chapter loses readers. Step numbers and chapter IDs are fixed allowlisted buckets; guide copy and control values are never sent.
+
+For voluntary support, compare `mantice_support_prompt_shown` with `mantice_support_link_opened` filtered to `source=prompt`. `mantice_support_action` distinguishes the main call to action, explicit “Not now”, closing through the X/backdrop/Escape, and permanent opt-out. The permanent About and Settings links use their own source values, so they can be distinguished from prompted interest. The shared portfolio support page separately records privacy-safe payment-option clicks as `portfolio_support_checkout_opened`. Do not infer donations from link opens or checkout starts: only PayPal can confirm a completed contribution.
 
 When the Umami account contains multiple applications, filter reports by tag `mantice` before interpreting MANTICE adoption or workflow counts.
 

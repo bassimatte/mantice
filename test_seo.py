@@ -67,10 +67,12 @@ class SeoTests(unittest.TestCase):
             "How it works",
             "What you can use it for",
             "Listen to Mantice sounds ↗",
+            "Support Mantice ↗",
             "View source ↗",
             "More tools by Matteo Bassi ↗",
         ):
             self.assertIn(text, html)
+        self.assertIn('href="https://bassimatte.github.io/support/"', html)
 
     def test_crawl_files_point_to_the_canonical_homepage(self):
         robots = Path("docs/robots.txt").read_text(encoding="utf-8")
