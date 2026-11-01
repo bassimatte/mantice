@@ -1,0 +1,101 @@
+# Local reference for the proposed Massive generator mood.
+# Shared root, bass and seed across A/B/C; audition before building generation rules.
+meta:
+  name: Massive B - Pressure
+  slug: massive_b_pressure
+  category: experimental
+  mood: [massive, ambient, pressure]
+  description: "A dense G drone: a stable deep core surrounded by warm saw harmonics, slow detuned beating and restrained saturation."
+  author: Matteo Bassi
+  tags: [ambient, drone, massive, deep, pressure]
+global: {duration_seconds: 60, sample_rate: 48000, bit_depth: 24-bit}
+seed: 1701
+saturation: 0.25
+spatial: {depth: 2.0, wetness: 0.32, swarm_density: 0.45}
+master:
+  output_gain_db: 0.0
+  eq: {low_cut_hz: 25.0, bass_db: 0.0, lo_mid_db: -1.5, lo_mid_hz: 260.0, lo_mid_q: 0.7, air_db: -1.0}
+  comp: {threshold_db: -18.0, ratio: 1.6, attack_ms: 90.0, release_ms: 450.0, knee_db: 6.0, makeup_db: 0.0}
+reverb: {enabled: true, space: cathedral, mix: 0.25, decay_trim: 0.8}
+layers:
+- name: Shared G Foundation
+  enabled: true
+  type: fm
+  synthesis: {root: 49.0, voices: 3, ratios: [1.0]}
+  fm: {ratios: [1.0], index: 0.06}
+  dynamics: {amp_min: 0.035, amp_max: 0.045, drift: 0.0004}
+  volume_db: 0.0
+  band: sub
+  harmonics: 2
+  harmonic_decay: 0.28
+  spread: 0.0
+  width: 0.0
+  spatial_motion: {quadrant: center, speed: 0.001, trajectory_x: none, trajectory_y: none}
+  filter_type: lp
+  filter_cutoff: 125
+  filter_lfo_depth: 0.0
+  chorus_mix: 0.0
+- name: Pressure Body
+  enabled: true
+  type: subtractive
+  synthesis: {root: 98.0, voices: 6, ratios: [1.0, 1.5, 2.0]}
+  dynamics: {amp_min: 0.04, amp_max: 0.055, drift: 0.0012}
+  volume_db: 0.0
+  waveform: saw
+  detune_cents: 6
+  sub_mix: 0.0
+  width: 1.05
+  spatial_motion: {quadrant: center, speed: 0.0015, trajectory_x: none, trajectory_y: none}
+  filter_type: lp
+  filter_cutoff: 1400
+  filter_resonance: 0.8
+  filter_lfo_rate: 0.005
+  filter_lfo_depth: 0.16
+  filter_lfo_shape: sine
+  chorus_rate: 0.035
+  chorus_depth: 0.003
+  chorus_mix: 0.18
+  chorus_voices: 3
+- name: Open Fifth Mantle
+  enabled: true
+  type: fm
+  synthesis: {root: 196.0, voices: 8, ratios: [1.0, 1.5, 2.0]}
+  fm: {ratios: [1.0, 2.0], index: 0.48}
+  dynamics: {amp_min: 0.02, amp_max: 0.032, drift: 0.0018}
+  volume_db: 0.0
+  band: mid
+  harmonics: 4
+  harmonic_decay: 0.45
+  spread: 1.6
+  width: 1.5
+  spatial_motion: {quadrant: center, speed: 0.002, trajectory_x: drift, trajectory_y: none}
+  filter_type: lp
+  filter_cutoff: 1800
+  filter_resonance: 0.75
+  filter_lfo_rate: 0.004
+  filter_lfo_depth: 0.10
+  chorus_rate: 0.045
+  chorus_depth: 0.004
+  chorus_mix: 0.18
+  chorus_voices: 3
+- name: Distant Halo
+  enabled: true
+  type: fm
+  synthesis: {root: 392.0, voices: 6, ratios: [1.0, 1.5, 2.0]}
+  fm: {ratios: [1.0], index: 0.12}
+  dynamics: {amp_min: 0.006, amp_max: 0.01, drift: 0.0015}
+  volume_db: -3.0
+  band: mid
+  harmonics: 3
+  harmonic_decay: 0.35
+  width: 1.5
+  spread: 1.8
+  spatial_motion: {quadrant: center, speed: 0.0013, trajectory_x: drift, trajectory_y: none}
+  filter_type: hp
+  filter_cutoff: 350
+  filter_resonance: 0.7
+  filter_lfo_depth: 0.0
+  chorus_rate: 0.025
+  chorus_depth: 0.006
+  chorus_mix: 0.18
+  chorus_voices: 3

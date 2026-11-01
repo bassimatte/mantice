@@ -358,6 +358,11 @@ def generate_preset(mood: Optional[str] = None, seed: Optional[int] = None,
                    mood supplies weighted synthesis probabilities.
     Returns a raw dict ready to be saved as YAML.
     """
+    if mood == 'massive':
+        from .massive_generator import generate_massive_candidates
+        return generate_massive_candidates(seed, allowed_types, harmonic_mode,
+                                           harmonic_key, harmonic_scale)[0]
+
     if seed is not None:
         random.seed(seed)
 
@@ -1023,4 +1028,4 @@ def save_generated_preset(preset: dict, output_dir: Path) -> Path:
 
 def get_available_moods() -> List[str]:
     """Return list of available mood presets."""
-    return sorted(_MOOD_PROFILES.keys())
+    return sorted([*_MOOD_PROFILES, 'massive'])

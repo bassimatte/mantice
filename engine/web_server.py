@@ -1607,6 +1607,18 @@ async def generate_endpoint(request: Request):
     base_params = body.get("base_params") if isinstance(body.get("base_params"), dict) else None
     try:
         import copy, yaml as _yaml, tempfile
+        if mood == 'massive':
+            from .massive_generator import generate_massive_candidates, ROLES, DESCRIPTIONS
+            presets = generate_massive_candidates(seed, allowed_types, harmonic_mode,
+                                                  harmonic_key, harmonic_scale)
+            candidates = []
+            for role, description, raw in zip(ROLES, DESCRIPTIONS, presets):
+                preset = load_preset_from_yaml_string(_yaml.safe_dump(raw))
+                params = _preset_to_ui_params(preset)
+                candidates.append({'params': params, 'role': role,
+                                   'description': description, 'seed': raw['seed']})
+            return JSONResponse({'ok': True, 'params': candidates[0]['params'],
+                                 'candidates': candidates})
         effective_intent = dict(intent or {})
         if strategy == "contrast":
             effective_intent = {key: 1.0 - float(value) for key, value in effective_intent.items()}

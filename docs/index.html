@@ -2923,6 +2923,7 @@ python main.py --journey-template ceremony --format flac --seed 42</pre>
       <button class="mood-btn" data-mood="bright">bright</button>
       <button class="mood-btn" data-mood="cinematic">cinematic</button>
       <button class="mood-btn" data-mood="classic">classic</button>
+      <button class="mood-btn" data-mood="massive" title="Deep, dense ambient drones — choose Weight, Pressure or Space">massive</button>
       <button class="mood-btn" data-mood="minimal">minimal</button>
       <button class="mood-btn" data-mood="industrial">industrial</button>
       <button class="mood-btn" data-mood="nature">nature</button>
@@ -3629,7 +3630,7 @@ const MANTICE_ANALYTICS_SCHEMA = Object.freeze({
     category: ['essential', 'cinematic', 'subharmonic', 'sacred', 'experimental', 'community', 'local', 'other'],
   },
   generator_completed: {
-    mood: ['minimal', 'dark', 'bright', 'cinematic', 'classic', 'industrial', 'nature', 'custom', 'other'],
+    mood: ['minimal', 'dark', 'bright', 'cinematic', 'classic', 'massive', 'industrial', 'nature', 'custom', 'other'],
     fm: ['on', 'off'], subtractive: ['on', 'off'], granular: ['on', 'off'], wavetable: ['on', 'off'],
   },
   candidate_selected: { texture: ['A', 'B', 'C'] },
@@ -7950,6 +7951,7 @@ function _handlePreviewConnectionFailure(socket) {
 async function doPreview(options = {}) {
   if (_morphingActive()) { return doJourneyStream(); }  // morphing overrides normal preview
   const reconnecting = options && options.reconnect === true;
+  const requestedSeed = Number(options && options.seed);
   if (!reconnecting) {
     _wsReconnects = 0;
     audioStartTracked = false;
@@ -7968,7 +7970,7 @@ async function doPreview(options = {}) {
   _mobileReceivedAudio = false;
   const previewSeed = reconnecting
     ? currentSeed
-    : ($('seed-lock').dataset.state === '1'
+    : (Number.isFinite(requestedSeed) ? requestedSeed : $('seed-lock').dataset.state === '1'
       ? (parseInt($('seed-value').value) || 42)
       : Math.floor(Math.random() * 99999));
   currentSeed = previewSeed;
@@ -8838,6 +8840,10 @@ async function chooseGenerationCandidate(index) {
   currentParams = JSON.parse(JSON.stringify(candidate.params));
   currentPresetPath = null;
   currentSharedId = null;
+  renderedBuffer = null;
+  _autoCtx = null;
+  currentJourney = { steps: [], loop: 'none' };
+  _currentMorphingStep = -1;
   const context = candidate.generationContext;
   addToGenerationHistory({
     params: JSON.parse(JSON.stringify(currentParams)), timestamp: Date.now(),
@@ -8856,7 +8862,7 @@ async function chooseGenerationCandidate(index) {
   $('generation-candidates-overlay').classList.remove('open');
   setStatus('Texture selected — previewing…');
   stopAudio();
-  doPreview();
+  doPreview({ seed: candidate.previewSeed });
 }
 
 async function doGenerate() {
@@ -8875,12 +8881,37 @@ async function doGenerate() {
   const harmonicMode = document.getElementById('gen-harmonic-mode')?.checked || false;
   const harmonicKey = document.getElementById('gen-harmonic-key')?.value || 'C';
   const harmonicScale = document.getElementById('gen-harmonic-scale')?.value || 'major';
+  const generationMood = selectedMood;
   const data = await api('/api/generate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mood: selectedMood, allowed_types: allowedTypes,
+    body: JSON.stringify({ mood: generationMood, allowed_types: allowedTypes,
       harmonic_mode: harmonicMode, harmonic_key: harmonicKey, harmonic_scale: harmonicScale })
   });
   if (data?.ok) {
+    if (generationMood === 'massive' && data.candidates?.length === 3) {
+      const context = { mood: generationMood, harmonicMode, harmonicKey, harmonicScale,
+        strategy: 'scratch', locks: [], parentId: activeHistoryNodeId };
+      const tuning = $('tuning-system').value;
+      generationCandidates = data.candidates.map((item, index) => {
+        if (tuning !== '12-TET') _applyTuningOffsets(item.params, tuning);
+        return Object.assign(candidateDescriptor(item.params, index, context), {
+          role: item.role, description: item.description, previewSeed: item.seed, previewSeconds: 20,
+        });
+      });
+      await stopGalleryAudition();
+      stopAudio();
+      renderGenerationCandidates();
+      $('generation-candidates-overlay').classList.add('open');
+      $('generation-candidates-close').focus();
+      trackUsage('generator_completed', {
+        mood: 'massive', fm: allowedTypes.includes('fm') ? 'on' : 'off',
+        subtractive: allowedTypes.includes('subtractive') ? 'on' : 'off',
+        granular: allowedTypes.includes('granular') ? 'on' : 'off',
+        wavetable: allowedTypes.includes('wavetable') ? 'on' : 'off',
+      });
+      setStatus('Preview Weight, Pressure and Space, then select a texture.');
+      return;
+    }
     currentParams = data.params;
     currentPresetPath = null;
     currentSharedId = null;
@@ -9194,7 +9225,7 @@ async function auditionGalleryPreset(preset) {
     if (!loadedParams) throw new Error('Preset unavailable');
     const response = await fetch(apiUrl('/api/preview-segment'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params: loadedParams, seed: galleryHash(preset.id) % 99999, segment_s: 8 }),
+      body: JSON.stringify({ params: loadedParams, seed: preset.previewSeed ?? galleryHash(preset.id) % 99999, segment_s: preset.previewSeconds || 8 }),
     });
     if (!response.ok) throw new Error(`Preview failed (${response.status})`);
     const token = response.headers.get('X-Segment-Token');

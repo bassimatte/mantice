@@ -1,0 +1,197 @@
+meta:
+  name: Amber Horizon
+  slug: amber_horizon
+  category: cinematic
+  mood:
+  - massive
+  - space
+  description: A vast F1 drone with a steady low foundation, soft open-fifth harmonics
+    and a long, slowly diffusing atmosphere.
+  author: Matteo Bassi
+  tags:
+  - ambient
+  - drone
+  - massive
+  - deep
+  - slow
+  - fm
+  - subtractive
+  - spacious
+  origin: curated
+global:
+  duration_seconds: 60
+  sample_rate: 48000
+  bit_depth: 24-bit
+seed: 101
+saturation: 0.12
+spatial:
+  depth: 2.0
+  wetness: 0.48
+  swarm_density: 0.45
+master:
+  output_gain_db: 2.0
+  eq:
+    low_cut_hz: 25.0
+    bass_db: 0.0
+    lo_mid_db: -1.5
+    lo_mid_hz: 260.0
+    lo_mid_q: 0.7
+    air_db: -1.0
+  comp:
+    threshold_db: -18.0
+    ratio: 1.6
+    attack_ms: 90.0
+    release_ms: 450.0
+    knee_db: 6.0
+    makeup_db: 0.0
+reverb:
+  enabled: true
+  space: infinite
+  mix: 0.32
+  decay_trim: 1
+layers:
+- name: F1 Foundation
+  enabled: true
+  type: fm
+  synthesis:
+    root: 43.653529
+    voices: 3
+    ratios:
+    - 1.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.06
+  dynamics:
+    amp_min: 0.036144294511710424
+    amp_max: 0.04647123580077054
+    drift: 0.0004
+  volume_db: 3.0
+  band: sub
+  harmonics: 2
+  harmonic_decay: 0.28
+  spread: 0.0
+  width: 0.0
+  spatial_motion:
+    quadrant: center
+    speed: 0.0008849507073433325
+    trajectory_x: none
+    trajectory_y: none
+  filter_type: lp
+  filter_cutoff: 125.0
+  filter_lfo_depth: 0.0
+  chorus_mix: 0.0
+- name: Space Body
+  enabled: true
+  type: subtractive
+  synthesis:
+    root: 87.307058
+    voices: 6
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  dynamics:
+    amp_min: 0.030172947006322996
+    amp_max: 0.041487802133694116
+    drift: 0.0012
+  volume_db: 0.0
+  waveform: saw
+  detune_cents: 4
+  sub_mix: 0.0
+  width: 1.2
+  spatial_motion:
+    quadrant: center
+    speed: 0.0013274260610149986
+    trajectory_x: none
+    trajectory_y: none
+  filter_type: lp
+  filter_cutoff: 1110.613164988525
+  filter_resonance: 0.8
+  filter_lfo_rate: 0.003097327475701664
+  filter_lfo_depth: 0.12
+  filter_lfo_shape: sine
+  chorus_rate: 0.035
+  chorus_depth: 0.003
+  chorus_mix: 0.26
+  chorus_voices: 3
+- name: Open Fifth Mantle
+  enabled: true
+  type: fm
+  synthesis:
+    root: 174.614116
+    voices: 8
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.22
+  dynamics:
+    amp_min: 0.018886784998104963
+    amp_max: 0.0273858382472522
+    drift: 0.0018
+  volume_db: 0.0
+  band: mid
+  harmonics: 4
+  harmonic_decay: 0.45
+  spread: 1.6
+  width: 1.8
+  spatial_motion:
+    quadrant: center
+    speed: 0.001769901414686665
+    trajectory_x: drift
+    trajectory_y: none
+  filter_type: lp
+  filter_cutoff: 1903.9082828374715
+  filter_resonance: 0.75
+  filter_lfo_rate: 0.00353980282937333
+  filter_lfo_depth: 0.1
+  chorus_rate: 0.045
+  chorus_depth: 0.004
+  chorus_mix: 0.26
+  chorus_voices: 3
+- name: Distant Halo
+  enabled: true
+  type: fm
+  synthesis:
+    root: 349.228231
+    voices: 6
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.12
+  dynamics:
+    amp_min: 0.010534749353438764
+    amp_max: 0.01723868076017252
+    drift: 0.0015
+  volume_db: -3.0
+  band: mid
+  harmonics: 3
+  harmonic_decay: 0.35
+  width: 1.8
+  spread: 1.8
+  spatial_motion:
+    quadrant: center
+    speed: 0.001150435919546332
+    trajectory_x: drift
+    trajectory_y: none
+  filter_type: hp
+  filter_cutoff: 370.20438832950833
+  filter_resonance: 0.7
+  filter_lfo_depth: 0.0
+  chorus_rate: 0.025
+  chorus_depth: 0.006
+  chorus_mix: 0.26
+  chorus_voices: 3
+notes:
+  design: Curated from the local Massive FM + Sub listening batch.
+  texture: Space
+  audition_seed: 101

@@ -1,0 +1,197 @@
+meta:
+  name: Tectonic Expanse
+  slug: tectonic_expanse
+  category: cinematic
+  mood:
+  - massive
+  - space
+  description: 'An immense E1 drone: deep sustained pressure beneath distant harmonic
+    bands, gentle stereo drift and a spacious reverberant tail.'
+  author: Matteo Bassi
+  tags:
+  - ambient
+  - drone
+  - massive
+  - deep
+  - slow
+  - fm
+  - subtractive
+  - spacious
+  origin: curated
+global:
+  duration_seconds: 60
+  sample_rate: 48000
+  bit_depth: 24-bit
+seed: 102
+saturation: 0.12
+spatial:
+  depth: 2.0
+  wetness: 0.48
+  swarm_density: 0.45
+master:
+  output_gain_db: 2.0
+  eq:
+    low_cut_hz: 25.0
+    bass_db: 0.0
+    lo_mid_db: -1.5
+    lo_mid_hz: 260.0
+    lo_mid_q: 0.7
+    air_db: -1.0
+  comp:
+    threshold_db: -18.0
+    ratio: 1.6
+    attack_ms: 90.0
+    release_ms: 450.0
+    knee_db: 6.0
+    makeup_db: 0.0
+reverb:
+  enabled: true
+  space: infinite
+  mix: 0.32
+  decay_trim: 1
+layers:
+- name: E1 Foundation
+  enabled: true
+  type: fm
+  synthesis:
+    root: 41.203445
+    voices: 3
+    ratios:
+    - 1.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.06
+  dynamics:
+    amp_min: 0.03648754863162646
+    amp_max: 0.04691256252637687
+    drift: 0.0004
+  volume_db: 3.0
+  band: sub
+  harmonics: 2
+  harmonic_decay: 0.28
+  spread: 0.0
+  width: 0.0
+  spatial_motion:
+    quadrant: center
+    speed: 0.0008172889015802712
+    trajectory_x: none
+    trajectory_y: none
+  filter_type: lp
+  filter_cutoff: 125.0
+  filter_lfo_depth: 0.0
+  chorus_mix: 0.0
+- name: Space Body
+  enabled: true
+  type: subtractive
+  synthesis:
+    root: 82.406889
+    voices: 6
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  dynamics:
+    amp_min: 0.03269012795364782
+    amp_max: 0.044948925936265746
+    drift: 0.0012
+  volume_db: 0.0
+  waveform: saw
+  detune_cents: 4
+  sub_mix: 0.0
+  width: 1.2
+  spatial_motion:
+    quadrant: center
+    speed: 0.0012259333523704067
+    trajectory_x: none
+    trajectory_y: none
+  filter_type: lp
+  filter_cutoff: 1070.8695176848305
+  filter_resonance: 0.8
+  filter_lfo_rate: 0.002860511155530949
+  filter_lfo_depth: 0.12
+  filter_lfo_shape: sine
+  chorus_rate: 0.035
+  chorus_depth: 0.003
+  chorus_mix: 0.26
+  chorus_voices: 3
+- name: Open Fifth Mantle
+  enabled: true
+  type: fm
+  synthesis:
+    root: 164.813778
+    voices: 8
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    - 2.0
+    index: 0.22
+  dynamics:
+    amp_min: 0.019537349888467885
+    amp_max: 0.028329157338278434
+    drift: 0.0018
+  volume_db: 0.0
+  band: mid
+  harmonics: 4
+  harmonic_decay: 0.45
+  spread: 1.6
+  width: 1.8
+  spatial_motion:
+    quadrant: center
+    speed: 0.0016345778031605423
+    trajectory_x: drift
+    trajectory_y: none
+  filter_type: lp
+  filter_cutoff: 1835.7763160311379
+  filter_resonance: 0.75
+  filter_lfo_rate: 0.0032691556063210846
+  filter_lfo_depth: 0.1
+  chorus_rate: 0.045
+  chorus_depth: 0.004
+  chorus_mix: 0.26
+  chorus_voices: 3
+- name: Distant Halo
+  enabled: true
+  type: fm
+  synthesis:
+    root: 329.627557
+    voices: 6
+    ratios:
+    - 1.0
+    - 1.5
+    - 2.0
+  fm:
+    ratios:
+    - 1.0
+    index: 0.12
+  dynamics:
+    amp_min: 0.01125849479395183
+    amp_max: 0.018422991481012084
+    drift: 0.0015
+  volume_db: -3.0
+  band: mid
+  harmonics: 3
+  harmonic_decay: 0.35
+  width: 1.8
+  spread: 1.8
+  spatial_motion:
+    quadrant: center
+    speed: 0.0010624755720543525
+    trajectory_x: drift
+    trajectory_y: none
+  filter_type: hp
+  filter_cutoff: 356.95650589494346
+  filter_resonance: 0.7
+  filter_lfo_depth: 0.0
+  chorus_rate: 0.025
+  chorus_depth: 0.006
+  chorus_mix: 0.26
+  chorus_voices: 3
+notes:
+  design: Curated from the local Massive FM + Sub listening batch.
+  texture: Space
+  audition_seed: 102
