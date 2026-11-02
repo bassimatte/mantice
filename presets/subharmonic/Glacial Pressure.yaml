@@ -99,7 +99,7 @@ layers:
   waveform: saw
   detune_cents: 6
   sub_mix: 0.0
-  width: 1.05
+  width: 1.4
   spatial_motion:
     quadrant: center
     speed: 0.0012882478689467155
@@ -113,7 +113,7 @@ layers:
   filter_lfo_shape: sine
   chorus_rate: 0.035
   chorus_depth: 0.003
-  chorus_mix: 0.18
+  chorus_mix: 0.22
   chorus_voices: 3
 - name: Open Fifth Mantle
   enabled: true
@@ -138,8 +138,8 @@ layers:
   band: mid
   harmonics: 4
   harmonic_decay: 0.45
-  spread: 1.6
-  width: 1.5
+  spread: 1.8
+  width: 1.8
   spatial_motion:
     quadrant: center
     speed: 0.0017176638252622875
@@ -152,7 +152,7 @@ layers:
   filter_lfo_depth: 0.1
   chorus_rate: 0.045
   chorus_depth: 0.004
-  chorus_mix: 0.18
+  chorus_mix: 0.22
   chorus_voices: 3
 - name: Distant Halo
   enabled: true
@@ -176,8 +176,8 @@ layers:
   band: mid
   harmonics: 3
   harmonic_decay: 0.35
-  width: 1.5
-  spread: 1.8
+  width: 1.8
+  spread: 2.0
   spatial_motion:
     quadrant: center
     speed: 0.0011164814864204867
@@ -189,7 +189,7 @@ layers:
   filter_lfo_depth: 0.0
   chorus_rate: 0.025
   chorus_depth: 0.006
-  chorus_mix: 0.18
+  chorus_mix: 0.22
   chorus_voices: 3
 notes:
   design: Curated from the local Massive FM + Sub listening batch.
